@@ -74,10 +74,11 @@ def AfpReq_Information(globals):
 # @param globals - global variables holding information or delivering methods to extract information
 def AfpReq_Version(globals):
     afpmainversion = globals.get_string_value("name") + " " + globals.get_string_value("version")
+    baseversion = globals.get_string_value("baseversion")
     pversion = globals.get_value("python-version").split("(")[0]
     myversion = globals.mysql.version.split("-")[0]
     wxversion = wx.version().split("(")[0]
-    version = afpmainversion + '\n' + "python: " + pversion + '\n' + " wx: " + wxversion + '\n' + " mysql: " + myversion + '\n'
+    version = afpmainversion + '\n' + "AfpBase: " + baseversion+ '\n' + "python: " + pversion + '\n' + " wx: " + wxversion + '\n' + " mysql: " + myversion + '\n'
     versions = globals.get_modul_infos()
     AfpReq_Info(version, versions, "Versions Information")
 ## select extra programs from directory

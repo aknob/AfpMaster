@@ -279,15 +279,17 @@ class AfpGlobal(object):
                     modul = None
                 self.set_value(variable, value, modul)
     ## set common information for this program package
-    # @param version - version number of this package
+    # @param version - version the apf main program
+    # @param baseversion - version number of this base package
     # @param copyright - copyright of this package
     # @param website - website information for this package
     # @param description - description of this package
     # @param license - license information of this package
     # @param picture - logo of this package
     # @param developer - developer information of this package
-    def set_infos(self,  version = None, copyright = None, website = None, description = None, license = None, picture = None, developer = None):
+    def set_infos(self,  version = None,  baseversion = None, copyright = None, website = None, description = None, license = None, picture = None, developer = None):
         if version: self.set_value("version", version)
+        if baseversion: self.set_value("baseversion", baseversion)
         if copyright: self.set_value("copyright", copyright)
         if website: self.set_value("website", website)
         if description: self.set_value("description", description)

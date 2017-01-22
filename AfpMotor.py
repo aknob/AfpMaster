@@ -2,22 +2,20 @@
 # -*- coding: utf-8 -*-
 
 ## @package BusAfp
-# BusAfp is a software to manage coach and travel acivities \n
-#    Copyright© 1989 - 2017  afptech.de (Andreas Knoblauch) \n
+# AfpMotor is part of the open source BusAfp project,
+# it is a software to manage invoicing and other tasks in the motor related business \n
+#    Copyright© 1989 - 2016  afptech.de (Andreas Knoblauch) \n
 # \n
 #   History: \n
 #        16 Jan. 2017 - separate software spexcific code from parameter extraction - Andreas.Knoblauch@afptech.de \n
-#        26 Aug. 2015 - change direct execution parameter to normal input, to be used via os - Andreas.Knoblauch@afptech.de \n
-#        11 Jun. 2015 - enable direct routine execution via command line option - Andreas.Knoblauch@afptech.de \n
-#        23 May 2015 - enable variable setting via command line option - Andreas.Knoblauch@afptech.de \n
-#        19 Okt. 2014 - adapt package hierarchy - Andreas.Knoblauch@afptech.de \n
-#        30 Nov. 2012 - inital code generated - Andreas.Knoblauch@afptech.de
+#        30 Nov. 2016 - inital code generated - Andreas.Knoblauch@afptech.de
 
 #
 # This file is part of the  'Open Source' project "BusAfp" by 
 #  AfpTechnologies (afptech.de)
 #
 #    BusAfp is a software to manage coach and travel acivities
+#    AfpMotor is a software to manage invoicing and other tasks in the motor related business
 #    Copyright© 1989 - 2017  afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify
@@ -37,12 +35,17 @@ import AfpBase
 from AfpBase import AfpStart
 
 # main program
-name = "BusAfp"
-description = """BusAfp ist eine Verwaltungsprogramm für den Buseinsatz 
-für Mietfahrten, sowie der Organisation von eigenen Reisen.
+name = 'AfpMotor'     
+version = "2.0.2 alpha"    
+website = 'http://www.afpmotor.de'
+description = """AfpMotor ist eine Verwaltungsprogramm für den Werkstatteinsatz 
+für Motoristen und in der Kfz-Branche.
 Es enthält eine mitgeführte Buchhaltung, Zahlungsverfolgung, Einsatzplanung
 und diverse weiter nützliche Hilfsmittel.""".decode("UTF-8")
-picture = "Bus_relief.png"
-website = "http://www.busafp.de"
-BusAfp = AfpBase.AfpStart.AfpSoftwareInformation(name, description, picture, website)
-AfpBase.AfpStart.AfpStart(BusAfp)
+picture = "AfpMotor_relief.png"
+AfpMotor = AfpBase.AfpStart.AfpSoftwareInformation(name, description, picture, website, version)
+AfpBase.AfpStart.AfpStart(AfpMotor)
+      
+ 
+
+   
