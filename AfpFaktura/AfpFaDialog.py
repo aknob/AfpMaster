@@ -56,8 +56,14 @@ class AfpDialog_FaAusw(AfpDialog_Auswahl):
         self.typ = "Rechnungsauswahl"
         self.datei = "RECHNG"
         self.modul = "Faktura"
+    ## set type (to be used before initialisation
+    # @param tablename - name of table this search is used for 
+    # (has to have certain columns defined)
+    def set_type(self, tablename):
+        self.datei = tablename
+        self.typ = AfpFa_getClearName(tablename) + "sauswahl"
     ## get the definition of the selection grid content \n
-    # overwritten for "Tourist" use
+    # overwritten for "Faktura" use
     def get_grid_felder(self): 
         Felder = [["RechNr.RECHNG",15], 
                             ["Datum.RECHNG", 15], 
@@ -79,36 +85,38 @@ class AfpDialog_FaAusw(AfpDialog_Auswahl):
  
 ## loader routine for charter selection dialog 
 # @param globals - global variables including database connection
+# @param table - table which should be searched
 # @param index - column which should give the order
 # @param value -  if given,initial value to be searched
 # @param where - if given, filter for search in table
 # @param ask - flag if it should be asked for a string before filling dialog
-def AfpLoad_FaAusw(globals, index, value = "", where = None, ask = False):
+def AfpLoad_FaAusw(globals, table, index, value = "", where = None, ask = False):
     result = None
     Ok = True
     print "AfpLoad_FaAusw input:", index, value, where, ask
+    kind = AfpFa_getClearName(table)
     if ask:
         sort_list = AfpFaktura_getOrderlistOfTable()        
-        value, index, Ok = Afp_autoEingabe(value, index, sort_list, "Rechnungs")
+        value, index, Ok = Afp_autoEingabe(value, index, sort_list, kind + "s")
         print "AfpLoad_FaAusw index:", index, value, Ok
     if Ok:
         if index == "KundenNr":
-            text = "Bitte Auftraggeber von gesuchter Rechnung auswählen:"
+            text = "Bitte Auftraggeber von " + kind + " auswählen:"
             KNr = AfpLoad_AdAusw(globals,"ADRESSE","NamSort",value, None, text)
             if KNr:
-                text = "Bitte Rechnung von dem folgenden Auftraggeber auswählen,".decode("UTF-8")
+                text = "Bitte " + kind + " von dem folgenden Auftraggeber auswählen,".decode("UTF-8")
                 rows, name = AfpAdresse_getListOfTable(globals, KNr, "RECHNG","RechNr,Datum,Pos,Betrag")
                 liste = []
                 ident = []
                 for row in rows:
-                    ident.append(rows[0])
+                    ident.append(row[0])
                     liste.append(Afp_ArraytoLine(row))
                 print "AfpLoad_FaAusw select:", text, name, liste, ident
                 result, Ok = AfpReq_Selection(text, name, liste, "Auswahl", ident)
         else:
             DiAusw = AfpDialog_FaAusw()
-            #print Index, value, where
-            text = "Bitte Rechnung auswählen:".decode("UTF-8")        
+            DiAusw.set_type(table)
+            text = "Bitte " + kind + " auswählen:".decode("UTF-8")        
             print "AfpLoad_FaAusw dialog:", index, value, where
             DiAusw.initialize(globals, index, value, where, text)
             print "AfpLoad_FaAusw dialog ShowModal:"
@@ -122,380 +130,275 @@ def AfpLoad_FaAusw(globals, index, value = "", where = None, ask = False):
     return result      
 
 ## allows the display and manipulation of a tour 
-class AfpDialog_TourEdit(AfpDialog):
+class AfpDialog_FaCustomSelect(AfpDialog):
     ## initialise dialog
-    def __init__(self, *args, **kw):   
-        self.change_data = False
+    def __init__(self, *args, **kw):  
+        self.globals = None
+        self.rows = 7
+        self.minrows = 7
+        self.cols = 4
+        self.col_percents = [30, 15, 20, 35]
+        self.ident = []
         AfpDialog.__init__(self,None, -1, "")
-        self.lock_data = True
-        self.agent = None
-        self.active = None
-        self.routes = None
-        self.routenr = None
-        self.route = None
-        self.SetSize((592,290))
-        self.SetTitle("Eigene Reise")
-        self.Bind(wx.EVT_ACTIVATE, self.On_Activate)
+        self.SetSize((650,400))
+        self.SetTitle("Schnellauswahl")
+        #self.Bind(wx.EVT_ACTIVATE, self.On_Activate)
         
     ## set up dialog widgets - overwritten from AfpDialog
     def InitWx(self):
         panel = wx.Panel(self, -1)
-        self.label_T_Zielort = wx.StaticText(panel, -1, label="&Zielort:", pos=(16,14), size=(50,18), name="T_Zielort")
-        self.text_Zielort_Reisen = wx.TextCtrl(panel, -1, value="", pos=(76,12), size=(200,22), style=0, name="Zielort_Reisen")
-        self.textmap["Zielort_Reisen"] = "Zielort.REISEN"
-        self.text_Zielort_Reisen.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
-        self.label_T_Von = wx.StaticText(panel, -1, label="&von", pos=(36,44), size=(28,20), name="T_Von")
-        self.text_Abfahrt = wx.TextCtrl(panel, -1, value="", pos=(76,42), size=(80,22), style=0, name="Abfahrt")
-        self.vtextmap["Abfahrt"] = "Abfahrt.REISEN"
-        self.text_Abfahrt.Bind(wx.EVT_KILL_FOCUS, self.On_Check_Datum)
-        self.label_T_Bis_Reisen = wx.StaticText(panel, -1, label="&bis", pos=(162,44), size=(28,20), name="T_Bis_Reisen")
-        self.text_Fahrtende = wx.TextCtrl(panel, -1, value="", pos=(196,42), size=(80,22), style=0, name="Fahrtende")
-        self.vtextmap["Fahrtende"] = "Fahrtende.REISEN"
-        self.text_Fahrtende.Bind(wx.EVT_KILL_FOCUS, self.On_Check_Datum)
-        self.label_T_Kenn = wx.StaticText(panel, -1, label="&FahrtNr:", pos=(280,14), size=(60,18), name="T_Kenn")
-        self.text_Kenn = wx.TextCtrl(panel, -1, value="", pos=(350,12), size=(80,22), style=0, name="Kenn")
-        self.textmap["Kenn"] = "Kennung.REISEN"
-        self.text_Kenn.Bind(wx.EVT_KILL_FOCUS, self.On_Reisen_setKst)
-        self.label_T_Kst = wx.StaticText(panel, -1, label="&Konto:", pos=(280,42), size=(60,18), name="T_Kst")
-        self.text_Kst = wx.TextCtrl(panel, -1, value="", pos=(350,40), size=(80,22), style=0, name="Kst")
-        self.textmap["Kst"] = "Kostenst.REISEN"
-        self.text_Kst.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
-        self.label_Anmeldungen = wx.StaticText(panel, -1, label="", pos=(458,12), size=(24,18), name="Anmeldungen")
-        self.labelmap["Anmeldungen"] = "Anmeldungen.REISEN"
-        self.label_TTeil = wx.StaticText(panel, -1, label="Teilnehmer", pos=(484,12), size=(78,18), name="TTeil")
-        self.label_T_Personen = wx.StaticText(panel, -1, label="&max.:", pos=(460,42), size=(42,18), name="T_Personen")
-        self.text_Personen = wx.TextCtrl(panel, -1, value="", pos=(510,40), size=(44,22), style=0, name="Personen")
-        self.vtextmap["Personen"] = "Personen.REISEN"
-        self.label_TBem = wx.StaticText(panel, -1, label="&Zusatz:", pos=(10,74), size=(56,18), name="TBem")
-        self.text_Bem = wx.TextCtrl(panel, -1, value="", pos=(74,72), size=(480,40), style=wx.TE_MULTILINE|wx.TE_LINEWRAP, name="Bem")
-        self.textmap["Bem"] = "Bem.REISEN"
-        self.text_Bem.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
+        self.label_Direkt = wx.StaticText(panel, -1, label="Direktwahl", pos=(90,10), size=(80,20), name="LDirekt")
+        self.label_Rechnung = wx.StaticText(panel, -1, label="Rechnungsverwaltung", pos=(303,10), size=(150,20), name="LRechnung")
+        self.label_Zusatz = wx.StaticText(panel, -1, label="Zusatzfunktionen", pos=(518,10), size=(150,20), name="LZusatz")
+        self.label_Auftrag= wx.StaticText(panel, -1, label="Auftragsverwaltung", pos=(15,160), size=(160,20), name="LAuftrag")
  
-        self.list_Preise = wx.ListBox(panel, -1, pos=(298,120), size=(258,86), name="Preise")
-        self.Bind(wx.EVT_LISTBOX_DCLICK, self.On_Reisen_Preise, self.list_Preise)
-        self.listmap.append("Preise")
-        self.label_T_Art = wx.StaticText(panel, -1, label="Art:", pos=(16,130), size=(50,18), name="T_Art")
-        self.choice_Art = wx.Choice(panel, -1,  pos=(78,120), size=(198,30),  choices=AfpTourist_possibleTourKinds(),  name="CArt")      
-        self.choicemap["CArt"] = "Art.REISEN"
-        self.Bind(wx.EVT_CHOICE, self.On_CArt, self.choice_Art)  
-        self.label_T_Route = wx.StaticText(panel, -1, label="Rou&te:", pos=(16,160), size=(50,18), name="T_Route")
-        self.choice_Route = wx.Choice(panel, -1,  pos=(78,150), size=(198,30),  choices="",  name="CRoute")      
-        self.choicemap["CRoute"] = "Name.TNAME"
-        self.Bind(wx.EVT_CHOICE, self.On_CRoute, self.choice_Route)  
-        self.label_T_Agent = wx.StaticText(panel, -1, label="Agent:", pos=(16,190), size=(50,18), name="T_Agent")
-        self.label_AgentName = wx.StaticText(panel, -1, label="", pos=(78,190), size=(198,30), name="AgentName")
-        self.labelmap["AgentName"] = "AgentName.REISEN"
-        self.check_Kopie = wx.CheckBox(panel, -1, label="Kopie", pos=(10,226), size=(62,20), name="Kopie")
-        self.button_Neu = wx.Button(panel, -1, label="&Neu", pos=(80,220), size=(90,30), name="Neu")
-        self.Bind(wx.EVT_BUTTON, self.On_Reisen_Neu, self.button_Neu)
-        self.button_Agent = wx.Button(panel, -1, label="&Agent", pos=(180,220), size=(90,30), name="Verst")
-        self.Bind(wx.EVT_BUTTON, self.On_Agent, self.button_Agent)
-        self.button_IntText = wx.Button(panel, -1, label="Te&xt", pos=(300,220), size=(80,30), name="IntText")
-        self.Bind(wx.EVT_BUTTON, self.On_Reisen_Text, self.button_IntText)
-
-        self.setWx(panel, [390, 220, 80, 30], [480, 220, 80, 30]) # set Edit and Ok widgets
-
-    ## read values from dialog and invoke writing into data         
-    def store_data(self):
-        self.Ok = False
-        data = {}
-        for entry in self.changed_text:
-            name, wert = self.Get_TextValue(entry)
-            data[name] = wert
-        if not self.agent is None:
-            data = self.add_agent_data(data)
-        if self.route:  
-            if self.route < 0:
-                self.add_new_route()
-            data["Route"] = self.route
-        #print "AfpDialog_TourEdit.store_data data:",self.new,self.change_data, data
-        if data or self.change_data:
-            if self.new:
-                data = self.complete_data(data)
-                self.data.add_afterburner("PREISE", "Kennung = 100*FahrtNr + PreisNr")
-            self.data.set_data_values(data, "REISEN")
-            #self.data.mysql.set_debug()
-            self.data.store()
-            #self.data.mysql.unset_debug()
-            self.Ok = True
-        self.changed_text = []   
-        self.change_data = False  
-     
-    ## complete data if plain dialog has been started
-    # @param data - SelectionList where data has to be completed
-    def complete_data(self, data):
-        if self.choice_Art.GetStringSelection() == "Eigen":
-            if not "Art" in data: data["Art"] = "Eigen"
-            if not "Kennung" in data: 
-                data["Kennung"] = ""
-                if data["Art"] == "Eigen":
-                    Kst = self.data.get_value("Kostenst")
-                    if "Kostenst" in data: Kst = data["Kostenst"]
-                    if Kst: data["Kennung"] = Afp_toString(Kst)
-            if "Abfahrt" in data: 
-                month = Afp_toString(data["Abfahrt"].month)
-                if len(month) == 1: month = "0" + month
-                data["ErloesKt"] = "ERL" + month
-        return data
+        self.radio_Memo = wx.RadioButton(panel, -1,  label = "Memo", pos=(280,30), size=(80,15),  style=wx.RB_GROUP,  name="RMemo") 
+        self.radio_KVA = wx.RadioButton(panel, -1,  label = "KVA", pos=(280,55), size=(80,15),  name="RKVA") 
+        self.radio_Angebot = wx.RadioButton(panel, -1,  label = "Angebot", pos=(280,70), size=(80,15),  name="RAngebot") 
+        self.radio_Auftrag = wx.RadioButton(panel, -1,  label = "Auftrag", pos=(280,85), size=(80,15),  name="RAuftrag") 
+        self.radio_Rechnung = wx.RadioButton(panel, -1,  label = "Rechnung", pos=(280,100), size=(90,15),  name="RRechnung") 
+        self.radio_Bestellung = wx.RadioButton(panel, -1,  label = "Bestellung", pos=(280,125), size=(90,15),  name="RBestellung") 
         
-    ## create a new route entry
-    def add_new_route(self):
-        rname = self.routes[self.routenr.index(self.route)]
-        select = self.data.get_selection("TNAME")
-        select.new_data(False, True) 
-        select.set_value("Name", rname)
- 
-    ## add additonal agent data, if agent has been changed
-    # @param data - data where additional data is added
-    def add_agent_data(self, data):
-        if self.agent:
-            data["AgentNr"] = self.agent.get_value("KundenNr")
-            data["AgentName"] = self.agent.get_name(True)
-            data["Kreditor"] = self.agent.get_account("Kreditor")
-            data["Debitor"] = self.agent.get_account("Debitor")
-        elif self.data.get_value("AgentNr"):
-            data["AgentNr"] = None
-            data["AgentName"] = None
-            data["Kreditor"] = None
-            data["Debitor"] = None
-        return data
+        self.choice_Art = wx.Choice(panel, -1,  pos=(175,160), size=(250,20),  choices=AfpFaktura_possibleOpenKinds(),  name="CArt")   
+        self.Bind(wx.EVT_CHOICE, self.On_CArt, self.choice_Art)
+         
+        self.button_Bar = wx.Button(panel, -1, label="&Bar", pos=(20,30), size=(100,50), name="Bar")
+        self.Bind(wx.EVT_BUTTON, self.On_Bar, self.button_Bar)
+        self.button_XXX = wx.Button(panel, -1, label="&XXX", pos=(20,90), size=(100,50), name="XXX")
+        #self.Bind(wx.EVT_BUTTON, self.On_XXX, self.button_XXX)
         
-    ## dis-/enable wigdets according to kind of tour
-    def set_kind(self):
-        kind = self.choice_Art.GetStringSelection()
-        ed_flag = self.is_editable()
-        if kind == "Fremd":
-            #self.label_T_Agent.Enable(ed_flag)
-            self.label_AgentName.Enable(ed_flag)
-            self.button_Agent.Enable(ed_flag)
-            #self.label_T_Route.Enable(False)
-            self.choice_Route.Enable(False)
-        else: # kind == "Eigen"
-            #self.label_T_Agent.Enable(False)
-            self.label_AgentName.Enable(False)
-            self.button_Agent.Enable(False)
-            #self.label_T_Route.Enable(ed_flag)
-            self.choice_Route.Enable(ed_flag)
-            
-    ## execution in case the OK button ist hit - overwritten from AfpDialog
-    def execute_Ok(self):
-        self.store_data()
+        self.button_Zahl = wx.Button(panel, -1, label="&Zahlung", pos=(140,30), size=(100,50), name="Zahl")
+        self.Bind(wx.EVT_BUTTON, self.On_Zahlung, self.button_Zahl)
+        self.button_Ware = wx.Button(panel, -1, label="&Wareneingang", pos=(140,90), size=(100,50), name="Ware")
+        self.Bind(wx.EVT_BUTTON, self.On_Ware, self.button_Ware)
+        
+        self.button_Neu = wx.Button(panel, -1, label="&Neu", pos=(400,30), size=(100,50), name="Neu")
+        self.Bind(wx.EVT_BUTTON, self.On_Neu, self.button_Neu)
+        self.button_Suche = wx.Button(panel, -1, label="&Suchen", pos=(400,90), size=(100,50), name="Suche")
+        self.Bind(wx.EVT_BUTTON, self.On_Suche, self.button_Suche)
+        
+        self.button_Adresse = wx.Button(panel, -1, label="&Adresse", pos=(520,30), size=(100,50), name="Adresse")
+        self.Bind(wx.EVT_BUTTON, self.On_Adresse, self.button_Adresse)
+        self.button_Kasse = wx.Button(panel, -1, label="&Kasse", pos=(520,90), size=(100,50), name="Kasse")
+        self.Bind(wx.EVT_BUTTON, self.On_Kasse, self.button_Kasse)
+        self.check_Strich = wx.CheckBox(panel, -1, label="Strich&code", pos=(520,150), size=(120,20), name="Strich")
+        self.button_Mehr = wx.Button(panel, -1, label="&Mehr", pos=(520,240), size=(100,50), name="Mehr")
+        self.Bind(wx.EVT_BUTTON, self.On_Mehr, self.button_Mehr)
+        self.button_Ende = wx.Button(panel, -1, label="Be&enden", pos=(520,300), size=(100,50), name="Ende")
+        self.Bind(wx.EVT_BUTTON, self.On_Ende, self.button_Ende)
+       
+        #self.setWx(panel, [390, 220, 80, 30], [480, 220, 80, 30]) # set Edit and Ok widgets
+        self.grid_auswahl = wx.grid.Grid(panel, -1, pos=(15,180), size=(500,180), style=wx.ALWAYS_SHOW_SB, name="Auswahl")
+        self.grid_auswahl.CreateGrid(self.rows, self.cols)
+        self.grid_auswahl.SetRowLabelSize(0)
+        self.grid_auswahl.SetColLabelSize(0)
+        self.grid_auswahl.EnableEditing(0)
+        self.grid_auswahl.EnableDragColSize(0)
+        self.grid_auswahl.EnableDragRowSize(0)
+        self.grid_auswahl.EnableDragGridSize(0)
+        self.grid_auswahl.SetSelectionMode(wx.grid.Grid.wxGridSelectRows)   
+        for col in range(self.cols):
+            self.grid_auswahl.SetColSize(col, self.col_percents[col]*4.9) # 5 = 500/100
+            for row in range(self.rows):
+                self.grid_auswahl.SetReadOnly(row, col)
+        self.Bind(wx.grid.EVT_GRID_CMD_CELL_LEFT_DCLICK, self.On_DClick, self.grid_auswahl)
+        self.Bind(wx.grid.EVT_GRID_CMD_CELL_RIGHT_CLICK, self.On_RClick, self.grid_auswahl)
+        self.gridmap.append("Auswahl")
 
-    ## complete price entries in case new prices have been added
-    def complete_Preise(self):
-        fnr = self.data.get_value("FahrtNr")
-        rows = self.data.get_value_rows("PREISE", "PreisNr")
-        for row in rows:
-            if not row[0]:
-                self.maxPreis += 1
-                data = {}
-                data["PreisNr"] = self.maxPreis
-                data["Kennung"] = 100*fnr + self.maxPreis
-                self.data.set_data_values(data, "PREISE", rows.index(row))
         
-    ## populate the 'Preise' list, \n
+    ## populate the 'Auswahl' grid, \n
     # this routine is called from the AfpDialog.Populate
-    def Pop_Preise(self):
-        rows = self.data.get_value_rows("PREISE", "Preis,Anmeldungen,Plaetze,Bezeichnung,Kennung,Typ,PreisNr")
-        liste = ["--- Neuen Preis hinzufügen ---".decode("UTF-8")]
-        #print "AfpDialog_TourEdit.Pop_Preise:", rows
-        self.maxPreis = 0
-        for row in rows:
-            if row[6] > self.maxPreis: self.maxPreis = row[6]
-            if row[5] == "Aufschlag": Plus = "+"
-            else: Plus = " "
-            if row[1] is None: row[1] = 0
-            liste.append(Plus + Afp_toFloatString(row[0]).rjust(10) + Afp_toString(row[1]).rjust(4) + Afp_toString(row[2]).rjust(3) + "  " + Afp_toString(row[3]))
-        self.list_Preise.Clear()
-        self.list_Preise.InsertItems(liste, 0)
-        if not self.data.get_value("Route"):
-            self.choice_Route.SetSelection(0)
+    def Pop_Auswahl(self):
+        typ = self.choice_Art.GetStringSelection()
+        datei, filter = AfpFaktura_possibleKinds(typ)
+        if datei == "":
+            datei = "ADMEMO"
+            filter = "Zustand." + datei + " = \"offen\""
+        else:
+            filter = "Zustand." + datei + " = \"" + filter + "\""
+        self.datei = datei
+        select = filter + " AND KundenNr." + datei + " = KundenNr.ADRESSE"
+        if datei == "ADMEMO":
+            rows = self.globals.get_mysql().select_strings("Name.ADRESSE,Vorname.ADRESSE,Datum.ADMEMO,TypNr.ADMEMO,Memo.ADMEMO", select, datei + " ADRESSE")
+        else:
+            rows = self.globals.get_mysql().select_strings("Name.ADRESSE,Vorname.ADRESSE,Datum." + datei +",RechNr."+datei + ",Bem." + datei, select, datei + " ADRESSE")
+        if self.debug: print "AfpDialog_FaCustomSelect.Pop_Auswahl:", select, rows
+        lgh = len(rows)
+        rows = Afp_MatrixJoinCol(rows)
+        #print "AfpDialog_FaCustomSelect.Pop_Auswahl:", lgh, rows
+        if lgh < self.minrows:
+            self.grid_resize(self.grid_auswahl, self.minrows)
+            self.rows = self.minrows
+        else:
+            self.grid_resize(self.grid_auswahl, lgh)
+            self.rows = lgh
+        self.ident = []
+        for row in range(self.rows):
+            for col in range(self.cols):
+                if row < lgh:
+                    self.grid_auswahl.SetCellValue(row, col,  rows[row][col])
+                else:
+                    self.grid_auswahl.SetCellValue(row, col,  "")
+            if row < lgh:
+                self.ident.append(rows[row][2])
 
-    ## Eventhandler TEXT-KILLFOCUS - check date syntax 
-    # @param event - event which initiated this action 
-    def On_Check_Datum(self,event):
-        if self.debug: print "Event handler `On_Check_Datum'" 
-        object = event.GetEventObject()
-        datum = object.GetValue()
-        date = Afp_ChDatum(datum)
-        object.SetValue(date)
-        self.On_KillFocus(event)
+    ## attach global data to dialog, populate
+    # @param globals - globals to be attached
+    def attach_globals(self, globals):
+        self.globals = globals
+        self. debug = globals.is_debug()
+        self.Populate()
+        
+    ## return label of selected radio button
+    def get_selected_RadioButton(self):
+        label = ""
+        if self.radio_Memo.GetValue(): label = self.radio_Memo.GetLabel()
+        elif self.radio_KVA.GetValue(): label = self.radio_KVA.GetLabel()
+        elif self.radio_Angebot.GetValue(): label = self.radio_Angebot.GetLabel()
+        elif self.radio_Auftrag.GetValue(): label = self.radio_Auftrag.GetLabel()
+        elif self.radio_Rechnung.GetValue(): label = self.radio_Rechnung.GetLabel()
+        elif self.radio_Bestellung.GetValue(): label = self.radio_Bestellung.GetLabel()
+        return label
+        
+    ## Eventhandler Grid DBLClick - invoke direct selection of invoice
+    # @param event - event which initiated this action   
+    def On_DClick(self,event):
+        if self.debug: print "Event handler `AfpDialog_FaCustomSelect.On_DClick'"
+        ind = event.GetRow()
+        print "Event handler `AfpDialog_FaCustomSelect.On_DClick'", ind
+        event.Skip()        
+        if ind < len(self.ident):
+            RechNr = self.ident[ind]
+            self.data = AfpFaktura_getSelectionList(self.globals, RechNr, self.datei)
+            self.Ok = True
+            self.EndModal(wx.ID_OK)
+    ## Eventhandler Grid RightClick - invoke memo edit
+    # @param event - event which initiated this action   
+    def On_RClick(self,event):
+        if self.debug: print "Event handler `AfpDialog_FaCustomSelect.On_RClick'"
+        print "Event handler `AfpDialog_FaCustomSelect.On_RClick' not implemented!", event.GetRow()
+        event.Skip()
+
+    ## Eventhandler CHOICE - invoke new choice display to grid
+    # @param event - event which initiated this action   
+    def On_CArt(self,event):
+        if self.debug: print "Event handler `AfpDialog_FaCustomSelect.On_CArt'"
+        print "Event handler `AfpDialog_FaCustomSelect.On_CArt' not implemented!"
+        self.Populate()
+        event.Skip()
+
+    ## Eventhandler BUTTON - invoke direct sale and payment
+    # @param event - event which initiated this action   
+    def On_Bar(self,event):
+        if self.debug: print "Event handler `AfpDialog_FaCustomSelect.On_Bar'"
+        self.Ok = "Bar"
+        print "Event handler `AfpDialog_FaCustomSelect.On_Bar:", self.Ok, self.data
+        self.EndModal(wx.ID_CANCEL)
         event.Skip()
         
-    ## Eventhandler BUTTON - graphic pick for dates 
+   ## Eventhandler BUTTON - invoke payment
     # @param event - event which initiated this action   
-    def On_Set_Datum(self,event = None):
-        if self.debug: print "Event handler `On_Fahrt_Datum'"
-        start = self.text_Abfahrt.GetValue()
-        if start: start = Afp_ChDatum(start)
-        ende= self.text_Fahrtende.GetValue()
-        if ende: ende = Afp_ChDatum(ende)
-        x, y = self.text_Abfahrt.ScreenPosition
-        #x += self.text_Abfahrt.GetSize()[0]
-        y += self.text_Abfahrt.GetSize()[1]
-        dates = AfpReq_Calendar((x, y), [start, ende],  "Reisedaten Mietfahrt", None, ["Abfahrt", "0:Fahrtende"])
-        if dates:
-            self.text_Abfahrt.SetValue(dates[0])
-            self.text_Fahrtende.SetValue(dates[1])
-            self.choice_Edit.SetSelection(1)
-            self.Set_Editable(True)
-            if not "Abfahrt" in self.changed_text: self.changed_text.append("Abfahrt")
-            if not "Fahrtende" in self.changed_text: self.changed_text.append("Fahrtende")
-        if event: event.Skip()
-
-    ## Eventhandler BUTTON - select tour agent for not self organisied tours
-    # @param event - event which initiated this action   
-    def On_Agent(self,event):
-        if self.debug: print "Event handler `On_Agent'"
-        name = self.data.get_value("AgentName")
-        if not name: name = "a"
-        text = "Bitte den Veranstalter der Reise auswählen:"
-        #self.data.globals.mysql.set_debug()
-        KNr = AfpLoad_AdAusw(self.data.get_globals(),"ADRESATT","AttName",name, "Attribut = \"Reiseveranstalter\"", text)
-        #self.data.globals.mysql.unset_debug()
-        print "AfpDialog_TourEdit.On_Agent:", KNr
-        if KNr:
-            self.agent = AfpAdresse(self.data.get_globals(),KNr)
-            self.label_AgentName.SetLabel(self.agent.get_name())
-        else:
-            self.agent = False
+    def On_Zahlung(self,event):
+        if self.debug: print "Event handler `AfpDialog_FaCustomSelect.On_Zahlung'"
+        self.Ok = "Zahlung"
+        print "Event handler `AfpDialog_FaCustomSelect.On_AZahlung:", self.Ok, self.data
+        self.EndModal(wx.ID_CANCEL)
         event.Skip()
-    
-    ## Eventhandler TEXT-KILLFOCUS - set 'Kst' from input for self organised tours 
-    # @param event - event which initiated this action 
-    def On_Reisen_setKst(self,event):
-        if self.debug: print "Event handler `On_Reisen_setKst'"
-        if not "Kenn" in self.changed_text: self.changed_text.append("Kenn")
-        nr = Afp_fromString(self.text_Kenn.GetValue())
-        kst = self.text_Kst.GetValue()
-        if nr and  nr == int(nr):
-            Ok = False
-            if kst == "": 
-                Ok = True
-            elif nr == int(nr) and Afp_fromString(kst) != nr:
-                Ok = AfpReq_Question("Konto unterscheidet sich von Reisekennung,","Konto anpassen?","Reisekontierung")
-            if Ok:
-                self.text_Kst.SetValue(Afp_toString(nr))
-                if not "Kst" in self.changed_text: self.changed_text.append("Kst")
-        event.Skip()
-
-    ## Eventhandler LIST-DOUBLECLICK - modify selected price
+        
+    ## Eventhandler BUTTON - invoke delivery
     # @param event - event which initiated this action   
-    def On_Reisen_Preise(self,event):
-        if self.debug: print "Event handler `On_Reisen_Preise'"
-        data = self.data
-        Ok = True
-        index = self.list_Preise.GetSelections()[0] - 1
-        if index < 0: 
-            index = None
-        if Ok:
-            print "AfpDialog_TourEdit.On_Reisen_Preise:", index
-            data = AfpLoad_TourPrices(data, index)
-            print "AfpDialog_TourEdit.On_Reisen_Preise:", data
-            if data: 
-                self.data = data
-                self.complete_Preise()
-                self.change_data = True
-                self.Pop_Preise()
+    def On_Ware(self,event):
+        if self.debug: print "Event handler `AfpDialog_FaCustomSelect.On_Ware'"
+        self.Ok = "Ware"
+        print "Event handler `AfpDialog_FaCustomSelect.On_Ware:", self.Ok, self.data
+        self.EndModal(wx.ID_CANCEL)
         event.Skip()
 
     ## Eventhandler BUTTON - generate new tour entrys
     # @param event - event which initiated this action   
-    def On_Reisen_Neu(self,event):
-        if self.debug: print "Event handler `On_Reisen_Neu'"
-        copy = self.check_Kopie.GetValue()
-        data = None
-        if copy:
-            data = AfpTour_copy(self.data)
-            if data: 
-                self.data = data
-            else:  
-                self.data.set_new(True)
-            self.change_data = True
+    def On_Neu(self,event):
+        if self.debug: print "Event handler `AfpDialog_FaCustomSelect.On_Neu'"
+        radio = self.get_selected_RadioButton()
+        if radio == "Memo":
+            print "AfpDialog_FaCustomSelect.On_Neu Memo!"
         else:
-            self.data.set_new()
-        self.new = True
-        self.Populate()
-        self.Set_Editable(True)
-        if self.data.get_globals().get_value("edit-tour-date-first","Tourist"):
-            self.On_Set_Datum()
+            self.Ok = "Neu"
+            self.data = radio
+            print "Event handler `AfpDialog_FaCustomSelect.On_Neu:", self.Ok, self.data
+            self.EndModal(wx.ID_CANCEL)
+        event.Skip()        
+    ## Eventhandler BUTTON - invoke address selection
+    # @param event - event which initiated this action   
+    def On_Adresse(self,event):
+        if self.debug: print "Event handler `AfpDialog_FaCustomSelect.On_Adresse'"
+        self.Ok = "Adresse"
+        print "Event handler `AfpDialog_FaCustomSelect.On_Adresse:", self.Ok, self.data
+        self.EndModal(wx.ID_CANCEL)
         event.Skip()
 
-    ## Eventhandler BUTTON - change additional free text of tour
+    ## Eventhandler BUTTON - invoke caisse
     # @param event - event which initiated this action   
-    def On_Reisen_Text(self,event):
-        if self.debug: print "Event handler `On_Reisen_Text'"
-        oldtext = self.data.get_string_value("IntText.REISEN")
-        text, ok = Afp_editExternText(oldtext, self.data.get_globals())
-        print "AfpDialog_EditTour.On_Reisen_Text:",ok, text
-        if ok: 
-            self.data.set_value("IntText.REISEN", text)
-            self.change_data = True
-            self.choice_Edit.SetSelection(1)
-            self.Set_Editable(True)
+    def On_Kasse(self,event):
+        if self.debug: print "Event handler `AfpDialog_FaCustomSelect.On_Kasse'"
+        self.Ok = "Kasse"
+        print "Event handler `AfpDialog_FaCustomSelect.On_Kasse:", self.Ok, self.data
+        self.EndModal(wx.ID_CANCEL)
         event.Skip()
 
-    ## Eventhandler CHOICE - enable/disable widgets according to choice value
+   ## Eventhandler BUTTON - invoke additional functions
     # @param event - event which initiated this action   
-    def On_CArt(self,event):
-        if self.debug: print "Event handler `On_CArt'"
-        self.set_kind()
+    def On_Mehr(self,event):
+        if self.debug: print "Event handler `AfpDialog_FaCustomSelect.On_Mehr'"
+        self.Ok = "Mehr"
+        print "Event handler `AfpDialog_FaCustomSelect.On_Mehr:", self.Ok, self.data
+        self.EndModal(wx.ID_CANCEL)
         event.Skip()
-        
-    ## Eventhandler CHOICE - handle route selection
+
+    ## Eventhandler BUTTON - search for entry
     # @param event - event which initiated this action   
-    def On_CRoute(self,event):
-        if self.debug: print "Event handler `On_CRoute'"
-        sel = self.choice_Route.GetCurrentSelection() 
-        #print "AfpDialog_TourEdit.On_CRoute sel:", sel
-        if sel:
-            self.route = self.routenr[sel-1]
+    def On_Suche(self,event):
+        if self.debug: print "Event handler `AfpDialog_FaCustomSelect.On_Suche'"
+        radio = self.get_selected_RadioButton()
+        if radio == "Memo":
+            print "AfpDialog_FaCustomSelect.On_Suche Memo!"
         else:
-            rname = ""
-            rname, Ok = AfpReq_Text("Neue Transferroute wird erstellt,", "bitte Bezeichnung der neuen Route eingeben.", rname, "Neue Route")
-            if Ok and rname:
-                lastnr = self.routenr[-1]
-                if lastnr > 0: lastnr = 0
-                self.choice_Route.Append(rname)
-                self.routes.append(rname)
-                self.route = lastnr-1
-                #print"AfpDialog_TourEdit.On_CRoute:", self.route
-                self.routenr.append(self.route)
-                self.choice_Route.SetSelection(len(self.routes))
-            else:
-                # reset
-                if self.route: route = self.route
-                else: route = self.data.get_value("Route")
-                ind = self.routenr.index(route) + 1
-                self.choice_Route.SetSelection(ind)
+            self.Ok = "Suchen"
+            self.data = radio
+            print "Event handler `AfpDialog_FaCustomSelect.On_Suche:", self.Ok, self.data
+            self.EndModal(wx.ID_CANCEL)
         event.Skip()
-        
+
+    ## Eventhandler BUTTON - leave dialog
+    # @param event - event which initiated this action   
+    def On_Ende(self,event):
+        if self.debug: print "Event handler `On_Ende'"
+        self.Ok = False
+        self.EndModal(wx.ID_CANCEL)
+        event.Skip()
+       
     ## event handler when window is activated
     # @param event - event which initiated this action   
     def On_Activate(self,event):
-        #print "Event handler `On_Activate' not implemented"
-        if self.active is None:
-            if self.debug: print "Event handler `On_Activate'"
-            self.active = True
-            self.routes, self.routenr = AfpTourist_getRouteNames(self.data.globals.get_mysql())
-            #print "AfpDialog_TourEdit.On_Activate:", routes
-            self.choice_Route.Append(" --- Neue Transferroute --- ")
-            for route in self.routes:
-                self.choice_Route.Append(Afp_toString(route))
-            self.Pop_choice()
-            self.set_kind()
-                    
-# end of class AfpDialog_DiChEin
+        if not self.active:
+            print "Event handler `On_Activate' not implemented"
+     
+# end of class AfpDialog_FaCustomSelect
 
-## loader routine for dialog TourEin
-def AfpLoad_TourEdit(data):
-    DiTourEin = AfpDialog_TourEdit(None)
-    new = data.is_new()
-    DiTourEin.attach_data(data, new)
-    DiTourEin.ShowModal()
-    Ok = DiTourEin.get_Ok()
-    DiTourEin.Destroy()
-    return Ok
+## loader routine for custom Faktura selection
+# returns the values Ok and data:
+# - if Ok = True: data is selected or generated the SelectionList
+# - if Ok = False: no data is returned, dialog has been canceled
+# - if Ok is a string, it hold the button label that has been pushed and data holds the selected radiobutton label
+def AfpLoad_FaCustomSelect(globals):
+    DiSelect = AfpDialog_FaCustomSelect(None)
+    DiSelect.attach_globals(globals)
+    DiSelect.ShowModal()
+    Ok = DiSelect.get_Ok()
+    data = None
+    if Ok:
+        data = DiSelect.get_data()
+    DiSelect.Destroy()
+    return Ok, data
     
 ## loader routine for dialog TourEin according to the given superbase object \n
 # @param globals - global variables holding database connection

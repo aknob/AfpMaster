@@ -38,37 +38,80 @@ from AfpBase.AfpBaseRoutines import *
 def AfpFaktura_possibleInvoiceKinds():
     #return ["Indi","Eigen","Fremd"]
     return ["Rechnung","Mahnung"]
+## returns all possible entries for open incidents
+def AfpFaktura_possibleOpenKinds():
+    names, tables = AfpFaktura_possibleKinds()
+    return ["Merkzettel (Memo)"] + names[2:-2]
  
  ## return index of name in filter list
  # @param name - name to be looked for in filter list
 def AfpFa_inFilterList(name):
-    names =  AfpFaktura_FilterLists("names")
+    names =  AfpFaktura_FilterList()
     if name in names:
         return names.index(name)
     return None
 ## returns all possible entries of filter list
-# @param name - indicator what has to be returned \n
-# - if name is in 'names', the appropriate 'tables' and 'filters' entry is returned
-# - if name == "names": the list 'names' is returned
-# - else: all three lists are returned
-def AfpFaktura_FilterLists(name):
-    #names = ["Ausgabe","Forderung","Waren","Bestellung","KVA","Angebot","Auftrag","Rechnung","Mahnung","Einnahme"]
-    names = ["Ausgabe","Waren","Bestellung", "-------------------------", "KVA","Angebot","Auftrag", "-------------------------","Rechnung","Mahnung","Einnahme"]
-    tables = ["BESTELL","BESTELL","BESTELL","",                                               "KVA", "KVA",       "KVA",      "",                                            "RECHNG",    "RECHNG",  "RECHNG"]
-    filters = ["beglichen","erhalten","offen","",                                               "",     "Angebot", "Auftrag","",                                            "offen",    "Mahnung",  "bezahlt"]
-    if name in names:
-        ind = names.index(name)
-        return tables[ind], filters[ind]
-    elif name == "names":
-        return names
+# @param name - if given name indicator what has to be returned
+# @param table - if given table indicator, only used together with filter entry
+# @param filter - if given, filter indicator, only used together with table entry
+# these parameters are evaluated as follows:
+# - if table and filter are given and found in lists, the appropriate 'names' entry and index is returned
+# - if name is given and found in 'names', the appropriate 'tables' and 'filters' entry is returned
+# - if name is given and not found, two empty strings are returned
+# - else: the 'names' and 'tables' lists are returned
+def AfpFaktura_possibleKinds(name = None, table = None, filter = None):
+    names = ["Ausgabe" , "Waren"     , "Bestellung", "Disposition", "Kostenvoranschlag","Angebot"  , "Lieferschein", "Auftrag" , "Rechnung", "Mahnung", "Einnahme"]
+    tables = ["BESTELL"  , "BESTELL" , "BESTELL"      , "BESTELL"       , "KVA"                        , "KVA"        , "KVA"                , "KVA"        , "RECHNG"   , "RECHNG"  , "RECHNG"]
+    filters = ["beglichen","erhalten", "offen"         , "neu"              ,  "KVA"                        ,  "Angebot",  "Liefer"           , "Auftrag" , "offen"    ,  "Mahnung", "bezahlt"]
+    if table and filter:
+        for i in range(len(tables)):
+            if tables[i] == table and filters[i] == filter:
+                return names[i], i
+    if name:
+        print "AfpFaktura_possibleKinds name:", name, names
+        if  name in names:
+            ind = names.index(name)
+            return tables[ind], filters[ind]
+        else:
+            return "",""
     else:
-        return names, tables, filters
+        return names, tables
+## returns entries for filter list
+def AfpFaktura_FilterList():
+    names, tables = AfpFaktura_possibleKinds()
+    list = []
+    table = tables[0]
+    for name in names:
+        step = tables[names.index(name)]
+        if table != step:
+            list. append ("-------------------------")
+            table = step
+        list.append(name)
+    return list
 
 ##  get the list of indecies of the appropriate faktura table,
 def AfpFaktura_getOrderlistOfTable():
     #liste = {'RechNr':'int','Datum':'date', 'KundenNr':'string'}
     liste = {'RechNr':None,'Datum':'date', 'KundenNr':'string'}
     return liste
+    
+## get clear name for dialogs from database tablename
+def AfpFa_getClearName(tablename):
+    if tablename == "KVA":
+        return  "Kostenvoranschlag"
+    elif tablename == "BESTELL":
+        return  "Bestellung"
+    else: #tablename == "RECHNG":
+        return  "Rechnung"
+        
+## get the appropriate data object from database selection
+def AfpFaktura_getSelectionList( globals, RechNr, tablename):
+    if tablename == "KVA":
+        return  AfpOffer(globals, RechNr)
+    elif tablename == "BESTELL":
+        return  AfpOrder(globals, RechNr)
+    else: #tablename == "RECHNG":
+        return  AfpInvoice(globals, RechNr)
     
 ## baseclass for invoice handling         
 class AfpFaktura(AfpSelectionList):
@@ -86,7 +129,7 @@ class AfpFaktura(AfpSelectionList):
         else: self.debug = globals.is_debug()
         self.finance = None
         self.new = False
-        self.mainindex = "RechnungsNr"
+        self.mainindex = "RechNr"
         self.mainvalue = ""
         self.maintable = "RECHNG"
         self.spezial_bez = []
@@ -144,7 +187,10 @@ class AfpFaktura(AfpSelectionList):
         if self.mainselection and self.mainindex and self.mainvalue:         
             self.selects[self.mainselection] = [self.maintable, self.mainindex + " = " + self.mainvalue, self.mainindex]
             #print "AfpFaktura.set_main_selects_entry selects:", self.selects
-                
+     
+    ## get main table of SelectionList
+    def get_main_table(self):
+        return self.maintable
     ## financial transaction will be initated if the appropriate modul is installed
     # @param initial - flag for initial call of transaction (interal payment may be added)
     def execute_financial_transaction(self, initial):

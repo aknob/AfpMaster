@@ -35,7 +35,7 @@ import wx.grid
 import AfpBase
 from AfpBase import *
 from AfpBase.AfpUtilities import *
-from AfpBase.AfpUtilities.AfpStringUtilities import AfpSelectEnrich_dbname, Afp_ArraytoString, Afp_fromString, Afp_toString
+from AfpBase.AfpUtilities.AfpStringUtilities import AfpSelectEnrich_dbname, Afp_ArraytoString, Afp_fromString, Afp_toString, Afp_isString
 from AfpBase.AfpUtilities.AfpBaseUtilities import Afp_existsFile
 from AfpBase.AfpDatabase import *
 from AfpBase.AfpDatabase.AfpSQL import AfpSQL
@@ -50,8 +50,8 @@ from AfpBase.AfpBaseAdDialog import AfpLoad_DiAdEin_fromSb, AfpLoad_AdAusw
 import AfpFaktura
 from AfpFaktura import AfpFaRoutines
 from AfpFaktura import AfpFaDialog
-from AfpFaktura.AfpFaRoutines import AfpFaktura_FilterLists, AfpInvoice, AfpOffer, AfpOrder, AfpFa_inFilterList
-from AfpFaktura.AfpFaDialog import AfpLoad_FaAusw
+from AfpFaktura.AfpFaRoutines import AfpFaktura_FilterList, AfpInvoice, AfpOffer, AfpOrder, AfpFa_inFilterList, AfpFaktura_possibleKinds
+from AfpFaktura.AfpFaDialog import AfpLoad_FaAusw, AfpLoad_FaCustomSelect
 
 ## Class Faktura shows Window for Invoices and handles interactions
 class AfpFaScreen(AfpScreen):
@@ -63,10 +63,15 @@ class AfpFaScreen(AfpScreen):
         self.sb_master = "RECHNG"
         self.sb_filter = ""
         self.use_labels = use_labels
+        self.use_RETURN = False
+        self.use_custom_selection = False
+        self.automated_selection = False
         self.content_rows = 10
         self.content_colname = ["Pos","ErsatzteilNr","Bezeichnung","Anzahl","Einzel","Gesamt"]
         self.index = None
         self.index_nr = None
+        self.active = False
+        self.Bind(wx.EVT_ACTIVATE, self.On_Activate)
         # self properties
         self.SetTitle("Afp-Fakturierung und Warenwirtschaft")
         self.SetSize((800, 600))
@@ -79,25 +84,24 @@ class AfpFaScreen(AfpScreen):
         # BUTTON
         self.button_Auswahl = wx.Button(panel, -1, label="Aus&wahl", pos=(692,50), size=(77,50), name="BAuswahl")
         self.Bind(wx.EVT_BUTTON, self.On_Faktura_Ausw, self.button_Auswahl)
-        self.button_Bearbeiten = wx.Button(panel, -1, label="&Bearbeiten", pos=(692,110), size=(77,50), name="Bearbeiten")
-        self.Bind(wx.EVT_BUTTON, self.On_Adresse_AendF, self.button_Bearbeiten)
-        self.button_Voll = wx.Button(panel, -1, label="&Volltext", pos=(692,170), size=(77,50), name="BVoll")
-        self.Bind(wx.EVT_BUTTON, self.On_Ad_Volltext, self.button_Voll)
-        self.button_Voll.Enable(False)
-       
+        self.button_Adresse = wx.Button(panel, -1, label="&Adresse", pos=(692,110), size=(77,50), name="BAdresse")
+        self.Bind(wx.EVT_BUTTON, self.On_Faktura_Test, self.button_Adresse)
+        self.button_Bar = wx.Button(panel, -1, label="B&ar", pos=(692,170), size=(77,25), name="BBar")
+        self.Bind(wx.EVT_BUTTON, self.On_Bar, self.button_Bar)
+        self.button_Neu = wx.Button(panel, -1, label="&Neu", pos=(692,195), size=(77,25), name="BNeu")
+        self.Bind(wx.EVT_BUTTON, self.On_Neu, self.button_Neu)
+      
         self.button_Dokument = wx.Button(panel, -1, label="&Dokument", pos=(692,256), size=(77,50), name="BDokument")
-        self.Bind(wx.EVT_BUTTON, self.On_Adresse_Doku, self.button_Dokument)
-        self.button_Dokument.Enable(False)
-        self.button_Edit = wx.Button(panel, -1, label="Bearbeiten", pos=(692,338), size=(77,50), name="Edit")
+        self.Bind(wx.EVT_BUTTON, self.On_Dokument, self.button_Dokument)
+        self.button_Zahlung = wx.Button(panel, -1, label="&Zahlung", pos=(692,338), size=(77,50), name="BZahlung")
+        self.Bind(wx.EVT_BUTTON, self.On_Zahlung, self.button_Zahlung)
+        self.button_Edit = wx.Button(panel, -1, label="&Bearbeiten", pos=(692,405), size=(77,50), name="Edit")
         self.Bind(wx.EVT_BUTTON, self.On_Edit, self.button_Edit)
-        self.button_Listen = wx.Button(panel, -1, label="&Listen", pos=(692,405), size=(77,50), name="Listen")
-        self.Bind(wx.EVT_BUTTON, self.On_Adresse_Listen, self.button_Listen)
-        self.button_Listen.Enable(False)        
         self.button_Ende = wx.Button(panel, -1, label="Be&enden", pos=(692,470), size=(77,50), name="Ende")
         self.Bind(wx.EVT_BUTTON, self.On_Ende, self.button_Ende)
 
         # COMBOBOX
-        self.combo_Filter = wx.ComboBox(panel, -1, value="Rechnung", pos=(526,16), size=(150,20), choices=AfpFaktura_FilterLists("names"), style=wx.CB_READONLY, name="Filter_Zustand")
+        self.combo_Filter = wx.ComboBox(panel, -1, value="Rechnung", pos=(526,16), size=(150,20), choices=AfpFaktura_FilterList(), style=wx.CB_READONLY, name="Filter_Zustand")
         self.Bind(wx.EVT_COMBOBOX, self.On_Filter, self.combo_Filter)
         self.combo_Filter.SetSelection(AfpFa_inFilterList("Rechnung"))
         #self.filtermap = {"Alle":"","Kostenvoranschläge".decode("UTF-8"):"KVA","Angebote":"Angebot","Aufträge".decode("UTF-8"):"Auftrag","Rechnungen":"Rechnung","Mahnungen":"Mahnung","Stornierungen":"Storno %"}
@@ -267,7 +271,7 @@ class AfpFaScreen(AfpScreen):
         self.Bind(wx.EVT_MENU, self.On_Faktura_Ausw, mmenu)
         tmp_menu.AppendItem(mmenu)
         mmenu =  wx.MenuItem(tmp_menu, wx.NewId(), "&Bearbeiten", "")
-        self.Bind(wx.EVT_MENU, self.On_Adresse_AendF, mmenu)
+        self.Bind(wx.EVT_MENU, self.On_Faktura_Test, mmenu)
         tmp_menu.AppendItem(mmenu)
         mmenu =  wx.MenuItem(tmp_menu, wx.NewId(), "&E-Mail versenden", "")
         self.Bind(wx.EVT_MENU, self.On_MEMail, mmenu)
@@ -284,66 +288,75 @@ class AfpFaScreen(AfpScreen):
         #self.menubar.Append(tmp_menu, "Adresse")
         return
 
+    ## Eventhandler on activation of screen
+    # set flags from globals, possibly invoke selection
+    def On_Activate(self,event):
+        if not self.active:
+            self.active = True
+            self.use_RETURN = self.globals.get_value("use-RETURN","Faktura")
+            self.use_custom_selection = self.globals.get_value("use-custom-selection","Faktura")
+            self.automated_selection = self.globals.get_value("automated-selection","Faktura")
+            if self.automated_selection:
+                self.invoke_selection()
     ## Eventhandler MENU; BUTTON - select other invoice, either direkt or via attribut
     def On_Faktura_Ausw(self,event):
         if self.debug: print "Event handler `On_Faktura_Ausw'!"
         #self.sb.set_debug()
-        index = self.index
-        where = AfpSelectEnrich_dbname(self.sb.identify_index().get_where(), self.sb_master)
-        value = self.sb.identify_index().get_indexwert()
-        if index == "KundenNr":
-            value = self.data.get_value("Name.ADRESSE")
-        #print "On_Faktura_Ausw Ind:",index, "VAL:",values,"Where:", where
-        #print "On_Faktura_Ausw Merkmal:", self.combo_Filter.GetValue()
-        #self.sb.set_debug()
-        auswahl = AfpLoad_FaAusw(self.globals, index, Afp_toString(value), where, True)
-        #self.sb.unset_debug()
-        if not auswahl is None:
-            RNr = int(auswahl)
-            if self.sb_filter: self.sb.select_where(self.sb_filter, "RechNr", self.sb_master)
-            self.sb.select_key(RNr, "RechNr", self.sb_master)
-            if self.sb_filter: self.sb.select_where("", "RechNr", self.sb_master)
-            self.sb.set_index(index, self.sb_master, "RechNr")   
-            self.set_current_record()
-            if index == "KundenNr":
-                self.sb.select_key(self.data.get_value("KundenNr"),"KundenNr","ADRESSE")
-                self.sb.set_index("Name","ADRESSE","KundenNr")
-            self.Populate()
+        self.invoke_selection()
         #self.sb.unset_debug()
         event.Skip()
-    ## Eventhandler BUTTON - resolve duplicate addresses - not implemented yet!
-    def On_Edit(self,event):
-        if  self.is_editable() :
-            self.Set_Editable(False)
-            print "AfpFaScreen.On_Edit ReadOnly:", self.is_editable()
-        else:
-            self.Set_Editable(True)
-            print "AfpFaScreen.On_Edit Edit:", self.is_editable()
-        self.panel.Refresh()
-        event.Skip()
-    ## Eventhandler BUTTON - show different lists, not implemented yet!
-    def On_Adresse_Listen(self,event):
-        print "Event handler `On_Adresse_Listen' not implemented!"
-        event.Skip()
-    ## Eventhandler MENU, BUTTON - change address
-    def On_Adresse_AendF(self,event):
-        if self.debug: print "AfpAdScreen Event handler `On_Adresse_AendF'"
-        AfpLoad_DiAdEin_fromSb(self.globals, self.sb)
-        event.Skip()
-    ## Eventhandler BUTTON - invoke full text search over addresses an all attached data - not yet implemented
-    def On_Ad_Volltext(self,event):
-        print "Event handler `On_Ad_Volltext' not implemented!"
+    ## Eventhandler BUTTON - manipulate address data- not implemented yet!
+    def On_Adresse(self,event = None):
+        print "Event handler `On_Adresse' not implemented!"
+        if event: event.Skip()
+    ## Eventhandler BUTTON - create new record - not implemented yet!
+    def On_Neu(self,event = None):
+        print "Event handler `On_Neu' not implemented!"
+        self.generate_new_data()
+        if event: event.Skip()
+    ## Eventhandler BUTTON - invoke cash sale - not yet implemented
+    def On_Bar(self,event = None):
+        print "Event handler `On_Bar' not implemented!"
+        if event: event.Skip()
+    ## Eventhandler BUTTON -  invoke payment- not implemented yet!
+    def On_Zahlung(self,event = None):
+        print "Event handler `On_Zahlung' not implemented!"
+        if event: event.Skip()
+    ## Eventhandler MENU, BUTTON - invoke special select dialog - for testing only
+    def On_Faktura_Test(self,event):
+        if self.debug: print "AfpAdScreen Event handler `On_Faktura_Test'"
+        self.invoke_custom_select()
         event.Skip()
     ## Eventhandler BUTTON - invoke dokument generation - not yet implemented
-    def On_Adresse_Doku(self,event):
-        print "Event handler `On_Adresse_Doku' not implemented!"
+    def On_Dokument(self,event):
+        print "Event handler `On_Dokument' not implemented!"
         event.Skip()
+    ## Eventhandler BUTTON - swap editable modus
+    # - lock data if editable modus is started
+    # - store data if editable modus is ended
+    def On_Edit(self,event):
+        self.handle_editmodus()
+        event.Skip()
+        
+    ## Eventhandler BUTTON -  invoke arrival (of goods)- not implemented yet!
+    def On_Ware(self,event = None):
+        print "Event handler `On_Ware' not implemented!"
+        if event: event.Skip()
+    ## Eventhandler BUTTON -  invoke cash office - not implemented yet!
+    def On_Kasse(self,event = None):
+        print "Event handler `On_Kasse' not implemented!"
+        if event: event.Skip()
+    ## Eventhandler BUTTON -  invoke additional functionallity - not implemented yet!
+    def On_Extra(self,event = None):
+        print "Event handler `On_Extra' not implemented!"
+        if event: event.Skip()
+
         
     ## Eventhandler COMBOBOX - allow filter due to attributes, change master table
     def On_Filter(self,event): 
         value = self.combo_Filter.GetValue()
         if self.debug: print "AfpFaScreen Event handler `On_Filter'", value
-        datei, filter = AfpFaktura_FilterLists(value)
+        datei, filter = AfpFaktura_possibleKinds(value)
         reset = False
         if not datei: 
             datei = self.sb_master
@@ -369,10 +382,7 @@ class AfpFaScreen(AfpScreen):
                 self.sb_filter = where
             self.CurrentData()
         if reset:
-            if self.sb_master == "RECHNG": index = AfpFa_inFilterList("Rechnung")
-            elif self.sb_master == "KVA": index = AfpFa_inFilterList("KVA")
-            elif self.sb_master == "BESTELL": index = AfpFa_inFilterList("Bestellung")
-            self.combo_Filter.SetSelection(index)
+            self.combo_Filter.SetSelection(self.get_filter_index(self.sb_master))
         event.Skip()
     ## Eventhandler COMBOBOX - sort index
     def On_Sortierung(self,event = None):
@@ -463,12 +473,96 @@ class AfpFaScreen(AfpScreen):
                 Mwst = summe - netto
             self.text_Mwst.SetValue(Afp_toString(Mwst)) 
         return
-    ## set or unset editable mode - overwritten from AfpScreen
-    # @param ed_flag - flag to turn editing on or off
-    # @param lock_data - flag if invoking of editable mode needs a lock on the database
-    def Set_Editable(self, ed_flag, lock_data = None):
-        AfpScreen.Set_Editable(self, ed_flag, lock_data)
-        self.Pop_special()
+
+    ## swap editable modus of screen
+    def handle_editmodus(self):
+        if  self.is_editable() :
+            self.Set_Editable(False)
+            self.panel.Refresh()
+            print "AfpFaScreen.handle_editmodus ReadOnly:", self.is_editable()
+            self.store_data()
+        else:
+            self.Set_Editable(True)
+            self.panel.Refresh()
+            print "AfpFaScreen.handle_editmodus Edit:", self.is_editable()
+            self.data.lock_data()
+            self.edit_data()
+    ## edit data
+    def edit_data(self):
+        print "AfpFaScreen.edit_data invoked" 
+    ## store data
+    def store_data(self):
+        print "AfpFaScreen.store_data invoked" 
+        self.data.store()
+    ## invoke selection
+    def invoke_selection(self):
+        if self.use_custom_selection:
+            print "AfpFaScreen.invoke_selection: invoke custom selection"
+            self.invoke_custom_select()
+        else:    
+            index = self.index
+            where = AfpSelectEnrich_dbname(self.sb.identify_index().get_where(), self.sb_master)
+            value = self.sb.identify_index().get_indexwert()
+            if index == "KundenNr":
+                value = self.data.get_value("Name.ADRESSE")
+            self.invoke_regular_selection(self.sb_master, value, where)
+    ## regularpart of selections, use common 'Auswahl' mechanismn
+    # @param table - tablename to be used for selection 
+    # @param value - value to be looked for 
+    # @param where - filter to be used 
+    def invoke_regular_selection(self, table, value = "", where = ""):
+        #print "On_Faktura_Ausw Ind:",index, "VAL:",values,"Where:", where
+        #print "On_Faktura_Ausw Merkmal:", self.combo_Filter.GetValue()
+        #self.sb.set_debug()
+        auswahl = AfpLoad_FaAusw(self.globals, table, self.index, Afp_toString(value), where, True)
+        #self.sb.unset_debug()
+        if not auswahl is None:
+            RNr = int(auswahl)
+            if self.sb_filter: self.sb.select_where(self.sb_filter, "RechNr", self.sb_master)
+            self.sb.select_key(RNr, "RechNr", self.sb_master)
+            if self.sb_filter: self.sb.select_where("", "RechNr", self.sb_master)
+            self.sb.set_index(self.index, self.sb_master, "RechNr")   
+            self.set_current_record()
+            if self.index == "KundenNr":
+                self.sb.select_key(self.data.get_value("KundenNr"),"KundenNr","ADRESSE")
+                self.sb.set_index("Name","ADRESSE","KundenNr")
+            self.Populate()
+        #self.sb.unset_debug()
+    ## invoke the custom select dialog, behaves as follows 
+    # - Ok == True: data becomes current data of screen
+    # - Ok = string, (optional: data = string): Ok triggers routine, data triggers databasetable
+    def invoke_custom_select(self):
+        Ok, data = AfpLoad_FaCustomSelect(self.globals)
+        print "AfpFaScreen.invoke_custom_select:", Ok, data
+        # fork to the different tasks, standard way Ok == True
+        if Ok and data:
+            if Ok == True:
+                self.set_direct_data(data)
+            elif Afp_isString(Ok):
+                if data == "KVA": data = "Kostenvoranschlag"
+                if Ok == "Suchen":
+                    table, dummy = AfpFaktura_possibleKinds(data)
+                    print "AfpFaScreen.invoke_custom_select Suchen:", table
+                    if table: self.invoke_regular_selection(table)
+                elif Ok == "Neu":
+                    table, dummy = AfpFaktura_possibleKinds(data)
+                    print "AfpFaScreen.invoke_custom_select Neu:", table
+                    if table: self.generate_new_data(table)
+        elif Ok:
+            if Ok == "Bar":
+                self.On_Bar()
+            elif Ok == "Zahlung":
+                self.On_Zahlung()
+            elif Ok == "Ware":
+                self.On_Ware()
+            elif Ok == "Kasse":
+                self.On_Kasse()
+            elif Ok == "Mehr":
+                self.On_Extra()
+    ## generate a new data record
+    # @param table - database table where the new record has to be created
+    def generate_new_data(self, table = "RECHNG"):
+        print "AfpFaScreen.generate_new_data invoked for table", table
     # find an adjacent entry in other database table and set the sb.object pointer to this entry
     # @param table - databasetable where to look
     def find_adjacent_entry(self, table):
@@ -492,8 +586,45 @@ class AfpFaScreen(AfpScreen):
             if self.sb.get_value("TypNr") != RNr or self.sb.get_value("Typ") != self.sb_master:
                 self.sb.CurrentIndexName("KundenNr")
                 self.sb.select_key(KNr)
+    ## direct selection of record via tablename and identifier
+    # @param data -  SelectionList to be current on screen
+    def set_direct_data(self, data):
+        self.index = "RechNr"
+        self.sb_master = data.get_main_table()
+        ReNr = data.get_value("RechNr")
+        if ReNr:
+            filter = data.get_value("Zustand")
+            name, index = AfpFaktura_possibleKinds(None, self.sb_master, filter)
+            if not len(name): name = self.sb_master
+            self.sb.CurrentIndexName("RechNr", self.sb_master)
+            self.sb.select_key(ReNr)
+            self.combo_Filter.SetSelection(self.get_filter_index(name))
+            self.On_Sortierung()
+        self.data = data
+        self.Populate()
+            
+    ## extract appropriate index in filter list
+    # @param name - name of list entry
+    def get_filter_index(self, name):
+        index = AfpFa_inFilterList(name)
+        if index is None:
+            if name == "RECHNG": index = AfpFa_inFilterList("Rechnung")
+            elif name == "KVA": index = AfpFa_inFilterList("KVA")
+            elif name == "BESTELL": index = AfpFa_inFilterList("Bestellung")
+            else: index = 0
+        return index
     # routines to be overwritten in explicit class
-    ## generate AfpSelectionList object from the present screen, overwritten from AfpScreen
+    ## set or unset editable mode - overwritten from AfpScreen
+    # @param ed_flag - flag to turn editing on or off
+    # @param lock_data - flag if invoking of editable mode needs a lock on the database
+    def Set_Editable(self, ed_flag, lock_data = None):
+        AfpScreen.Set_Editable(self, ed_flag, lock_data)
+        if ed_flag:
+            self.button_Edit.SetLabel("&Speichern")
+        else:
+            self.button_Edit.SetLabel("&Bearbeiten")
+        self.Pop_special()
+   ## generate AfpSelectionList object from the present screen, overwritten from AfpScreen
     # @param complete - flag if all TableSelections should be generated
     def get_data(self, complete = False):
         if self.sb_master == "KVA":
@@ -569,6 +700,27 @@ class AfpFaScreen(AfpScreen):
                 self.grid_content.SetColLabelValue(col, self.content_colname[col])
         #print "AfpFaScreen.get_grid_rows:", rows
         return rows
+    ## invoke special keydown handling, additional to scrolling forward and backward\n
+    # (overwritten from AfpScreen) 
+    def invoke_special_keydown(self, keycode):
+        caught = False
+        if keycode == wx.WXK_SPACE:
+            if not self.is_editable():
+                self.handle_editmodus()
+            caught = True
+        elif keycode == wx.WXK_ESCAPE:
+            if self.is_editable():
+                self.data.unlock_data()
+                self.data = None
+                self.CurrentData()
+                self.handle_editmodus()
+            caught = True
+        elif self.use_RETURN and keycode == wx.WXK_RETURN:
+            self.handle_editmodus()
+            caught = True
+        if self.debug: print "AfpFaScreen.invoke_special_keydown:", keycode, caught
+        print "AfpFaScreen.invoke_special_keydown:", keycode, caught
+        return caught
     ## set current screen data - overwritten from AfpScreen for indirect Inedx handling
     # @param plus - indicator to step forwards, backwards or stay
     def CurrentData(self, plus = 0):
@@ -598,3 +750,4 @@ class AfpFaScreen(AfpScreen):
         self.set_current_record()
         #self.sb.unset_debug()
         self.Populate()
+        

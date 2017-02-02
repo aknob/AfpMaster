@@ -11,6 +11,7 @@
 # - AfpDialog - dialog base class
 #
 #   History: \n
+#        27 Jan. 2017 - allow grids in AfpDialog 
 #        05 May 2016 - allow typ list in AfpReq_MultiLine 
 #        10 Apr. 2016 - add 'keepeditable' flag to AfpDialog 
 #                              - add 'comboboxes' to populate and set_editable  - Andreas.Knoblauch@afptech.de \n
@@ -24,7 +25,7 @@
 #  AfpTechnologies (afptech.de)
 #
 #    BusAfp is a software to manage coach and travel acivities
-#    Copyright© 1989 - 2015  afptech.de (Andreas Knoblauch)
+#    Copyright© 1989 - 2017  afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -657,6 +658,7 @@ class AfpDialog(wx.Dialog):
         self.choicemap = {}
         self.combomap = {}
         self.listmap = []
+        self.gridmap = []
         self.keepeditable = []
         self.conditioned_display = {}
         self.changed_text = []
@@ -763,6 +765,7 @@ class AfpDialog(wx.Dialog):
         self.Pop_choice()
         self.Pop_combo()
         self.Pop_lists()
+        self.Pop_grids()
     ## population routine for textboxes \n
     # covention: textmap holds the entryname to retrieve the string value from self.data \n
     # covention: vtextmap holds the entryname to retrieve the date or float value from self.data \n
@@ -815,6 +818,25 @@ class AfpDialog(wx.Dialog):
             Befehl = "self.Pop_" + entry + "()"
             #print Befehl
             exec Befehl
+    ## population routine for lists \n
+    # covention: listmap holds the name to generate the routinename to be called: \n
+    # Pop_'name'()
+    def Pop_grids(self):
+        print "AfpDialog.Pop_grids", self.gridmap
+        for entry in self.gridmap:
+            Befehl = "self.Pop_" + entry + "()"
+            print "AfpDialog.Pop_grids:", Befehl
+            exec Befehl
+    ## resize grid rows
+    # @param grid - the grid object
+    # @param new_lgh - new number of rows to be populated
+    def grid_resize(self, grid, new_lgh):
+        old_lgh = grid.GetNumberRows()
+        if new_lgh > old_lgh:
+            grid.AppendRows(new_lgh - old_lgh)
+        elif  new_lgh < old_lgh:
+            for i in range(new_lgh, old_lgh):
+                grid.DeleteRows(1)
     ## get value from textbox (needed for formating of dates)
     # @param entry - windowname of calling widget
     def Get_TextValue(self, entry):
@@ -826,6 +848,18 @@ class AfpDialog(wx.Dialog):
         else:
             name = self.textmap[entry].split(".")[0]  
         return name, wert
+        ## get rows to populate lists --- NOT YET USED ---\n
+        # default - empty, to be overwritten if l are to be displayed on screen \n
+        # possible selection criterias have to be separated by a "None" value
+        # @param typ - name of list to be populated 
+        def get_list_rows(self, typ):
+            return [] 
+        ## get grid rows to populate grids  --- NOT YET USED ---\n
+        # default - empty, to be overwritten if grids are to be displayed on screen
+        # @param typ - name of grid to be populated
+        # - REMARK: last column will not be shown, but stored for identifiction
+        def get_grid_rows(self, typ):
+            return []   
     ## dis- or enable editing of dialog widgets
     # @param ed_flag - flag to turn editing on or off
     # @param lock_data - flag if invoking of dialog needs a lock on the database

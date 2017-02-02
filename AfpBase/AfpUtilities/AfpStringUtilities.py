@@ -326,9 +326,25 @@ def Afp_ArraytoLine(liste, separator = " ", max = None):
     return zeile[:-sep]
 ## splits one column in a matrix into the maximal possiuble number of columns
 # @param matrix - matrix where column should be split up
+# @param join - index of column to be joined with the next column
+# @param sep - separator to be inserted between joined columns, default: comma 
+def Afp_MatrixJoinCol(matrix, join = 0, sep = ", "):
+    new_matrix = []
+    for row in matrix:
+        new_row = []
+        for i in range(len(row)):
+            if i == join: continue
+            elif i == join+1:
+                new_row.append(row[join] + sep + row[i])
+            else:
+                new_row.append(row[i])
+        new_matrix.append(new_row)
+    return new_matrix
+## splits one column in a matrix into the maximal possiuble number of columns
+# @param matrix - matrix where column should be split up
 # @param col - number of column to be split up
 # @param sep - separator where entry in column should be split up, if integer: number of parts column ist extended to, default: comma 
-# @param ret - retired separator where enty in column should be split up, if first don't work
+# @param ret - retired separator where entry in column should be split up, if first don't work
 def Afp_MatrixSplitCol(matrix, col=0, sep=",", ret=None):
     column = []
     max = 1

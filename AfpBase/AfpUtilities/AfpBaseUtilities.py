@@ -222,7 +222,7 @@ def Afp_toTime(timedelta, high = None):
     minutes = int((timedelta.total_seconds() - 3600*hours)/60)
     return datetime.time(hours, minutes)
 ## convert time to timedelta
-# @param time - tim e to be converted
+# @param time - time to be converted
 # @param complement - flag if difference to 24:00 should be used instead of 0:00
 def Afp_toTimedelta(time, complement = False):
     if time is None: return datetime.timedelta()

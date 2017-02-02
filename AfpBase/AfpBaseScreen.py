@@ -72,6 +72,7 @@ class AfpScreen(wx.Frame):
         self.actuelbuttoncolor = (255,255,255)
         self.readonlycolor = self.GetBackgroundColour()
         self.editcolor = (255,255,255)
+        self.editable = False
         self.panel = wx.Panel(self, -1, style = wx.WANTS_CHARS) 
         
     ## connect to database and populate widgets
@@ -196,9 +197,10 @@ class AfpScreen(wx.Frame):
                 
     ## central routine which returns if screen is in editable mode
     def is_editable(self):
-        editable = False
-        if self.panel.GetBackgroundColour() == self.editcolor: editable = True
-        return editable 
+        #editable = False
+        #if self.panel.GetBackgroundColour() == self.editcolor: editable = True
+        #return editable
+        return self.editable
     
     ## Eventhandler Menu - show version information
     def On_ScreenVersion(self, event):
@@ -258,14 +260,20 @@ class AfpScreen(wx.Frame):
 
     ## Eventhandler Keyboard - handle key-down events
     def On_KeyDown(self, event):
-        keycode = event.GetKeyCode()
+        keycode = event.GetKeyCode()        
         if self.debug: print "AfpScreen Event handler `On_KeyDown'", keycode
         #print "AfpScreen Event handler `On_KeyDown'", keycode
-        next = 0
-        if keycode == wx.WXK_LEFT: next = -1
-        if keycode == wx.WXK_RIGHT: next = 1
-        if next: self.CurrentData(next)
-        event.Skip()
+        caught = 0
+        if keycode == wx.WXK_LEFT: caught = -1
+        if keycode == wx.WXK_RIGHT: caught = 1
+        if self.editable: caught = 0
+        #print "AfpScreen Event handler `On_KeyDown'", keycode, self.editable, next
+        if caught: 
+            self.CurrentData(caught)
+        else: 
+            caught = self.invoke_special_keydown(keycode)
+            if not caught: event.Skip()
+
      
     ## Population routines for form and widgets
     def Populate(self):
@@ -359,6 +367,7 @@ class AfpScreen(wx.Frame):
     # @param ed_flag - flag to turn editing on or off
     # @param lock_data - flag if invoking of editable mode needs a lock on the database
     def Set_Editable(self, ed_flag, lock_data = None):
+        self.editable = ed_flag
         if ed_flag:
             self.panel.SetBackgroundColour(self.editcolor)
         else:
@@ -426,7 +435,12 @@ class AfpScreen(wx.Frame):
     # @param typ - name of grid to be populated
     # - REMARK: last column will not be shown, but stored for identifiction
     def get_grid_rows(self, typ):
-        return []
+        return []   
+    ## invoke special keydown handling, additional to scrolling forward and backward\n
+    # default - don't do anything, to be overwritten if special key handling is desired \n
+    # return flag if key has been caught
+    def invoke_special_keydown(self, keycode):
+        return False
 # End of class AfpScreen
 
 ## loader roution for Screens
