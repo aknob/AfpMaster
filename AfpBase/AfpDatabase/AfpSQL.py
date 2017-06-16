@@ -475,20 +475,35 @@ class AfpSQLTableSelection(object):
         self.new = True
         self.data = []
         if not empty: self.add_data_row(no_criteria)
-    ## add empy data row to data
+    ## insert empy data row into data at given index
+    # @param index - index where row should be inserted, if == None data will be added at the end
     # @param no_criteria - flag if selection criteria should be spread into new row (false) or not (true)
-    def add_data_row(self, no_criteria = False):
+    def insert_data_row(self, index, no_criteria = False):
         data = []
         for feld in self.feldnamen:
             data.append(None)
-        self.data.append(data)
+        self.insert_row(index, data)
         if not no_criteria: self.set_select_criteria()
-        return self.get_data_length() - 1
+        if index is None: index = self.get_data_length() - 1
+        return index
+    ## add indicated data in a new row
+    # @param index - index where data should be inserted, if == None data will be added at the end
+    # @param row - data to be inserted
+    def insert_row(self, index, row):
+        if index is None:
+            mani = [None, row]
+        else:
+            mani = [-index-1, row]
+        print "AfpSQLTableSelection.insert_row:", index, mani
+        self.manipulate_data([mani])
+    ## add empy data row to data
+    # @param no_criteria - flag if selection criteria should be spread into new row (false) or not (true)
+    def add_data_row(self, no_criteria = False):
+        return self.insert_data_row(None, no_criteria)
     ## add indicated data in a new row
     # @param row - data to be inserted
     def add_row(self, row):
-        mani = [-1, row]
-        self.manipulate_data([mani])
+        self.insert_row(None, row)
   ## delete indicated row
     # @param row - index of row to be deleted
     def delete_row(self, row = 0):
@@ -502,7 +517,8 @@ class AfpSQLTableSelection(object):
     # - delete:  values  = None
     # - replace: values = {feld1: value1, ... }
     # - replace: values = [value1, value2, ...] , len == len(self.feldnamen)
-    # - insert: rowindex  == -1 and  values = [value1, value2, ...] , len == len(self.feldnamen)
+    # - append: rowindex  == None and  values = [value1, value2, ...] , len == len(self.feldnamen)
+    # - insert: rowindex  < 0 and  values = [value1, value2, ...] , len == len(self.feldnamen), rowindexrow will be mapped to index = -1 - rowindex
     def manipulate_data(self, changes):
         for entry in changes:
             if self.dbg: print "AfpSQLTableSelection manipulate_data:", entry
@@ -513,8 +529,11 @@ class AfpSQLTableSelection(object):
             if type(values) == dict: typ = "dict"
             elif type(values) == list: typ = "list"
             action = "replace"
-            if index < 0 or index >=  len(self.data):
+            if index is None:
+                action = "append"
+            elif index < 0:
                 action = "insert" # type(values) == list
+                index = -1 - index
             elif values is None:
                 action = "delete"
             if self.unique_feldname: index = 0
@@ -529,8 +548,11 @@ class AfpSQLTableSelection(object):
             elif action == "replace" and typ == "list" and len(values) == len(self.feldnamen):
                 originals = self.data[index]
                 self.data[index] = values
-            elif action == "insert"  and typ == "list" and len(values) == len(self.feldnamen):
+            elif action == "append"  and typ == "list" and len(values) == len(self.feldnamen):
                     self.data.append(values)
+                    self.set_select_criteria()
+            elif action == "insert"  and typ == "list" and len(values) == len(self.feldnamen):
+                    self.data.insert(index, values)
                     self.set_select_criteria()
             else:
                 print "ERROR: AfpSQLTableSelection.manipulate_data incorrect values:", action, typ, len(values), len(self.feldnamen)
@@ -578,7 +600,7 @@ class AfpSQLTableSelection(object):
     # only used internally!
     # @param manipulation - manipulation data to be checked 
     # @param feld - it will be checked if this column has been changed
-    # @param row - iindex of row from where values should be extracted
+    # @param row - index of row from where values should be extracted
     def mani_get_from_row(self, manipulation, feld, row):
         index = None
         if feld in self.feldnamen:

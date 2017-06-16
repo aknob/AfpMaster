@@ -816,7 +816,7 @@ def Afp_ChZeit(string):
         else:
             minutes = 0
         if len(split) > 2:
-            if spli[2]:
+            if split[2]:
                 seconds = int(split[2])
             else:
                 seconds = 0

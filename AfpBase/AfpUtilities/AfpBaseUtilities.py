@@ -45,6 +45,7 @@ import smtplib
 from email.mime.text import MIMEText
 from email.MIMEMultipart import MIMEMultipart
 from email.MIMEBase import MIMEBase
+from email.utils import formatdate
 from email import Encoders
 
 ##  get system infos
@@ -323,7 +324,7 @@ def AfpPy_checkModule(modul):
 # @param modul - name of modul to be imported
 # @param path - path to modul to be imported
 def AfpPy_Import(modul, path=None):
-    # path = None: to load standart modul not implemented/tested yet
+    # path = None: to load standard modul not implemented/tested yet
     mod = None
     pathname = None
     try:
@@ -522,6 +523,7 @@ def Afp_sendOverSMTP(sender, recipients, subject, message, html_message, attachm
         elif tls:
             port = 587
         msg = MIMEMultipart()
+        msg['Date'] = formatdate(localtime=True)
         msg['Subject'] = subject 
         msg['From'] = sender
         msg['To'] = ', '.join(recipients)

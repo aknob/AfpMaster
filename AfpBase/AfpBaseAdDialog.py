@@ -524,7 +524,7 @@ class AfpDialog_DiAdEin_SubMrk(AfpDialog):
         if not auswahl is None:
             KNr = int(auswahl)
             rows = self.data.get_mysql().select("*","KundenNr = " + Afp_toString(KNr), "ADRESSE") 
-            mani = [-1, rows[0]]       
+            mani = [None, rows[0]]       
             self.data.get_selection("Bez").manipulate_data([mani])
             self.changes["Verbindung"].append(mani)
             self.Pop_Verbindung()

@@ -3,7 +3,7 @@
 
 ## @package AfpBase.AfpBaseRoutines
 # AfpBaseRoutines module provides the base class for all 'Selection Lists', \n
-#                             and Afp specific utility routines with or without database access \n
+# and Afp specific utility routines with or without database access \n
 # it holds the calsses
 # - AfpSelectionList
 #
@@ -601,6 +601,7 @@ class AfpSelectionList(object):
     # @param selname - name of TableSelection
     def evaluate_selects(self, selname):
         select_clause = None
+        order_clause = None
         if selname is None: selname = self.mainselection
         if selname in self.selects:
             if self.selects[selname] == []:
@@ -611,6 +612,11 @@ class AfpSelectionList(object):
                     # fixed fromula, no evaluation
                     select_clause = select[1:]
                 else:
+                    if "ORDER BY" in select:
+                        ord = select.split("ORDER BY")
+                        if len(ord) == 2:
+                            order_clause = ord[1]
+                            select = ord[0]
                     select_clause = ""
                     clauses = select.split("AND")
                     for clause in clauses:
@@ -622,8 +628,8 @@ class AfpSelectionList(object):
                             if select_clause: select_clause += " AND "
                             # <=, >= work also, as < and > are kept on the left (not evaluated) side
                             select_clause += sels[0] + "= " + value
-        #print "AfpSelectionList.evaluate_selects:", selname, "CLAUSE:", select_clause
-        return select_clause
+        #print "AfpSelectionList.evaluate_selects:", selname, "CLAUSE:", select_clause, order_clause
+        return select_clause, order_clause
     ## set the customised select_clause for the main selection
     def set_main_selects_entry(self):  
         if self.mainselection and self.mainindex and self.mainvalue:         
@@ -669,14 +675,14 @@ class AfpSelectionList(object):
         if allow_new and self.new: new = True
         else: new = False
         selection = self.constitute_selection(select)
-        select_clause = self.evaluate_selects(select)
+        select_clause, order_clause = self.evaluate_selects(select)
         #print "AfpSelectionList.create_selection:", "\"" + select + "\"", select_clause, new, selection
         if selection is None and select_clause == []:
             if new: selection = self.spezial_selection(select, True)
             else:   selection = self.spezial_selection(select)
         elif selection and select_clause:
             if new: selection.new_data()
-            else:   selection.load_data(select_clause)
+            else:   selection.load_data(select_clause, order_clause)
         elif selection is None and select == self.mainselection:
             selection = AfpSQLTableSelection(self.mysql, select, self.debug, self.mainindex)
         if not selection is None:
@@ -696,9 +702,9 @@ class AfpSelectionList(object):
     # @param selname - name of TableSelection
     def reload_selection(self, selname):
         selection = self.get_selection(selname)
-        select_clause = self.evaluate_selects(selname)
+        select_clause, order_clause = self.evaluate_selects(selname)
         if selection and select_clause:
-            selection.load_data(select_clause)
+            selection.load_data(select_clause, order_clause)
     ## return selection, create new if not existend
     # @param name - if given, name of TableSelection, otherwise get main selection
     # @param allow_new_creation - if selection has to be created allow new plain creation if approritate flag is set
@@ -749,11 +755,16 @@ class AfpSelectionList(object):
             selection.set_data(rows)
         #print "AfpSelectionList.get_selection_from_row:",selname, row, selection
         return selection
+    ## insert an empty row to a TableSelection
+    # @param selname - name of TableSelection 
+    # @param rowNr- index where row in TableSelection should be inserted
+    def insert_row(self, selname, rowNr):
+        self.get_selection(selname).insert_data_row(rowNr, True)
     ## delete a selection row from a TableSelection
     # @param selname - name of TableSelection 
-    # @param row - index of row in TableSelection to be deleted
-    def delete_row(self, selname, row):
-        self.get_selection(selname).delete_row(row)
+    # @param rowNr- index of row in TableSelection to be deleted
+    def delete_row(self, selname, rowNr):
+        self.get_selection(selname).delete_row(rowNr)
       
     ## special selection handling routine to be overwritten for individual selection programming
     # @param selname - name of special TableSelection 
@@ -857,11 +868,13 @@ class AfpSelectionList(object):
     ## set a database lock on the main selection (table) of the SelectionList
     # @param selname - if given name of TableSelection to be locked
     def lock_data(self, selname = None):
-        self.get_selection(selname).lock_data()   
+        if not self.new:
+            self.get_selection(selname).lock_data()   
     ## remove a database lock from the main selection (table) of the SelectionList
     # @param selname - if given name of TableSelection to be unlocked
     def unlock_data(self, selname = None):
-        self.get_selection(selname).unlock_data()
+        if not self.new:
+            self.get_selection(selname).unlock_data()
     ## propgate new mainvalue to the dependent TableSelections
     def spread_mainvalue(self):
         #print "AfpTableSelectionList.spread_mainvalue"
@@ -930,8 +943,7 @@ class AfpSelectionList(object):
     # - it is assumed that both TableSelections have the same tablename
     # @param value_selection - TableSelection holding the changed values
     # @param row - index of row in original TableSelection where data should be written to
-    def set_row_to_selection_values(self, value_selection, row = -1):
-        if row is None: row = -1
+    def set_row_to_selection_values(self, value_selection, row = None):
         selection = self.get_selection(value_selection.get_tablename())
         value_row = value_selection.get_values(None)[0]
         mani = [row, value_row]

@@ -70,9 +70,6 @@ class AfpScreen(wx.Frame):
         self.no_keydown = []     
         self.buttoncolor = (230,230,230)
         self.actuelbuttoncolor = (255,255,255)
-        self.readonlycolor = self.GetBackgroundColour()
-        self.editcolor = (255,255,255)
-        self.editable = False
         self.panel = wx.Panel(self, -1, style = wx.WANTS_CHARS) 
         
     ## connect to database and populate widgets
@@ -195,13 +192,6 @@ class AfpScreen(wx.Frame):
             for i in range(new_lgh, old_lgh):
                 grid.DeleteRows(1)
                 
-    ## central routine which returns if screen is in editable mode
-    def is_editable(self):
-        #editable = False
-        #if self.panel.GetBackgroundColour() == self.editcolor: editable = True
-        #return editable
-        return self.editable
-    
     ## Eventhandler Menu - show version information
     def On_ScreenVersion(self, event):
         if self.debug: print "AfpScreen Event handler `On_ScreenVersion'!"
@@ -263,16 +253,11 @@ class AfpScreen(wx.Frame):
         keycode = event.GetKeyCode()        
         if self.debug: print "AfpScreen Event handler `On_KeyDown'", keycode
         #print "AfpScreen Event handler `On_KeyDown'", keycode
-        caught = 0
-        if keycode == wx.WXK_LEFT: caught = -1
-        if keycode == wx.WXK_RIGHT: caught = 1
-        if self.editable: caught = 0
-        #print "AfpScreen Event handler `On_KeyDown'", keycode, self.editable, next
-        if caught: 
-            self.CurrentData(caught)
-        else: 
-            caught = self.invoke_special_keydown(keycode)
-            if not caught: event.Skip()
+        next = 0
+        if keycode == wx.WXK_LEFT: next = -1
+        if keycode == wx.WXK_RIGHT: next = 1
+        self.CurrentData(next)
+        event.Skip()
 
      
     ## Population routines for form and widgets
@@ -363,22 +348,6 @@ class AfpScreen(wx.Frame):
     def Pop_special(self):
         return
  
-    ## set or unset editable mode
-    # @param ed_flag - flag to turn editing on or off
-    # @param lock_data - flag if invoking of editable mode needs a lock on the database
-    def Set_Editable(self, ed_flag, lock_data = None):
-        self.editable = ed_flag
-        if ed_flag:
-            self.panel.SetBackgroundColour(self.editcolor)
-        else:
-            self.panel.SetBackgroundColour(self.readonlycolor)
-        self.panel.Refresh()
-        if lock_data and self.data:
-            if ed_flag:
-                if not self.data.new: self.data.lock_data()
-            else: 
-                if not self.data.new: self.data.unlock_data()
-  
     ## reload current data to screen
     def Reload(self):
         self.sb.select_current()
@@ -436,11 +405,6 @@ class AfpScreen(wx.Frame):
     # - REMARK: last column will not be shown, but stored for identifiction
     def get_grid_rows(self, typ):
         return []   
-    ## invoke special keydown handling, additional to scrolling forward and backward\n
-    # default - don't do anything, to be overwritten if special key handling is desired \n
-    # return flag if key has been caught
-    def invoke_special_keydown(self, keycode):
-        return False
 # End of class AfpScreen
 
 ## loader roution for Screens
@@ -468,3 +432,260 @@ def Afp_loadScreen(globals, modulname, sb = None, origin = None):
     else:
         return None
         
+## Class of screen with interactive edit possibillity \n \n
+# - the grid to be edited has to be assigned to the property 'self.grid_editable'
+# - for this grid the event 'EVT_GRID_CMD_CELL_LEFT_CLICK' has to be connected to the method 'self.On_LClick_EditGrid'
+#   self.Bind(wx.grid.EVT_GRID_CMD_CELL_LEFT_DCLICK, self.On_DClick_EditGrid, self.grid_editable)
+# - for this grid the event 'EVT_GRID_CMD_CELL_LEFT_DCLICK' has to be connected to the method 'self.On_DClick_EditGrid'
+#   self.Bind(wx.grid.EVT_GRID_CMD_CELL_LEFT_CLICK, self.On_LClick_EditGrid, self.grid_editable)
+# - a button to switch to editable modus may be assigned to 'self.button_Edit', the event has to be assigned to the method 'self.On_Edit'
+#   self.Bind(wx.EVT_BUTTON, self.On_Edit, self.button_Edit)
+# - 'self.editable_rows' has to be set tu number of grid rows in self.get_grid_rows in devired class
+class AfpEditScreen(AfpScreen):
+    ## initialize AfpEditScreen
+    def __init__(self):
+        AfpScreen.__init__(self,None, -1, "")
+        self.editable = False
+        self.readonlycolor = self.GetBackgroundColour()
+        self.editcolor = (255,255,255)
+        self.editcellcolor = (192, 192, 192)
+        # set if keyboard entries should be deviated to the plugin
+        # the plugin must supply the method 'catch_keydown(keycode)'
+        self.catch_keydown = None
+        # postprocess keydown function, when enter key is not catched
+        self.postprocess_keydown = None
+        # editable grid has to be assigned here
+        # the events EVT_GRID_CMD_CELL_LEFT_CLICK and EVT_GRID_CMD_CELL_LEFT_DCLICK have to be assigened properly
+        self.grid_editable = None  
+        # button to switch to edit modus has to be assigned here
+        # the event EVT_BUTTON has to be assigned to self.On_Edit
+        self.button_Edit = None
+        # to get fully functionallity self.editable_rows has to be set to number of grid rows in self.get_grid_rows
+        self.editable_rows = None
+        self.editable_cols = None
+        # index of row actually selected
+        self.selected_row = None
+        # data to be proceeded
+        self.data = None
+        
+        # use_RETURN may be set in devired screen during activation
+        self.use_RETURN = None
+        # automated_row_selection may be set to invoke edit_data automatically when last rowis selected
+        self.automated_row_selection = None
+     
+    ## set or unset editable mode
+    # @param ed_flag - flag to turn editing on or off
+    # @param lock_data - flag if invoking of editable mode needs a lock on the database
+    def Set_Editable(self, ed_flag, lock_data = None):
+        self.editable = ed_flag
+        if ed_flag:
+            self.panel.SetBackgroundColour(self.editcolor)
+            if self.grid_editable:
+                if self.editable_cols is None:
+                    self.editable_cols = self.grid_editable.GetNumberCols()
+                if self.editable_rows is None:
+                    self.editable_rows = self.grid_editable.GetNumberRows()
+            if self.button_Edit:
+                self.button_Edit.SetLabel("&Speichern")
+        else:
+            self.panel.SetBackgroundColour(self.readonlycolor)
+            if self.button_Edit:
+                self.button_Edit.SetLabel("&Bearbeiten")
+        self.panel.Refresh()
+        if lock_data and self.data:
+            if ed_flag:
+                self.data.lock_data()
+            else: 
+                self.data.unlock_data()
+   ## central routine which returns if screen is in editable mode
+    def is_editable(self):
+        return self.editable
+    ## leave editable modus of screen
+    # @param store - flag if data should be stored during leaving the modus, default: True
+    def leave_editmodus(self, store=True):
+        if  self.is_editable() :
+            self.Set_Editable(False)
+            self.select_row(-1)
+            print "AfpEditScreen.leave_editmodus ReadOnly:", self.is_editable(), store
+            if store:
+                self.store_data()            
+            else:
+                self.data.unlock_data()
+                self.data = None
+                self.CurrentData()
+            self.panel.Refresh()
+    ## enter editable modus of screen
+    def invoke_editmodus(self):
+        if not self.is_editable():
+            self.Set_Editable(True)
+            if self.editable_rows:
+                self.select_row(self.editable_rows)
+            self.panel.Refresh()
+            print "AfpEditScreen.invoke_editmodus Edit:", self.is_editable()
+            self.data.lock_data()
+            self.edit_data()
+    ## resize grid rows - overwritten from AfpScreen
+    # @param name - name of grid
+    # @param grid - the grid object
+    # @param new_lgh - new number of rows to be populated
+    def grid_resize(self, name, grid, new_lgh):
+        if self.is_editable() and new_lgh >= self.grid_minrows[name]:
+            new_lgh += 1
+        super(AfpEditScreen, self).grid_resize(name, grid, new_lgh)
+    ## mark indicates row of content grid as selected
+    # @param row - index of gridrow to be marked \n
+    # - if row < 0: only marked row will be unmarked
+    def select_row(self, row):
+        #print "AfpEditScreen.select_row invoked", row
+        if self.grid_editable and row <= self.editable_rows:
+            if not self.selected_row is None and self.selected_row != row :
+                attrRO = wx.grid.GridCellAttr()
+                for col in range(0,self.editable_cols):
+                    #print "AfpEditScreen.On_LClick_Content RO:", self.selected_row, col, attrRO
+                    self.grid_editable.SetAttr(self.selected_row, col, attrRO)
+            if row > -1:
+                attrSel = wx.grid.GridCellAttr()
+                attrSel.SetBackgroundColour(self.editcellcolor)
+                for col in range(0,self.editable_cols):
+                    #print "AfpEditScreen.On_LClick_Content Select:", row, col, attrSel
+                    self.grid_editable.SetAttr(row, col, attrSel)
+                self.selected_row = row
+            else:
+                self.selected_row = None
+            self.panel.Refresh()
+ 
+    ## Eventhandler Keyboard - handle key-down events
+    def On_KeyDown(self, event):
+        keycode = event.GetKeyCode()        
+        if self.debug: print "AfpEditScreen Event handler `On_KeyDown'", keycode
+        #print "AfpEditScreen Event handler `On_KeyDown'", keycode
+        caught = 0
+        if keycode == wx.WXK_LEFT: caught = -1
+        if keycode == wx.WXK_RIGHT: caught = 1
+        if self.editable: caught = 0
+        if caught: 
+            self.CurrentData(caught)
+        else: 
+            if self.catch_keydown:
+                caught = self.catch_keydown.catch_keydown(event)
+                if self.postprocess_keydown and not caught and keycode == wx.WXK_RETURN:
+                    if self.debug: print "AfpEditScreen postprocess keydown, remove catcher"
+                    self.postprocess_keydown()
+                    self.catch_keydown = None
+                    self.postprocess_keydown = None
+                    caught = True
+                    # invoke next selection, if last line is selected
+                    if self.automated_row_selection and self.selected_row  == self.data.get_content_length():
+                        if self.debug: print "AfpEditScreen postprocess keydown: 'edit_data' invoked" 
+                        self.edit_data()
+            else:
+                caught = self.editable_keydown(keycode)
+            if not caught: event.Skip()
+    ## invoke special keydown handling, additional to scrolling forward and backward \n
+    # @param keycode - code of pushed key
+    def editable_keydown(self, keycode):
+        caught = False
+        if keycode == wx.WXK_SPACE:
+            if self.is_editable():
+                if not self.selected_row is None:
+                    print "AfpEditScreen.editable_keydown deselect row"
+                    self.select_row(-1)
+                else:
+                    #self.data.lock_data()
+                    print "AfpEditScreen.editable_keydown lock edit"
+                    self.edit_data()
+            else:
+                print "AfpEditScreen.editable_keydown invoke editmodus"
+                self.invoke_editmodus()
+            caught = True
+        elif keycode == wx.WXK_ESCAPE:
+            if self.is_editable():
+                print "AfpEditScreen.editable_keydown unlock editmodus"
+                self.leave_editmodus(False)
+            caught = True
+        elif keycode == wx.WXK_RETURN:
+            if self.is_editable() and not self.selected_row is None:
+                print "AfpEditScreen.editable_keydown edit row:", self.selected_row
+                self.edit_data(self.selected_row)
+            elif self.use_RETURN:
+                if self.is_editable():
+                    print "AfpEditScreen.editable_keydown leave editmodus"
+                    self.leave_editmodus()
+                else:
+                    print "AfpEditScreen.editable_keydown invoke editmodus"
+                    self.invoke_editmodus()
+            caught = True
+        elif keycode == wx.WXK_DELETE:
+            print "AfpEditScreen.editable_keydown DELETE"
+            self.delete_row(self.selected_row)
+            self.select_row(self.selected_row)
+        elif keycode == wx.WXK_INSERT:
+            print "AfpEditScreen.editable_keydown INSERT"
+            self.insert_row(self.selected_row)
+            self.select_row(self.selected_row)
+        elif self.is_editable():
+            if keycode == wx.WXK_DOWN: 
+                if not self.selected_row is None and self.selected_row < self.editable_rows: 
+                    print "AfpEditScreen.editable_keydown rows:", self.selected_row +1, self.editable_rows
+                    self.select_row(self.selected_row + 1)
+                caught = True
+            elif keycode == wx.WXK_UP: 
+                if self.selected_row: 
+                    print "AfpEditScreen.editable_keydown rows:", self.selected_row - 1, self.editable_rows
+                    self.select_row(self.selected_row - 1)
+                caught = True
+        if self.debug: print "AfpEditScreen.editable_keydown:", keycode, caught
+        print "AfpEditScreen.editable_keydown:", keycode, caught
+        return caught
+             
+    ## Eventhandler Grid - double click editable grid \n
+    # has to be attached to editable grid in devired class
+    def On_LClick_EditGrid(self, event):
+        if self.is_editable():
+            row = event.GetRow()
+            print "Event handler `On_LClick_EditGrid' invoked", row
+            self.select_row(row)
+        else:
+            print "Event handler `On_LClick_EditGrid'"
+    ## Eventhandler Grid - double click editable grid \n
+    # has to be attached to editable grid in devired class
+    def On_DClick_EditGrid(self, event):
+        if self.is_editable():
+            print "Event handler `On_LClick_EditGrid' invoked"
+            row = event.GetRow()
+            if row <= self.editable_rows:
+                self.edit_data(row)
+        else:
+            print "Event handler `On_LClick_EditGrid'"
+            
+    ## Eventhandler BUTTON - swap editable modus \n
+    # has to be attached to button_Edit if button is present
+    # - lock data if editable modus is started
+    # - store data if editable modus is ended
+    def On_Edit(self,event):
+        if self.editable:
+            self.leave_editmodus()
+        else:
+            self.invoke_editmodus()
+        event.Skip()
+  
+    # routine to be overwritten in devired class
+    #
+    ## edit data
+    # @param rowNr - row index to be edited
+    # to be overwritten in devired class
+    def edit_data(self, rowNr = None):
+        return
+    ## insert row
+    # @param rowNr - row index to be edited
+    # to be overwritten in devired class
+    def insert_row(self, rowNr = None):
+        return
+    ## delete row
+    # @param rowNr - row index to be edited
+    # to be overwritten in devired class
+    def delete_row(self, rowNr = None):
+        return
+             
+# end of class AfpEditScreen
+

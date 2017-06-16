@@ -1151,7 +1151,7 @@ class AfpDialog_Auswahl(wx.Dialog):
         self.debug = self.mysql.get_debug()
         self.index = index
         self.search = value
-        if self.datei and not self.datei in self.dateien:
+        if self.datei and not self.datei.upper() in self.dateien:
             self.dateien += " " + self.datei.upper()
         self.dateien = self.dateien.strip()
         # initialize grid
