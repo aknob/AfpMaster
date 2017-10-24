@@ -201,8 +201,8 @@ class AfpAdresse(AfpSelectionList):
         if self.get_listname() == victim.get_listname():
             KNr = self.get_value("KundenNr")
             name = self.get_name(True)
-            debitor = Afp_getIndividualAccount(self.get_mysql(), KNr, "Debitor")
-            kreditor = Afp_getIndividualAccount(self.get_mysql(), KNr, "Kreditor")
+            debitor = self.get_account("Debitor")
+            kreditor = self.get_account("Kreditor")
             selects = self.get_selection_names()
             names = {"ADRESATT": "Name","ANMELDER": "AgentName","REISEN":"AgentName", "VERBIND":"Name", "FAHRTEN":"Name","AnmeldAgent":"AgentName"}
             debitors = {"ANMELDER": "AgentDebitor", "RECHNG":"Debitor", "REISEN":"Debitor"}
@@ -219,7 +219,7 @@ class AfpAdresse(AfpSelectionList):
             # flag the address to be deleted
             victim.get_selection().delete_row()
             # write values to database
-            if seld.debug: print "AfpAdresse.hostile_takeover:", auswahl,"->", KdNr
+            if self.debug: print "AfpAdresse.hostile_takeover:", auswahl,"->", KdNr
             print "AfpAdresse.hostile_takeover:", auswahl,"->", KdNr
             #victim.view()  
             victim.store()

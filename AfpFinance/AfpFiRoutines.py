@@ -190,6 +190,11 @@ class AfpFinanceTransactions(AfpSelectionList):
         data["Gegenkonto"] = Konto
         data["Bem"] = data["Bem"] + " " + bem
         return data
+    ## retrieve individual account from database
+    # @param KNr - address identifier
+    # @param Typ - typ of account, default: Debitor
+    def get_individual_account(self, KNr, Typ = "Debitor"):
+         return Afp_getIndividualAccount(self.get_mysql(), KNr, Typ)
     ## retrieve special account from database
     # @param ident - identifier of account
     def get_special_accounts(self, ident):

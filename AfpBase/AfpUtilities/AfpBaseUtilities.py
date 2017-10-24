@@ -65,6 +65,13 @@ def Afp_getGlobalVar(name):
         if deli == '\\': deli = "\\"
         return deli
     return None
+## type check 'integer'
+# @param wert - value to be checked
+def Afp_isInteger(wert):
+    typ = type(wert)
+    if typ == int: return True
+    if typ == long: return True
+    return False
 ## type check 'numeric'
 # @param wert - value to be checked
 def Afp_isNumeric(wert):
@@ -368,17 +375,29 @@ def Afp_importFileLines(fname):
          fin.close()
     return lines
   
-## extract a column of a 2 dimensional array
-# @param ind - index of column
-# @param matrix - matrix where column is extraced from
-def Afp_extractColumn(ind, matrix):
-    column = []
+## extract a columns of a 2 dimensional array, 
+# if only one index is given as integer, only a 1-dim array is returned, otherwise 2-dimensions are returned
+# @param inds - index of column or list of indices, if None is a list entry, this column will be filled with 'None's
+# @param matrix - matrix where columns are extraced from
+def Afp_extractColumns(inds, matrix):
+    columns = []
+    dim1 = Afp_isInteger(inds)
+    if dim1:
+        indices = [inds]
+    else:
+        indices = inds
     for row in matrix:
-        if len(row) > ind:
-            column.append(row[ind])
+        newrow = []
+        for ind in indices:
+            if ind is None or ind >= len(row) or ind < 0:
+                newrow.append(None)
+            else:
+                newrow.append(row[ind])
+        if dim1:
+            columns.append(newrow[0])
         else:
-            column.append(None)
-    return column
+            columns.append(newrow)
+    return columns
 ## deep copy of an array (list)
 # @param array - array to be copied
 def Afp_copyArray(array):
@@ -393,6 +412,18 @@ def Afp_swapDict(dict):
     for entry in dict:
         new_dict[dict[entry]] = entry
     return new_dict
+## compare two arrays and return list of indices where values of first array occur in second \n
+# i = index in first array, indices[i] = index in second array or None, if value doesen't occur in second array
+# @param master - array from which entries should be found in second
+# @param slave - array where entries should be found
+def Afp_findIndices(master, slave):
+    indices = []
+    for entry in master:
+        if entry in slave:
+            indices.append(slave.index(entry))
+        else:
+            indices.append(None)
+    return indices
 ## sort two lists simultan
 # @param master - list which triggers the sorting
 # @param slave - list which is sorted simultan to master list

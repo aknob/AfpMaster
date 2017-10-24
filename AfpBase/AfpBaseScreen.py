@@ -36,6 +36,8 @@ from AfpDatabase.AfpSuperbase import AfpSuperbase
 
 import AfpBaseRoutines
 from AfpBaseRoutines import Afp_importPyModul, Afp_importAfpModul, Afp_ModulNames, Afp_archivName, Afp_startExtraProgram
+import AfpBaseDialog
+from AfpBaseDialog import AfpReq_Question
 import AfpBaseDialogCommon
 from AfpBaseDialogCommon import AfpLoad_editArchiv, AfpReq_Information, AfpReq_Version, AfpReq_extraProgram
 import AfpGlobal
@@ -68,6 +70,7 @@ class AfpScreen(wx.Frame):
         self.filtermap = {}
         self.indexmap = {}
         self.no_keydown = []     
+        self.windowsbackgroundcolor = (239, 235, 222)
         self.buttoncolor = (230,230,230)
         self.actuelbuttoncolor = (255,255,255)
         self.panel = wx.Panel(self, -1, style = wx.WANTS_CHARS) 
@@ -95,14 +98,6 @@ class AfpScreen(wx.Frame):
         else:
             self.einsatz = None
         print "AfpScreen.init_database Einsatz:", self.einsatz
-        # Keyboard Binding
-        self.no_keydown = self.get_no_keydown()
-        self.panel.Bind(wx.EVT_KEY_DOWN, self.On_KeyDown)
-        self.panel.SetFocus()
-        children = self.panel.GetChildren()
-        for child in children:
-            if not child.GetName() in self.no_keydown:
-                child.Bind(wx.EVT_KEY_DOWN, self.On_KeyDown)
         # generate Superbase
         setting = self.globals.get_setting(self.typ)
         if not self.debug and not setting is None: 
@@ -118,6 +113,22 @@ class AfpScreen(wx.Frame):
         self.set_initial_record(origin)
         self.set_current_record()
         self.Populate()
+        # Keyboard Binding
+        self.no_keydown = self.get_no_keydown()
+        self.panel.Bind(wx.EVT_KEY_DOWN, self.On_KeyDown)
+        children = self.panel.GetChildren()
+        for child in children:
+            if not child.GetName() in self.no_keydown:
+                child.Bind(wx.EVT_KEY_DOWN, self.On_KeyDown)
+        # set background if necessary
+        if self.globals.os_is_windows():
+            self.SetBackgroundColour(self.windowsbackgroundcolor)
+            for entry in self.grid_minrows:
+                self.grid_minrows[entry] =  int(1.4 * self.grid_minrows[entry])
+                
+    ## set focus to panel
+    def set_focus(self):
+        self.panel.SetFocus()
     
     ## create menubar and add common items \n
     # menubar implementation has only be done to this point, specific Afp-modul menues are not yet implemented
@@ -427,6 +438,7 @@ def Afp_loadScreen(globals, modulname, sb = None, origin = None):
         exec pyBefehl
     if Modul:
         Modul.init_database(globals, sb, origin)
+        Modul.set_focus()
         Modul.Show()
         return Modul
     else:
@@ -446,7 +458,7 @@ class AfpEditScreen(AfpScreen):
     def __init__(self):
         AfpScreen.__init__(self,None, -1, "")
         self.editable = False
-        self.readonlycolor = self.GetBackgroundColour()
+        self.readonlycolor = None
         self.editcolor = (255,255,255)
         self.editcellcolor = (192, 192, 192)
         # set if keyboard entries should be deviated to the plugin
@@ -460,7 +472,7 @@ class AfpEditScreen(AfpScreen):
         # button to switch to edit modus has to be assigned here
         # the event EVT_BUTTON has to be assigned to self.On_Edit
         self.button_Edit = None
-        # to get fully functionallity self.editable_rows has to be set to number of grid rows in self.get_grid_rows
+        # to get full functionallity self.editable_rows has to be set to number of grid rows in self.get_grid_rows
         self.editable_rows = None
         self.editable_cols = None
         # index of row actually selected
@@ -472,7 +484,17 @@ class AfpEditScreen(AfpScreen):
         self.use_RETURN = None
         # automated_row_selection may be set to invoke edit_data automatically when last rowis selected
         self.automated_row_selection = None
-     
+
+    ## connect to database and populate widgets
+    # overwritten from AfpScreen
+    # @param globals - global variables, including database connection
+    # @param sb - AfpSuperbase database object , if supplied, otherwise it is created
+    # @param origin - string from where to get data for initial record, 
+    # to allow syncronised display of screens (only works if 'sb' is given)
+    def init_database(self, globals, sb, origin):
+        AfpScreen.init_database(self, globals, sb, origin)
+        self.readonlycolor = self.GetBackgroundColour()
+        
     ## set or unset editable mode
     # @param ed_flag - flag to turn editing on or off
     # @param lock_data - flag if invoking of editable mode needs a lock on the database
@@ -504,16 +526,19 @@ class AfpEditScreen(AfpScreen):
     # @param store - flag if data should be stored during leaving the modus, default: True
     def leave_editmodus(self, store=True):
         if  self.is_editable() :
-            self.Set_Editable(False)
-            self.select_row(-1)
             print "AfpEditScreen.leave_editmodus ReadOnly:", self.is_editable(), store
+            checked = None
             if store:
-                self.store_data()            
-            else:
+                checked = self.check_data()
+                if checked:
+                    self.store_data()            
+            if checked is None:
                 self.data.unlock_data()
                 self.data = None
                 self.CurrentData()
-            self.panel.Refresh()
+                self.select_row(-1)
+                self.Set_Editable(False)
+                self.panel.Refresh()
     ## enter editable modus of screen
     def invoke_editmodus(self):
         if not self.is_editable():
@@ -568,9 +593,13 @@ class AfpEditScreen(AfpScreen):
         else: 
             if self.catch_keydown:
                 caught = self.catch_keydown.catch_keydown(event)
-                if self.postprocess_keydown and not caught and keycode == wx.WXK_RETURN:
+                if self.postprocess_keydown and not caught and (keycode == wx.WXK_RETURN or  keycode == wx.WXK_ESCAPE):
                     if self.debug: print "AfpEditScreen postprocess keydown, remove catcher"
-                    self.postprocess_keydown()
+                    if keycode == wx.WXK_RETURN:
+                        self.postprocess_keydown()
+                    else:
+                        self.Pop_grid()
+                        self.select_row(self.selected_row)
                     self.catch_keydown = None
                     self.postprocess_keydown = None
                     caught = True
@@ -669,7 +698,22 @@ class AfpEditScreen(AfpScreen):
             self.invoke_editmodus()
         event.Skip()
   
-    # routine to be overwritten in devired class
+    # routines that may be overwritten in devired class
+    # 
+   ## check if data should or has to be stored \n
+   # three return values are possible:
+   # - None: no data to be saved
+   # - False: user selects not to save data
+   # - True: data has to be saved
+    def check_data(self):
+        print "AfpEditScreen.check_data invoked" 
+        Ok = AfpReq_Question("Sollen die Daten so gespeichert werden?", "", "Daten speichern?")
+        return Ok
+    ## store data
+    def store_data(self):
+        print "AfpEditScreen.store_data invoked" 
+        self.data.store()    
+    # routines to be overwritten in devired class
     #
     ## edit data
     # @param rowNr - row index to be edited

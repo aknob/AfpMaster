@@ -98,7 +98,7 @@ def AfpLoad_FaAusw(globals, table, index, value = "", where = None, ask = False)
     print "AfpLoad_FaAusw input:", index, value, where, ask
     kind = AfpFa_getClearName(table)
     if ask:
-        sort_list = AfpFaktura_getOrderlistOfTable()        
+        sort_list = AfpFa_getOrderlistOfTable()        
         value, index, Ok = Afp_autoEingabe(value, index, sort_list, kind + "s")
         print "AfpLoad_FaAusw index:", index, value, Ok
     if Ok:
@@ -207,7 +207,7 @@ class AfpDialog_FaCustomSelect(AfpDialog):
         self.col_percents = [30, 15, 20, 35]
         self.ident = []
         AfpDialog.__init__(self,None, -1, "")
-        self.SetSize((650,400))
+        self.SetSize((650,415))
         self.SetTitle("Schnellauswahl")
         #self.Bind(wx.EVT_ACTIVATE, self.On_Activate)
         
@@ -226,7 +226,7 @@ class AfpDialog_FaCustomSelect(AfpDialog):
         self.radio_Rechnung = wx.RadioButton(panel, -1,  label = "Rechnung", pos=(280,100), size=(90,15),  name="RRechnung") 
         self.radio_Bestellung = wx.RadioButton(panel, -1,  label = "Bestellung", pos=(280,125), size=(90,15),  name="RBestellung") 
         
-        self.choice_Art = wx.Choice(panel, -1,  pos=(175,160), size=(250,20),  choices=AfpFaktura_possibleOpenKinds(),  name="CArt")   
+        self.choice_Art = wx.Choice(panel, -1,  pos=(175,160), size=(250,20),  choices=AfpFa_possibleOpenKinds(),  name="CArt")   
         self.Bind(wx.EVT_CHOICE, self.On_CArt, self.choice_Art)
          
         self.button_Bar = wx.Button(panel, -1, label="&Bar", pos=(20,30), size=(100,50), name="Bar")
@@ -255,7 +255,7 @@ class AfpDialog_FaCustomSelect(AfpDialog):
         self.Bind(wx.EVT_BUTTON, self.On_Ende, self.button_Ende)
        
         #self.setWx(panel, [390, 220, 80, 30], [480, 220, 80, 30]) # set Edit and Ok widgets
-        self.grid_auswahl = wx.grid.Grid(panel, -1, pos=(15,180), size=(500,180), style=wx.ALWAYS_SHOW_SB, name="Auswahl")
+        self.grid_auswahl = wx.grid.Grid(panel, -1, pos=(15,182), size=(500,180), style=wx.ALWAYS_SHOW_SB, name="Auswahl")
         self.grid_auswahl.CreateGrid(self.rows, self.cols)
         self.grid_auswahl.SetRowLabelSize(0)
         self.grid_auswahl.SetColLabelSize(0)
@@ -277,7 +277,7 @@ class AfpDialog_FaCustomSelect(AfpDialog):
     # this routine is called from the AfpDialog.Populate
     def Pop_Auswahl(self):
         typ = self.choice_Art.GetStringSelection()
-        datei, filter = AfpFaktura_possibleKinds(typ)
+        datei, filter = AfpFa_possibleKinds(typ)
         if datei == "":
             datei = "ADMEMO"
             filter = "Zustand." + datei + " = \"offen\""
@@ -314,6 +314,10 @@ class AfpDialog_FaCustomSelect(AfpDialog):
     def attach_globals(self, globals):
         self.globals = globals
         self. debug = globals.is_debug()
+        if self.globals.os_is_windows():
+            self.rows = int(1.4 * self.rows)
+            self.minrows = int(1.4 * self.minrows)
+        self.choice_Art.SetSelection(0)
         self.Populate()
         
     ## return label of selected radio button
@@ -336,7 +340,7 @@ class AfpDialog_FaCustomSelect(AfpDialog):
         event.Skip()        
         if ind < len(self.ident):
             RechNr = self.ident[ind]
-            self.data = AfpFaktura_getSelectionList(self.globals, RechNr, self.datei)
+            self.data = AfpFa_getSelectionList(self.globals, RechNr, self.datei)
             self.Ok = True
             self.EndModal(wx.ID_OK)
     ## Eventhandler Grid RightClick - invoke memo edit
@@ -472,7 +476,7 @@ class AfpDialog_FaLine(AfpDialog):
     def __init__(self, *args, **kw):
         AfpDialog.__init__(self,None, -1, "")
         self.action = None
-        self.SetSize((280,150))
+        self.SetSize((280,165))
         self.SetTitle("Rechnungszeile ändern".decode("UTF-8"))
         self.SetFocus()
 
@@ -496,10 +500,16 @@ class AfpDialog_FaLine(AfpDialog):
         #self.setWx(panel, [400, 6, 75, 36], [400, 90, 75, 36]) # set Edit and Ok widgets
 
     ## attach data to dialog 
-    # @param text - text to be displayed and edited
+    # @param ident - identifier to be displayed and edited
+    # @param name - if ident == None: name to be displayed and edited
     # @param debug - debug flag
-    def set_data(self, text, debug = False):
+    def set_data(self, ident, name, debug = False):
+        text = ident
+        if text is None:
+            text = name
         if text: self.text.SetValue(text)
+        if ident is None: 
+            self.radio_Ohne.SetValue(True)
         self.debug = debug
     ## get radio selection 
     def get_radio_value(self):
@@ -534,12 +544,14 @@ class AfpDialog_FaLine(AfpDialog):
         self.EndModal(wx.ID_CANCEL)
 
 
-## loader routine for dialog for invoice entries
-# @param value - value to be edited
-def AfpLoad_FaLine( value = None, debug = False):
-    #print "AfpLoad_FaLine init:",value, debug
+    ## loader routine for dialog for invoice entries
+    # @param ident - identifier to be displayed and edited
+    # @param name - if ident == None: name to be displayed and edited
+    # @param debug - debug flag
+def AfpLoad_FaLine( ident = None, name = False,  debug = False):
+    #print "AfpLoad_FaLine init:",ident, name, debug
     EditLine = AfpDialog_FaLine(None)
-    if value or debug: EditLine.set_data(value, debug)
+    if ident or name or debug: EditLine.set_data(ident, name, debug)
     res = EditLine.ShowModal()
     Ok = None
     action = None

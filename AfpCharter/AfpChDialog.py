@@ -108,7 +108,7 @@ class AfpDialog_ChAusw(AfpDialog_Auswahl):
     # overwritten for "Charter" use
     def invoke_neu_dialog(self, globals, eingabe, filter):
         superbase = AfpSuperbase.AfpSuperbase(globals, debug)
-        if eingabe is None: eingabe = globals.get_value("standart-location", "Adresse")
+        if eingabe is None: eingabe = globals.get_value("standard-location", "Adresse")
         superbase.open_datei("FAHRTEN")
         superbase.CurrentIndexName("Ort")
         superbase.select_key(eingabe)
@@ -577,7 +577,7 @@ class AfpDialog_DiChEin(AfpDialog):
         object = event.GetEventObject()
         name = object.GetName()
         if name == "Von" and self.text_Von.GetValue() == "":
-            self.text_Von.SetValue(self.data.get_globals().get_string_value("standart-location","Adresse"))
+            self.text_Von.SetValue(self.data.get_globals().get_string_value("standard-location","Adresse"))
         self.On_KillFocus(event)
         event.Skip()
 

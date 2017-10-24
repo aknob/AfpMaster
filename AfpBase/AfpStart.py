@@ -6,7 +6,7 @@
 #    Copyright© 1989 - 2017  afptech.de (Andreas Knoblauch) \n
 # \n
 #   History: \n
-#        16 Jan. 2017 - separate software spexcific code from parameter extraction - Andreas.Knoblauch@afptech.de \n
+#        16 Jan. 2017 - separate software specific code from parameter extraction - Andreas.Knoblauch@afptech.de \n
 #        26 Aug. 2015 - change direct execution parameter to normal input, to be used via os - Andreas.Knoblauch@afptech.de \n
 #        11 Jun. 2015 - enable direct routine execution via command line option - Andreas.Knoblauch@afptech.de \n
 #        23 May 2015 - enable variable setting via command line option - Andreas.Knoblauch@afptech.de \n

@@ -1513,7 +1513,7 @@ class AfpDialog_TouristCancel(AfpDialog):
                 if row[0]:
                     text = "ab " + Afp_toString(row[0]) + " Tage: " + Afp_toString(row[1]) + "%"
                 else:
-                    text = "Standartgebühr: ".decode("UTF-8") + Afp_toString(row[1]) + " EUR"
+                    text = "Standardgebühr: ".decode("UTF-8") + Afp_toString(row[1]) + " EUR"
                 self.choice_Geb.Append(text)
             self.choice_Geb.SetSelection(len(self.charges) - 1)
             self.set_charges()

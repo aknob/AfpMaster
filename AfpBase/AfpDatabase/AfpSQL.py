@@ -110,7 +110,7 @@ class AfpSQL(object):
         if self.debug: print Befehl
         self.db_cursor.execute (Befehl)     
         rows = self.db_cursor.fetchall()
-        return Afp_extractColumn(0, rows)
+        return Afp_extractColumns(0, rows)
     ## return information of database table
     # @param datei - name of table
     # @param typ - type of information ('fields' and 'index' implemented)
@@ -348,7 +348,7 @@ class AfpSQLTableSelection(object):
         if debug or tablename == "REISEN": 
         #if debug: 
             print "AfpSQLTableSelection Konstruktor dbg On", tablename
-            self.dbg = True # hardecode switch for storage logging
+            self.dbg = True # hardcoded switch for storage logging, for debug purpose during programming
         self.mysql = mysql      
         self.tablename = tablename
         self.feldnamen = feldnamen
@@ -376,6 +376,21 @@ class AfpSQLTableSelection(object):
     ## return an initialized copy of this TableSelection
     def create_initialized_copy(self):
         return AfpSQLTableSelection(self.mysql, self.tablename, self.debug, self.unique_feldname, self.feldnamen)
+   ## return an complete copy of this TableSelection
+   # @param data - flag if data should be copied, default: True
+   # @param mani - flag if manipulation data should be copied, default: False
+    def create_complete_copy(self, data = True, mani = False):
+        copy = self.create_initialized_copy()
+        copy.select = self.select
+        copy.select_clause = self.select_clause
+        copy.new = self.new
+        if mani:
+            if self.last_manipulation:
+                copy.last_manipulation = self.last_manipulation[:]
+            copy.manipulation = self.manipulation[:]
+        if data:
+            copy.data = self.data[:]
+        return copy
     ## returns if data of this TableSelection has been deleted after last load or write
     # @param row - if given, index of row which should be checked
     def has_been_deleted(self, row = None):
@@ -466,8 +481,11 @@ class AfpSQLTableSelection(object):
     # @param select - select clause for this  data
     def set_data(self, data, select=None):
         if self.dbg: print "AfpSQLTableSelection.set_data:", self.select, data
-        if select: self.select = select      
-        self.data = map(list, data) 
+        if select: self.select = select
+        if data is None:
+            self.data = None
+        else:
+            self.data = map(list, data) 
     ## attach empty data
     # @param empty - flag if data should be comletely empty (true) or if one empty row should be inserted (false)
     # @param no_criteria - flag if selection criteria should be spread into new row (false) or not (trus)
@@ -494,7 +512,7 @@ class AfpSQLTableSelection(object):
             mani = [None, row]
         else:
             mani = [-index-1, row]
-        print "AfpSQLTableSelection.insert_row:", index, mani
+        #print "AfpSQLTableSelection.insert_row:", index, mani
         self.manipulate_data([mani])
     ## add empy data row to data
     # @param no_criteria - flag if selection criteria should be spread into new row (false) or not (true)
@@ -837,7 +855,7 @@ class AfpSQLTableSelection(object):
                     if self.dbg: print "AfpSQLTableSelection.store unique last_inserted_id:",  self.last_inserted_id
                     self.set_last_inserted_id(self.unique_feldname, row)
                 else:
-                    select = self.unique_feldname + " = " + Afp_toString(unique_value)
+                    select = self.unique_feldname + " = " + Afp_toQuotedString(unique_value)
                     if self.dbg: print "AfpSQLTableSelection.store unique value already set:", select, self.get_values(None, row)[0]
                     self.mysql.write_unique( self.tablename,  self.feldnamen, self.get_values(None, row)[0], select)  
             if self.get_data_length() == 0:

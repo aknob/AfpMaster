@@ -954,6 +954,8 @@ class AfpSuperbase(object):
         if self.debug: print "SB: SELECT CURRENT" 
         CurrentIndex = self.identify_index(indexname, dateiname)
         CurrentIndex.select_current()
+        if CurrentIndex.eof():
+            CurrentIndex.select_last()
     ## set the actuel or named index to first database entry in order
     # @param indexname - name of index. None - the actuel index is used.
     # @param dateiname - name of the table, index belongs to. None - the actuel table is used.

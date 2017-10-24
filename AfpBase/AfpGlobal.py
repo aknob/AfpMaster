@@ -97,8 +97,8 @@ def Afp_iniGlobalVars(settings, modul = None):
         if not ".txt" in settings:
             settings[".txt"] = "vim"
     elif modul =="Adresse":
-        if not "standart-location" in settings:
-            settings["standart-location"] = "Braunschweig"
+        if not "standard-location" in settings:
+            settings["standard-location"] = "Braunschweig"
     return settings
 
 ## class to hold global of modul specific varaiables
@@ -178,7 +178,7 @@ class AfpSettings(object):
             value = Afp_fromString(string)
         return value
     ## take care if string has special formats, which require string output,
-    # when the standart analysis would suggest an other format   
+    # when the standard analysis would suggest an other format   
     # - IP4 addresses
     # - windows root pathes
     # @param string - string to be analysed

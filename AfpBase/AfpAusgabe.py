@@ -272,14 +272,14 @@ class AfpAusgabe(object):
         if sign: 
             split = phrase.split(sign)
             split[0] = split[0].strip()
-            if self.in_values(split[0] ): phrase = Afp_toQuotedString(self.values[split[0]])
+            if self.in_values(split[0] ): phrase = Afp_toQuotedString(self.values[split[0]], True)
             else: phrase = split[0].decode("UTF-8")
             phrase += sign
             split[1] = split[1].strip() 
-            if self.in_values(split[1] ): phrase += Afp_toQuotedString(self.values[split[1]])
+            if self.in_values(split[1] ): phrase += Afp_toQuotedString(self.values[split[1]], True)
             else: phrase += split[1].decode("UTF-8")
         else: 
-            if self.in_values(phrase): phrase = Afp_toQuotedString(self.values[phrase])
+            if self.in_values(phrase): phrase = Afp_toQuotedString(self.values[phrase], True)
             else: phrase = "None"
         pyBefehl = "condition = bool(" + phrase + ")"
         #print "AfpAusgabe.evaluate_condition pyBefehl:", pyBefehl

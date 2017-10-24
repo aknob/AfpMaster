@@ -83,19 +83,21 @@ def Afp_toString(data):
 ## convert data to string, string to quoted strings, 
 # dates and times to strings describing the  timedelta or date creation
 # @param data - data to be converted
-def Afp_toQuotedString(data):
+# @param date_conv - flag if dates have to be converted, default: False
+def Afp_toQuotedString(data, date_conv = False):
     string = Afp_toString(data)
-    typ = type(data)
     if Afp_isString(data): string = "\"" + string + "\""
-    elif  typ == datetime.timedelta or typ == datetime.time:
-        if string == "24:00": string = "datetime.timedelta(days=1)"
-        else: 
-            split = string.split(":")
-            string = "datetime.timedelta(hours=" + split[0] + ", minutes=" + split[1] + ")"
-    elif typ == datetime.date:
-        split = string.split(".")
-        if len(split[2]) < 3: split[2] = "20" + split[2]
-        string = "datetime.date(" + split[2] + ", " + split[1] + ", " + split[0] + ")"
+    if date_conv:
+        typ = type(data)
+        if  typ == datetime.timedelta or typ == datetime.time:
+            if string == "24:00": string = "datetime.timedelta(days=1)"
+            else: 
+                split = string.split(":")
+                string = "datetime.timedelta(hours=" + split[0] + ", minutes=" + split[1] + ")"
+        elif typ == datetime.date:
+            split = string.split(".")
+            if len(split[2]) < 3: split[2] = "20" + split[2]
+            string = "datetime.date(" + split[2] + ", " + split[1] + ", " + split[0] + ")"
     return string
 ## convert data to string, 
 # dates and times are converted to internal representation (yyyy-mm-dd)
@@ -197,8 +199,9 @@ def Afp_intString(string, init = 0):
     return result
 ## convert string to a float
 # @param string - string to be converted
-def Afp_floatString(string):
-    result = 0.0
+# @param init - value, if no float can be assigned
+def Afp_floatString(string, init = 0.0):
+    result = init
     data = Afp_fromString(string)
     if Afp_isNumeric(data):
         result = float(data)
@@ -324,8 +327,8 @@ def Afp_ArraytoLine(liste, separator = " ", max = None):
             zeile += Afp_toString(entry) + separator
             count += 1
     return zeile[:-sep]
-## splits one column in a matrix into the maximal possiuble number of columns
-# @param matrix - matrix where column should be split up
+## joins two columns in a matrix to one
+# @param matrix - matrix where column should be joined
 # @param join - index of column to be joined with the next column
 # @param sep - separator to be inserted between joined columns, default: comma 
 def Afp_MatrixJoinCol(matrix, join = 0, sep = ", "):

@@ -410,7 +410,7 @@ def Afp_getIndividualAccount(mysql, KNr, typ = "Debitor"):
     if rows:
         return rows[0][0]
     if typ == "Debitor" or typ == "Kreditor":
-        # extract name of Adress
+        # extract name of Address
         name = None
         rows = mysql.select("Name","KundenNr = " + KundenNr,"ADRESSE")
         if rows:
@@ -549,6 +549,12 @@ class AfpSelectionList(object):
     ## return main index of this SelectionList
     def get_mainindex(self):
         return self.mainindex
+    ## return if this SelectionList has changed
+    def has_changed(self):
+        has_changed = self.new
+        for sel in self.selections:
+            has_changed = has_changed or self.selections[sel].has_changed()
+        return has_changed
     ## return the names of all Tableselections
     # @param include_mainselection - flas if mainselection name should be included
     def get_selection_names(self, include_mainselection = False):
@@ -590,7 +596,7 @@ class AfpSelectionList(object):
         print "AfpSelectionList.view():", self.get_listname()
         print self.selects, self.selections
         for sel in self.selections: 
-            print sel, self.selections[sel].select, self.selections[sel].data
+            print sel,":", self.selections[sel].select, self.selections[sel].data
     ## get the user-relevant data in a line \n
     # this routine may (or rather should) be overwritten
     def line(self): 
@@ -665,7 +671,7 @@ class AfpSelectionList(object):
                 implicit = False
                 unique = None
                 if len(sel_vals) > 2: unique = sel_vals[2]
-                #print "create_selection:", sel_vals, unique
+                #print "AfpSelectionList.constitute_selection:", sel_vals, unique
                 selection = AfpSQLTableSelection(self.mysql, sel_vals[0], self.debug, unique)
         return selection  
     ## create selection - retrieve values from database
@@ -851,7 +857,7 @@ class AfpSelectionList(object):
         value = self.get_value(DateiFeld)
         if value:
             if quoted_string:
-                wert = Afp_toQuotedString(value)
+                wert = Afp_toQuotedString(value, True) # False?
             else:
                 wert = Afp_toString(value)
         else:
@@ -949,6 +955,59 @@ class AfpSelectionList(object):
         mani = [row, value_row]
         #print "AfpSelectionList.set_row_to_selection_values:", mani
         selection.manipulate_data([mani])
+    ## extract all possible values and fill it into the own list, if possible complete TableSelections are moved \n
+    # this makes only sence for closely related SelectionLists,
+    # it works in 4 steps as follows: \n
+    # step 1: fill all unset values of the mainselection with value of same name from the victim mainselection \n
+    # step 2: get complete data if both refer the same database table \n
+    # step 3: get complete data if field names are identic
+    # step 4: copy colums needed from data (fill new colums with 'None's) \n
+    # @param victim - SelectionList, where data or TableSelections are taken from
+    def cannibalise(self, victim, selnames=None):
+        names = self.get_selection().get_feldnamen()
+        unique = self.get_selection().unique_feldname
+        vnames = victim.get_selection().get_feldnamen()
+        # step 1: fill all unset values of the mainselection with value of same name from the victim mainselection
+        for name in names:
+            if not self.get_value(name) and not name == unique:
+                if name in vnames:
+                    value = victim.get_value(name)
+                    if value:
+                        self.set_value(name, value)
+                        print "AfpSelectionList.cannibalise step 1:", name, value
+        if selnames:
+            names = selnames
+        else:
+            names = self.get_selection_names()
+        vnames = victim.get_selection_names()
+        for name in names:
+            if name in vnames:
+                to_sel = self.get_selection(name)
+                from_sel = victim.get_selection(name)
+                indices = [None]
+                # step 2: get complete data if both refer the same database table
+                if to_sel.get_tablename() == from_sel.get_tablename():
+                    identic = True
+                    print "AfpSelectionList.cannibalise step 2:", name, identic
+                else:
+                    # step 3: get complete data if field names are identic
+                    indices = Afp_findIndices(to_sel.get_feldnamen(), from_sel.get_feldnamen())
+                    identic = True
+                    for i in range(len(indices)):
+                        if identic and i != indices[i]: 
+                            identic = False
+                    print "AfpSelectionList.cannibalise step 3:", name, identic
+                if identic:
+                    # fulfill step 2 and 3 (cannibalise)
+                    to_sel.set_data(from_sel.get_values())
+                    to_sel.new = from_sel.new
+                    to_sel.manipulation = from_sel.manipulation
+                    from_sel.set_data(None)
+                else:
+                    # step 4: copy colums needed from data (fill new colums with 'None's)
+                    data = Afp_getColumns(indices, from_sel.get_values())
+                    print "AfpSelectionList.cannibalise step 4:", name, indices, data
+                    to_sel.set_data(data)
     ## store complete SelectionList
     def store(self):
         #print "AfpTableSelectionList.store()", self.mainselection
