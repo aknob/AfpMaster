@@ -171,7 +171,7 @@ def Afp_getModulInfo(modul, delimiter, path):
 # @param delimiter - path delimiter
 def Afp_archivName(text, delimiter):
     filename = None
-    if text and "." in text and len(text) < 30:
+    if text and "." in text:
         is_name = False
         is_archiv = False
         if "Archiv" == text[:6]: 
@@ -596,7 +596,7 @@ class AfpSelectionList(object):
         print "AfpSelectionList.view():", self.get_listname()
         print self.selects, self.selections
         for sel in self.selections: 
-            print sel,":", self.selections[sel].select, self.selections[sel].data
+            print sel+":", self.selections[sel].select, self.selections[sel].data
     ## get the user-relevant data in a line \n
     # this routine may (or rather should) be overwritten
     def line(self): 
@@ -633,8 +633,8 @@ class AfpSelectionList(object):
                         if value:
                             if select_clause: select_clause += " AND "
                             # <=, >= work also, as < and > are kept on the left (not evaluated) side
-                            select_clause += sels[0] + "= " + value
-        #print "AfpSelectionList.evaluate_selects:", selname, "CLAUSE:", select_clause, order_clause
+                            select_clause += sels[0].strip() + " = " + value
+            #print "AfpSelectionList.evaluate_selects:", selname, self.selects[selname], "CLAUSE:", select_clause, order_clause
         return select_clause, order_clause
     ## set the customised select_clause for the main selection
     def set_main_selects_entry(self):  
@@ -838,6 +838,7 @@ class AfpSelectionList(object):
     # @param DateiFeld - column.selection name where data has to be retrieved from
     def get_ausgabe_value(self, DateiFeld = None):
         value = self.get_value(DateiFeld)
+        #print "AfpSelectionList.get_ausgabe_value:", DateiFeld, ":", value
         if value:
             if Afp_isString(value):
                 if len(value) == 16 and value[:6] == "Archiv" and value[-4:] == ".sbt":
@@ -1047,6 +1048,28 @@ class AfpSelectionList(object):
         for entry in self.selections:
             info[entry] = self.get_selection(entry).feldnamen
         return info
+    ## complete data to be stored in archive \n
+    # @param new_data - data to be completed and written into "ARCHIV" TableSelection \n
+    # new_data should already hold the values ["Gruppe"],[ "Bem"], ["Extern"]:
+    # - Gruppe: (group) 3rd level identification
+    # - Bem:  remark on this entry
+    # - Extern:  name of archived file (relativ to archiv path) \n
+    # it will be completed by:
+    # - Art: (kind) 1st level identification, will be set to "BusAfp"
+    # - Typ: (type) 2nd level identification, will be set to SelectionList listname
+    def add_to_Archiv(self, new_data):
+        selection = self.get_selection("ARCHIV")
+        if selection:
+            row = selection.get_data_length()
+            new_data["Art"] = self.globals.get_value("name")
+            new_data["Typ"] = self.listname
+            new_data["KundenNr"] = self.get_value("KundenNr")
+            new_data["Datum"] = self.globals.today()
+            new_data = self.set_archiv_data(new_data)
+            selection.set_data_values(new_data, row)
+        else:
+            print "WARNING SelectionList.add_to_Archiv called but not implemented for", self.listname
+
 
     ## routine to retrieve payment data from SelectionList \n
     # may be overwritten, default implementation: return "Preis", "Zahlung" and "ZahlDat" column from main selection
@@ -1067,40 +1090,16 @@ class AfpSelectionList(object):
     # - should be overwritten in devired class
     def get_identification_string(self):
         return ""
-    ## complete data to be stored in archive \n
+    ## set identification data for archive \n
+    # default implementation: add name of maintable and mainvalue \n
     # - may be overwritten if necessary
-    # @param new_data - data to be completed and written into "ARCHIV" TableSelection \n
-    # new_data should already hold the values ["Gruppe"],[ "Bem"], ["Extern"]:
-    # - Gruppe: (group) 3rd level identification
-    # - Bem:  remark on this entry
-    # - Extern:  name of archived file (relativ to archiv path) \n
-    # it will be completed by:
-    # - Art: (kind) 1st level identification, will be set to "BusAfp"
-    # - Typ: (type) 2nd level identification, will be set to SelectionList listname
-    def add_to_Archiv(self, new_data):
-        archiv_select_value = None
-        selection = self.get_selection("ARCHIV")
-        if selection:
-            archiv_select_field = self.listname[:4] + "Nr"
-            if self.listname == "Charter" or self.listname == "Einsatz":
-                archiv_select_field = "MietNr"
-                if self.listname == "Einsatz": archiv_select_value = "FahrtNr.FAHRTEN"
-            if self.listname == "Touristik":
-                archiv_select_field = "AnmeldNr"
-            row = selection.get_data_length()
-            new_data["Art"] = "BusAfp"
-            new_data["Typ"] = self.listname
-            if archiv_select_value:
-                new_data[archiv_select_field] = self.get_value(archiv_select_value)
-            else:
-                new_data[archiv_select_field] = self.get_value()
-            new_data["KundenNr"] = self.get_value("KundenNr")
-            new_data["Datum"] = self.globals.today()
-            selection.set_data_values(new_data, row)
-        else:
-            print "WARNING SelectionList.add_to_Archiv called but not implemented for", self.listname
- 
- ## class for handling extern numberations       
+    # @param data - dictionary where identifiers should be added
+    def set_archiv_data(self, data):
+        data["Tab"] = self.get_selection().get_tablename()
+        data["TabNr"] = self.get_value()
+        return data
+        
+    ## class for handling extern numberations       
 class AfpExternNr(AfpSQLTableSelection):
     ## initialize AfpExternNr class
     # @param globals - global values including the mysql connection - this input is mandatory

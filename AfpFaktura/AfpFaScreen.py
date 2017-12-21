@@ -43,16 +43,17 @@ from AfpBase.AfpDatabase.AfpSQL import AfpSQL
 from AfpBase.AfpDatabase.AfpSuperbase import AfpSuperbase
 from AfpBase.AfpBaseRoutines import AfpMailSender
 from AfpBase.AfpBaseDialog import AfpReq_Info, AfpReq_Question, AfpReq_Text, AfpReq_EditText
-from AfpBase.AfpBaseDialogCommon import  AfpReq_Information, Afp_editMail
+from AfpBase.AfpBaseDialogCommon import  AfpReq_Information, Afp_editMail, AfpLoad_DiReport
 from AfpBase.AfpBaseScreen import AfpEditScreen
 from AfpBase.AfpBaseAdRoutines import AfpAdresse_StatusMap, AfpAdresse
 from AfpBase.AfpBaseAdDialog import AfpLoad_DiAdEin_fromKNr, AfpLoad_AdAusw
+from AfpBase.AfpBaseFiDialog import AfpLoad_DiFiZahl
 
 import AfpFaktura
 from AfpFaktura import AfpFaRoutines
 from AfpFaktura import AfpFaDialog
 from AfpFaktura.AfpFaRoutines import AfpFa_FilterList, AfpInvoice, AfpOffer, AfpOrder, AfpFa_inFilterList, AfpFa_changeKind, AfpFa_possibleKinds, AfpFa_colonFloat
-from AfpFaktura.AfpFaDialog import AfpLoad_FaAusw, AfpLoad_FaCustomSelect, AfpLoad_FaLine, AfpLoad_FaArtikelAusw
+from AfpFaktura.AfpFaDialog import AfpLoad_FaAusw, AfpLoad_FaCustomSelect, AfpLoad_FaLine, AfpLoad_FaArtikelAusw, AfpReq_FaSelectedRow
 
 class AfpFaScreen_EditLinePlugIn(object):
     ## initialize AfpFaScreen_EditLinePlugIn class
@@ -628,7 +629,7 @@ class AfpFaScreen(AfpEditScreen):
         event.Skip()
     ## Eventhandler BUTTON - manipulate address data
     def On_Adresse(self,event = None):
-        if self.debug: print "Event handler `On_Adresse'!"
+        if self.debug: print "Event handler `On_Adresse'"
         changed = AfpLoad_DiAdEin_fromKNr(self.globals, self.data.get_value("KundenNr"))
         if changed: self.Reload()
         if event: event.Skip()
@@ -649,17 +650,42 @@ class AfpFaScreen(AfpEditScreen):
         if event: event.Skip()
     ## Eventhandler BUTTON -  invoke payment- not implemented yet!
     def On_Zahlung(self,event = None):
-        print "Event handler `On_Zahlung' not implemented!"
+        if self.debug: print "Event handler `On_Zahlung'"
+        self.invoke_Zahlung(self.data)   
         if event: event.Skip()
+    ## handle payment dialog
+    # @param data - data to be handled
+    def invoke_Zahlung(self, data):
+        if data.is_payable():
+            Ok, newdata = AfpLoad_DiFiZahl(data)
+            if Ok: 
+                #newdata.view() # for debug
+                newdata.store()
+                self.data = newdata
+                self.Reload()
+    ## handle payment dialog with selection
+    def select_Zahlung(self):
+        datei, ident = AfpReq_FaSelectedRow(self.globals.get_mysql(),"Rechnung", "Bitte offene Rechnung auswählen!".decode("UTF-8"), self.debug)
+        if datei and ident:
+            data = AfpInvoice(self.globals, ident)
+            self.invoke_Zahlung(data)   
     ## Eventhandler MENU, BUTTON - invoke special select dialog - for testing only
     def On_Faktura_Test(self,event):
         if self.debug: print "AfpAdScreen Event handler `On_Faktura_Test'"
         #self.invoke_custom_select()
         Ok = AfpLoad_FaLine()
         event.Skip()
-    ## Eventhandler BUTTON - invoke dokument generation - not yet implemented
+    ## Eventhandler BUTTON - invoke dokument generation 
     def On_Dokument(self,event):
-        print "Event handler `On_Dokument' not implemented!"
+        if self.debug and event: print "Event handler `On_Dokument'"
+        Faktura = self.get_data()
+        zustand = Faktura.get_string_value("Zustand").strip()
+        header = Faktura.get_listname() + " " + zustand
+        prefix = "Faktura_" + header
+        AfpLoad_DiReport(Faktura, self.globals, header, prefix, zustand)
+        if event:
+            self.Reload()
+            event.Skip()
         event.Skip()
         
     ## Eventhandler BUTTON -  invoke arrival (of goods)- not implemented yet!
@@ -953,7 +979,7 @@ class AfpFaScreen(AfpEditScreen):
             if Ok == "Bar":
                 self.On_Bar()
             elif Ok == "Zahlung":
-                self.On_Zahlung()
+                self.select_Zahlung()
             elif Ok == "Ware":
                 self.On_Ware()
             elif Ok == "Kasse":

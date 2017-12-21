@@ -129,7 +129,7 @@ def Afp_editConfiguration(modul):
     if Afp_existsFile(configuration):
         with open(configuration,"r") as inputfile:
             input_text = inputfile.read().decode('iso8859_15')
-    text, ok =AfpReq_EditText(input_text, "BusAfp '" + modul + "' Modul Configuration","Geladene Datei: " + configuration,"Aktivieren der Einstellungen durch entfernen des '#' Zeichens am Anfang der Zeile!", "Zum Bearbeiten der Konfigurationsdatei bitte 'Ändern' auswählen.".decode('UTF-8'), False, (800, 500))
+    text, ok =AfpReq_EditText(input_text, "Afp '" + modul + "' Modul Configuration","Geladene Datei: " + configuration,"Aktivieren der Einstellungen durch entfernen des '#' Zeichens am Anfang der Zeile!", "Zum Bearbeiten der Konfigurationsdatei bitte 'Ändern' auswählen.".decode('UTF-8'), False, (800, 500))
     if ok:
         with open(configuration,"w") as outputfile:
             outputfile.write(text)
@@ -230,6 +230,7 @@ class AfpDialog_DiReport(wx.Dialog):
         self.datas = None   # in case more then one output has to be created, datas are attached here and sucessively assigned to data
         self.datasindex = None # current index in datas of actuel assigned data
         self.globals = None
+        self.major_type = None
         self.mail = None
         self.prefix = ""
         self.postfix = ""
@@ -285,6 +286,7 @@ class AfpDialog_DiReport(wx.Dialog):
             self.data = data 
         self.debug = self.data.debug
         self.globals = globals
+        self.major_type = globals.get_value("name")
         if prepostfix:
             split = prepostfix.split()
             self.prefix = split[0]
@@ -399,15 +401,17 @@ class AfpDialog_DiReport(wx.Dialog):
         template = None
         index = self.get_list_Report_index()
         if index >= 0:
-            template = self.reportlist[index]
+            template = self.reportlist[index] 
             if not "." in template and len(template) < 7:
-                template = "BusAfp_template_" + template + ".fodt"
+                template = self.major_type + "_template_" + template + ".fodt"
                 template = Afp_addRootpath(self.globals.get_value("templatedir"), template)
             else:
                 if template[:6] == "Archiv":
                     template = template[7:]
-                template = Afp_addRootpath(self.globals.get_value("antiquedir"), template)
-            #print "get_template_name:", template      
+                    template = Afp_addRootpath(self.globals.get_value("antiquedir"), template)
+                else:
+                    template = Afp_addRootpath(self.globals.get_value("archivdir"), template)
+            print "AfpDialog_DiReport.get_template_name:", template, self.major_type, self.reportlist[index]
         return template
     ## generate result filename due to list selection
     def get_result_name(self):
@@ -417,7 +421,7 @@ class AfpDialog_DiReport(wx.Dialog):
         if index >= 0 and self.reportflag[index]:
             if archiv:
                 max = 0
-                print "get_result_name:", self.reportlist
+                print "AfpDialog_DiReport.get_result_name:", self.reportlist
                 for entry in self.reportlist:
                     if entry and "." in entry:
                         split = entry.split(".")
@@ -435,9 +439,9 @@ class AfpDialog_DiReport(wx.Dialog):
                 fresult = Afp_addRootpath(self.globals.get_value("archivdir"), fresult)
             else:
                 if self.datasindex:
-                    fresult = Afp_addRootpath(self.globals.get_value("tempdir"), "BusAfp_textausgabe" + str(self.datasindex) + ".fodt")
+                    fresult = Afp_addRootpath(self.globals.get_value("tempdir"), self.major_type + "_textausgabe" + str(self.datasindex) + ".fodt")
                 else:
-                    fresult = Afp_addRootpath(self.globals.get_value("tempdir"), "BusAfp_textausgabe.fodt")
+                    fresult = Afp_addRootpath(self.globals.get_value("tempdir"), self.major_type + "_textausgabe.fodt")
         #print "get_result_name:", fresult   
         return  fresult
     ## return selected list index
@@ -486,7 +490,7 @@ class AfpDialog_DiReport(wx.Dialog):
             if choice == "Ändern".decode("UTF-8"):
                 filename = template
             elif choice == "Kopie":
-                filename = Afp_addRootpath(self.globals.get_value("tempdir"), "BusAfp_template.fodt")
+                filename = Afp_addRootpath(self.globals.get_value("tempdir"), self.major_type + "_template.fodt")
                 Afp_copyFile(template, filename)
             elif choice == "Info":
                 filename = Afp_addRootpath(self.globals.get_value("tempdir") , "DataInfo.txt")
@@ -517,7 +521,7 @@ class AfpDialog_DiReport(wx.Dialog):
                         ausgabe.set_data_values(data)
                         ausgabe.store()
                         BNr = ausgabe.get_string_value("BerichtNr")
-                        destination = self.globals.get_value("templatedir") + "BusAfp_template_" + BNr + ".fodt"
+                        destination = self.globals.get_value("templatedir") + self.major_type + "_template_" + BNr + ".fodt"
                         Afp_copyFile(filename, destination)
                         ind = list_Report_index + 1
                         self.reportname.insert(ind, name)
@@ -646,13 +650,14 @@ class AfpDialog_editArchiv(AfpDialog):
         #self.data.view()
  
     ## attach data and labels to dialog
-    # @param data - SelectionList tzo be used for this dialog
+    # @param data - SelectionList to be used for this dialog
     # @param label1 - first row of text to be displayed
     # @param label2 - second row of text to be displayed
     # @param editable - flag if dialog should be editable when it pops off
     def attach_data(self, data, label1, label2, editable = False):
         self.data = data
         self.debug = data.is_debug()
+        self.major_type = data.get_globals().get_value("name")
         if label1: self.label_text_1.SetLabel(label1)
         if label2: self.label_text_2.SetLabel(label2)
         self.Populate()
@@ -694,7 +699,7 @@ class AfpDialog_editArchiv(AfpDialog):
         index = self.list_Archiv.GetSelections()[0] 
         row = self.data.get_value_rows("ARCHIV","Art,Typ,Gruppe,Bem", index)[0]
         row = Afp_ArraytoString(row)
-        if row[0] == "BusAfp":
+        if row[0] == self.major_type:
             #liste = [["Art:", row[0]], ["Ablage:", row[1]], ["Fach:", row[2]], ["Bemerkung:", row[3]]]
             liste = [["Fach:", row[2]], ["Bemerkung:", row[3]]]
             text2 = "Art: " + row[0] + ", Ablage: " + row[1]
@@ -710,7 +715,7 @@ class AfpDialog_editArchiv(AfpDialog):
                 self.changed = True
                 values = {}
                 start = 0
-                if row[0] != "BusAfp": 
+                if row[0] != self.major_type: 
                     values[Typ] = result[0]
                     start = 1
                 values["Gruppe"] = result[start + 0]

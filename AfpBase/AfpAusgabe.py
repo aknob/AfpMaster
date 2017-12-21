@@ -124,6 +124,8 @@ class AfpAusgabe(object):
         #self.line_stack.append([])
         self.line_stack = [[]]
         for line in fin:
+            if self.debug: print "AfpAusgabe.inflate:", line
+            line = self.correct_line(line)
             is_while = self.is_while(line)
             if is_while == 1:
                 # start of new while loop
@@ -139,7 +141,7 @@ class AfpAusgabe(object):
                     self.index_stack.pop()
                     if self.index_stack[-1] == 0:
                         # back to root, execute while stack
-                        #print "0:", len(self.line_stack), "1"
+                        #print "AfpAusgabe.inflate 0:", len(self.line_stack), "1"
                         #print "AfpAusgabe.inflate:", self.line_stack
                         self.execute_while(self.line_stack[0][0], 1)
                         # whiles executed, clear stack
@@ -154,6 +156,42 @@ class AfpAusgabe(object):
                     # outside whiles, direct execution
                     self.execute_line(line)
         fin.close()
+    ## correct line, no '<>' brackets in execution brackets '[]', '{}'
+    # @paream line - line to be corrected
+    def correct_line(self, line):
+        if "[" in line:
+            line = self.move_xml_tags(line, "[","]")
+        if "{" in line:
+            line = self.move_xml_tags(line, "{","}")
+        return line
+    ## move xml tags out of given brackets
+    # @param line - line, where tags should be moved
+    # @param start - open brackets identifier
+    # @param end - close brackets identifier
+    def move_xml_tags(self, line, start, end):
+        insides, outsides = Afp_between(line, start, end)
+        oplus = len(outsides) - len(insides)
+        if oplus: newline = outsides[0]
+        else: newline = ""
+        for i in range(len(insides)):
+            entry = insides[i]
+            insi, inso = Afp_between(entry, "<", ">")
+            if insi:
+                inside = ""
+                infront = ""
+                behind = ""
+                for ins in inso:
+                    inside += ins
+                for ins in insi:
+                    if ins[0] == "/":
+                        behind += "<" + ins + ">"
+                    else:
+                        infront += "<" + ins + ">"
+                entry = infront + start + inside + end + behind
+            else:
+                entry = start + entry + end
+            newline += entry + outsides[i+oplus]
+        return newline
     ## execute lines except WHILE statements \n
     # {IF,ELSE statement} ... and proper lines will be handled \n
     # - IF,ELSE statements are handles here, \n
@@ -161,12 +199,11 @@ class AfpAusgabe(object):
     # @param line - line to be analysed
     def execute_line(self,line):
         action, netto= Afp_between(line,"{","}")
-        #print "execute_line:", action, netto
+        #print "AfpAusgabe.execute_line:", action, netto
         if len(action) == 1:
             condition = False
             if action[0][0:2] == "IF":
                 phrase = action[0][3:].strip()
-                print "AfpAusgabe.execute_line:", action, phrase, netto
                 condition = self.evaluate_condition(phrase)
                 if condition:
                     self.write_line(netto)
@@ -229,11 +266,12 @@ class AfpAusgabe(object):
             split = fields.split(",")
             value = ""
             for field in split:
+                #print  "AfpAusgabe.gen_value field:", field, self.values 
+                #print  "AfpAusgabe.gen_value DATA:", self.data.view()
                 if not field in self.values:
-                    #print field
                     self.values[field] = self.retrieve_value(field)
                 value += " " + Afp_toString(self.values[field])
-        #print "gen_value:", fields, value
+        #print "AfpAusgabe.gen_value value:", fields, value
         return value.strip()
     ## handles different function evaluations \n
     # assignments (= , +=, -=) are handled here \n
@@ -302,6 +340,7 @@ class AfpAusgabe(object):
             for i in range(len(vars)):
                 if not Afp_hasNumericValue(vars[i]):
                     vars[i] = Afp_toString(self.get_value(vars[i]))
+                    if not vars[i]: vars[i] = "0"
             formula = ""
             for i in range(len(vars)-1):
                 formula += vars[i] + signs[i]
@@ -309,20 +348,25 @@ class AfpAusgabe(object):
             if len(signs) == len(vars):
                 formula += signs[-1]
             pyBefehl = "value = " + formula
+            #print "AfpAusgabe.evaluate_formula Befehl:", form, pyBefehl, vars, self.values
             exec pyBefehl
-            if self.debug: print "evaluate_formula:", form, pyBefehl, value
+            if self.debug: print "AfpAusgabe.evaluate_formula:", form, pyBefehl, value
         return value
     ## executes a while loop, may be called recursive for nested loops \n
     # @param while_line - holds the while conditions
     # @param stack_index - index of the lines in this while loop in self.line_stack
-    # @param data_index - current index of the line in data
-    def execute_while(self, while_line, stack_index, data_index = 0):  
+    # @param file_index - current index of the line in datafile
+    def execute_while(self, while_line, stack_index, file_index = 0):  
         indices = None
-        while_clause, feldnamen, dateinamen, function = self.while_input(while_line, stack_index)
+        while_clause, feldnamen, dsnamen, function = self.while_input(while_line, stack_index)
         if self.data is None:
-            rows, indices = self.extract_rows_from_data(feldnamen, while_clause, data_index)
+            rows, indices = self.extract_rows_from_file(feldnamen, while_clause, file_index)
         else:
-            rows = self.data.mysql.select(feldnamen, while_clause, dateinamen)
+            if while_clause:
+                rows = self.data.mysql.select(feldnamen, while_clause, dsnamen) 
+            else:
+                rows = self.extract_rows_from_data(dsnamen, feldnamen)            
+            #print "AfpAusgabe.execute_while rows:", len(rows), "\n", rows
         felder = feldnamen.split(",")
         local_lines = self.line_stack[stack_index]
         if function:
@@ -337,7 +381,6 @@ class AfpAusgabe(object):
             #print felder
             #print row
             for feld,wert in zip(felder,row):
-                #print feld, wert
                 self.values[feld] = wert
             if function: self.values[var] = self.evaluate_formula(function)
             if self.debug: print "WHILE", stack_index,"Row", i
@@ -363,6 +406,7 @@ class AfpAusgabe(object):
     # @param stack_index - index of the lines in this while loop in self.line_stack
     def while_input(self, while_line, stack_index):
         function = ""
+        datsels = ""
         action, netto =  Afp_between(while_line,"{","}")
         if len(action) == 1 and action[0][:5] == "WHILE":
             split_func = action[0].split("FUNCTION")
@@ -374,12 +418,19 @@ class AfpAusgabe(object):
                 function = funct[0]
             # extract where clause for database access
             clause = split_func[0][6:]
-            fields, netto = Afp_between(clause,"[","]")
-            clause = self.concat_line(fields, netto)
-            clause.replace(":","and")
-            # get needed fileds from lines
+            if clause[:7] == "ROWS IN":
+                clause = clause[8:]
+                if "AS" in clause:
+                    split = clause.split("AS")
+                    datsels = split[0].strip()
+                    clause = ""
+            else:
+                fields, netto = Afp_between(clause,"[","]")
+                clause = self.concat_line(fields, netto)
+                clause.replace(":","and")
+            # get needed fileds from lines 
             felder = []
-            if function: felder = Afp_getWords(function,".")
+            if function: felder += Afp_getWords(function,".")
             for line in self.line_stack[stack_index]:
                 fields, netto =  Afp_between(line,"[","]")
                 for field in fields: 
@@ -399,17 +450,18 @@ class AfpAusgabe(object):
                     else:
                         if not field in felder: felder.append(field)
             dats= []
-            dateien = ""
             feldnamen = ""
             for feld in felder:
-                feldnamen += "," + feld
                 split = feld.split(".")
-                if len(split) > 1 and not split[1] in dats:
-                    dats.append(split[1])
-                    dateien += ","+ split[1]
+                if  len(split) > 1:
+                    if clause and not split[1] in dats:
+                        dats.append(split[1])
+                        datsels += ","+ split[1]
+                feldnamen += "," + feld
             if len(feldnamen) > 1: feldnamen = feldnamen[1:]
-            if len(dateien) > 1: dateien = dateien[1:]
-        return clause, feldnamen, dateien, function
+            if clause and len(datsels) > 1: datsels = datsels[1:]
+        if self.debug: print "AfpAusgabe.while_input:", clause, feldnamen, datsels, function
+        return clause, feldnamen, datsels, function
     ## retrieve value from cache, possibly load into cache first
     # @param fieldname - name of database column to be loaded
     def get_value(self, fieldname):
@@ -439,7 +491,7 @@ class AfpAusgabe(object):
                 print "WARNING: value for", fieldname, "not delivered in datafile"
             else:
                 val = self.data.get_ausgabe_value(fieldname)
-        #print fieldname,":",val
+        #print "AfpAusgabe.retrieve_value:", fieldname,":",val
         return val
     ## load values from input file into data cache
     def load_values_from_data(self):
@@ -453,10 +505,18 @@ class AfpAusgabe(object):
             if i < lgh:
                 line = self.filecontent[i]
     ## read block of rows from datafile
+    # @param selname - names of selection where values to be extracted from
+    # @param feldnamen - names of values to be extracted
+    def extract_rows_from_data(self, selname, feldnamen):
+        rows = []
+        if self.data:
+            rows = self.data.get_grid_rows(selname) 
+        return rows
+   ## read block of rows from datafile
     # @param feldnamen - names of values to be extracted
     # @param while_clause - possible while clause in this row
     # @param index - startindex of first row-block in data
-    def extract_rows_from_data(self, feldnamen, while_clause, index):
+    def extract_rows_from_file(self, feldnamen, while_clause, index):
         #print "extract", index, while_clause
         rows = []
         indices = []

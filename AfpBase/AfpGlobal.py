@@ -343,7 +343,7 @@ class AfpGlobal(object):
     # shortcuts to common flags and variables
     ## return if accounting should be skipped
     def skip_accounting(self):
-        if self.get_value("skip_accounting"): return True
+        if self.get_value("skip-accounting"): return True
         else: return False
     ## return the date of today
     def today(self):

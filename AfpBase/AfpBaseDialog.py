@@ -664,6 +664,7 @@ class AfpDialog(wx.Dialog):
         self.changed_text = []
         self.readonlycolor = self.GetBackgroundColour()
         self.editcolor = (255,255,255)
+        self.no_readonly = True
         self.InitWx()
 
     ## routine to be called from initWx in devired class
@@ -675,6 +676,7 @@ class AfpDialog(wx.Dialog):
     #                       weight of space left [0] and right [2] and [1] weight of ok widget in sizer
     def setWx(self, parent, edit, ok):
         if parent is None: return
+        self.no_readonly = False
         if type(parent) == wx._windows.Panel: # parent is a panel
             self.choice_Edit = wx.Choice(parent, -1, pos=(edit[0], edit[1]), size=(edit[2], edit[3]), choices=["Lesen", "Ändern".decode("UTF-8"), "Abbruch"], style=0, name="CEdit")
             self.choice_Edit.SetSelection(0)
@@ -709,13 +711,13 @@ class AfpDialog(wx.Dialog):
         self.debug = self.data.debug
         self.new = new
         edit = new or editable
-        if edit: self.choice_Edit.SetSelection(1)
+        if edit and not self.no_readonly: self.choice_Edit.SetSelection(1)
         if not self.new: self.Populate()
         self.Set_Editable(edit, False)
     ## central routine which returns if dialog is meant to be editable
     def is_editable(self):
         editable = False
-        if self.choice_Edit.GetCurrentSelection() == 1: editable = True
+        if self.no_readonly or self.choice_Edit.GetCurrentSelection() == 1: editable = True
         return editable 
     ## return the Ok flag to caller
     def get_Ok(self):
@@ -774,25 +776,25 @@ class AfpDialog(wx.Dialog):
         for entry in self.textmap:
             TextBox = self.FindWindowByName(entry)
             value = self.data.get_string_value(self.textmap[entry])
-            #print self.textmap[entry], "=", value
+            #print "AfpDialog.Pop_text:", self.textmap[entry], "=", value
             TextBox.SetValue(value)
         for entry in self.vtextmap:
             TextBox = self.FindWindowByName(entry)
             value = self.data.get_string_value(self.vtextmap[entry])
-            #print self.textmap[entry], "=", value
+            #print "AfpDialog.Pop_text:", self.textmap[entry], "=", value
             TextBox.SetValue(value)
     ## population routine for labels \n
     # covention: labelmap holds the entryname to retrieve value from self.data
     def Pop_label(self):
+        #print "AfpDialog.Pop_label:", self.labelmap
         for entry in self.labelmap:
             Label= self.FindWindowByName(entry)
             display = True
             if entry in self.conditioned_display:
                 display = self.evaluate_condition(self.conditioned_display[entry])
             if display:
-                #print entry, self.labelmap[entry]
                 value = self.data.get_string_value(self.labelmap[entry])
-                #print self.labelmap[entry], "=", value
+                #print "AfpDialog.Pop_label:", self.labelmap[entry], "=", value
                 Label.SetLabel(value)
     ## population routine for choices
     # covention: choicemap holds the entryname to retrieve value from self.data
@@ -890,7 +892,7 @@ class AfpDialog(wx.Dialog):
                 list.SetBackgroundColour(self.readonlycolor)   
                 list.Enable(False)  
         if ed_flag:
-            if self.choice_Edit.GetCurrentSelection() != 1: 
+            if not self.no_readonly and self.choice_Edit.GetCurrentSelection() != 1: 
                 self.choice_Edit.SetSelection(1)
         else:
             self.changelist = []
@@ -913,12 +915,12 @@ class AfpDialog(wx.Dialog):
         editable = self.is_editable()
         if not editable: self.re_load()
         self.Set_Editable(editable)
-        if self.choice_Edit.GetCurrentSelection() == 2: self.EndModal(wx.ID_CANCEL)
+        if self.no_readonly or self.choice_Edit.GetCurrentSelection() == 2: self.EndModal(wx.ID_CANCEL)
         event.Skip()
     ## Eventhandler BUTTON - Ok button pushed
     # @param event - event which initiated this action
     def On_Button_Ok(self,event):
-        if self.choice_Edit.GetSelection() == 1:
+        if self.no_readonly or self.choice_Edit.GetSelection() == 1:
             self.execute_Ok()
             #if self.lock_data and not self.new: self.data.unlock_data() 
             if self.debug: print "Event handler `On_Button_Ok' save, neu:", self.new,"Ok:",self.Ok 

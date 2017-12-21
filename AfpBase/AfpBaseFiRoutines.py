@@ -31,6 +31,7 @@
 import AfpBaseRoutines
 from AfpBaseRoutines import *
 
+
 ##class for payment in afp-modules
 class AfpZahlung(object):
     ## initialize payment class, \n
@@ -50,7 +51,7 @@ class AfpZahlung(object):
         self.finance_modul = None
         self.finance = None
         self.auszug = None
-        self.datum = None
+        self.datum = self.globals.today()
         self.ausgang = False
         self.selected_list = [data]
         self.append_payment_data(data)
@@ -102,14 +103,37 @@ class AfpZahlung(object):
         if self.finance:
             check = self.finance.check_auszug(auszug)
             if check:
-                datum = self.finance.get_value("BuchDat.AUSZUG")         
+                datum = self.finance.get_value("BuchDat.AUSZUG") 
+            else:
+                datum = self.get_date_from_cash(auszug)
+                if datum: check = True
         else:
             check =  True
-            datum = self.globals.today()
+            datum = self.get_date_from_cash(auszug)
         if check:   
-            self.auszug = auszug
-            if datum: self.datum = datum
+            self.set_auszug(auszug, datum)
         return check
+     ## get name of the statement of account for cash ("Bar") payment
+    def get_cash_auszug(self):
+        today = self.globals.today()
+        return "BAR-" + Afp_toInternDateString(today)[3:]   
+    ## extract date from statement of account identifier, if possible
+    # @param auszug - statement of account identifier to be analysed
+    def get_date_from_cash(self, auszug):
+        date = None
+        dat = auszug[4:]
+        split = dat.split("-")
+        month = int(split[0])
+        if len(split) > 1:
+            if "/" in split[1]:
+                ssplit = split.split("/")
+                year = int(ssplit[1])
+                day = int(ssplit[0])
+            else:
+                day = int(split[1])
+                year = self.globals.today().year
+            date = Afp_genDate(year, month, day)
+        return date
     ## check if statement of account (Auszug) exists, if not create one
     # @param auszug - identifier of statemen of account
     # @param datum -  the date when statement has been recorded
@@ -127,12 +151,12 @@ class AfpZahlung(object):
     # @param data - SelectionList holding data for payment
     def append_payment_data(self, data):
         amount, partial, dummy = data.get_payment_values()
-        print "append_payment_data:", amount, partial, dummy
+        print "AfpZahlung.append_payment_data:", amount, partial, dummy
         self.amount.append(amount)
         self.partial.append(partial)
         if self.partial[-1] is None: self.partial[-1] = 0.0      
         self.balance.append(int(100* (self.amount[-1] - self.partial[-1])))      
-        print "AfpZahlung.append_payment_data()", self.amount, self.partial, self.balance
+        print "AfpZahlung.append_payment_data:", self.amount, self.partial, self.balance
     ## set values of partial payment in data, invoke financial transaction
     # @param index - index of payment part in selection list
     def set_payment_data(self, index):
@@ -141,8 +165,7 @@ class AfpZahlung(object):
         tablename = data.get_selection().get_tablename()
         if Afp_isEps(payment):
             sum = self.partial[index] + payment
-            today = self.globals.today()
-            data.set_payment_values(sum, today)
+            data.set_payment_values(sum, self.datum)
             self.add_payment_transaction(payment, data)
             self.partial[index] = sum
     ## add a selection made from the database to this payment
@@ -235,11 +258,15 @@ class AfpZahlung(object):
         for anz in self.partial:
             anzahlung += anz
         return Afp_toString(anzahlung)
-    ## return possibly made overpayment
-    def get_gutschrift(self):
+   ## return the payment left to balance all attached selections
+    def get_payment_left(self):
         preis = Afp_floatString(self.get_preis())
         anz = Afp_floatString(self.get_anzahlung())
-        if anz > preis: return Afp_toString(anz - preis)
+        return preis - anz
+    ## return possibly made overpayment
+    def get_gutschrift(self):
+        anz = self.get_payment_left()
+        if anz < 0: return Afp_toString(- anz)
         return ""
     ## return list to be displayed for the selections of this payment
     def get_display_list(self):
@@ -304,7 +331,8 @@ class AfpZahlung(object):
     def store(self):
         for entry in self.selected_list: entry.store()
         if self.finance: self.finance.store()
-
+            
+        
 ## invoice base class
 class AfpRechnung(AfpSelectionList):
     ## initialise a invoice base class

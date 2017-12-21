@@ -248,15 +248,7 @@ def Afp_datetimeString(datestring, timestring, end = False):
 def Afp_stringFloatString(string):
     return Afp_toString(Afp_floatString(string))
  
-##  convert all entries of a array to strings, routine will be called recursively for inner lists
-def Afp_ArraytoString_dep(array):
-    for i in range(len(array)):
-        if type(array[i]) == list:
-            array[i] = Afp_ArraytoString(array[i])
-        else:
-            array[i] = Afp_toString(array[i])
-    return array
-## convert all entries of a up to 2-dim array to strings  
+##  convert all entries of a array to strings, routine will be called recursively for inner lists 
 # @param array - value array to be converted
 def Afp_ArraytoString(array):
     #print "Afp_ArraytoString"
@@ -564,6 +556,7 @@ def Afp_replaceUml(string):
 # @param including - string to included in word
 def Afp_getWords(in_string, including=None):
     words = []
+    split = in_string
     str = ""
     if including:
         split = in_string.split(including)
@@ -574,7 +567,7 @@ def Afp_getWords(in_string, including=None):
         str = ""
         currentwords = []
         for s in teilstr:
-            if s in string.ascii_letters:
+            if s.isalpha():
                 str += s
             else:
                 if str:  currentwords.append(str)
@@ -630,7 +623,7 @@ def Afp_between(string, start, end):
             instrings.append(split[0])
             outstrings.append(split[1])
             if len(split)>2:
-                print "Assymetric ", start , end,  " pair in \"" + string +"\""
+                print "Afp_between: Assymetric ", start , end,  " pair in \"" + string +"\""
         else:
             outstrings.append(split[0])
     return instrings,outstrings

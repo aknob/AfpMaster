@@ -156,7 +156,10 @@ class AfpSQL(object):
         limit_clause = ""
         if not limit is None: limit_clause = limit
         dat_clause = ""
-        dateien = dateinamen.split()
+        if " " in dateinamen:
+            dateien = dateinamen.split()
+        else:
+            dateien = dateinamen.split(",")
         lgh = len(dateien)
         if lgh == 1 and all_fields: no_indicator = True
         else: no_indicator = False
@@ -185,7 +188,6 @@ class AfpSQL(object):
                 cone = ""
                 connew = ""
                 if len(fld) > 1 and not Afp_isFloatString(feld): 
-                    #print "extract_clauses:", fld[1], dateien, fld[1] in dateien
                     if fld[1] in dateien: i = dateien.index(fld[1])
                     else: i = dateien.index(fld[1].upper())
                     if i > -1: dat = "D" + str(i) + "."
@@ -444,24 +446,31 @@ class AfpSQLTableSelection(object):
     ## resets select criterium from last row
     def reset_select(self):
         if self.select:
+            print "AfpSQLTableSelection.reset_select select:", self.select
+            #print self.data
+            #self.select = "Tab = \"RECHNG\" AND TabNr = 11658"
             split = self.select.split(" ")
             last_index = self.get_data_length() - 1
-            self.select = ""
+            self.select = "" 
+            print "AfpSQLTableSelection.reset_select split:", split
             for i in range(0, len(split), 4):
                 if i: self.select += " " + split[i-1] + " "
                 feldname = split[i]
                 mask = split[i+2][0] == "\""
                 values = self.get_values(feldname, last_index)
+                print "AfpSQLTableSelection.reset_select mask:", i, feldname, last_index, mask, values
                 if values:
                     value = Afp_toString(values[0][0])
                     if mask: value = "\"" + value + "\""
                     self.select += feldname + " = " + value
+                    print "AfpSQLTableSelection.reset_select value:", value, self.select
             if self.debug: print "AfpSQLTableSelection.reset_select:", self.select
     ## load data into TableSelection according to given select clause
     # @param select - select clause to identify desired data
     # @param order - if given desired order of output rows
     def load_data(self, select, order = None):
         self.select = select  
+        print "AfpSQLTableSelection.load_data select:", self.select
         if self.dbg: print "AfpSQLTableSelection.load_data:", self.select, self.tablename, order
         self.data = map(list, self.mysql.select("*",self.select, self.tablename, order))
         self.select_clause = self.mysql.get_select_clause()
@@ -474,6 +483,7 @@ class AfpSQLTableSelection(object):
     # @param select - select clause for this  AfpSbDatei entry
     def load_datei_data(self, datei, select):  
         self.select = select
+        print "AfpSQLTableSelection.load_datei_data select:", self.select
         self.data = map(list, [datei.get_values()])
         self.manipulation = []    
     ## attach input to data property
@@ -482,6 +492,7 @@ class AfpSQLTableSelection(object):
     def set_data(self, data, select=None):
         if self.dbg: print "AfpSQLTableSelection.set_data:", self.select, data
         if select: self.select = select
+        print "AfpSQLTableSelection.set_data select:", self.select
         if data is None:
             self.data = None
         else:

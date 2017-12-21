@@ -131,6 +131,26 @@ def AfpLoad_FaAusw(globals, table, index, value = "", where = None, ask = False)
     print "AfpLoad_FaAusw result:", result
     return result      
 
+## simple select requester for selection of a indicated typ
+# @param mysql - database handle to retrieve data from
+# @param typ - indicated typ, where rows should be retrieved
+# @param text - text to be displayed in requester
+# @param debug - flag if debug text should be written
+def AfpReq_FaSelectedRow(mysql, typ, text, debug):
+    datei, rows = AfpFa_getSelectedRows(mysql, typ, debug)
+    liste = []
+    ident = []
+    for row in rows:
+        ident.append(row[3])
+        line = [row[3],row[2],row[0],row[1],row[4]]
+        liste.append(Afp_ArraytoLine(line))
+    if not text: text = "Bitte " + typ + " auswählen!".decode("UTF-8")
+    select, Ok = AfpReq_Selection(text, "", liste, "Auswahl", ident)   
+    if Ok:
+        return datei, select
+    else:
+        return None, None
+
 ## dialog for selection of faktura content data \n
 # selects an entry from the 'Artikel' table
 class AfpDialog_FaArtikelAusw(AfpDialog_Auswahl):
@@ -272,24 +292,11 @@ class AfpDialog_FaCustomSelect(AfpDialog):
         self.Bind(wx.grid.EVT_GRID_CMD_CELL_RIGHT_CLICK, self.On_RClick, self.grid_auswahl)
         self.gridmap.append("Auswahl")
 
-        
     ## populate the 'Auswahl' grid, \n
     # this routine is called from the AfpDialog.Populate
     def Pop_Auswahl(self):
         typ = self.choice_Art.GetStringSelection()
-        datei, filter = AfpFa_possibleKinds(typ)
-        if datei == "":
-            datei = "ADMEMO"
-            filter = "Zustand." + datei + " = \"offen\""
-        else:
-            filter = "Zustand." + datei + " = \"" + filter + "\""
-        self.datei = datei
-        select = filter + " AND KundenNr." + datei + " = KundenNr.ADRESSE"
-        if datei == "ADMEMO":
-            rows = self.globals.get_mysql().select_strings("Name.ADRESSE,Vorname.ADRESSE,Datum.ADMEMO,TypNr.ADMEMO,Memo.ADMEMO", select, datei + " ADRESSE")
-        else:
-            rows = self.globals.get_mysql().select_strings("Name.ADRESSE,Vorname.ADRESSE,Datum." + datei +",RechNr."+datei + ",Bem." + datei, select, datei + " ADRESSE")
-        if self.debug: print "AfpDialog_FaCustomSelect.Pop_Auswahl:", select, rows
+        self.datei, rows = AfpFa_getSelectedRows(self.globals.get_mysql(), typ, self.debug)
         lgh = len(rows)
         rows = Afp_MatrixJoinCol(rows)
         #print "AfpDialog_FaCustomSelect.Pop_Auswahl:", lgh, rows

@@ -533,22 +533,21 @@ class AfpFahrer(AfpSelectionList):
         else:
             Fahrten = "\"Fahrten\""
         self.selects["AUSGABE"] = [ "AUSGABE","!Art = \"Einsatz\" and Typ = " + Fahrten] 
-    ## complete data to be stored in archive \n
-    # - overwritten from parent
-    # @param new_data - data to be completed and written into "ARCHIV" TableSelection \n
-    def add_to_Archiv(self, new_data):
-        selection =self.get_selection("ARCHIV")
-        row = selection.get_data_length()
-        new_data["Art"] = "BusAfp"
-        if self.archiv_select_field == "ReiseNr": new_data["Typ"] = "Touristik"
-        else: new_data["Typ"] = "Charter"
-        new_data[self.archiv_select_field] = self.archiv_select_value
-        new_data["KundenNr"] = self.get_value("FahrerNr")
-        if new_data["Bem"]: new_data["Bem"] += " " + self.get_string_value("Kuerzel")
-        else: new_data["Bem"] = self.get_string_value("Kuerzel")
-        new_data["Datum"] = self.globals.today()
-        #print new_data
-        selection.set_data_values(new_data, row)
+    ## set identification data for archive \n
+    # default implementation: add name of maintable and mainvalue \n
+    # - may be overwritten from AfpSelectionList
+    # @param data - dictionary where identifiers should be added
+    def set_archiv_data(self, data):
+        if self.archiv_select_field == "ReiseNr": 
+            data["Typ"] = "Touristik"
+            data["Tab"] = "REISEN"
+        else: 
+            data["Typ"] = "Charter"
+            data["Tab"] = "FAHRTEN"
+        data["TabNr"] = self.get_value(self.archiv_select_field)
+        data["KundenNr"] = self.get_value("FahrerNr")
+        if data["Bem"]: new_data["Bem"] += " " + self.get_string_value("Kuerzel")
+        else: data["Bem"] = self.get_string_value("Kuerzel")
       
       
    

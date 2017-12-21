@@ -76,7 +76,7 @@ class AfpMainApp(wx.App):
     # @param startpath - path where BusAfp has been started from
     # @param confpath - path to configuration file
     # @param dbhost - host for database
-    # @param dbname - name or schema for database
+    # @param dbname - name of schema for database
     # @param dbuser - user on host for database
     # @param dbword - password for user on host for database
     # @param config - configuration string to set global variables
