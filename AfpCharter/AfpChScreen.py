@@ -505,7 +505,7 @@ class AfpChScreen(AfpScreen):
         FahrtNr =  self.sb.get_value("FahrtNr")     
         select = ( "FahrtNr = %d")% FahrtNr
         if typ == "Archiv":
-            select = ( "MietNr = %d")% FahrtNr
+            select = ( "Tab = \"FAHRTEN\" AND TabNr = %d")% FahrtNr
             rawrow = self.mysql.select_strings("Datum,Gruppe,Bem,Extern",select,"ARCHIV")
             for row in rawrow:
                 rows.append(row[0] + " " + row[1] + " " + row[2])
@@ -531,7 +531,7 @@ class AfpChScreen(AfpScreen):
         FahrtNr =  self.sb.get_value("FahrtNr")     
         select = ( "FahrtNr = %d")% FahrtNr
         if typ == "Archiv":
-            select = ( "MietNr = %d")% FahrtNr
+            select = ("Tab = \"FAHRTEN\" AND TabNr = %d")% FahrtNr
             rows = self.mysql.select("Datum,Gruppe,Bem,Extern",select,"ARCHIV")
         return rows
 

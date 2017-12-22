@@ -168,7 +168,7 @@ class AfpCharter(AfpSelectionList):
         self.selects["ADRESSE"] = [ "ADRESSE","KundenNr = KundenNr.FAHRTEN"] 
         self.selects["FAHRTI"] = [ "FAHRTI","FahrtNr = FahrtNr.FAHRTEN"] 
         self.selects["FAHRTEX"] = [ "FAHRTEX","FahrtNr = FahrtNr.FAHRTEN"] 
-        self.selects["ARCHIV"] = [ "ARCHIV","MietNr = FahrtNr.FAHRTEN"] 
+        self.selects["ARCHIV"] = ["ARCHIV", "Tab = \"FAHRTEN\" AND TabNr = FahrtNr.FAHRTEN"]
         self.selects["AUSGABE"] = [ "AUSGABE","Typ = Zustand.FAHRTEN"] 
         self.selects["FAHRTVOR"] = [ "FAHRTVOR","VorgangsNr = Vorgang.FAHRTEN","VorgangsNr"] 
         self.selects["RECHNG"] = [ "RECHNG","RechNr = RechNr.FAHRTEN","RechNr"] 
