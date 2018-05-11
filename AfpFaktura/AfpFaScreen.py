@@ -14,7 +14,7 @@
 #  AfpTechnologies (afptech.de)
 #
 #    BusAfp is a software to manage coach and travel acivities
-#    Copyright (C) 1989 - 2017  afptech.de (Andreas Knoblauch)
+#    Copyright (C) 1989 - 2018  afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -36,17 +36,17 @@ import wx.grid
 import AfpBase
 from AfpBase import *
 from AfpBase.AfpUtilities import *
-from AfpBase.AfpUtilities.AfpStringUtilities import AfpSelectEnrich_dbname, Afp_ArraytoString, Afp_fromString, Afp_toString, Afp_isString, Afp_intString, Afp_floatString
+from AfpBase.AfpUtilities.AfpStringUtilities import AfpSelectEnrich_dbname, Afp_ArraytoString, Afp_fromString, Afp_toString, Afp_isString, Afp_intString, Afp_floatString, Afp_addRootpath
 from AfpBase.AfpUtilities.AfpBaseUtilities import Afp_existsFile, Afp_isNumeric, Afp_isInteger
 from AfpBase.AfpDatabase import *
 from AfpBase.AfpDatabase.AfpSQL import AfpSQL
 from AfpBase.AfpDatabase.AfpSuperbase import AfpSuperbase
-from AfpBase.AfpBaseRoutines import AfpMailSender
-from AfpBase.AfpBaseDialog import AfpReq_Info, AfpReq_Question, AfpReq_Text, AfpReq_EditText
+from AfpBase.AfpBaseRoutines import AfpMailSender, Afp_archivName, Afp_startFile
+from AfpBase.AfpBaseDialog import AfpReq_Info, AfpReq_Question, AfpReq_Text, AfpReq_EditText, AfpReq_MultiLine
 from AfpBase.AfpBaseDialogCommon import  AfpReq_Information, Afp_editMail, AfpLoad_DiReport
 from AfpBase.AfpBaseScreen import AfpEditScreen
 from AfpBase.AfpBaseAdRoutines import AfpAdresse_StatusMap, AfpAdresse
-from AfpBase.AfpBaseAdDialog import AfpLoad_DiAdEin_fromKNr, AfpLoad_AdAusw
+from AfpBase.AfpBaseAdDialog import AfpLoad_DiAdEin_fromKNr, AfpLoad_AdAusw, AfpAdresse_indirectAttributFromKNr
 from AfpBase.AfpBaseFiDialog import AfpLoad_DiFiZahl
 
 import AfpFaktura
@@ -384,6 +384,7 @@ class AfpFaScreen(AfpEditScreen):
         self.selected_row = None
         self.index = None
         self.index_nr = None
+        self.edit_typ = None
         self.active = False
         self.Bind(wx.EVT_ACTIVATE, self.On_Activate)
         # self properties
@@ -444,81 +445,81 @@ class AfpFaScreen(AfpEditScreen):
        
         # address as LABEL
         if self.use_labels:
-            self.label_Vorname = wx.StaticText(panel, -1, "", pos=(35,50), size=(195,23), name="Vorname")
+            self.label_Vorname = wx.StaticText(panel, -1, "", pos=(35,50), size=(200,23), name="Vorname")
             self.labelmap["Vorname"] = "Vorname.ADRESSE"
-            self.label_Name = wx.StaticText(panel, -1,label="", pos=(35,75), size=(195,23), name="Name")
+            self.label_Name = wx.StaticText(panel, -1,label="", pos=(35,75), size=(200,23), name="Name")
             self.labelmap["Name"] = "Name.ADRESSE"
             
-            self.label_Strasse = wx.StaticText(panel, -1,label="", pos=(35,100), size=(195,23), name="Strasse")
+            self.label_Strasse = wx.StaticText(panel, -1,label="", pos=(35,100), size=(200,23), name="Strasse")
             self.labelmap["Strasse"] = "Strasse.ADRESSE"
             
             self.label_Plz = wx.StaticText(panel, -1,label="", pos=(35,125), size=(40,23), name="Plz")
             self.labelmap["Plz"] = "Plz.ADRESSE"
-            self.label_Ort = wx.StaticText(panel, -1,label="", pos=(75,125), size=(155,23), name="Ort")
+            self.label_Ort = wx.StaticText(panel, -1,label="", pos=(75,125), size=(160,23), name="Ort")
             self.labelmap["Ort"] = "Ort.ADRESSE"
             
-            self.label_Telefon = wx.StaticText(panel, -1,label="", pos=(90,150), size=(140,23), name="Telefon")
+            self.label_Telefon = wx.StaticText(panel, -1,label="", pos=(88,150), size=(147,23), name="Telefon")
             self.labelmap["Telefon"] = "Telefon.ADRESSE"
-            self.label_Mail = wx.StaticText(panel, -1,label="", pos=(90,175), size=(140,23), style=0, name="Mail")
+            self.label_Mail = wx.StaticText(panel, -1,label="", pos=(88,175), size=(147,23), style=0, name="Mail")
             self.labelmap["Mail"] = "Mail.ADRESSE"
             
-            self.label_Art = wx.StaticText(panel, -1, label="", pos=(230,100), size=(80,18), name="Art")               
-            self.labelmap["Art"] = "Art.Dependance1"
-            self.label_Hersteller = wx.StaticText(panel, -1, label="", pos=(320,100), size=(70,18), name="Hersteller")               
-            self.labelmap["Hersteller"] = "Hersteller.Dependance1"
-            self.label_Typ = wx.StaticText(panel, -1, label="", pos=(400,100), size=(90,18), name="Typ")               
-            self.labelmap["Typ"] = "Typ.Dependance1"
-            self.label_Motor = wx.StaticText(panel, -1, label="", pos=(230,125), size=(80,18), name="Motor")               
-            self.labelmap["Motor"] = "Motormodell.Dependance1"
-            self.label_MotorNr = wx.StaticText(panel, -1, label="", pos=(320,125), size=(176,18), name="MotorNr")               
-            self.labelmap["MotorNr"] = "MotorNr.Dependance1"
-            self.label_TypNr= wx.StaticText(panel, -1, label="", pos=(320,150), size=(176,18), name="TypNr")               
-            self.labelmap["TypNr"] = "TypNr.Dependance1"
-            self.label_Kenn = wx.StaticText(panel, -1, label="", pos=(230,175), size=(80,18), name="Kenn")               
-            self.labelmap["Kenn"] = "Kennzeichen.Dependance1"
-            self.label_HU = wx.StaticText(panel, -1, label="", pos=(320,175), size=(70,18), name="HU")               
-            self.labelmap["HU"] = "HU.Dependance1"
-            self.label_Zul = wx.StaticText(panel, -1, label="", pos=(400,175), size=(90,18), name="Zul")               
-            self.labelmap["Zul"] = "ZulVerkauf.Dependance1"
+            self.label_Att = wx.StaticText(panel, -1, label="", pos=(240,100), size=(80,18), name="Att")               
+            self.labelmap["Att"] = "Attribut.ADRESATT"
+            self.label_AttT = wx.StaticText(panel, -1, label="", pos=(320,100), size=(175,18), name="AttT")               
+            self.labelmap["AttT"] = "AttText.ADRESATT"
+            self.label_Tag1 = wx.StaticText(panel, -1, label="", pos=(240,125), size=(80,18), name="Tag1")               
+            self.labelmap["Tag1"] = "Tag#1.ADRESATT"
+            self.label_Tag2 = wx.StaticText(panel, -1, label="", pos=(320,125), size=(80,18), name="Tag2")               
+            self.labelmap["Tag2"] = "Tag#2.ADRESATT"
+            self.label_Tag3 = wx.StaticText(panel, -1, label="", pos=(400,125), size=(95,18), name="Tag3")               
+            self.labelmap["Tag3"] = "Tag#3.ADRESATT"
+            self.label_Tag4= wx.StaticText(panel, -1, label="", pos=(320,150), size=(175,18), name="Tag4")               
+            self.labelmap["Tag4"] = "Tag#4.ADRESATT"
+            self.label_Tag5 = wx.StaticText(panel, -1, label="", pos=(240,175), size=(80,18), name="Tag5")               
+            self.labelmap["Tag5"] = "Tag#5.ADRESATT"
+            self.label_Tag6 = wx.StaticText(panel, -1, label="", pos=(320,175), size=(80,18), name="Tag6")               
+            self.labelmap["Tag6"] = "Tag#6.ADRESATT"
+            self.label_Tag7 = wx.StaticText(panel, -1, label="", pos=(400,175), size=(95,18), name="Tag7")               
+            self.labelmap["Tag7"] = "Tag#7.ADRESATT"
         else:
             # address as TEXTBOX
-            self.text_Vorname = wx.TextCtrl(panel, -1, "", pos=(35,50), size=(195,23), style=wx.TE_READONLY, name="Vorname")
+            self.text_Vorname = wx.TextCtrl(panel, -1, "", pos=(35,50), size=(200,23), style=wx.TE_READONLY, name="Vorname")
             self.textmap["Vorname"] = "Vorname.ADRESSE"
-            self.text_Name = wx.TextCtrl(panel, -1,value="", pos=(35,75), size=(217,23), style=wx.TE_READONLY, name="Name")
+            self.text_Name = wx.TextCtrl(panel, -1,value="", pos=(35,75), size=(200,23), style=wx.TE_READONLY, name="Name")
             self.textmap["Name"] = "Name.ADRESSE"
             
-            self.text_Strasse = wx.TextCtrl(panel, -1,value="", pos=(35,100), size=(271,23), style=wx.TE_READONLY, name="Strasse")
+            self.text_Strasse = wx.TextCtrl(panel, -1,value="", pos=(35,100), size=(200,23), style=wx.TE_READONLY, name="Strasse")
             self.textmap["Strasse"] = "Strasse.ADRESSE"
             
             self.text_Plz = wx.TextCtrl(panel, -1,value="", pos=(35,125), size=(53,23), style=wx.TE_READONLY, name="Plz")
             self.textmap["Plz"] = "Plz.ADRESSE"
-            self.text_Ort = wx.TextCtrl(panel, -1,value="", pos=(91,125), size=(215,23), style=wx.TE_READONLY, name="Ort")
+            self.text_Ort = wx.TextCtrl(panel, -1,value="", pos=(88,125), size=(147,23), style=wx.TE_READONLY, name="Ort")
             self.textmap["Ort"] = "Ort.ADRESSE"
             
-            self.text_Telefon = wx.TextCtrl(panel, -1,value="", pos=(89,150), size=(215,23), style=wx.TE_READONLY, name="Telefon")
+            self.text_Telefon = wx.TextCtrl(panel, -1,value="", pos=(88,150), size=(232,23), style=wx.TE_READONLY, name="Telefon")
             self.textmap["Telefon"] = "Telefon.ADRESSE"
-            self.text_Mail = wx.TextCtrl(panel, -1,value="", pos=(89,175), size=(215,23), style=0, name="Mail")
+            self.text_Mail = wx.TextCtrl(panel, -1,value="", pos=(88,175), size=(147,23), style=0, name="Mail")
             self.textmap["Mail"] = "Mail.ADRESSE"
             
-            self.text_Art = wx.TextCtrl(panel, -1,value="", pos=(320,100), size=(80,18), style=wx.TE_READONLY, name="Art")               
-            self.textmap["Art"] = "Art.Dependance1"
-            self.text_Hersteller = wx.TextCtrl(panel, -1,value="", pos=(410,100), size=(80,18), style=wx.TE_READONLY, name="Hersteller")               
-            self.textmap["Hersteller"] = "Hersteller.Dependance1"
-            self.text_MotorNr = wx.TextCtrl(panel, -1,value="", pos=(500,100), size=(176,18), style=wx.TE_READONLY, name="MotorNr")               
-            self.textmap["MotorNr"] = "MotorNr.Dependance1"
-            self.text_Motor = wx.TextCtrl(panel, -1,value="", pos=(320,125), size=(80,18), style=wx.TE_READONLY, name="Motor")               
-            self.textmap["Motor"] = "Motormodell.Dependance1"
-            self.text_Typ = wx.TextCtrl(panel, -1,value="", pos=(410,125), size=(80,18), style=wx.TE_READONLY, name="Typ")               
-            self.textmap["Typ"] = "Typ.Dependance1"
-            self.text_TypNr= wx.TextCtrl(panel, -1,value="", pos=(500,125), size=(176,18), style=wx.TE_READONLY, name="TypNr")               
-            self.textmap["TypNr"] = "TypNr.Dependance1"
-            self.text_Zul = wx.TextCtrl(panel, -1,value="", pos=(320,150), size=(80,18), style=wx.TE_READONLY, name="Zul")               
-            self.textmap["Zul"] = "ZulVerkauf.Dependance1"
-            self.text_HU = wx.TextCtrl(panel, -1,value="", pos=(410,150), size=(80,18), style=wx.TE_READONLY, name="HU")               
-            self.textmap["HU"] = "HU.Dependance1"
-            self.text_Kenn = wx.TextCtrl(panel, -1,value="", pos=(500,150), size=(176,18), style=wx.TE_READONLY, name="Kenn")               
-            self.textmap["Kenn"] = "Kennzeichen.Dependance1"
-
+            self.text_Att = wx.TextCtrl(panel, -1, value="", pos=(240,100), size=(80,23), style=wx.TE_READONLY, name="Att")               
+            self.textmap["Att"] = "Attribut.ADRESATT"
+            self.text_AttT = wx.TextCtrl(panel, -1, value="", pos=(320,100), size=(175,23), style=wx.TE_READONLY, name="AttT")               
+            self.textmap["AttT"] = "AttText.ADRESATT"
+            self.text_Tag1 = wx.TextCtrl(panel, -1, value="", pos=(240,125), size=(80,23), style=wx.TE_READONLY, name="Tag1")               
+            self.textmap["Tag1"] = "Tag#1.ADRESATT"
+            self.text_Tag2 = wx.TextCtrl(panel, -1, value="", pos=(320,125), size=(80,23), style=wx.TE_READONLY, name="Tag2")               
+            self.textmap["Tag2"] = "Tag#2.ADRESATT"
+            self.text_Tag3 = wx.TextCtrl(panel, -1, value="", pos=(400,125), size=(95,23), style=wx.TE_READONLY, name="Tag3")               
+            self.textmap["Tag3"] = "Tag#3.ADRESATT"
+            self.text_Tag4= wx.TextCtrl(panel, -1, value="", pos=(320,150), size=(175,23), style=wx.TE_READONLY, name="Tag4")               
+            self.textmap["Tag4"] = "Tag#4.ADRESATT"
+            self.text_Tag5 = wx.TextCtrl(panel, -1, value="", pos=(240,175), size=(80,23), style=wx.TE_READONLY, name="Tag5")               
+            self.textmap["Tag5"] = "Tag#5.ADRESATT"
+            self.text_Tag6 = wx.TextCtrl(panel, -1, value="", pos=(320,175), size=(80,23), style=wx.TE_READONLY, name="Tag6")               
+            self.textmap["Tag6"] = "Tag#6.ADRESATT"
+            self.text_Tag7 = wx.TextCtrl(panel, -1, value="", pos=(400,175), size=(95,23), style=wx.TE_READONLY, name="Tag7")               
+            self.textmap["Tag7"] = "Tag#7.ADRESATT"
+        
         # TEXTBOX
         self.text_Datum = wx.TextCtrl(panel, -1,value="", pos=(449,50), size=(77,23), style=wx.TE_READONLY, name="Datum")
         self.textmap["Datum"] = "Datum.Main"
@@ -544,7 +545,7 @@ class AfpFaScreen(AfpEditScreen):
         self.listmap.append("Archiv")
 
         # OPTIONBUTTON
-        self.choice_Status = wx.Choice(panel, -1, pos=(230,52), size=(76,18), choices=["Passiv", "Aktiv", "Neutral", "Markiert", "Inaktiv"],  name="RStatus")
+        self.choice_Status = wx.Choice(panel, -1, pos=(240,52), size=(76,18), choices=["Passiv", "Aktiv", "Neutral", "Markiert", "Inaktiv"],  name="RStatus")
         self.choice_Status.SetSelection(0)
         #self.choice_Status.Enable(False)
         self.Bind(wx.EVT_CHOICE, self.On_CStatus, self.choice_Status)
@@ -638,10 +639,14 @@ class AfpFaScreen(AfpEditScreen):
         if self.debug: print "Event handler `On_Neu'"
         typ = self.combo_Filter.GetValue()
         KNr = None
-        Ok = AfpReq_Question("Adresse übernehmen?".decode("UTF-8"),"")
-        if Ok:
-            KNr = self.data.get_value("KundenNr")
-        self.generate_new_data(typ, KNr)
+        GNr = None
+        if self.data.get_value("KundenNr"):
+            res = AfpReq_MultiLine("Welche Daten sollen übernommen werden?".decode("UTF-8"), "Bitte die entsprechend Daten auswählen.".decode("UTF-8"), "Check",["Adresse","Gerät".decode("UTF-8")], "Daten übernehmen?".decode("UTF-8"))
+            if res:
+                if res[0]: 
+                    KNr = self.data.get_value("KundenNr")
+                    if res[1]: GNr = self.data.get_value("AttNr")
+        self.generate_new_data(typ, KNr, GNr)
         if event: event.Skip()
     ## Eventhandler BUTTON - invoke cash sale
     def On_Bar(self,event = None):
@@ -820,15 +825,16 @@ class AfpFaScreen(AfpEditScreen):
         zahlbetrag = self.data.get_value("ZahlBetrag")
         netto = self.data.get_value("Netto")
         gewinn = self.data.get_value("Gewinn")
-        #print "AfpFaScreen.Pop_special:", brutto, netto, gewinn, zahlbetrag
+        print "AfpFaScreen.Pop_special:", brutto, netto, gewinn, zahlbetrag
         if self.is_editable():
-            if netto:
-                pro = Afp_toString(int(100*gewinn/netto))
-            else:
-                pro = "0"
-            label = Afp_toString(gewinn)
-            label = pro + "00" + label[:-3].strip() + label[-2:]
-            self.label_Gew.SetLabel(label)
+            if not gewinn is None:
+                if netto:
+                    pro = Afp_toString(int(100*gewinn/netto))
+                else:
+                    pro = "0"
+                label = Afp_toString(gewinn)
+                label = pro + "00" + label[:-3].strip() + label[-2:]
+                self.label_Gew.SetLabel(label)
             self.text_Netto.SetValue(Afp_toString(netto)) 
             self.text_Betrag.SetValue(Afp_toString(brutto)) 
             self.set_changecolor("Preis")
@@ -881,19 +887,19 @@ class AfpFaScreen(AfpEditScreen):
         self.Pop_content()
         self.select_row(rowNr)
     ## edit a grid line
-    # @param value - value to be inserted
+    # @param typ - typ of line editing, valid types: None - choose, free - free artcle entry, stock - enter stock receipt
+    # @param value - value(s) to be inserted
     # @param index - sortindex in database table
-    def edit_line(self, value, index, rowNr):
+    # @param rowNr - number of row to be edited
+    def edit_line(self, typ, value, index, rowNr):
         print "AfpFaScreen.edit_line:", value, index, rowNr
-        if index:
+        if typ is None:
             #self.sb.set_debug()
             self.sb.CurrentIndexName(index, "ARTIKEL")
             self.sb.select_key(value)
-            typ = None
             param = None
         else:
-             typ = "free"
-             param = value
+            param = value
         #process = [ ["choose",",ArtikelNr,Bezeichnung,,Nettopreis,Nettopreis,Einkaufspreis,Zeile"], [3,"Afp_intString","$5 = $5 * $3,$6 =( $4 - $6 )* $3"]] 
         process = self.data.get_grid_lineprocessing(typ, param)
         if rowNr is None:
@@ -991,28 +997,37 @@ class AfpFaScreen(AfpEditScreen):
     # @param KNr - identifier of address fornthis new incident,
     # - 0: direct invoice without address; cash sale (default) 
     # - None: address has to be selected                      
-    def generate_new_data(self, typ = "Rechnung", KNr = 0):
+    def generate_new_data(self, typ = "Rechnung", KNr = 0, GNr = None):
         table, subtyp = AfpFa_possibleKinds(typ)
         if KNr is None:
+            GNr = None
             name = self.data.get_value("Name.ADRESSE")
+            if not name:
+                name, ok = AfpReq_Text("Bitte Namen für Auftraggeber eingeben!".decode("UTF-8"),"","","Namenseingabe")
             text = "Bitte Auftraggeber für ".decode("UTF-8") + typ + " auswählen:".decode("UTF-8")
             KNr = AfpLoad_AdAusw(self.globals,"ADRESSE","NamSort",name, None, text)
-        # ToDo: Hier Geräteauswahl einführen
-        print "AfpFaScreen.generate_new_data invoked for", typ, subtyp, KNr
-        if table == "KVA":
-            data = AfpOffer(self.globals)
-        elif table == "BESTELL":
-            data = AfpOrder(self.globals)
-        else:
-            data = AfpInvoice(self.globals)
-        data.set_new(subtyp, KNr)
-        self.loaded_data = self.data
-        self.data = data
-        self.Populate()
-        self.Set_Editable(True)
-        print "AfpFaScreen.generate_new_data 'edit_data' invoked" 
-        self.edit_data(0)
-        print "AfpFaScreen.generate_new_data 'edit_data' ended" 
+        if not KNr is None:
+            print "AfpFaScreen.generate_new_data invoked for", typ, subtyp, KNr
+            if table == "KVA":
+                data = AfpOffer(self.globals)
+            elif table == "BESTELL":
+                data = AfpOrder(self.globals)
+            else:
+                data = AfpInvoice(self.globals)
+            data.set_new(subtyp, KNr)
+            if GNr is None and KNr: 
+                GNr = AfpAdresse_indirectAttributFromKNr(self.globals, KNr,"Gerät oder PKW".decode("UTF-8"))
+            #print "AfpFaScreen.generate_new_data set AttNr:", GNr
+            if GNr:
+                data.set_value("AttNr",GNr)
+            #print "AfpFaScreen.generate_new_data read AttNr:", data.get_value("AttNr")
+            self.loaded_data = self.data
+            self.data = data
+            self.Populate()
+            self.Set_Editable(True)
+            print "AfpFaScreen.generate_new_data 'edit_data' invoked" 
+            self.edit_data(0)
+            print "AfpFaScreen.generate_new_data 'edit_data' ended" 
         
     # find an adjacent entry in other database table and set the sb.object pointer to this entry
     # @param table - databasetable where to look
@@ -1040,9 +1055,9 @@ class AfpFaScreen(AfpEditScreen):
     ## direct selection of record via tablename and identifier
     # @param data -  SelectionList to be current on screen
     def set_direct_data(self, data):
-        self.index = "RechNr"
-        self.sb_master = data.get_main_table()
-        ReNr = data.get_value("RechNr")
+        self.index = data.get_mainindex()
+        self.sb_master = data.get_maintable()
+        ReNr = data.get_value(self.index)
         if ReNr:
             filter = data.get_value("Zustand")
             name, index = AfpFa_possibleKinds(None, self.sb_master, filter)
@@ -1108,6 +1123,13 @@ class AfpFaScreen(AfpEditScreen):
     # @param ed_flag - flag to turn editing on or off
     # @param lock_data - flag if invoking of editable mode needs a lock on the database
     def Set_Editable(self, ed_flag, lock_data = None):
+        if ed_flag:
+            self.edit_typ = None
+            if self.data and self.data.is_processable():
+                if self.data.get_listname() == "Bestellung":
+                    #if self.data.is_editable():
+                        #Ok = AfpReq_Question(text, "Sollen die Daten so gespeichert werden?", "Daten speichern?")
+                    self.edit_typ = "stock"
         AfpEditScreen.Set_Editable(self, ed_flag, lock_data)
         if not ed_flag:  
             if self.text_Datum.GetBackgroundColour() == self.changecolor:
@@ -1123,9 +1145,12 @@ class AfpFaScreen(AfpEditScreen):
         text = [None, None]
         row = None
         delete = False
-        if not rowNr is None and rowNr < self.data.get_content_length():
-            ident, name, text = self.get_content_indicators(rowNr)
         edit_next = True
+        direct = self.edit_typ
+        if not rowNr is None and rowNr < self.data.get_content_length():
+            ident, name, text, anz = self.get_content_indicators(rowNr)
+        else:
+            if direct: edit_next = False
         print "AfpFaScreen.edit_data while outside:", ident, name, text, edit_next, self.debug
         while edit_next:
             edit_next = False
@@ -1133,24 +1158,28 @@ class AfpFaScreen(AfpEditScreen):
             if self.use_custom_selection:
                 Ok = False
                 action = None
-                if Afp_isString(ident) or (ident is None and not text[0]):
+                if direct == "stock":
+                    if anz[0]:
+                        action = [direct, anz]
+                        Ok = True
+                elif Afp_isString(ident) or (ident is None and not text[0]):
                     Ok, action = AfpLoad_FaLine(ident, name, self.debug)
                 if not Ok is None:
                     if Ok:
                         if action[1] == "frei":
                             print "AfpFaScreen.edit_data frei:", action
-                            self.edit_line(action[0], None, rowNr)
+                            self.edit_line("free", action[0], None, rowNr)
                         else:
-                            self.edit_line(action[0], action[1], rowNr)
+                            self.edit_line(None, action[0], action[1], rowNr)
                     else:
                         edit_text = True
             else:
                 if text:
                     edit_text = True
                 else:
-                    if not value: ask = True
+                    if not ident: ask = True
                     else: ask = False
-                    res = AfpLoad_FaArtikelAusw(self.globals, "ArtikelNr", value, None, ask)
+                    res = AfpLoad_FaArtikelAusw(self.globals, "ArtikelNr", ident, None, ask)
                     print "AfpFaScreen.edit_data:", res
                     # ToDo: res has to be expanded to row
             if edit_text:
@@ -1200,7 +1229,7 @@ class AfpFaScreen(AfpEditScreen):
         datei, filter = AfpFa_possibleKinds(value)
         if datei != self.sb_master:
             # conversion necessary
-            selnames = ["ADRESSE","Dependance1","Content"]
+            selnames = ["ADRESSE","ADRESATT","Content"]
             faktura = self.data.get_converted_faktura(datei, filter)
             faktura.cannibalise(self.data, selnames)
             self.data = faktura
@@ -1226,6 +1255,8 @@ class AfpFaScreen(AfpEditScreen):
         name = None
         text = None
         trange = None
+        anz = None
+        lief = None
         value = self.data.get_value_rows("Content", "ErsatzteilNr", rowNr)[0][0]
         if value and not Afp_isInteger(value):
             ident = Afp_fromString(value)
@@ -1233,6 +1264,7 @@ class AfpFaScreen(AfpEditScreen):
             anz = self.data.get_value_rows("Content", "Anzahl", rowNr)[0][0]
             if anz:
                 name = Afp_toString(self.data.get_value_rows("Content", "Bezeichnung", rowNr)[0][0])
+                lief  = self.data.get_value_rows("Content", "Lieferung", rowNr)[0][0]
                 #name = Afp_fromString(self.data.get_value_rows("Content", "Bezeichnung", rowNr)[0][0])
             else:
                 text = ""
@@ -1248,8 +1280,8 @@ class AfpFaScreen(AfpEditScreen):
                     text += self.grid_content.GetCellValue(row, 1)
                     if text: text += '\n'
                 trange = [start, ende-1]
-        print "AfpFaScreen.get_content_indicators:", rowNr, ident, name, [text, trange]
-        return ident, name, [text, trange]
+        print "AfpFaScreen.get_content_indicators:", rowNr, ident, name, [text, trange], [anz, lief]
+        return ident, name, [text, trange], [anz, lief]
 
     ## insert row in content data -  overwritten from AfpEditScreen
     # @param rowNr - if given, index of row to be changed
@@ -1323,15 +1355,12 @@ class AfpFaScreen(AfpEditScreen):
         rows = []
         if self.debug: print "AfpFaScreen.get_list_rows:", typ
         if typ == "Archiv" and self.data:
-            #rawrow = self.data.get_string_rows("ARCHIV", "Datum,Gruppe,Bem,Extern")
-            #for row in rawrow:
-                #rows.append(row[0] + " " + row[1] + " " + row[2])
-            #rows.append(None)
-            #for row in rawrow:
-                #rows.append(row[3])
-            if not rows: # for test reasons
-                rows.append("17.9.1958 Rechnung Test")
-                rows.append("21.12.2016 Rechnung Test2")
+            rawrow = self.data.get_string_rows("ARCHIV", "Datum,Gruppe,Bem,Extern")
+            for row in rawrow:
+                rows.append(row[0] + " " + row[1] + " " + row[2])
+            rows.append(None)
+            for row in rawrow:
+                rows.append(row[3])
         return rows
     ## get grid rows to populate grids \n
     # (overwritten from AfpScreen) 

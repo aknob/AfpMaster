@@ -12,7 +12,7 @@
 #  AfpTechnologies (afptech.de)
 #
 #    BusAfp is a software to manage coach and travel acivities
-#    Copyright© 1989 - 2017  afptech.de (Andreas Knoblauch)
+#    Copyright© 1989 - 2018  afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -551,7 +551,7 @@ class AfpDialog_FaLine(AfpDialog):
         self.EndModal(wx.ID_CANCEL)
 
 
-    ## loader routine for dialog for invoice entries
+    ## loader routine for dialog for invoice entries, returns Ok flag and action = [textvalue, radiovalue]
     # @param ident - identifier to be displayed and edited
     # @param name - if ident == None: name to be displayed and edited
     # @param debug - debug flag

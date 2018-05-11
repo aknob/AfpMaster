@@ -327,7 +327,7 @@ class AfpSbIndex(object):
                 #ind += 1
         return rows_o
     def gen_index_clause(self, desc = False, first = False, indexwert = None):
-        #print "AfpSbIndex.gen_index_clause:", self.name, self.indexwert, self.index_bez, desc, first, indexwert
+        print "AfpSbIndex.gen_index_clause:", self.name, self.indexwert, self.index_bez, desc, first, indexwert
         index_clause = ""
         if desc:
             unequal = "<="
@@ -375,12 +375,12 @@ class AfpSbIndex(object):
             row = self.db_cursor.fetchone()
             if row: values.append(row[0])
         self.indexwert =  Afp_extractValues(None, values)
-        #print "AfpSbIndex.gen_first_indexwert:", self.indexwert
+        print "AfpSbIndex.gen_first_indexwert:", self.indexwert
     def gen_next_indexwert(self, order):
         values = []
         lgh = len(self.index_bez)
-        #print "AfpSbIndex,gen_next_indexwert:",self.indexwert
         indices = self.indexwert[:]
+        print "AfpSbIndex,gen_next_indexwert in:",self.indexwert, indices
         indices[lgh - 1] = ""
         if order == "DESC": unequal = "<"
         else:  unequal = ">"
@@ -411,7 +411,7 @@ class AfpSbIndex(object):
             self.indexoffset = None
             self.indexdups = None
             self.indexwert =  Afp_extractValues(None, indices)
-        #print "AfpSbIndex,gen_next_indexwert:",self.indexwert
+        print "AfpSbIndex,gen_next_indexwert out:",self.indexwert
     def cached_select(self, Befehl):
         rows = None
         use_cache = False
@@ -563,7 +563,7 @@ class AfpSbIndex(object):
             self.set_indexoffset(rows, offset, dup, ref,  in_step < 0)
             self.set_uind()
             self.endoffile = False
-            #print  "Off:",offset, dup, self.felder[1], self.indexwert, self.indexoffset, self.indexdups 
+            print  "AfpSbIndex.select_plus_step Off:",offset, dup, self.felder[1], self.indexwert, self.indexoffset, self.indexdups 
         else:
             self.endoffile = True
         #print "AfpSbIndex.select_plus_step Endoffile", self.endoffile

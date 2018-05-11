@@ -36,40 +36,159 @@ import wx.grid
 
 import AfpBase
 from AfpBase import AfpBaseRoutines, AfpBaseDialog, AfpBaseDialogCommon, AfpBaseAdRoutines, AfpUtilities
-from AfpBase.AfpUtilities import AfpStringUtilities
+from AfpBase.AfpUtilities import AfpStringUtilities, AfpBaseUtilities
 from AfpBase.AfpUtilities.AfpStringUtilities import Afp_ArraytoString
+from AfpBase.AfpUtilities.AfpBaseUtilities import Afp_getMaxOfColumn
 from AfpBase.AfpBaseRoutines import *
 from AfpBase.AfpBaseDialog import *
 from AfpBase.AfpBaseDialogCommon import *
 from AfpBase.AfpBaseAdRoutines import *
 
+## select address attribut of given adress identifier or enter new \n
+# return row or 'None' in case nothing is selected
+# @param Adresse - AfpSelectionList holding adress data
+# @param text - text for dialog
+# @param direct - flag which kind of attributs should be selected
+# - True: select only direct attributs 
+# - False: select only indirect attributs (with unique identifier)
+# - None: select all attributs 
+def AfpAdresse_indirectAttributFromKNr(globals, KNr, text = "Adressenmerkmal"):
+    GNr = None
+    Adresse = AfpAdresse(globals, KNr)
+    row = AfpAdresse_selectAttribut(Adresse, text, False)
+    if row:
+        index = Adresse.get_selection("ADRESATT").get_feldindices("AttNr")[0]
+        #print "AfpAdresse_indirectAttributFromKNr:", index, row
+        if not index is None: GNr = row[index]
+    return GNr
+    
+## select address attribut of given adress identifier or enter new \n
+# return row or 'None' in case nothing is selected
+# @param Adresse - AfpSelectionList holding adress data
+# @param text - text for dialog
+# @param direct - flag which kind of attributs should be selected
+# - True: select only direct attributs 
+# - False: select only indirect attributs (with unique identifier)
+# - None: select all attributs 
+def AfpAdresse_selectAttribut(Adresse, text = "Adressenmerkmal", direct = True):
+    rows = Adresse.get_value_rows("ADRESATT")
+    index = Adresse.get_selection("ADRESATT").get_feldindices("Attribut,AttText,Tag,AttNr")
+    no_unique = False
+    if index[3] is None: 
+        direct = True
+        no_unique = True
+    unique = not index[3] is None
+    liste = []
+    ident = []
+    liste.append("   ---   Neues " + text + " auswählen!  ---   ".decode("UTF-8"))
+    for row in rows:
+        if direct is None or (direct and (no_unique or not row[index[3]])) or (not direct and row[index[3]]):
+            tag = ""
+            if not direct and row[index[3]] and row[index[2]]:
+                tag =  Afp_toString(row[index[2]]).replace(","," ")
+            liste.append(Afp_toString(row[index[0]]) + " " + Afp_toString(row[index[1]]) + "  " + tag)
+    row = None
+    lisel, ok = AfpReq_Selection("Bitte " + text + " von", Adresse.get_name() + " auswählen.".decode("UTF-8") , liste, text, ident)
+    print "AfpAdresse_selectAttribut:", lisel, ok, liste
+    if ok: 
+        if lisel  == liste[0]:
+            ok, row = AfpAdresse_selectAttributRow(Adresse, direct)
+            if ok and row:
+                row[0] = Adresse.get_value("KundenNr")
+                Adresse.get_selection("ADRESATT").add_row(row)
+                Adresse.store()
+        else:
+            for i in range(len(rows)):
+                if liste[i+1] == lisel:
+                    row = rows[i]
+                    break
+        return row
+    else:
+        return None
+        
 ## select adress attribut or enter new \n
 # return row or 'None' in case nothing is selected
 # @param Adresse - AfpSelectionList holding adress data
-def AfpAdDi_selectAttributRow(Adresse):
+# @param direct - flag which kind of attributs should be selected
+# - True: select only direct attributs 
+# - False: select only indirect attributs (with unique identifier)
+# - None: select all attributs 
+def AfpAdresse_selectAttributRow(Adresse, direct=True):
     sel = Adresse.get_selection("ADRESATT")
-    liste, rows = Afp_getListe_fromTableSelection( sel, "KundenNr = 0", "Attribut", "Attribut")
-    if not liste[0]: liste[0] = "\"Neues Adressenmerkmal\""
-    name = Adresse.get_name()
+    next_nr = Adresse.next_attribut_number()
+    index = sel.get_feldindices("Attribut,AttText,Tag,Aktion,AttNr")
+    imax = 0
+    for ind in index:
+        if ind and ind > imax: imax = ind
+    no_unique = False
+    if index[4] is None: 
+        direct = True
+        no_unique = True
+    # generate text and selection depending on 'direct'
+    select = "KundenNr = 0"
+    if direct:
+        select += " AND AttNr IS NULL"
+        input_line = "   ---   Neues Adressenmerkmal eingeben!   ---   "
+        text = "Adressenmerkmal"
+        text1 = "Bitte Bezeichnung für neues Adressenmerkmal eingeben.".decode("UTF-8")
+    elif direct is None:
+        input_line = "---   Neues Merkmal oder Vorlage eingeben!   ---   "
+        text = "Merkmal oder Vorlage"
+        text1 = "Bitte Bezeichnung für neues Merkmal oder neue Vorlage eingeben,\n Vorlagen bitte mit ' +' kennzeichnen.".decode("UTF-8")
+    else:
+        select += " AND AttNr > 0"
+        input_line = "   ---   Neue Merkmalvorlage eingeben!   ---   "
+        text = "Vorlage"
+        text1 = "Bitte Bezeichnung für neue Vorlage eingeben.".decode("UTF-8")
+
+    liste, rows = Afp_getListe_fromTableSelection( sel, select, "Attribut", "Attribut", "AttNr")
+    print "AfpAdresse_selectAttributRow Liste:", liste, rows, imax
     liste = Afp_ArraytoString(liste)
-    row, ok = AfpReq_Selection("Bitte Adressmerkmal für".decode("UTF-8") , name + " auswählen.".decode("UTF-8") , liste, "Merkmalauswahl", rows)
-    #index = sel.get_feldindices("Attribut,Tag,AttText")
-    index = sel.get_feldindices("Attribut,AttText,Tag,Aktion")
+    liste = [input_line] + liste
+    row = [0]
+    for i in range(imax):
+        row.append(None)
+    rows = [row] + rows
+    name = Adresse.get_name()
+    row, ok = AfpReq_Selection("Bitte " + text + " für".decode("UTF-8") , name + " auswählen.".decode("UTF-8") , liste, text, rows)
+
     if not row[index[0]] and ok:
-        attribut, ok = AfpReq_Text("Bitte Bezeichnung für neues Adressenmerkmal eingeben.","Dieses Merkmal wird " + name + " zugeordnet.")
-        if ok: row[index[0]] = attribut
+        attribut, ok = AfpReq_Text(text1,"Dieses Merkmal wird " + name + " zugeordnet.")
+        if ok:
+            indirect = False
+            if attribut[-2:] == " +":
+                attribut = attribut[:-2]
+                indirect = True
+            elif not direct is None and direct == False:
+                indirect = True
+            row[index[0]] = attribut
+            if indirect: row[index[4]] = 1
+            active, ok = AfpReq_Text("Falls zusätzliche Daten benötigt werden, die Bezeichnungen durch Komma getrennt hier eingeben.".decode("UTF-8"),"Z.B. 'Kennzeichen(anzeigen),Typ,Idenifikationsnummer'")
+            if ok and active:
+                row[index[3]] = active
+            print "AfpAdresse_selectAttributRow Store:", row
+            sel.add_row(row)
+            sel.store()
     else:
         attribut = row[index[0]]
+    print "AfpAdresse_selectAttributRow Select:", ok, row, index
     if ok:
         AttText = row[index[1]]      
         Tag =  row[index[2]] 
         Aktion =  row[index[3]] 
-        ok, AttText, Tag = AfpAdDi_spezialAttribut(name, attribut, AttText, Tag, Aktion, True)
+        ok, AttText, Tag = AfpAdresse_spezialAttribut(name, attribut, AttText, Tag, Aktion, True)
+        print "AfpAdresse_selectAttributRow Tag:", ok, AttText, Tag
         if ok:  
             row[index[1]] = AttText
             row[index[2]]  = Tag
-    if ok: return row
-    else: return None
+            if row[0] == 0: # here additional manipulation for new  dataset can be made
+                row[0] = Adresse.get_value("KundenNr")
+                row[1] = Adresse.get_name(True)
+                if index[4] and row[index[4]]:
+                    row[index[4]] = next_nr
+    print "AfpAdresse_selectAttributRow:", ok, row
+    if ok: return ok, row
+    else: return ok, None
    
 ## handling routine to set text and/or special values needed for an attribut \n
 # @param name - name of address this attribut belongs to
@@ -78,17 +197,17 @@ def AfpAdDi_selectAttributRow(Adresse):
 # @param tag - individual data string holding all values for this special attribut
 # @param action - individual string holding names of values for this special attribut
 # @param no_delete - flag if 'delete' button should be hidden
-def AfpAdDi_spezialAttribut(name, attribut, text, tag, action, no_delete = False):
+def AfpAdresse_spezialAttribut(name, attribut, text, tag, action, no_delete = False):
     Ok = None
     taglist= None
-    list = []
+    liste = []
     attribut = Afp_toString(attribut)
-    #print "AfpAdDi_spezialAttribut:", attribut, type(attribut), tag, action, Ok
+    #print "AfpAdresse_spezialAttribut:", attribut, type(attribut), tag, action, Ok
     if action:
         taglist = action.split(",")
     if not taglist or len(taglist) == 1:
         taglist = AfpAdresse_getAttributTagList(attribut)
-    #print "AfpAdDi_spezialAttribut taglist:", tag, taglist
+    #print "AfpAdresse_spezialAttribut taglist:", tag, taglist
     ind_text = -1
     if taglist:
         split = ""
@@ -99,7 +218,7 @@ def AfpAdDi_spezialAttribut(name, attribut, text, tag, action, no_delete = False
         lspl = len(split)
         cnt = 0
         for i in range(len(taglist)):
-            if "sichtbar" in taglist[i]: 
+            if "anzeigen" in taglist[i]: 
                 ind_text = i
                 continue
             entry = [taglist[i] + ":"]
@@ -107,23 +226,24 @@ def AfpAdDi_spezialAttribut(name, attribut, text, tag, action, no_delete = False
                 entry.append(split[cnt])
                 cnt += 1
             else: entry.append("")
-            list.append(entry)
+            liste.append(entry)
     if not text: text = ""
-    if ind_text < 0: list.append(["(optional) Merkmaltext:", text])
-    else: list.append([taglist[ind_text] + ":", text])
-    #print "AfpAdDi_spezialAttribut MultiLine:", name, attribut, list
-    result = AfpReq_MultiLine("Für '".decode("UTF-8") + name + "' werden die folgenden " + attribut +"-Daten benötigt:".decode("UTF-8"), "", "Text", list, attribut, 400 , no_delete)
-    if not result is None: Ok = False
+    if ind_text < 0: liste = [["(optional) Merkmaltext:", text]] + liste
+    else: liste = [[taglist[ind_text] + ":", text]] + liste
+    #print "AfpAdresse_spezialAttribut MultiLine:", name, attribut, liste
+    result = AfpReq_MultiLine("Für '".decode("UTF-8") + name + "' werden die folgenden " + attribut +"-Daten benötigt:".decode("UTF-8"), "", "Text", liste, attribut, 400 , no_delete)
+    if type(result) == list: Ok = True
+    else: Ok = False
     if result:
         changed = False
-        for i in range(len(taglist)):
-            if not list[i][1] == result[i]:
+        for i in range(1,len(taglist)):
+            if not liste[i][1] == result[i]:
                 changed = True
         if changed: 
-            tag = Afp_ArraytoLine(result, ",", len(result)-1)
+            tag = Afp_ArraytoLine(result[1:], ",", len(result)-1)
             Ok = True
-        if not list[-1][1] == result[-1]:
-            text = result[-1]
+        if not liste[0][1] == result[0]:
+            text = result[0]
             Ok = True
     return Ok, text, tag
 
@@ -394,7 +514,7 @@ def AfpLoad_DiAdEin_fromKNr(globals, KNr):
 ## Class for attribut sub-dialog , it displays dialog to show and manipulate attribut-data (AdresAtt) and handles interactions \n
 class AfpDialog_DiAdEin_SubMrk(AfpDialog):
     def __init__(self, *args, **kw):
-        self.changes = {}
+        self.changes = False
         self.changedlists = False
         AfpDialog.__init__(self,None, -1, "")
         self.SetSize((358,225))
@@ -407,13 +527,11 @@ class AfpDialog_DiAdEin_SubMrk(AfpDialog):
         self.list_attribut = wx.ListBox(panel, -1, pos=(8,2) , size=(170, 80), name="Attribut")
         self.listmap.append("Attribut")
         self.Bind(wx.EVT_LISTBOX_DCLICK, self.On_DClick_Attribut, self.list_attribut)
-        self.changes["Attribut"] = []
         self.button_Ad_Attribut = wx.Button(panel, -1, label="Mer&kmal", pos=(8,86), size=(100,32), name="Ad_Attribut")
         self.Bind(wx.EVT_BUTTON, self.On_Ad_Merkmal, self.button_Ad_Attribut)      
         self.list_verbindung = wx.ListBox(panel, -1, pos=(180,2) , size=(170, 80), name="Verbindung")
         self.listmap.append("Verbindung")
         self.Bind(wx.EVT_LISTBOX_DCLICK, self.On_DClick_Verbindung, self.list_verbindung)
-        self.changes["Verbindung"] = []
         self.button_Ad_Attr_Verbind = wx.Button(panel, -1, label="&Verbindung", pos=(250,86), size=(100,32), name="Ad_Attr_Verbind")
         self.Bind(wx.EVT_BUTTON, self.On_Ad_Verbindung, self.button_Ad_Attr_Verbind)
         self.text_Ad_Attr_Bem = wx.TextCtrl(panel, -1, value="", pos=(8,126), size=(342,26), style=0, name="Ad_Attr_Bem")
@@ -471,19 +589,18 @@ class AfpDialog_DiAdEin_SubMrk(AfpDialog):
             tag = Afp_toString(row[2])
             action = Afp_toString(row[3])
 
-            Ok, text, tag = AfpAdDi_spezialAttribut(name, attribut, text, tag, action)
+            Ok, text, tag = AfpAdresse_spezialAttribut(name, attribut, text, tag, action)
             if Ok is None:
                 Ok = AfpReq_Question("Soll das Merkmal '" + attribut + "'", "für diese Adresse gelöscht werden?".decode("UTF-8"), "Löschen?".decode("UTF-8"))
                 if Ok:
                     #mani = [index, None]
                     #selection.manipulate_data([mani])
                     selection.delete_row(index)
-                    self.changes["Attribut"].append(index)
+                    self.changes = True
             elif Ok:
                 selection.set_value("Tag", tag, index)
                 selection.set_value("AttText", text, index)
-                self.changes["Attribut"].append("Tag")
-                self.changes["Attribut"].append("AttText")
+                self.changes = True
             if Ok: self.Pop_Attribut()
         event.Skip()  
     ## Eventhandler LIST - double click in connected addresses list
@@ -498,21 +615,17 @@ class AfpDialog_DiAdEin_SubMrk(AfpDialog):
                 #mani = [index, None]
                 #selection.manipulate_data([mani])
                 selection.delete_row(index)
-                self.changes["Verbindung"].append(index)
+                self.changes = True
                 self.Pop_Verbindung()
         event.Skip()  
     ## Eventhandler BUTTON - add new entry to attribut list   
     def On_Ad_Merkmal(self,event):
         if self.debug: print "Event handler `On_Ad_Merkmal'!"
-        row = AfpAdDi_selectAttributRow(self.data)
-        #print "On_Ad_Merkmal:", row
-        if row:
-            if row[0] == 0: # here additional manipulation for new  dataset can be made
-                row[0] = self.data.get_value("KundenNr")
-                row[1] = self.data.get_name(True)
-            #print "On_Ad_Merkmal add row:", row
+        ok, row = AfpAdresse_selectAttributRow(self.data)
+        print "AfpDialog_DiAdEin_SubMrk.On_Ad_Merkmal:", row
+        if ok and row:
             self.data.get_selection("ADRESATT").add_row(row)
-            self.changes["Attribut"].append(row)
+            self.changes = True
             self.Pop_Attribut()
         event.Skip()
     ## Eventhandler BUTTON - add new entry to connected addresses list   
@@ -526,7 +639,7 @@ class AfpDialog_DiAdEin_SubMrk(AfpDialog):
             rows = self.data.get_mysql().select("*","KundenNr = " + Afp_toString(KNr), "ADRESSE") 
             mani = [None, rows[0]]       
             self.data.get_selection("Bez").manipulate_data([mani])
-            self.changes["Verbindung"].append(mani)
+            self.changes = True
             self.Pop_Verbindung()
             # print KNr
         event.Skip()

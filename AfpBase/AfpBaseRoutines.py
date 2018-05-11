@@ -8,6 +8,7 @@
 # - AfpSelectionList
 #
 #   History: \n
+#        31 Jan. 2018 - AfpSelectionList: allow tagged value evaluation - Andreas.Knoblauch@afptech.de \n
 #        28 Mar. 2016 - AfpSelectionList: add afterburner to be used in second save step - Andreas.Knoblauch@afptech.de \n
 #        04 Feb. 2015 - add data export to dbf - Andreas.Knoblauch@afptech.de \n
 #        19 Okt. 2014 - adapt package hierarchy - Andreas.Knoblauch@afptech.de \n
@@ -19,7 +20,7 @@
 #  AfpTechnologies (afptech.de)
 #
 #    BusAfp is a software to manage coach and travel acivities
-#    Copyright (C) 1989 - 2016  afptech.de (Andreas Knoblauch)
+#    Copyright (C) 1989 - 2018  afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -348,18 +349,28 @@ def Afp_toDatetime(date, time, hightime = None):
 # @param select     - filter to get possible additional selections from database
 # @param ident      - identification column for filtered data entries 
 # @param order     - order in which list is displayed
-def Afp_getListe_fromTableSelection(table_sel, select, ident, order = None):
+# @param keep      - column which could skip check for double entries 
+def Afp_getListe_fromTableSelection(table_sel, select, ident, order = None, keep = None):
     attributs = table_sel.create_initialized_copy()
     attributs.load_data(select, order)
+    if keep and not keep in attributs.get_feldnamen():
+        keep = None
     manipulate = []
     deleted = 0
     if table_sel.get_data_length():
         for i in range(attributs.get_data_length()):
-            for j in range(table_sel.get_data_length()):
-                # delete entries already in table_sel
-                if table_sel.get_values(ident, j) == attributs.get_values(ident, i):
-                    manipulate.append([i - deleted, None])
-                    deleted += 1
+            if keep is None or  not attributs.get_values(keep, i)[0][0]:
+                check = True
+            else:
+                check = False
+            print "Afp_getListe_fromTableSelection keep:", i, attributs.get_values(keep, i)[0][0], check
+            if check:
+                for j in range(table_sel.get_data_length()):
+                    # delete entries already in table_sel 
+                    if table_sel.get_values(ident, j) == attributs.get_values(ident, i):
+                        manipulate.append([i - deleted, None])
+                        deleted += 1
+    print "Afp_getListe_fromTableSelection:", manipulate
     if manipulate:
         attributs.manipulate_data(manipulate)
     liste = []
@@ -525,6 +536,7 @@ class AfpSelectionList(object):
         self.mainselection = None
         self.selects = {}
         self.selections = {}
+        self.tagmap = None
         self.debug = debug
         self.new = False
         if self.debug: print "AfpSelectionList Konstruktor",listname
@@ -872,6 +884,32 @@ class AfpSelectionList(object):
         rows = self.get_value_rows(sel, felder,row)
         strings =  Afp_ArraytoString(rows)
         return strings
+    ## extract one value from a tagged field in a TableSelection, return it as a string
+    # @param TaggedFeld - column#i.selection name with i being an integer on which position tagged data has to be retrieved from
+    # the i-th part of the comma separated field will be returned, starting the count with 1!
+    def get_tagged_value(self, TaggedFeld = None):
+        value = ""
+        if "#" in TaggedFeld: 
+            split = TaggedFeld.split("#")
+            datei = ""
+            if "." in split[1]:
+                splitsplit = split[1].split(".")
+                datei = splitsplit[1]
+                ind = Afp_fromString(splitsplit[0])
+            else:
+                ind = Afp_fromString(split[1])
+            DateiFeld = split[0]
+            if datei: DateiFeld += "." + datei
+            string = self.get_string_value(DateiFeld)
+            splitstring = string.split(",")
+            #print "AfpSelectionList.get_tagged_value analysed", ind, split, DateiFeld, string, splitstring
+            if ind > 0 and ind <= len(splitstring): value = splitstring[ind-1]
+            if not value and self.tagmap:
+                value = self.get_string_value(self.tagmap[TaggedFeld])
+            #print "AfpSelectionList.get_tagged_value:", TaggedFeld, ind, value
+        else:
+            value = self.get_string_value(TaggedFeld)
+        return value
     ## set a database lock on the main selection (table) of the SelectionList
     # @param selname - if given name of TableSelection to be locked
     def lock_data(self, selname = None):

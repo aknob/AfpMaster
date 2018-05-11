@@ -402,7 +402,7 @@ class AfpDialog_DiReport(wx.Dialog):
         index = self.get_list_Report_index()
         if index >= 0:
             template = self.reportlist[index] 
-            if not "." in template and len(template) < 7:
+            if not "." in template:
                 template = self.major_type + "_template_" + template + ".fodt"
                 template = Afp_addRootpath(self.globals.get_value("templatedir"), template)
             else:

@@ -92,7 +92,7 @@ def AfpTo_selectLocation(afproute, typ = None, allow_new = True):
 # @param ken - short name of location
 def AfpTo_editLocation(ort = "", ken = ""):
     res = AfpReq_MultiLine("Bitte Zustiegsort und Kennung (2 Buchstaben) eingeben.", "Kennung 'RA' für Raststätte.".decode("UTF-8"), "Text", [["Ort:", ort], ["Kennung:", ken]],"Eingabe Zustiegsort")
-    if len(res) > 1: return res[0].strip(), res[1].strip()
+    if res and len(res) > 1: return res[0].strip(), res[1].strip()
     else: return None, None
 ## create a copy of the actuel tour with selection of parts to be copied
 # @param data - tour data to be copied
@@ -124,7 +124,7 @@ def AfpTourist_copy(data, preset = None):
             keep_flags = AfpReq_MultiLine(text1, text2, "Check", liste, "Anmeldung kopieren?", 350)
         else:
             keep_flags = preset
-    if not keep_flags is None:
+    if keep_flags:
         data.set_new(None, KNr, keep_flags)
         return data
     return None

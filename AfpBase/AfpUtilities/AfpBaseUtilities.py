@@ -115,7 +115,10 @@ def Afp_extractPureValues(indices, array):
     else:
         werte = []
         for ind in indices:
-            werte.append(array[ind])
+            if ind is None:
+                werte.append(None)
+            else:
+                werte.append(array[ind])
     return werte
  
 ## distributes given value in given parts, \n 
@@ -375,6 +378,31 @@ def Afp_importFileLines(fname):
          fin.close()
     return lines
   
+## generate and initialize 2 dimensional nxm array 
+# @param n - lentgh of first dimension
+# @param m - lentgh of second dimension
+# @param init - value for initialisation
+def Afp_initMatrix(n, m, init = None):
+    matrix = []
+    for i in range(m):
+        row = []
+        for j in range(n):
+            row.append(init)
+        matrix.append(row)
+    return matrix
+## check 2 dimensional array if it represents a nxm matrix
+# @param matrix - matrix to be checked
+# @param n - lentgh of first dimension
+# @param m - lentgh of second dimension
+def Afp_checkMatrix(matrix, n, m):
+    if len(matrix) == m:
+        check = True
+    else:
+        check = False
+    if check:
+        for row in matrix:
+            check = check and len(row) == n
+    return check
 ## extract a columns of a 2 dimensional array, 
 # if only one index is given as integer, only a 1-dim array is returned, otherwise 2-dimensions are returned
 # @param inds - index of column or list of indices, if None is a list entry, this column will be filled with 'None's
@@ -398,12 +426,30 @@ def Afp_extractColumns(inds, matrix):
         else:
             columns.append(newrow)
     return columns
+## get maximum of column
+# @param matrix - matrix where maximum of column shoud be found
+# @param col - index of column where maximum shoud be found
+def Afp_getMaxOfColumn(matrix, col=3):
+    Max = None
+    for row in matrix:
+        if len(row) > col and row[col]:
+            if Max is None or row[col] > Max:
+                Max = row[col]
+    print "Afp_getMaxOfColumn:", Max, matrix, col
+    return Max
 ## deep copy of an array (list)
 # @param array - array to be copied
 def Afp_copyArray(array):
     new_array = []
     for entry in array:
         new_array.append(entry)
+    return new_array
+## get an array (list) of dictionary witth two entries per line
+# @param dict - dictionary to be converted
+def Afp_getArrayfromDict(dict):
+    new_array = []
+    for entry in dict:
+        new_array.append([entry, dict[entry]])
     return new_array
 ## swap keys and values of a dictionary (does only work for 1:1 relations)
 # @param dict - dictionary to be swapped

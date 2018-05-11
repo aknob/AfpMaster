@@ -7,13 +7,14 @@
 # - AfpScreen - screen base class
 #
 #   History: \n
+#        31 Jan. 2018 - enable tagged value evaluation for textfields - Andreas.Knoblauch@afptech.de \n
 #        05 Mar. 2015 - move screen base class to separate file - Andreas.Knoblauch@afptech.de \n
 #
 # This file is part of the  'Open Source' project "BusAfp" by 
 #  AfpTechnologies (afptech.de)
 #
 #    BusAfp is a software to manage coach and travel acivities
-#    Copyright© 1989 - 2015  afptech.de (Andreas Knoblauch)
+#    Copyright© 1989 - 2018  afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -284,7 +285,7 @@ class AfpScreen(wx.Frame):
         for entry in self.labelmap:
             Label = self.FindWindowByName(entry)
             if self.data:
-                value = self.data.get_string_value(self.labelmap[entry])
+                value = self.data.get_tagged_value(self.labelmap[entry])
             else:
                 value = self.sb.get_string_value(self.labelmap[entry])
             Label.SetLabel(value)
@@ -293,7 +294,7 @@ class AfpScreen(wx.Frame):
         for entry in self.textmap:
             TextBox = self.FindWindowByName(entry)
             if self.data:
-                value = self.data.get_string_value(self.textmap[entry])
+                value = self.data.get_tagged_value(self.textmap[entry])
             else:
                 value = self.sb.get_string_value(self.textmap[entry])
             TextBox.SetValue(value)
@@ -535,13 +536,13 @@ class AfpEditScreen(AfpScreen):
             if checked is None:
                 self.data.unlock_data()
                 self.data = None
-                self.CurrentData()
-                self.select_row(-1)
-                self.Set_Editable(False)
-                self.panel.Refresh()
+            self.CurrentData()
+            self.select_row(-1)
+            self.Set_Editable(False)
+            self.panel.Refresh()
     ## enter editable modus of screen
     def invoke_editmodus(self):
-        if not self.is_editable():
+        if self.data.is_editable() and not self.is_editable():
             self.Set_Editable(True)
             if self.editable_rows:
                 self.select_row(self.editable_rows)

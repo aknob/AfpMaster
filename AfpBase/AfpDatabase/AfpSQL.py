@@ -150,7 +150,7 @@ class AfpSQL(object):
     # @param  where         -  "[field1.table1 (>,<,>=,<=,==) (field2.table2,value)[(and,or) ...]]"
     # @param link            - "[field1.table1 == field2.table2 [and ...]]"
     def extract_clauses(self, feldnamen, select, dateinamen, order = None, limit = None, where=None, link=None):
-        #print feldnamen,'\n', select,'\n', dateinamen,'\n', order,'\n', limit,'\n',where,'\n',link
+        #print "AfpSQL.extract_clause:", feldnamen,'\n', select,'\n', dateinamen,'\n', order,'\n', limit,'\n',where,'\n',link
         if  feldnamen.strip() == "*": all_fields = True
         else: all_fields = False
         limit_clause = ""
@@ -240,7 +240,9 @@ class AfpSQL(object):
         if not clauses[2] == "": Befehl += " WHERE "+ clauses[2]# where_clause 
         if not clauses[3] == "": Befehl += " ORDER BY "+ clauses[3] # order_clause 
         if not clauses[4] == "": Befehl += " LIMIT "+ clauses[4] # limit_clause 
+        print "AfpSQL.select:",Befehl
         if self.debug: print "AfpSQL.select:",Befehl
+        self.db_cursor.execute (Befehl)     
         self.db_cursor.execute (Befehl)     
         rows = self.db_cursor.fetchall ()
         if self.debug: print "AfpSQL.select result:",rows
@@ -470,7 +472,7 @@ class AfpSQLTableSelection(object):
     # @param order - if given desired order of output rows
     def load_data(self, select, order = None):
         self.select = select  
-        print "AfpSQLTableSelection.load_data select:", self.select
+        print "AfpSQLTableSelection.load_data select:", self.tablename, self.select
         if self.dbg: print "AfpSQLTableSelection.load_data:", self.select, self.tablename, order
         self.data = map(list, self.mysql.select("*",self.select, self.tablename, order))
         self.select_clause = self.mysql.get_select_clause()
@@ -584,7 +586,7 @@ class AfpSQLTableSelection(object):
                     self.data.insert(index, values)
                     self.set_select_criteria()
             else:
-                print "ERROR: AfpSQLTableSelection.manipulate_data incorrect values:", action, typ, len(values), len(self.feldnamen)
+                print "ERROR: AfpSQLTableSelection.manipulate_data incorrect values:", action, typ
             self.manipulation.append([action, index, originals, values])
     ## returns the original or the new value of the column in the actuel manipulation data, 
     # if no actuel manipulation data is present, the last manipulation data is schecked 
@@ -702,7 +704,10 @@ class AfpSQLTableSelection(object):
         split = felder.split(",")
         indices = []
         for feld in split:
-            indices.append(self.feldnamen.index(feld))
+            if feld in self.feldnamen:
+                indices.append(self.feldnamen.index(feld))
+            else:
+                indices.append(None)
         return indices
     ## retrieve values of indicated columns
     # @param felder - if a colon separated list is given, the appropriate values are returned. None - all values are returned
@@ -722,6 +727,7 @@ class AfpSQLTableSelection(object):
                 index = []
                 for feld in split:
                     if feld.strip() in self.feldnamen: index.append(self.feldnamen.index(feld.strip()))
+                    else: index.append(None)
                 if self.data:
                     #print "AfpSQLTableSelection.get_values:",felder, split, index
                     #print "AfpSQLTableSelection.get_values:",self.data, self.feldnamen

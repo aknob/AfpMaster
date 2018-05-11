@@ -30,10 +30,11 @@
 #
 
 import AfpBase
-from AfpBase import AfpDatabase, AfpBaseRoutines
+from AfpBase import AfpDatabase, AfpBaseRoutines, AfpUtilities
 from AfpBase.AfpDatabase import AfpSQL
 from AfpBase.AfpDatabase.AfpSQL import AfpSQLTableSelection
 from AfpBase.AfpBaseRoutines import *
+from AfpBase.AfpUtilities.AfpBaseUtilities import Afp_getMaxOfColumn
 
 ## return dictionary to map between status integers an choice entries on screen   
 def AfpAdresse_StatusMap():
@@ -194,6 +195,13 @@ class AfpAdresse(AfpSelectionList):
         vorname = self.get_string_value("Vorname")
         name = self.get_string_value("Name")
         return vorname[0].lower() + name[:2].lower()
+    ## return next attribut number for the actuel adress
+    def next_attribut_number(self):
+        rows = self.get_selection("ADRESATT").get_values()
+        max = Afp_getMaxOfColumn(rows)
+        if max is None: max = 1 
+        else: max += 1
+        return max
     ##  merge given address into this address, all dependent data is taken over by replacing the address identification number \n
     # the given address is deleted, address dependent data (like name or accountnumbers) is replaced by values of this address
     # @param victim - 'Adresse' selecion list, which should be merged and deleted

@@ -3,7 +3,7 @@
 
 ## @package AfpBase.AfpBaseDialog
 # AfpBaseDialog module provides wrapper for the base Dialog-Requesters delivered by wx, 
-#                         as well as the dialog base classes for all dialogs.
+#                         as well as the dialog base Gclasses for all dialogs.
 # it holds the calsses
 # - AfpDialog_MultiLine - multi line editing dialog
 # - AfpDialog_TextEditor - common text editor dialog
@@ -460,14 +460,15 @@ class AfpDialog_MultiLines(wx.Dialog):
                 ind_c += 1
         self.result = values
     ## return results, to be called from calling routine
-    # - returns a list of entries, if Ok is hit
-    # - returns an empty list, if Cancel is hit
+    # - returns a list of entries, if Ok is hit - list may be empty
+    # - returns False, if Cancel is hit
     # - returns None, if Delete is hit
     def get_result(self):
         return self.result 
     ## Eventhandler BUTTON - Cancel button pushed
     # @param event - event which initiated this action
     def On_Button_Cancel(self,event ):
+        self.result = False
         event.Skip()
         self.EndModal(wx.ID_CANCEL)
     ## Eventhandler BUTTON - Delete button pushed
@@ -951,7 +952,7 @@ class AfpDialog_Auswahl(wx.Dialog):
         # inital values      
         self.rows = 7
         self.new_rows = self.rows
-        self.fixed_width = 70
+        self.fixed_width = 80
         self.fixed_height = 110
         self.grid_data = None
         # for internal use
@@ -1046,6 +1047,7 @@ class AfpDialog_Auswahl(wx.Dialog):
         self.lower_sizer.AddStretchSpacer(1)
         # compose sizers
         self.mid_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.mid_sizer.AddSpacer(10)
         self.mid_sizer.Add(self.left_sizer,1,wx.EXPAND)        
         self.mid_sizer.AddSpacer(10)
         self.mid_sizer.Add(self.right_sizer,0,wx.EXPAND)
@@ -1175,8 +1177,9 @@ class AfpDialog_Auswahl(wx.Dialog):
         else:
             self.SetTitle("Auswahl " +  self.datei.capitalize() + " Sortierung: " + self.sortname)
         if text: self.label_Auswahl.SetLabel(text)
-        if not value == "":
-            self.select = self.selectname  + " >= \"" + value + "\""
+        #if not value == "":
+        #    self.select = self.selectname  + " >= \"" + value + "\""
+        self.select = self.selectname  + " >= \"" + value + "\""
         self.set_size()
         self.adjust_grid_rows()
         while not where == self.where:
@@ -1188,7 +1191,7 @@ class AfpDialog_Auswahl(wx.Dialog):
                 else: # go for last entries
                     self.On_Ausw_Last
         #self.select = "Name.ADRESSE >= \"Knoblauch\""
-        #print "AfpDialog_Auswahl.initialize Ende:", self.select
+        print "AfpDialog_Auswahl.initialize select:", self.select,"value:", value, "name:", self.selectname, "possible:", self.selectname  + " >= \"" + value + "\""
     ## set size depending on different glabal variables
     def set_size(self, size = None):
         if size is None:

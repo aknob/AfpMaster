@@ -366,6 +366,7 @@ class AfpAusgabe(object):
                 rows = self.data.mysql.select(feldnamen, while_clause, dsnamen) 
             else:
                 rows = self.extract_rows_from_data(dsnamen, feldnamen)            
+            print "AfpAusgabe.execute_while rows:", len(rows), self.data, while_clause
             #print "AfpAusgabe.execute_while rows:", len(rows), "\n", rows
         felder = feldnamen.split(",")
         local_lines = self.line_stack[stack_index]
@@ -405,6 +406,7 @@ class AfpAusgabe(object):
     # @param while_line - holds the while conditions
     # @param stack_index - index of the lines in this while loop in self.line_stack
     def while_input(self, while_line, stack_index):
+        #print "AfpAusgabe.while_input input:", while_line, stack_index, self.line_stack
         function = ""
         datsels = ""
         action, netto =  Afp_between(while_line,"{","}")
@@ -459,7 +461,16 @@ class AfpAusgabe(object):
                         datsels += ","+ split[1]
                 feldnamen += "," + feld
             if len(feldnamen) > 1: feldnamen = feldnamen[1:]
-            if clause and len(datsels) > 1: datsels = datsels[1:]
+            # extract possible tables from clause which are not included in feldnamen
+            if clause:
+                if len(datsels) > 1: datsels = datsels[1:]
+                split = clause.split(".")
+                for i in range(len(split)-1):
+                    dat = Afp_getWords(split[i+1])[0]
+                    if not dat in dats:
+                        dats.append(dat)
+                        datsels += "," + dat
+        #print "AfpAusgabe.while_input output:", clause, feldnamen, datsels, function
         if self.debug: print "AfpAusgabe.while_input:", clause, feldnamen, datsels, function
         return clause, feldnamen, datsels, function
     ## retrieve value from cache, possibly load into cache first

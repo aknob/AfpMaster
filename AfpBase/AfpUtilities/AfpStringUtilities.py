@@ -490,7 +490,7 @@ def Afp_combineValues(indices, array):
    
 ## DEPRECATED FUNCTION: use Afp_extractPureValues or Afp_extractStringValues instead
 def Afp_extractValues(indices, array):
-    #print "deprecated function Afp_extractValues:",indices, array
+    #print "deprecated function Afp_extractValues In:",indices, array
     if indices is None:
         wert = []
         for entry in array:
@@ -507,6 +507,7 @@ def Afp_extractValues(indices, array):
             wert = []
             for ind in indices:
                 wert.append(Afp_maskiere(Afp_toString(array[ind])))
+    #print "deprecated function Afp_extractValues Out:", wert
     return wert
 ## extract values from array (list) and convert them to strings
 # @param indices - indices of values to be extracted from array, None all entries are extracted
@@ -693,7 +694,25 @@ def Afp_split(in_string, limiters):
             for s in s1:
                 strings.append(s)
     return strings
-
+    
+## split string at different limiters
+# @param in_string - string to be analysed
+# @param limiter - limiter where string has to be split
+# @param mask - sign between which limiter will be ignored
+def Afp_splitMasked(string, limiter, mask):
+    masked = string.split(mask)
+    result = []
+    lgh = len(masked)
+    for i in range(lgh):
+        if i%2 == 0:
+            if masked[i]:
+                if i > 0 and masked[i][0] == limiter: masked[i] = masked[i][1:]
+                if i < lgh-1 and masked[i][-1] == limiter: masked[i] = masked[i][:-1]
+                result += masked[i].split(limiter)
+        else:
+            result += [masked[i]]
+    return result   
+    
 ## assure pathname to recognise wanted conventions for the path separator, \n
 #  used for either Unix "/" or Windows "\\" separator.
 # @param path - pathname to be checked

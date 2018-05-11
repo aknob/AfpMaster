@@ -13,7 +13,7 @@
 #  AfpTechnologies (afptech.de)
 #
 #    BusAfp is a software to manage coach and travel acivities
-#    Copyright© 1989 - 2017  afptech.de (Andreas Knoblauch)
+#    Copyright© 1989 - 2018  afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -34,9 +34,16 @@ from AfpBase.AfpDatabase.AfpSQL import AfpSQLTableSelection
 from AfpBase.AfpBaseRoutines import *
 #from AfpBase.AfpBaseAdRoutines import AfpAdresse, AfpAdresse_getListOfTable
 
-## returns all possible entries for kind of tours
+## returns all payable incidents
 def AfpFa_payableKinds():
     return ["Ausgabe","Waren","Bestellung","Rechnung","Mahnung","Einnahme"]
+## returns all editable kinds which allow further processing
+def AfpFa_processableKinds():
+    return ["Ausgabe","Waren","Bestellung"]
+## returns all editable incidents
+def AfpFa_editableKinds():
+    names, tables = AfpFa_possibleKinds()
+    return names[:-2]
 ## returns all possible entries for open incidents
 def AfpFa_possibleOpenKinds():
     names, tables = AfpFa_possibleKinds()
@@ -82,12 +89,21 @@ def AfpFa_possibleKinds(name = None, table = None, filter = None):
     names = ["Ausgabe" , "Waren"     , "Bestellung", "Bestell-Liste", "Kostenvoranschlag","Angebot" , "Lieferschein", "Auftrag" , "Rechnung", "Mahnung", "Einnahme"]
     tables = ["BESTELL"  , "BESTELL" , "BESTELL"      , "BESTELL"          , "KVA"                        , "KVA"       , "KVA"                , "KVA"        , "RECHNG"   , "RECHNG"  , "RECHNG"]
     filters =  ["bezahlt"  ,"erhalten", "offen"         , "neu"                 , "KVA"                        , "Angebot",  "Liefer"          , "Auftrag" , "offen"    ,  "Mahnung", "bezahlt"]
-    if table and filter:
+    print "AfpFa_possibleKinds:", name, table, filter
+    if table and not filter is None:
         for i in range(len(tables)):
             if tables[i] == table and filters[i] == filter:
                 return names[i], i
+        if not filter:
+            if table == "BESTELL":
+                return names[3], 3
+            if table == "KVA":
+                return names[4], 4
+            if table == "RECHNG":
+                return names[8], 8
+        return None, None
     if name:
-        #print "AfpFa_possibleKinds name:", name, names
+        print "AfpFa_possibleKinds name:", name, names
         if  name in names:
             ind = names.index(name)
             return tables[ind], filters[ind]
@@ -140,7 +156,7 @@ def AfpFa_isWage(id_string):
     else:
         return False
         
-## special handling for float string prependen by a colon endend string
+## special handling for float string prepended by a colon endend string
 # @param string - string to be converted
 def AfpFa_colonFloat(string):
     fstring = string
@@ -148,6 +164,14 @@ def AfpFa_colonFloat(string):
     if len(split) == 2:
         fstring = split[1]
     return Afp_floatString(fstring)
+## special handling for float string prepended by a colon endend string
+# @param string - string to be converted
+def AfpFa_colonInt(string):
+    fstring = string
+    split = string.split(":")
+    if len(split) == 2:
+        fstring = split[1]
+    return Afp_intString(fstring)
     
 ## get selection rows for a given typ
 # @param mysql - database handle to retrieve data from
@@ -285,8 +309,9 @@ class AfpFaktura(AfpSelectionList):
         self.mainselection = "Main"
         #  self.selects[name of selection]  [tablename,, select criteria, optional: unique fieldname]
         self.selects["ADRESSE"] = [ "ADRESSE","KundenNr = KundenNr.Main"] 
-        self.selects["Dependance1"] = [ "GERAETE","KundenNr = KundenNr.Main AND GeraeteNr = AttNr.Main"] 
+        self.selects["ADRESATT"] = [ "ADRESATT","KundenNr = KundenNr.Main AND AttNr = AttNr.Main"] 
         self.selects["Content"] = [ "RECHIN","RechNr = RechNr.Main ORDER BY PosNr"] 
+        #self.selects["Attribute"] = [ "ADRESATT","KundenNr = KundenNr.Main AND AttNr > 0"] 
         self.gen_dependent_selects()
 
         if not self.globals.skip_accounting():
@@ -334,8 +359,19 @@ class AfpFaktura(AfpSelectionList):
     ## return if payment is possible
     def is_payable(self):
         kind = self.get_kind()
-        if kind in AfpFa_payableKinds():
-            return True
+        print "AfpFaktura.is_payable:", kind
+        return kind in AfpFa_payableKinds()
+    ## return if editing is possible
+    def is_editable(self):
+        kind = self.get_kind()
+        print "AfpFaktura.is_editable:", kind
+        return kind in AfpFa_editableKinds()
+    ## return if further processing is possible
+    def is_processable(self):
+        if self.is_editable():
+            kind = self.get_kind()
+            print "AfpFaktura.is_editable:", kind
+            return kind in AfpFa_processableKinds()
         else:
             return False
     ## set other selection table where data is used to fill content
@@ -353,8 +389,9 @@ class AfpFaktura(AfpSelectionList):
         if bruttos: self.brutto_fields = bruttos
         if formulas: self.formula_fields = formulas
     ## inizialise new data
-    # @param KNr - address identifier 
     # @param stype - subtyp to be created
+    # @param KNr - address identifier 
+    # @param keep - if given, list of selections to be kept
     def set_new(self, stype, KNr = None, keep = []):
         self.new = True
         self.clear_selections(keep)
@@ -376,12 +413,12 @@ class AfpFaktura(AfpSelectionList):
                 ident = "REP"
             else:
                 ident = "VK"
-            if self.get_value("Art.Dependance1") == "Kfz":
+            if self.get_value("Attribut.ADRESATT") == "PKW":
                 ident += "-KFZ"
             konto = self.finance.get_special_accounts(ident)
         return konto
     ## get main table of SelectionList
-    def get_main_table(self):
+    def get_maintable(self):
         return self.maintable
     ## get kind of faktura 
     def get_kind(self):
@@ -583,8 +620,9 @@ class AfpFaktura(AfpSelectionList):
     def get_grid_rows(self, name="Content"):
         rows = None
         if name == "Content":
-            raw = self.get_string_rows("Content","Nr,ErsatzteilNr,Bezeichnung,Anzahl,Einzelpreis,Gesamtpreis,Gewinn,Zeile,ErsatzteilNr")
-            #print "AfpFaktura.get-grid_rows raw:",raw
+            raw = self.get_string_rows("Content", self.get_grid_columns(name))
+            #raw = self.get_string_rows("Content","Nr,ErsatzteilNr,Bezeichnung,Anzahl,Einzelpreis,Gesamtpreis,Gewinn,Zeile,ErsatzteilNr")
+            #print "AfpFaktura.get_grid_rows raw:",raw
             lgh = len(raw)
             rows = []
             for row in raw:
@@ -599,8 +637,8 @@ class AfpFaktura(AfpSelectionList):
                     anz = Afp_fromString(row[3])
                     if anz and anz == int(anz):
                         row[3] = Afp_toString(int(anz))
-                rows.append(row)
-        #print "AfpFaktura.get-grid_rows:",rows
+                rows.append(self.get_modified_grid_row(row))
+        #print "AfpFaktura.get_grid_rows:",rows
         return rows
     ## get text form 'Zeilen' database
     # @param zeile - direct text inpuu
@@ -639,18 +677,35 @@ class AfpFaktura(AfpSelectionList):
     # @param typ - typ of line entry
     # @param param - optional parameter to come with certain types
     def get_grid_lineprocessing(self, typ = None, param = None):
-        if typ and typ == "free":
-            value = ""
-            if param: 
-                return  [ ["set",[2,param]], [3,"Afp_intString"], ["set",[4,"EK:"]], [4,"AfpFa_colonFloat","$6 = $4"], ["set",[4,""]], [4,"Afp_floatString","$5 = $4 * $3,$6 =( $4 - $6 )* $3"]] 
+        if typ: 
+            if typ == "free":
+                if param: 
+                    return  [ ["set",[2,param]], [3,"Afp_intString"], ["set",[4,"EK:"]], [4,"AfpFa_colonFloat","$6 = $4"], ["set",[4,""]], [4,"Afp_floatString","$5 = $4 * $3,$6 =( $4 - $6 )* $3"] ] 
+                else:
+                   return  [ [2], [3,"Afp_intString"], ["set",[4,"EK:"]], [4,"AfpFa_colonFloat","$6 = $4"], ["set",[4,""]], [4,"Afp_floatString","$5 = $4 * $3,$6 =( $4 - $6 )* $3"] ] 
+                #return  [ ["set",",,"+ value + ",,,,"], [3,"Afp_intString"], [4,"Afp_floatString","$6 = $4"], [4,"Afp_floatString","$5 = $4 * $3,$6 =( $4 - $6 )* $3"]] 
+            elif typ == "stock":
+                # param = [requested, delivered]
+                return [["set",[3,Afp_intString(param[0]) + ":"]],[3,"AfpFa_colonInt"]]
             else:
-               return  [ [2], [3,"Afp_intString"], ["set",[4,"EK:"]], [4,"AfpFa_colonFloat","$6 = $4"], ["set",[4,""]], [4,"Afp_floatString","$5 = $4 * $3,$6 =( $4 - $6 )* $3"]] 
-            #return  [ ["set",",,"+ value + ",,,,"], [3,"Afp_intString"], [4,"Afp_floatString","$6 = $4"], [4,"Afp_floatString","$5 = $4 * $3,$6 =( $4 - $6 )* $3"]] 
-        else:
+                typ = None
+        if not typ:
             felder = self.selection_table.get_columns_for_line_display()
             return  [ ["choose", felder], [3,"Afp_intString","$5 = $5 * $3,$6 =( $4 - $6 )* $3"]] 
             #return  [ ["choose",",ArtikelNr,Bezeichnung,,Nettopreis,Nettopreis,Einkaufspreis"], [3,"Afp_intString","$5 = $5 * $3,$6 =( $4 - $6 )* $3"]] 
-    ## routine to expand data from view to full datarow to be filled into content
+    ## return names of data columns neede for different grids
+    # @param name - name of grid data is designed for
+    def get_grid_columns(self, name="Content"):
+        if name == "Content":
+            return "Nr,ErsatzteilNr,Bezeichnung,Anzahl,Einzelpreis,Gesamtpreis,Gewinn,Zeile,ErsatzteilNr"
+     ## return names of data columns neede for different grids
+    # @param row - row to be modified
+    # @param name - name of grid data is designed for
+    def get_modified_grid_row(self, row, name="Content"):
+        print "AfpFaktura.get_modified_grid_row:", row
+        return row
+     ## routine to expand data from view to full datarow to be filled into content
+    # @param row - data to be expanded
     def expand_grid_row(self, row):
         # row == [ArtikelNr, Bezeichnung, Anzahl, Einzelpreis, Gesamtpreis, Gewinn]
         change = {}
@@ -702,6 +757,11 @@ class AfpInvoice(AfpFaktura):
             self.set_value("Zustand","bezahlt")
             self.set_value("ZahlDat",self.get_value("Datum"))
             self.set_value("Zahlung",self.get_value("ZahlBetrag"))
+        else:
+            if self.get_value("Zahlung") >= self.get_value("ZahlBetrag"):
+                self.set_value("Zustand","bezahlt")
+            if not self.get_value("Zustand"):
+                self.set_value("Zustand","offen")
     ## book content difference into stock
     def book_content(self):
         complete = [self.initial_content, self.content]
@@ -897,10 +957,42 @@ class AfpOrder(AfpFaktura):
         AfpSelectionList.set_payment_values(self, payment, datum)
         if self.get_value("Zahlung") >=  self.get_value("Betrag"):
             self.set_value("Zustand","bezahlt")
-   ## return specific identification string to be used in dialogs \n
+    ## return specific identification string to be used in dialogs \n
     # - overwritten from AfpSelectionList
     def get_identification_string(self):
         return "Bestellung vom "  +  self.get_string_value("Datum") + " über " + self.get_string_value("Preis") + " von " + self.get_name()
+    ## return names of data columns neede for different grids
+    # @param name - name of grid data is designed for
+    def get_grid_columns(self, name="Content"):
+        if name == "Content":
+            return "Nr,ErsatzteilNr,Bezeichnung,Anzahl,Einzelpreis,Gesamtpreis,Lieferung,Zeile,ErsatzteilNr"
+    ## return names of data columns neede for different grids
+    # @param row - nrow to be modified
+    # @param name - name of grid data is designed for
+    def get_modified_grid_row(self, row, name="Content"):
+        if name == "Content":
+            anz = Afp_fromString(row[6])
+            if anz:
+                if anz == int(anz):
+                    anzstr = Afp_toString(int(anz))
+                else:
+                    anzstr = Afp_toString(anz)
+                row[3] += " - " + anzstr
+        return row
+    def expand_grid_row(self, row):
+        # row == [ArtikelNr, Bezeichnung, Anzahl, Einzelpreis, Gesamtpreis, Lieferung]
+        change = {}
+        if len(row) == 1:
+            change["Zeile"] = row[0]
+        else:
+            change["ErsatzteilNr"] = row[1]
+            change["Bezeichnung"] = row[2]
+            change["Anzahl"] = row[3]
+            change["Einzelpreis"] = row[4]
+            change["Gesamtpreis"] = row[5]
+            change["Lieferung"] = row[6]
+        return change
+
 
 ## baseclass for tourist in faktura handling  (mainly for test-reasons)        
 class AfpFaTourist(AfpFaktura):
@@ -916,7 +1008,8 @@ class AfpFaTourist(AfpFaktura):
         AfpFaktura.__init__(self, globals, debug, "Tourist-Faktura-View")
         #  self.selects[name of selection]  [tablename,, select criteria, optional: unique fieldname]
         self.selects["Content"] = [ "ANMELDEX","AnmeldNr = AnmeldNr.Main"] 
-        self.selects["Dependance1"] = [ "REISEN","FahrtNr = FahrtNr.Main"] 
+        self.selects["REISEN"] = [ "REISEN","FahrtNr = FahrtNr.Main"]
+        self.tagmap = {"Tag#1.ADRESSATT":"Abfahrt.REISEN","Tag#3.ADRESSATT":"FahrtNr.REISEN","Tag#4.ADRESSATT":"Zielort.REISEN"}
         self.initialize("AnmeldNr.ANMELD", AnmeldNr, sb)
         if complete: self.create_selections()
         if self.debug: print "AfpFaTourist Konstruktor AnmeldNr:", self.mainvalue

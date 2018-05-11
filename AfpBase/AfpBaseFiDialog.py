@@ -53,7 +53,6 @@ def AfpFinance_get_ZahlSelectors(globals = None):
         modules = Afp_ModulNames(globals)
         finmods = modules[1:]
     print "AfpFinance_get_ZahlSelectors:", finmods
-    #finmods = ["Faktura"]
     for mod in finmods:
         select = []
         if mod == "Charter":
@@ -221,6 +220,7 @@ class AfpDialog_DiFiZahl(AfpDialog):
         self.is_full = False
         AfpDialog.__init__(self,None, -1, "")
         self.do_store = True
+        self.allow_skonto = False
         if self.is_full:
             self.SetSize((570,400))
         else:
