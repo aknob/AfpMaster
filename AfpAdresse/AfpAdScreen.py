@@ -59,10 +59,10 @@ class AfpAdScreen(AfpScreen):
         self.sb_master = "ADRESSE"
         self.sb_filter = ""
         self.archiv_rows = 10
-        self.archiv_colnames = [["Datum","Art","Ablage","Fach","Bem."],["AnmeldNr","Datum","Zielort","Preis","Zahlung"],["Zustand","Datum","Zielort","Art","Preis"],["RechNr","Datum","Text","Preis","Zahlung"],["RechNr","Datum","Text","Preis","Zahlung"],["Merkmal","Text","-","-","-"],["Name","Vorname","Strasse","Ort","Telefon"]]
+        self.archiv_colnames = [["Datum","Art","Ablage","Fach","Bem."],["AnmeldNr","Datum","Veranstaltung","Preis","Zahlung"],["Zustand","Datum","Zielort","Art","Preis"],["RechNr","Datum","Text","Preis","Zahlung"],["RechNr","Datum","Text","Preis","Zahlung"],["Merkmal","Text","-","-","-"],["Name","Vorname","Strasse","Ort","Telefon"]]
         self.archiv_colname = self.archiv_colnames[0]
         # self properties
-        self.SetTitle("BusAfp Adresse")
+        self.SetTitle("Afp Adresse")
         self.SetSize((800, 600))
         self.SetBackgroundColour(wx.Colour(192, 192, 192))
         self.SetForegroundColour(wx.Colour(20, 19, 18))
@@ -360,13 +360,11 @@ class AfpAdScreen(AfpScreen):
         KNr = 0
         if origin == "Charter":
             KNr = self.sb.get_value("KundenNr.FAHRTEN")
-            # FNr = self.globals.get_value("FahrtNr", origin)
+            #KNr = self.globals.get_value("KundenNr", origin)
+        if origin == "Event":
+            KNr = self.sb.get_value("KundenNr.ANMELD")
         if KNr == 0:
             self.sb.CurrentIndexName("NamSort","ADRESSE")
-            #self.sb.set_debug()
-            self.sb.select_key("Knoblauch Andreas") # for tests
-            #self.sb.select_key("Egeling S") # for tests
-            #self.sb.select_last() # for tests
         else:
             self.sb.select_key(KNr,"KundenNr","ADRESSE")
             self.sb.set_index("NamSort","ADRESSE","KundenNr")
@@ -399,8 +397,10 @@ class AfpAdScreen(AfpScreen):
                 rows = self.mysql.select_strings("Datum,Art,Typ,Gruppe,Bem,Extern",select,"ARCHIV")
             elif typ == "Anmeldungen":
                 self.archiv_colname = self.archiv_colnames[1]
-                select += " and FahrtNr.REISEN = FahrtNr.ANMELD"
-                rows = self.mysql.select_strings("RechNr.ANMELD,Anmeldung,Zielort.REISEN,Preis.ANMELD,Zahlung.ANMELD,AnmeldNr",select,"ANMELD REISEN")
+ #               select += " and FahrtNr.REISEN = FahrtNr.ANMELD"
+ #               rows = self.mysql.select_strings("RechNr.ANMELD,Anmeldung,Zielort.REISEN,Preis.ANMELD,Zahlung.ANMELD,AnmeldNr",select,"ANMELD REISEN")
+                select += " and EventNr.EVENT = EventNr.ANMELD"
+                rows = self.mysql.select_strings("RechNr.ANMELD,Anmeldung,Bez.EVENT,Preis.ANMELD,Zahlung.ANMELD,AnmeldNr",select,"ANMELD EVENT")
             elif typ == "Mietfahrten":
                 self.archiv_colname = self.archiv_colnames[2]
                 rows = self.mysql.select_strings("Zustand,Abfahrt,Zielort,Art,Preis,FahrtNr",select,"FAHRTEN")

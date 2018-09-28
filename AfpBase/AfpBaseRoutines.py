@@ -46,27 +46,25 @@ from AfpUtilities.AfpBaseUtilities import *
 # definition routines
 ## get all possible module with own graphical interfaces (screens) \n
 # if globals are given, only modules available for this program are returned
-# @param globals - if given, global variables holding program name,only modules available for this program are returned
+# @param globals - if given, global variables holding graphic modulnames
 def Afp_graphicModulNames(globals = None):
-    modules = ["Adresse","Charter","Tourist","Faktura"]
+    modules = ["Adresse","Charter","Event:Tourist","Event","Faktura"]
     if globals:
-        modules = ["Adresse"]
-        name = globals.get_value("name")
-        if name == "BusAfp":
-            modules = ["Adresse","Charter","Tourist"]
-        elif name == "AfpMotor":
-            modules = ["Adresse","Faktura"]
+        mods = globals.get_value("graphic-moduls")
+        if mods: modules = mods
     return modules
 ## get all possible internal moduls\n
 # if globals are given, only modules available for this program are returned
-# @param globals - if given, global variables holding program name
+# @param globals - if given, global variables holding  graphic modulnames
 def Afp_internalModulNames(globals = None):
     modules = ["Finance","Einsatz","Calendar"]
     if globals:
-        modules = []
-        name = globals.get_value("name")
-        if name == "BusAfp":
-            modules = ["Finance","Einsatz","Calendar"]
+        modules = ["Finance"]
+        mods = globals.get_value("graphic-moduls")
+        if "Charter" in mods or "Tourist" in mods:
+            modules.append("Einsatz")
+        if "Einsatz" in modules or "Event" in mods:
+            modules.append("Calendar")
     return modules
 ## get modul short names - used for filename generation
 # @param modul - long name of modul
@@ -78,18 +76,36 @@ def Afp_getModulShortName(modul):
 ## return possible user-moduls \n
 # and check if needed python moduls are present, if globals are given
 # @param globals - global variables holding program name
-def Afp_ModulNames(globals = None):
+# @param flavour - None: names are given as they come, False: only modul part is listed, True: flavour parts are listed, if given, else modul parts
+def Afp_ModulNames(globals = None, flavour = None):
     mods = Afp_graphicModulNames(globals)
+    print "Afp_ModulNames input:", mods, flavour
+    modules = []
     # check if appropriate python files exists, if global variables are given
-    if globals:
-        modules = []
+    if globals and mods:
+        modi = []
         path = globals.get_programpath()
         deli = globals.get_value("path-delimiter") 
-        for mod in mods:
+        for mod in mods:   
             if Afp_existsModulFiles(mod, deli, path):
+                modi.append(mod)
+        mods = modi
+    #print "Afp_ModulNames files:", mods
+    if not flavour is None:
+        for mod in mods:
+            #print "Afp_ModulNames mods:", mod
+            if ":" in mod:
+                md = mod.split(":")
+                #print "Afp_ModulNames md:", md
+                if flavour and len(md) > 1:
+                    modules.append(md[1])
+                else:
+                    modules.append(md[0])
+            else:
                 modules.append(mod)
     else:
         modules = mods
+    print "Afp_ModulNames modules:", modules
     return modules
 ## get all possible afp-modul names
 def Afp_allModulNames():
@@ -111,12 +127,45 @@ def Afp_getModulName(input):
         if input == "Fahrten": modul = "Charter"
     if modul and not modul in modules: return None
     return modul
+## get flavour of a afp-modul
+# @param modul - name of afp-modul
+def Afp_getModulFlavour(modul):
+    name = ""
+    flavour = ""
+    if ":" in modul:
+        mod = modul.split(":")
+        name = mod[0]
+        if len(mod) > 1 and mod[1]:
+            flavour = mod[1]
+    else:
+        flavours = Afp_ModulNames(None, True)
+        names = Afp_ModulNames(None, False)
+        if modul in names:
+            name = modul
+        elif modul in flavours:
+            name = names[flavours.index(modul)]
+            flavour = modul
+        else:
+            name = None
+    return name, flavour
+## return of given modul identifier is valid
+# @param modul - name of afp-modul
+# @param globals - if given, global values
+def Afp_inModuls(modul, globals = None):
+    names = Afp_ModulNames(globals, False)
+    flavours = Afp_ModulNames(globals, True)
+    modules = Afp_ModulNames(globals)
+    return modul in names or modul in flavours or modul in modules
 ## get all python-modules needed for a afp-modul
 # @param modul - name of afp-modul
 def Afp_ModulPyNames(modul):
-    md = Afp_getModulShortName(modul)      
-    parent = "Afp" + modul + "."
-    files = [parent + "Afp" + md + "Screen", parent + "Afp" + md + "Dialog", parent + "Afp" + md + "Routines" ]
+    md = Afp_getModulShortName(modul)  
+    name, fl = Afp_getModulFlavour(modul)
+    if name is None: name = modul
+    #print "Afp_ModulPyNames:", modul, name, fl
+    if fl: fl = "_" + fl
+    parent = "Afp" + name  + "."
+    files = [parent + "Afp" + md + "Screen" + fl, parent + "Afp" + md + "Dialog", parent + "Afp" + md + "Routines" ]
     if modul in Afp_internalModulNames():
         if modul == "Finance" or modul == "Calendar":
             return [files[2]]
@@ -147,10 +196,12 @@ def Afp_ModulFileNames(modul, delimiter, path):
 def Afp_existsModulFiles(modul, delimiter, path):
     filenames = Afp_ModulFileNames(modul, delimiter, path)
     if filenames:
+        print "Afp_existsModulFiles filenames:", filenames
         exists = True
         for file in filenames:
                 # look if appropriate .py or .pyc file exists im path
                 exists = exists and (Afp_existsFile(file) or Afp_existsFile(file + "c"))
+                print "Afp_existsModulFiles exists:", exists
         return exists
     return False
 ## get 'modul info' (timestamp) of all python-modul files for a afp-modul
@@ -353,6 +404,7 @@ def Afp_toDatetime(date, time, hightime = None):
 def Afp_getListe_fromTableSelection(table_sel, select, ident, order = None, keep = None):
     attributs = table_sel.create_initialized_copy()
     attributs.load_data(select, order)
+    print "Afp_getListe_fromTableSelection init:",  table_sel, table_sel.data, attributs, attributs.data
     if keep and not keep in attributs.get_feldnamen():
         keep = None
     manipulate = []
@@ -363,7 +415,7 @@ def Afp_getListe_fromTableSelection(table_sel, select, ident, order = None, keep
                 check = True
             else:
                 check = False
-            print "Afp_getListe_fromTableSelection keep:", i, attributs.get_values(keep, i)[0][0], check
+            #print "Afp_getListe_fromTableSelection keep:", i, attributs.get_values(keep, i)[0][0], check
             if check:
                 for j in range(table_sel.get_data_length()):
                     # delete entries already in table_sel 
@@ -377,6 +429,7 @@ def Afp_getListe_fromTableSelection(table_sel, select, ident, order = None, keep
     for i in range(attributs.get_data_length()):
         liste.append(attributs.get_values(ident, i)[0][0])
     # return a slice to be shown (liste) and the complete values (attributs.get_values()) for further use
+    print "Afp_getListe_fromTableSelection exit:",  table_sel, table_sel.data, attributs, attributs.data
     return liste, attributs.get_values()
 
 # with database access
@@ -1049,6 +1102,7 @@ class AfpSelectionList(object):
                     to_sel.set_data(data)
     ## store complete SelectionList
     def store(self):
+        self.store_preparation()
         #print "AfpTableSelectionList.store()", self.mainselection
         #print "AfpTableSelectionList.store() selections:", self.selections
         if self.mainselection:
@@ -1107,8 +1161,13 @@ class AfpSelectionList(object):
             selection.set_data_values(new_data, row)
         else:
             print "WARNING SelectionList.add_to_Archiv called but not implemented for", self.listname
-
-
+    #
+    # routines which may be overwritten in devired class, if necessary
+    #
+    ## routine for preparation of data before storing
+    # may be overwritten, if special handling is necessary
+    def store_preparation(self):
+        return
     ## routine to retrieve payment data from SelectionList \n
     # may be overwritten, default implementation: return "Preis", "Zahlung" and "ZahlDat" column from main selection
     def get_payment_values(self):
@@ -1124,10 +1183,6 @@ class AfpSelectionList(object):
     def set_payment_values(self, payment, datum):
         self.set_value("Zahlung", payment)
         self.set_value("ZahlDat", datum)
-    ## return specific identification string to be used in dialogs \n
-    # - should be overwritten in devired class
-    def get_identification_string(self):
-        return ""
     ## set identification data for archive \n
     # default implementation: add name of maintable and mainvalue \n
     # - may be overwritten if necessary
@@ -1136,6 +1191,13 @@ class AfpSelectionList(object):
         data["Tab"] = self.get_selection().get_tablename()
         data["TabNr"] = self.get_value()
         return data
+    #    
+    # routines to be overwritten in devired class
+    #
+    ## return specific identification string to be used in dialogs \n
+    # - should be overwritten in devired class
+    def get_identification_string(self):
+        return ""
         
     ## class for handling extern numberations       
 class AfpExternNr(AfpSQLTableSelection):

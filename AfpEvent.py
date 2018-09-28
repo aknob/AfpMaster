@@ -2,20 +2,19 @@
 # -*- coding: utf-8 -*-
 
 ## @package BusAfp
-# AfpMotor is part of the open source BusAfp project,
+# AfpEvent is part of the open source BusAfp project,
 # it is a software to manage invoicing and other tasks in the motor related business \n
 #    Copyright© 1989 - 2018  afptech.de (Andreas Knoblauch) \n
 # \n
 #   History: \n
-#        16 Jan. 2017 - separate software spexcific code from parameter extraction - Andreas.Knoblauch@afptech.de \n
-#        30 Nov. 2016 - inital code generated - Andreas.Knoblauch@afptech.de
+#        17 May 2018 - inital code generated - Andreas.Knoblauch@afptech.de
 
 #
 # This file is part of the  'Open Source' project "BusAfp" by 
 #  AfpTechnologies (afptech.de)
 #
 #    BusAfp is a software to manage coach and travel acivities
-#    AfpMotor is a software to manage invoicing and other tasks in the motor related business
+#    AfpEvent is a software to manage events
 #    Copyright© 1989 - 2018  afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify
@@ -35,17 +34,16 @@ import AfpBase
 from AfpBase import AfpStart
 
 # main program
-name = 'AfpMotor'     
-version = "2.0.2 alpha"    
-website = 'http://www.afpmotor.de'
-description = """AfpMotor ist eine Verwaltungsprogramm für den Werkstatteinsatz 
-für Motoristen und in der Kfz-Branche.
-Es enthält eine mitgeführte Buchhaltung, Zahlungsverfolgung, Einsatzplanung
+name = 'AfpEvent'     
+version = "0.0.1 alpha"    
+website = 'http://www.busafp.de'
+description = """AfpEvent ist eine Verwaltungsprogramm für jedwede Veranstaltungen.
+Es enthält eine mitgeführte Buchhaltung, Zahlungsverfolgung
 und diverse weiter nützliche Hilfsmittel.""".decode("UTF-8")
-picture = "AfpMotor_relief.png"
-moduls = ["Adresse","Faktura"]
-AfpMotor = AfpBase.AfpStart.AfpSoftwareInformation(name, moduls, description, picture, website, version)
-AfpBase.AfpStart.AfpStart(AfpMotor)
+picture = "AfpEvent_relief.png"
+moduls = ["Adresse","Event"]
+AfpEvent = AfpBase.AfpStart.AfpSoftwareInformation(name, moduls, description, picture, website, version)
+AfpBase.AfpStart.AfpStart(AfpEvent)
       
  
 

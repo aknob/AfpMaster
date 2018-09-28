@@ -36,7 +36,7 @@ import AfpDatabase.AfpSuperbase
 from AfpDatabase.AfpSuperbase import AfpSuperbase
 
 import AfpBaseRoutines
-from AfpBaseRoutines import Afp_importPyModul, Afp_importAfpModul, Afp_ModulNames, Afp_archivName, Afp_startExtraProgram
+from AfpBaseRoutines import Afp_importPyModul, Afp_importAfpModul, Afp_ModulNames, Afp_getModulShortName, Afp_getModulFlavour, Afp_inModuls, Afp_archivName, Afp_startExtraProgram
 import AfpBaseDialog
 from AfpBaseDialog import AfpReq_Question
 import AfpBaseDialogCommon
@@ -53,6 +53,8 @@ class AfpScreen(wx.Frame):
         self.typ = None
         self.debug = False
         self.globals = None
+        self.sizer = None
+        self.modul_button_sizer = None
         self.mysql = None
         self.setting = None
         self.sb = None
@@ -65,16 +67,29 @@ class AfpScreen(wx.Frame):
         self.extmap = {}
         self.listmap =[]
         self.list_id = {}
+        # common grid handling
         self.gridmap = []
-        self.grid_id = {}
+        self.grid_rows = {}
         self.grid_minrows = {}
+        self.grid_cols = {}
+        self.grid_id = {}
+        # sorting grids
+        self.grid_sort_col = {}
+        self.grid_sort_desc = {}
+        # dynamic grid handling during resizing
+        self.dynamic_grid_name= None
+        self.dynamic_grid_col_percents = None
+        self.dynamic_grid_col_labels = None
+        # control settings for database selections
         self.filtermap = {}
         self.indexmap = {}
         self.no_keydown = []     
         self.windowsbackgroundcolor = (239, 235, 222)
-        self.buttoncolor = (230,230,230)
+        #self.buttoncolor = (230,230,230)
+        self.buttoncolor = (220,220,220)
         self.actuelbuttoncolor = (255,255,255)
-        self.panel = wx.Panel(self, -1, style = wx.WANTS_CHARS) 
+        #self.panel = wx.Panel(self, -1, style = wx.WANTS_CHARS) 
+        self.panel = self
         
     ## connect to database and populate widgets
     # @param globals - global variables, including database connection
@@ -124,6 +139,7 @@ class AfpScreen(wx.Frame):
         # set background if necessary
         if self.globals.os_is_windows():
             self.SetBackgroundColour(self.windowsbackgroundcolor)
+            print "AfpScreen.init_database Windows Background set:", self.windowsbackgroundcolor
             for entry in self.grid_minrows:
                 self.grid_minrows[entry] =  int(1.4 * self.grid_minrows[entry])
                 
@@ -137,13 +153,14 @@ class AfpScreen(wx.Frame):
         self.menubar = wx.MenuBar()
         # setup screen menu
         tmp_menu = wx.Menu()
-        modules = Afp_ModulNames(self.globals)
-        for mod in modules:
-            new_id = wx.NewId()
-            self.menu_items[new_id] = wx.MenuItem(tmp_menu, new_id, mod, "", wx.ITEM_CHECK)
-            tmp_menu.AppendItem(self.menu_items[new_id])
-            self.Bind(wx.EVT_MENU, self.On_Screenitem, self.menu_items[new_id])
-            if self.menu_items[new_id].GetText() == self.typ: self.menu_items[new_id].Check(True)
+        modules = Afp_ModulNames(self.globals, True)
+        if modules:
+            for mod in modules:
+                new_id = wx.NewId()
+                self.menu_items[new_id] = wx.MenuItem(tmp_menu, new_id, mod, "", wx.ITEM_CHECK)
+                tmp_menu.AppendItem(self.menu_items[new_id])
+                self.Bind(wx.EVT_MENU, self.On_Screenitem, self.menu_items[new_id])
+                if self.menu_items[new_id].GetText() == self.typ: self.menu_items[new_id].Check(True)
         new_id = wx.NewId()
         self.menu_items[new_id] = wx.MenuItem(tmp_menu, new_id, "Beenden", "")
         tmp_menu.AppendItem(self.menu_items[new_id])
@@ -177,33 +194,104 @@ class AfpScreen(wx.Frame):
    
     ## create buttons to switch modules 
     def create_modul_buttons(self):
-        modules = Afp_ModulNames(self.globals)
-        panel = self.panel
-        cnt = 0
+        modules = Afp_ModulNames(self.globals, True)
         self.button_modules = {}
-        for mod in modules:
-            self.button_modules[mod] = wx.Button(panel, -1, label=mod, pos=(35 + cnt*80,10), size=(75,30), name="B"+ mod)
-            self.Bind(wx.EVT_BUTTON, self.On_ScreenButton, self.button_modules[mod])
-            cnt += 1
-            if mod == self.typ:
-                self.button_modules[mod] .SetBackgroundColour(self.actuelbuttoncolor)
-            else:
-                self.button_modules[mod] .SetBackgroundColour(self.buttoncolor)
+        if self.sizer: # use sizer
+            if self.modul_button_sizer: 
+                if modules:
+                    for mod in modules:
+                        self.button_modules[mod] = wx.Button(self, -1, label=mod, size=(75,30), name="B"+ mod)
+                        self.Bind(wx.EVT_BUTTON, self.On_ScreenButton, self.button_modules[mod])
+                        if mod == self.typ:
+                            self.button_modules[mod] .SetBackgroundColour(self.actuelbuttoncolor)
+                        else:
+                            self.button_modules[mod] .SetBackgroundColour(self.buttoncolor)
+                        self.modul_button_sizer.AddSpacer(10)
+                        self.modul_button_sizer.Add(self.button_modules[mod] ,0,wx.EXPAND)
+            self.SetSizerAndFit(self.sizer)
+            self.SetAutoLayout(1)
+            self.sizer.Fit(self)
+        else: # use direct postioning on the panel
+            if modules:
+                cnt = 0               
+                for mod in modules:
+                    self.button_modules[mod] = wx.Button(self.panel, -1, label=mod, pos=(35 + cnt*80,10), size=(75,30), name="B"+ mod)
+                    self.Bind(wx.EVT_BUTTON, self.On_ScreenButton, self.button_modules[mod])
+                    cnt += 1
+                    if mod == self.typ:
+                        self.button_modules[mod] .SetBackgroundColour(self.actuelbuttoncolor)
+                    else:
+                        self.button_modules[mod] .SetBackgroundColour(self.buttoncolor)
 
-    ## resize grid rows
+    ## resize grid rows - only needed, if grid should be exactly filled up with rows
     # @param name - name of grid
-    # @param grid - the grid object
+    # @param grid - grid to be resized
     # @param new_lgh - new number of rows to be populated
     def grid_resize(self, name, grid, new_lgh):
+        grid = self.FindWindowByName(name)
         if new_lgh < self.grid_minrows[name]:
             new_lgh =  self.grid_minrows[name]
         old_lgh = grid.GetNumberRows()
+        print "AfpScreen.grid_resize:", old_lgh, new_lgh
         if new_lgh > old_lgh:
             grid.AppendRows(new_lgh - old_lgh)
+            for row in range(old_lgh, new_lgh):
+                for col in range(self.grid_cols[name]):
+                    grid.SetReadOnly(row, col)
         elif  new_lgh < old_lgh:
-            for i in range(new_lgh, old_lgh):
-                grid.DeleteRows(1)
-                
+            for i in range(old_lgh-1, new_lgh-1, -1):
+                grid.DeleteRows(i)
+    ## retun percentr values of grid col width
+    # @param grid - grid object, where col percents should be extracted from
+    # @param cols - number of columns in grid
+    def get_grid_col_percents(self, grid, cols):
+        if self.dynamic_grid_col_percents:
+            percents = self.dynamic_grid_col_percents
+        else:
+            percents = []
+            width = 0
+            array = []
+            for col in range(cols):
+                array.append(grid.GetColSize(col))
+                width += array[-1]
+            for col in range(cols):
+                percents.append(int(100.0*array[col]/width + 0.5))
+            #print "AfpScreen.get_grid_col_percents:", percents
+        return percents
+        
+    ## adjust grid row to new size of  screen
+    # @param name - identifier of grid to be used
+    def adjust_grid_rows(self, name):
+        grid = self.FindWindowByName(name)
+        width, height = grid.GetSize()
+        if width and height:
+            row_height = grid.GetRowSize(0)
+            new_rows = int(height/row_height) - 1
+            self.grid_resize(name, grid, new_rows)
+            self.grid_rows[name] = new_rows  
+            percents = self.get_grid_col_percents(grid, self.grid_cols[name])
+            if self.dynamic_grid_col_labels or percents:
+                for col in range(self.grid_cols[name]):  
+                    if self.dynamic_grid_col_labels:
+                        grid.SetColLabelValue(col, self.dynamic_grid_col_labels[col])
+                    if percents and col < len(percents):
+                        grid.SetColSize(col, percents[col]*width/100)
+    ## change color of a grid column
+    # @param name - name of grid
+    # @param index - index of column to be marked
+    def mark_grid_column(self, name, index):
+        if name in self.grid_sort_col and self.grid_sort_co[name] == index: return
+        grid = self.FindWindowByName(name)
+        if name in self.grid_sort_col:
+            for row in range(grid.GetNumberRows()):            
+                attr =  wx.grid.GridCellAttr()
+                attr.SetBackgroundColour(self.actuelbuttoncolor)
+                grid.SetAttr(row, self.grid_sort_col[name], attr)
+        for row in range(grid.GetNumberRows()):
+            attr =  wx.grid.GridCellAttr()
+            attr.SetBackgroundColour(self.buttoncolor)
+            grid.SetAttr(row, index, attr)
+
     ## Eventhandler Menu - show version information
     def On_ScreenVersion(self, event):
         if self.debug: print "AfpScreen Event handler `On_ScreenVersion'!"
@@ -243,6 +331,18 @@ class AfpScreen(wx.Frame):
             self.Close()
         #event.Skip() #invokes eventhandler twice on windows
 
+    ## handle grid sort even (pressed on column header)
+    def On_GridSort(self, event):
+        index = event.GetCol()
+        name = event.GetName()
+        desc = None
+        if name in self.grid_sort_col and ndex == self.grid_sort_co[name]:
+            if name in self.grid_sort_cdesc: desc = not self.grid_sort_desc[name]
+        self.mark_grid_column(name, index)
+        self.grid_sort_col[name] = index
+        self.grid_sort_desc[name] = desc
+        self.sort_grid_rows(index, desc)
+
     ## Enventhandler BUTTON - switch modules
     def On_ScreenButton(self,event):
         if self.debug: print "AfpScreen Event handler `On_ScreenButton'!"
@@ -254,7 +354,7 @@ class AfpScreen(wx.Frame):
             self.Close()
         #event.Skip() #invokes eventhandler twice on windows
       
- ## Eventhandler BUTTON - quit
+    ## Eventhandler BUTTON - quit
     def On_Ende(self,event):
         if self.debug: print "AfpScreen Event handler `On_Ende'!"
         self.Close()
@@ -270,7 +370,13 @@ class AfpScreen(wx.Frame):
         if keycode == wx.WXK_RIGHT: next = 1
         self.CurrentData(next)
         event.Skip()
-
+        
+    ## Eventhandler resize event
+    def On_ReSize(self, event):
+        if self.dynamic_grid_name:
+            self.adjust_grid_rows(self.dynamic_grid_name)
+            self.Pop_grid(True)
+        event.Skip()   
      
     ## Population routines for form and widgets
     def Populate(self):
@@ -339,10 +445,10 @@ class AfpScreen(wx.Frame):
         for typ in self.gridmap:
             if not name or typ == name:
                 rows = self.get_grid_rows(typ)
-                grid = self.FindWindowByName(typ)
-                self.grid_resize(typ, grid, len(rows))
-                self.grid_id[typ] = []
                 row_lgh = len(rows)
+                grid = self.FindWindowByName(typ)
+                self.grid_resize(typ, grid, row_lgh)
+                self.grid_id[typ] = []
                 max_col_lgh = grid.GetNumberCols()
                 if rows: act_col_lgh = len(rows[0]) - 1
                 for row in range(0,row_lgh):
@@ -378,7 +484,7 @@ class AfpScreen(wx.Frame):
         #self.sb.unset_debug()
         self.Populate()
 
-    # routines to be overwritten in explicit class
+   # routines to be overwritten in explicit class
     ## load additional global data for this Afp-modul
     # default - empty, to be overwritten if needed
     def load_additional_globals(self): # only needed if globals for additonal moduls have to be loaded
@@ -388,7 +494,7 @@ class AfpScreen(wx.Frame):
     def get_data(self, complete = False):
         return  None
     ## set current record to be displayed 
-    # default - empty, to be overwritten if changes have to be diffused to other the main database table
+    # default - empty, to be overwritten if changes have to be diffused to other then the main database table
     def set_current_record(self): 
         return   
     ## set initial record to be shown, when screen opens the first time
@@ -417,6 +523,12 @@ class AfpScreen(wx.Frame):
     # - REMARK: last column will not be shown, but stored for identifiction
     def get_grid_rows(self, typ):
         return []   
+    ## sort grid rows due to selected column \n
+    # default - empty, to be overwritten if grids are to be displayed on screen
+    # @param typ - name of grid to be sorted
+    # @param index - index of grid column to master sort
+    def sort_grid_rows(self, typ, index):
+        return   
 # End of class AfpScreen
 
 ## loader roution for Screens
@@ -424,18 +536,20 @@ class AfpScreen(wx.Frame):
 # @param modulname - name of modul this screen belongs to, the appropriate modulfile will be imported
 # @param sb - AfpSuperbase object which holds the current settings on the mysql tables
 # @param origin - value which identifies mysql tableentry to be displayed
-# the parameter 'sb' and 'origin' may only be used aternatively
+# the parameter 'sb' and 'origin' may only be used alternatively
 def Afp_loadScreen(globals, modulname, sb = None, origin = None):
     Modul = None
-    moduls = Afp_ModulNames(globals)
-    if modulname in moduls:
-        screen = "Afp" + modulname[:2] + "Screen" 
-        modname = "Afp" + modulname + "." + screen 
+    if Afp_inModuls(modulname, globals):
+        name, flavour = Afp_getModulFlavour(modulname)
+        print "Afp_loadScreen:", modulname, name, flavour
+        screen = "Afp" + Afp_getModulShortName(name) + "Screen" 
+        if flavour: flavour = "_" + flavour
+        modname = "Afp" + name + "." + screen + flavour
         print "Afp_loadScreen:", modname
         pyModul =  Afp_importPyModul(modname, globals)
         #print "Afp_loadScreen:", pyModul
         pyBefehl = "Modul = pyModul." + screen + "()"
-        #print "Afp_loadScreen:", pyBefehl
+        print "Afp_loadScreen:", pyBefehl
         exec pyBefehl
     if Modul:
         Modul.init_database(globals, sb, origin)

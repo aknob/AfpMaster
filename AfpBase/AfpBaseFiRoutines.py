@@ -78,7 +78,7 @@ class AfpZahlung(object):
             if self.finance_modul:
                 self.finance = self.finance_modul.AfpFinanceTransactions(self.globals)
         print "AfpZahlung.finance:", self.finance
-        if self.debug: print "AfpZahlung Konstruktor:", multiName
+        if self.debug: print "AfpZahlung Konstruktor:", multi
     ## destructor
     def __del__(self):    
         if self.debug: print "AfpZahlung Destruktor"
@@ -123,16 +123,17 @@ class AfpZahlung(object):
         date = None
         dat = auszug[4:]
         split = dat.split("-")
-        month = int(split[0])
-        if len(split) > 1:
-            if "/" in split[1]:
-                ssplit = split.split("/")
-                year = int(ssplit[1])
-                day = int(ssplit[0])
-            else:
-                day = int(split[1])
-                year = self.globals.today().year
-            date = Afp_genDate(year, month, day)
+        if split and split[0]:
+            month = int(split[0])
+            if len(split) > 1:
+                if "/" in split[1]:
+                    ssplit = split.split("/")
+                    year = int(ssplit[1])
+                    day = int(ssplit[0])
+                else:
+                    day = int(split[1])
+                    year = self.globals.today().year
+                date = Afp_genDate(year, month, day)
         return date
     ## check if statement of account (Auszug) exists, if not create one
     # @param auszug - identifier of statemen of account
@@ -182,9 +183,10 @@ class AfpZahlung(object):
             elif tablename == "RECHNG":
                 sellist = AfpRechnung(self.globals, nr, self.debug)
             elif tablename == "ANMELD":
-                modul = self.get_modul("AfpTourist.AfpToRoutines")
+                #modul = self.get_modul("AfpTourist.AfpToRoutines")
+                modul = self.get_modul("AfpEvent.AfpEvRoutines")
                 if modul:
-                    sellist = modul.AfpTourist(self.globals, nr, None, self.debug)
+                    sellist = modul.AfpEvClient(self.globals, nr, None, self.debug)
             if sellist:
                 sellist.lock_data()
                 self.selected_list.append(sellist)

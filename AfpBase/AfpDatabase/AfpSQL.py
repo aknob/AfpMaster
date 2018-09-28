@@ -240,7 +240,6 @@ class AfpSQL(object):
         if not clauses[2] == "": Befehl += " WHERE "+ clauses[2]# where_clause 
         if not clauses[3] == "": Befehl += " ORDER BY "+ clauses[3] # order_clause 
         if not clauses[4] == "": Befehl += " LIMIT "+ clauses[4] # limit_clause 
-        print "AfpSQL.select:",Befehl
         if self.debug: print "AfpSQL.select:",Befehl
         self.db_cursor.execute (Befehl)     
         self.db_cursor.execute (Befehl)     
@@ -349,8 +348,8 @@ class AfpSQLTableSelection(object):
     def  __init__(self, mysql, tablename, debug = False, unique_feldname = None, feldnamen = None):
         #self.dbg = True # hardecode switch for storage logging
         self.dbg = False # hardecode switch for storage logging
-        if debug or tablename == "REISEN": 
-        #if debug: 
+        #if debug or tablename == "REISEN": 
+        if debug: 
             print "AfpSQLTableSelection Konstruktor dbg On", tablename
             self.dbg = True # hardcoded switch for storage logging, for debug purpose during programming
         self.mysql = mysql      
@@ -472,7 +471,7 @@ class AfpSQLTableSelection(object):
     # @param order - if given desired order of output rows
     def load_data(self, select, order = None):
         self.select = select  
-        print "AfpSQLTableSelection.load_data select:", self.tablename, self.select
+        #print "AfpSQLTableSelection.load_data select:", self.tablename, self.select
         if self.dbg: print "AfpSQLTableSelection.load_data:", self.select, self.tablename, order
         self.data = map(list, self.mysql.select("*",self.select, self.tablename, order))
         self.select_clause = self.mysql.get_select_clause()
@@ -485,7 +484,7 @@ class AfpSQLTableSelection(object):
     # @param select - select clause for this  AfpSbDatei entry
     def load_datei_data(self, datei, select):  
         self.select = select
-        print "AfpSQLTableSelection.load_datei_data select:", self.select
+        if self.dbg: print "AfpSQLTableSelection.load_datei_data select:", self.select
         self.data = map(list, [datei.get_values()])
         self.manipulation = []    
     ## attach input to data property

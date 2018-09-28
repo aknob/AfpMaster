@@ -43,12 +43,14 @@ from AfpBase.AfpDatabase import AfpSQL
 class AfpSoftwareInformation(object):
      ## initialize AfpSoftwareInformation class
     # @param name - name of the software package
+    # @param moduls - name of possible graphic moduls
     # @param version - version of the software package
     # @param description - description of the software package
     # @param picture - picture to be shown on information tab
     # @param website - homepage of the software package
-    def  __init__(self, name, description, picture = None, website = None, version = None):
+    def  __init__(self, name, moduls, description, picture = None, website = None, version = None):
         self.name = name
+        self.moduls = moduls
         self.description = description
         self.picture = picture
         self.website = website
@@ -68,6 +70,9 @@ class AfpSoftwareInformation(object):
     ## extract version from object
     def get_version(self):
         return self.version
+    ## extract possible graphic modulnames from object
+    def get_moduls(self):
+        return self.moduls
 
 ## main class to invoke Afp Software
 class AfpMainApp(wx.App):
@@ -89,10 +94,12 @@ class AfpMainApp(wx.App):
         baseversion = "6.0.2 alpha"       
         version = baseversion    
         copyright = 'Copyright (C) 1989 - 2018  AfpTech.de'
+        moduls = ["Adresse"]
         if info:
             name = info.get_name()
             description = info.get_description()
             picture = info.get_picture()
+            if info.get_moduls(): moduls = info.get_moduls()
             if info.get_website(): website = info.get_website()
             if info.get_version(): version = info.get_version()
       
@@ -104,7 +111,7 @@ class AfpMainApp(wx.App):
         rechtssichere englische Version:
         
         """.decode("UTF-8") + name + """ is a software to manage coach and travel acivities
-         Copyright© 1989 - 2017  afptech.de (Andreas Knoblauch)
+         Copyright© 1989 - 2018  afptech.de (Andreas Knoblauch)
 
          This program is free software: you can redistribute it and/or modify
          it under the terms of the GNU General Public License as published by
@@ -120,8 +127,8 @@ class AfpMainApp(wx.App):
         developers = "Andreas Knoblauch - initiale Version".decode("UTF-8")
        
         self.globals = None
-        self.module = None
-        set = AfpGlobal.AfpSettings(debug, confpath)   
+        set = AfpGlobal.AfpSettings(debug, confpath)
+        set.set("graphic-moduls", moduls)
         if startpath: set.set("start-path", startpath)
         if dbhost: set.set("database-host", dbhost)      
         if dbname: set.set("database", dbname)      
@@ -138,7 +145,7 @@ class AfpMainApp(wx.App):
     
     ## load appropriate modul     
     # @param modulname - afp-modul name to be loaded
-    def load_module(self, modulname):
+    def load_modul(self, modulname):
         Modul = AfpBaseScreen.Afp_loadScreen(self.globals, modulname)
         if Modul: 
             self.SetTopWindow(Modul)
@@ -157,7 +164,7 @@ def AfpStart(info):
     execute = True
     direct = False
     confpath = ""
-    module = "Adresse"
+    modul = "Adresse"
     dbhost= None
     dbname= None
     dbuser = None
@@ -166,6 +173,7 @@ def AfpStart(info):
     routine = None
     lgh = len(sys.argv)
     ev_indices = []
+    name = info.get_name()
     startpath = os.path.dirname(os.path.abspath(sys.argv[0]))
     for i in range(1,lgh):
         if sys.argv[i] == "-p" or sys.argv[i] == "--password": 
@@ -186,9 +194,9 @@ def AfpStart(info):
         if sys.argv[i] == "-c" or sys.argv[i] == "--config": 
             ev_indices.append(i+1)
             if i < lgh-1 and sys.argv[i+1][0] != "-": confpath = sys.argv[i+1] 
-        if sys.argv[i] == "-m" or sys.argv[i] == "--module": 
+        if sys.argv[i] == "-m" or sys.argv[i] == "--modul": 
             ev_indices.append(i+1)
-            if i < lgh-1 and sys.argv[i+1][0] != "-": module = sys.argv[i+1]
+            if i < lgh-1 and sys.argv[i+1][0] != "-": modul = sys.argv[i+1]
         if sys.argv[i] == "-v" or sys.argv[i] == "--verbose": debug = True
         if sys.argv[i] == "-h" or sys.argv[i] == "--help": execute = False
     if execute:
@@ -211,17 +219,17 @@ def AfpStart(info):
                 else:  print "ERROR: Routine or file '", routine, "' not found!"
             if protocol: fout.close()
         else:
-            loaded = App.load_module(module)
+            loaded = App.load_modul(modul)
             if loaded:
                 App.MainLoop()
             else:
-                print "ERROR: " + name + " Modul '" + module + "' not available!"
+                print "ERROR: " + name + " Modul '" + modul + "' not available!"
     else:
         print "usage: " + name + " [option] [routine, file]"
         print "Options and arguments:"
         print "-h,--help      display this text"
-        print "-m,--module    module to be started follows"
-        print "               Default: module \"Adresse\" will be invoked"
+        print "-m,--modul     modul to be started follows"
+        print "               Default: modul \"Adresse\" will be invoked"
         print "-c,--config    configuration for AfpBase follows in a python script file"
         print "-s,--server    database servername or IP-address follows"
         print "               Default: loclahost (127.0.0.1) will be used"
@@ -232,11 +240,11 @@ def AfpStart(info):
         print "-p,--password  plain text password for mysql authentification follows"
         print "               Default: password has to be entered during program start"
         print "-o,--option    manuel setting of different configuration settings follows"
-        print "               Usage: [modulename.]variablename=value[, ...]"
+        print "               Usage: [modulname.]variablename=value[, ...]"
         print "-v,--verbose   display comments on all actions (debug-information)"
         print "routine, file  pythonmodul and name of routine to be executed"
         print "               or path of a file in which each line represents one call"
-        print "               Usage: python.module.routinename:parameter1[,param2 ...]"
+        print "               Usage: python.modul.routinename:parameter1[,param2 ...]"
         print "               Example: AfpEinsatz.AfpEinDialog.AfpLoad_DiEinsatz_fromENr:231"
         print "               Remark: if protocol identifier is needed, 'afpp://' may be used"
         print "               Remark: routine to be called must take 'globals' as first parameter"

@@ -59,9 +59,10 @@ def AfpFinance_get_ZahlSelectors(globals = None):
             select.append(AfpFinance_CharterSelector(mysql, debug))
             select.append(AfpFinance_RechSelector(mysql, debug))
             select.append(AfpFinance_VerbindSelector(mysql, debug))
-        elif mod == "Tourist":
-            select.append(AfpFinance_TouristStornoSelector(mysql, debug))
-            select.append(AfpFinance_TouristSelector(mysql, debug))
+        elif mod == "Tourist" or mod == "Event":
+            select.append(AfpFinance_EventStornoSelector(mysql, debug))
+            if mod == "Tourist":   select.append(AfpFinance_TouristSelector(mysql, debug))
+            else:   select.append(AfpFinance_EventSelector(mysql, debug))
             select.append(AfpFinance_RechSelector(mysql, debug))
             select.append(AfpFinance_VerbindSelector(mysql, debug))
         elif mod == "Faktura":
@@ -108,26 +109,38 @@ def AfpFinance_VerbindSelector(mysql, debug = False):
     filter = ["offen"]
     text = "Verbindlichkeit"            
     return AfpZahlSelector(mysql, name, label, tablename, felder, filter_feld, filter, text, debug, True)
-## generate ZahlSelector for invoice part of the  'Tourist' Modul
+## generate ZahlSelector for invoice part of the  'Event' Modul, flavour 'Tourist'
 # @param mysql -  object for dadabase access
 # @param debug - debug flag
 def AfpFinance_TouristSelector(mysql, debug = False):
     name = "Anmeldung"
     label = "&Anmeldung"
     tablename = "ANMELD"
-    felder = "Abfahrt,Preis,Zahlung,Zielort,Zustand,FahrtNr"
+    felder = "Abfahrt,Preis,Zahlung,Bez,Zustand,EventNr"
     filter_feld = "Zustand"
     filter =  ["Angebot","Rechnung","Storno Rechnung"]
-    text = "Mietfahrt"
+    text = "Reiseanmeldung"
     return AfpZahlSelector(mysql, name, label, tablename, felder, filter_feld, filter, text, debug)
-## generate ZahlSelector for cancellation part of the  'Tourist' Modul
+## generate ZahlSelector for invoice part of the  'Event' Modul
 # @param mysql -  object for dadabase access
 # @param debug - debug flag
-def AfpFinance_TouristStornoSelector(mysql, debug = False):
+def AfpFinance_EventSelector(mysql, debug = False):
+    name = "Anmeldung"
+    label = "&Anmeldung"
+    tablename = "ANMELD"
+    felder = "Abfahrt,Preis,Zahlung,Bez,Zustand,EventNr"
+    filter_feld = "Zustand"
+    filter =  ["Angebot","Rechnung","Storno Rechnung"]
+    text = "Veranstalungsanmeldung"
+    return AfpZahlSelector(mysql, name, label, tablename, felder, filter_feld, filter, text, debug)
+## generate ZahlSelector for cancellation part of the  'Event' Modul, includong all flavours
+# @param mysql -  object for dadabase access
+# @param debug - debug flag
+def AfpFinance_EventStornoSelector(mysql, debug = False):
     name = "Storno"
     label = "&Stornierung"
     tablename = "ANMELD"
-    felder = "Abfahrt,Preis,Zahlung,Zielort,Zustand,FahrtNr"
+    felder = "Abfahrt,Preis,Zahlung,Bez,Zustand,EventNr"
     filter_feld = "Zustand"
     filter =  ["Angebot","Rechnung","Storno Rechnung"]
     text = "Stornierung"
@@ -431,6 +444,7 @@ class AfpDialog_DiFiZahl(AfpDialog):
                     self.selector_buttons[ind].Enable(selector.get_enable(out))
         if self.selector_buttons:
             self.is_full = True
+        #print "AfpZahlung.gen_sel_buttons:", selectors, self.is_full
     ## population routine for labels \n
     # overwritten from AfpDialog to fill 'Zahlung'-labels if list does not exist
     def Pop_label(self):

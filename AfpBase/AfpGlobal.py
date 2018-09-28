@@ -17,7 +17,7 @@
 #  AfpTechnologies (afptech.de)
 #
 #    BusAfp is a software to manage coach and travel acivities
-#    Copyright© 1989 - 2015  afptech.de (Andreas Knoblauch)
+#    Copyright© 1989 - 2018  afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -323,6 +323,7 @@ class AfpGlobal(object):
     def os_is_windows(self):
         op_sys = self.get_value("op-system")
         is_win = "win" in op_sys or "Win" in op_sys
+        if self.debug: "AfpGlobal.os_is_windows:", is_win, op_sys
         return is_win
     # special retrieve routines
     ## get header with database information

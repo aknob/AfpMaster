@@ -15,7 +15,7 @@
 #  AfpTechnologies (afptech.de)
 #
 #    BusAfp is a software to manage coach and travel acivities
-#    Copyright© 1989 - 2015  afptech.de (Andreas Knoblauch)
+#    Copyright© 1989 - 2018  afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -563,7 +563,7 @@ class AfpDialog_DiReport(wx.Dialog):
 # @param header - if given, text displayed in header of dialog
 # @param prefix - if given, prefix for output name creation and archiv entry
 # @param archivtext - if given, preset text for archiv entry
-# @param datalist - if given, list of SelectionLists to , entries are filled consecutively into  'selectionlist' for multiple putput
+# @param datalist - if given, list of SelectionLists, entries are filled consecutively into  'selectionlist' for multiple output
 def AfpLoad_DiReport(selectionlist, globals, header = "", prefix = "", archivtext = None, datalist = None):
     DiReport = AfpDialog_DiReport(None)
     DiReport.attach_data(selectionlist, globals, header, prefix, datalist)

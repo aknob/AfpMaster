@@ -83,6 +83,22 @@ def AfpAdresse_getListOfTable(globals, KNr, selname, felder):
     rows = adresse.get_value_rows(selname, felder)
     name = adresse.get_name()
     return rows, name
+    
+## get the list of names (and addresses) of all entries having assiganed the given attribut \n
+# @param globals - globals variables, including mysql connection
+# @param attribut - attribut looked for
+# @param felder - name of address-fields to be extracted, separated by ,
+def AfpAdresse_getAddresslistOfAttribut(globals, attribut):
+    namen = []
+    idents = []
+    adresatt = AfpSQLTableSelection(globals.get_mysql(), "ADRESATT", globals.is_debug())
+    adresatt.load_data("Attribut = \"" + attribut + "\" AND KundenNr > 0") 
+    rows = adresatt.get_values()
+    for row in rows:
+        adresse = AfpAdresse(globals, row[0])
+        namen.append(adresse.get_address_line())
+        idents.append(adresse.get_value("KundenNr"))
+    return namen, idents
 
 ## baseclass for address handling      
 class AfpAdresse(AfpSelectionList):
@@ -189,6 +205,17 @@ class AfpAdresse(AfpSelectionList):
                 self.mysql.write_update("ADRESSE", ["Bez"], [self.mainvalue], "KundenNr = " + Afp_toString(KNr))
             for KNr in self.spezial_bez:
                 if KNr: self.mysql.write_update("ADRESSE", ["Bez"], ["0"], "KundenNr = " + Afp_toString(KNr))
+    ## get complete address of name in one line \n
+    # @param no_firstname - flag is first name should be skipped for output
+    def get_address_line(self, no_firstname = False):
+        line = ""
+        if not no_firstname:
+            line += self.get_string_value("Vorname") + " "
+        line += self.get_string_value("Name") + ", "
+        line += self.get_string_value("Strasse") + ", "
+        line += self.get_string_value("Plz") + " "
+        line += self.get_string_value("Ort")
+        return line
     ## get short identifier of name \n
     # currently a trigram is used, first letter of surname plus first and second letter of lastname
     def get_short_name(self):

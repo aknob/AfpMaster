@@ -156,6 +156,7 @@ class AfpSbIndex(object):
         self.felder = None            # values of actuel dataset
         self.modified = False        # flag, if values have been modified
         self.endoffile = False        # flag if last action hit end of index      
+        self.eofrev = None            # flag of direction of end of index      
         if index_ind > -1:  
             self.index_ind.append(index_ind)
             self.select_first()
@@ -327,7 +328,7 @@ class AfpSbIndex(object):
                 #ind += 1
         return rows_o
     def gen_index_clause(self, desc = False, first = False, indexwert = None):
-        print "AfpSbIndex.gen_index_clause:", self.name, self.indexwert, self.index_bez, desc, first, indexwert
+        if self.debug: print "AfpSbIndex.gen_index_clause:", self.name, self.indexwert, self.index_bez, desc, first, indexwert
         index_clause = ""
         if desc:
             unequal = "<="
@@ -370,12 +371,12 @@ class AfpSbIndex(object):
         index_clause = ""
         for name in self.index_bez:
             Befehl = "SELECT " + name + " FROM " + self.db + "." + self.datei + where_clause + index_clause +" ORDER BY (" + name + ")" + order + " LIMIT 0,1"
-            if self.debug: print "AfpSbIndex.gen_first_indexwert:", Befehl
+            if self.debug: print "AfpSbIndex.gen_first_indexwert execute:", Befehl
             self.db_cursor.execute (Befehl)
             row = self.db_cursor.fetchone()
             if row: values.append(row[0])
         self.indexwert =  Afp_extractValues(None, values)
-        print "AfpSbIndex.gen_first_indexwert:", self.indexwert
+        if self.debug: print "AfpSbIndex.gen_first_indexwert:", self.indexwert
     def gen_next_indexwert(self, order):
         values = []
         lgh = len(self.index_bez)
@@ -490,6 +491,7 @@ class AfpSbIndex(object):
             self.endoffile = False
         else:
             self.endoffile = True
+            self.eofrev = (order == "DESC")
     def select_step(self, in_step):
         #print  "AfpSbIndex.select_step:", self.name, self.endoffile, self.index_bez, in_step
         self.select_plus_step(in_step)
@@ -555,24 +557,25 @@ class AfpSbIndex(object):
         offset += step      
         #print "AfpSbIndex.select_plus_step rows:",rows
         #print "AfpSbIndex.select_plus_step Ende rows", dup, anz, offset, len(rows)
+        if self.endoffile and self.eofrev != (in_step < 0): offset -= step
         if rows and len(rows) > offset:
-            if self.endoffile: offset -= step
             self.felder = list(rows[offset])   
             self.modified = False        
             self.indexwert = self.get_indexwert()
             self.set_indexoffset(rows, offset, dup, ref,  in_step < 0)
             self.set_uind()
             self.endoffile = False
-            print  "AfpSbIndex.select_plus_step Off:",offset, dup, self.felder[1], self.indexwert, self.indexoffset, self.indexdups 
+            #print  "AfpSbIndex.select_plus_step Offset:",offset, dup, self.felder[1], self.indexwert, self.indexoffset, self.indexdups 
         else:
             self.endoffile = True
-        #print "AfpSbIndex.select_plus_step Endoffile", self.endoffile
+            self.eofrev = (in_step < 0)
+            #print "AfpSbIndex.select_plus_step Endoffile", self.endoffile, offset, rows
     def select_keywert(self, indexwert):
         if self.is_numeric() != Afp_isNumeric(indexwert): 
             print "Warning: AfpSuperbase.select_keywert: FALSCHER EINGABETYP", Afp_isNumeric(indexwert)
             if self.debug: print self.datei, self.name, self.type
             if self.is_numeric(): indexwert = int(indexwert)
-            else: indexwert =  ("%5,2f")%(indexwert)
+            else: indexwert =  ("%5.2f")%(indexwert)
         do_selection = True
         anz = 0
         dup = -1
@@ -610,6 +613,7 @@ class AfpSbIndex(object):
             self.endoffile = False
         else:
             self.endoffile = True
+            self.eofrev = None
     def select_where(self, where_clause):
         if where_clause == "":
             self.where = None

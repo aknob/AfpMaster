@@ -3,7 +3,7 @@
 
 ## @package BusAfp
 # BusAfp is a software to manage coach and travel acivities \n
-#    Copyright© 1989 - 2017  afptech.de (Andreas Knoblauch) \n
+#    Copyright© 1989 - 2018  afptech.de (Andreas Knoblauch) \n
 # \n
 #   History: \n
 #        16 Jan. 2017 - separate software spexcific code from parameter extraction - Andreas.Knoblauch@afptech.de \n
@@ -18,7 +18,7 @@
 #  AfpTechnologies (afptech.de)
 #
 #    BusAfp is a software to manage coach and travel acivities
-#    Copyright© 1989 - 2017  afptech.de (Andreas Knoblauch)
+#    Copyright© 1989 - 2018  afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -44,5 +44,7 @@ Es enthält eine mitgeführte Buchhaltung, Zahlungsverfolgung, Einsatzplanung
 und diverse weiter nützliche Hilfsmittel.""".decode("UTF-8")
 picture = "Bus_relief.png"
 website = "http://www.busafp.de"
-BusAfp = AfpBase.AfpStart.AfpSoftwareInformation(name, description, picture, website)
+#moduls = ["Adresse","Charter","Tourist"]
+moduls = ["Adresse","Charter","Event:Tourist"]
+BusAfp = AfpBase.AfpStart.AfpSoftwareInformation(name, moduls, description, picture, website)
 AfpBase.AfpStart.AfpStart(BusAfp)

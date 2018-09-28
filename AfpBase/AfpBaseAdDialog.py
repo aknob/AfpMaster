@@ -45,13 +45,10 @@ from AfpBase.AfpBaseDialogCommon import *
 from AfpBase.AfpBaseAdRoutines import *
 
 ## select address attribut of given adress identifier or enter new \n
-# return row or 'None' in case nothing is selected
-# @param Adresse - AfpSelectionList holding adress data
+# return indirect attribut identifier or 'None' in case nothing is selected
+# @param globals - global values holding mysql connection
+# @param KNr - address identifier
 # @param text - text for dialog
-# @param direct - flag which kind of attributs should be selected
-# - True: select only direct attributs 
-# - False: select only indirect attributs (with unique identifier)
-# - None: select all attributs 
 def AfpAdresse_indirectAttributFromKNr(globals, KNr, text = "Adressenmerkmal"):
     GNr = None
     Adresse = AfpAdresse(globals, KNr)
@@ -141,8 +138,8 @@ def AfpAdresse_selectAttributRow(Adresse, direct=True):
         text = "Vorlage"
         text1 = "Bitte Bezeichnung für neue Vorlage eingeben.".decode("UTF-8")
 
-    liste, rows = Afp_getListe_fromTableSelection( sel, select, "Attribut", "Attribut", "AttNr")
-    print "AfpAdresse_selectAttributRow Liste:", liste, rows, imax
+    liste, rows = Afp_getListe_fromTableSelection(sel, select, "Attribut", "Attribut", "AttNr")
+    print "AfpAdresse_selectAttributRow Liste:", liste, rows, imax, sel, sel.data
     liste = Afp_ArraytoString(liste)
     liste = [input_line] + liste
     row = [0]
@@ -232,8 +229,9 @@ def AfpAdresse_spezialAttribut(name, attribut, text, tag, action, no_delete = Fa
     else: liste = [[taglist[ind_text] + ":", text]] + liste
     #print "AfpAdresse_spezialAttribut MultiLine:", name, attribut, liste
     result = AfpReq_MultiLine("Für '".decode("UTF-8") + name + "' werden die folgenden " + attribut +"-Daten benötigt:".decode("UTF-8"), "", "Text", liste, attribut, 400 , no_delete)
-    if type(result) == list: Ok = True
-    else: Ok = False
+    if not result is None:
+        if type(result) == list: Ok = True
+        else: Ok = False
     if result:
         changed = False
         for i in range(1,len(taglist)):
@@ -549,7 +547,8 @@ class AfpDialog_DiAdEin_SubMrk(AfpDialog):
             liste.append(Afp_toString(row[0]) + " " + Afp_toString(row[1]))
         liste = Afp_ArraytoString(liste)
         self.list_attribut.Clear()
-        self.list_attribut.InsertItems(liste, 0)
+        if liste:
+            self.list_attribut.InsertItems(liste, 0)
     ## Population routine for connected adresses list
     def Pop_Verbindung(self):
         rows = self.data.get_value_rows("Bez", "Vorname,Name")
@@ -558,7 +557,8 @@ class AfpDialog_DiAdEin_SubMrk(AfpDialog):
             liste.append(row[0] + " " + row[1])
         #print liste
         self.list_verbindung.Clear()
-        self.list_verbindung.InsertItems(liste, 0)
+        if liste:
+            self.list_verbindung.InsertItems(liste, 0)
 
     ## overwritten from AfpDialog, because also buttons are dis/enabled
     def Set_Editable(self, ed_flag, lock_data = None):
@@ -590,6 +590,7 @@ class AfpDialog_DiAdEin_SubMrk(AfpDialog):
             action = Afp_toString(row[3])
 
             Ok, text, tag = AfpAdresse_spezialAttribut(name, attribut, text, tag, action)
+            print "AfpDialog_DiAdEin_SubMrk.On_DClick_Attribut action:",Ok, text, tag
             if Ok is None:
                 Ok = AfpReq_Question("Soll das Merkmal '" + attribut + "'", "für diese Adresse gelöscht werden?".decode("UTF-8"), "Löschen?".decode("UTF-8"))
                 if Ok:
@@ -621,9 +622,12 @@ class AfpDialog_DiAdEin_SubMrk(AfpDialog):
     ## Eventhandler BUTTON - add new entry to attribut list   
     def On_Ad_Merkmal(self,event):
         if self.debug: print "Event handler `On_Ad_Merkmal'!"
+        print "AfpDialog_DiAdEin_SubMrk.On_Ad_Merkmal init:"
+        self.data.view()
         ok, row = AfpAdresse_selectAttributRow(self.data)
         print "AfpDialog_DiAdEin_SubMrk.On_Ad_Merkmal:", row
         if ok and row:
+            self.data.view()
             self.data.get_selection("ADRESATT").add_row(row)
             self.changes = True
             self.Pop_Attribut()

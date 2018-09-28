@@ -366,7 +366,7 @@ class AfpAusgabe(object):
                 rows = self.data.mysql.select(feldnamen, while_clause, dsnamen) 
             else:
                 rows = self.extract_rows_from_data(dsnamen, feldnamen)            
-            print "AfpAusgabe.execute_while rows:", len(rows), self.data, while_clause
+            #print "AfpAusgabe.execute_while rows:", len(rows), self.data, while_clause
             #print "AfpAusgabe.execute_while rows:", len(rows), "\n", rows
         felder = feldnamen.split(",")
         local_lines = self.line_stack[stack_index]
@@ -384,7 +384,7 @@ class AfpAusgabe(object):
             for feld,wert in zip(felder,row):
                 self.values[feld] = wert
             if function: self.values[var] = self.evaluate_formula(function)
-            if self.debug: print "WHILE", stack_index,"Row", i
+            if self.debug: print "AfpAusgabe.execute_while WHILE:", stack_index,"Row:", i
             #print local_lines
             for line in local_lines:
                 if self.debug: print "Linie", local_lines.index(line)
@@ -429,7 +429,7 @@ class AfpAusgabe(object):
             else:
                 fields, netto = Afp_between(clause,"[","]")
                 clause = self.concat_line(fields, netto)
-                clause.replace(":","and")
+                clause = clause.replace(":","and")
             # get needed fileds from lines 
             felder = []
             if function: felder += Afp_getWords(function,".")
@@ -464,14 +464,16 @@ class AfpAusgabe(object):
             # extract possible tables from clause which are not included in feldnamen
             if clause:
                 if len(datsels) > 1: datsels = datsels[1:]
-                split = clause.split(".")
-                for i in range(len(split)-1):
-                    dat = Afp_getWords(split[i+1])[0]
-                    if not dat in dats:
-                        dats.append(dat)
-                        datsels += "," + dat
+                split = clause.split()
+                for word in split:
+                    if "." in word and Afp_floatString(word, None) is None:
+                        sp = word.split(".")
+                        if len(sp) > 1:
+                            if not sp[1] in dats:
+                                dats.append(sp[1])
+                                datsels += "," + sp[1]
         #print "AfpAusgabe.while_input output:", clause, feldnamen, datsels, function
-        if self.debug: print "AfpAusgabe.while_input:", clause, feldnamen, datsels, function
+        if self.debug: print "AfpAusgabe.while_input CLAUSE:", clause, "FIELDS:", feldnamen, "TABLES:", datsels, "FUNCT:", function
         return clause, feldnamen, datsels, function
     ## retrieve value from cache, possibly load into cache first
     # @param fieldname - name of database column to be loaded

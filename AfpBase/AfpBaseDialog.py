@@ -713,7 +713,10 @@ class AfpDialog(wx.Dialog):
         self.new = new
         edit = new or editable
         if edit and not self.no_readonly: self.choice_Edit.SetSelection(1)
-        if not self.new: self.Populate()
+        if self.new:
+            self.Pop_lists()
+        else:
+            self.Populate()
         self.Set_Editable(edit, False)
     ## central routine which returns if dialog is meant to be editable
     def is_editable(self):
@@ -782,7 +785,7 @@ class AfpDialog(wx.Dialog):
         for entry in self.vtextmap:
             TextBox = self.FindWindowByName(entry)
             value = self.data.get_string_value(self.vtextmap[entry])
-            #print "AfpDialog.Pop_text:", self.textmap[entry], "=", value
+            #print "AfpDialog.Pop_text:", self.vtextmap[entry], "=", value
             TextBox.SetValue(value)
     ## population routine for labels \n
     # covention: labelmap holds the entryname to retrieve value from self.data
@@ -817,6 +820,7 @@ class AfpDialog(wx.Dialog):
     # covention: listmap holds the name to generate the routinename to be called: \n
     # Pop_'name'()
     def Pop_lists(self):
+        print "AfpDialog.Pop_lists", self.listmap
         for entry in self.listmap:
             Befehl = "self.Pop_" + entry + "()"
             #print Befehl
@@ -1007,7 +1011,7 @@ class AfpDialog_Auswahl(wx.Dialog):
         self.right_sizer.Add(self.button_Last,0,wx.EXPAND)        
         self.right_sizer.AddStretchSpacer(1) 
         
-        self.grid_auswahl = wx.grid.Grid(self, -1, style=wx.FULL_REPAINT_ON_RESIZE | wx.ALWAYS_SHOW_SB, name="Auswahl")
+        self.grid_auswahl = wx.grid.Grid(self, -1, style=wx.FULL_REPAINT_ON_RESIZE, name="Auswahl")
         self.extract_grid_column_values()
         self.grid_auswahl.CreateGrid(self.rows, self.cols)
         self.grid_auswahl.SetRowLabelSize(0)
@@ -1076,6 +1080,7 @@ class AfpDialog_Auswahl(wx.Dialog):
         ident = None
         sum_percent = 0
         explicit_name = None
+        explicit_sort_name = ""
         for i in range(0,lgh):
             feld = felder[i][0]    
             if not felder[i][1] is None:
@@ -1093,13 +1098,16 @@ class AfpDialog_Auswahl(wx.Dialog):
                 else:
                     if explicit_name: # delayed write
                         if self.sortname == "":
-                            self.sortname = explicit_name
+                            #self.sortname = explicit_name
+                            self.sortname = explicit_sort_name[:-1]
                             self.valuecol = len(self.col_percents)
                         self.col_labels.append(explicit_name)
                         self.col_percents.append(sum_percent)
+                        explicit_sort_name = ""
                     if new_name: sum_percent = percent
                     else: sum_percent = 0
                 explicit_name = new_name
+                explicit_sort_name += fsplit[0] + ","
                 if not explicit_name: # direct write
                     self.col_labels.append(fsplit[0])
                     self.col_percents.append(percent)
@@ -1118,7 +1126,7 @@ class AfpDialog_Auswahl(wx.Dialog):
         self.feldlist = self.feldlist[:-1]
         if ident: self.feldlist += "," + ident
         self.cols = len(self.col_percents) 
-        #print "AfpDialog_Auswahl.extract_grid_column_values 2:", self.cols, self.feldlist, self.link
+        #print "AfpDialog_Auswahl.extract_grid_column_values 2:", self.cols, self.sortname, self.feldlist, self.link
     ## adjust grid rows and columns for dynamic resize of window            
     def adjust_grid_rows(self):
         if self.new_rows > self.rows:
@@ -1191,7 +1199,7 @@ class AfpDialog_Auswahl(wx.Dialog):
                 else: # go for last entries
                     self.On_Ausw_Last
         #self.select = "Name.ADRESSE >= \"Knoblauch\""
-        print "AfpDialog_Auswahl.initialize select:", self.select,"value:", value, "name:", self.selectname, "possible:", self.selectname  + " >= \"" + value + "\""
+        #print "AfpDialog_Auswahl.initialize select:", self.select,"value:", value, "name:", self.selectname, "possible:", self.selectname  + " >= \"" + value + "\""
     ## set size depending on different glabal variables
     def set_size(self, size = None):
         if size is None:
@@ -1203,6 +1211,7 @@ class AfpDialog_Auswahl(wx.Dialog):
     ## populate selection grid
     def Pop_grid(self, dynamic = False):
         limit = str(self.offset) + ","+ str(self.rows)      
+        #print "AfpDialog_Auswahl.Pop_grid:", self.feldlist, self.select, self.dateien, self.sortname, limit, self.where, self.link
         if dynamic:
             if self.grid_data is None or len(self.grid_data) != self.rows:
                 self.grid_data = self.mysql.select(self.feldlist, self.select, self.dateien, self.sortname, limit, self.where, self.link)
