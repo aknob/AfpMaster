@@ -602,7 +602,8 @@ class AfpDialog_DiAdEin_SubMrk(AfpDialog):
                 selection.set_value("Tag", tag, index)
                 selection.set_value("AttText", text, index)
                 self.changes = True
-            if Ok: self.Pop_Attribut()
+            #if Ok: self.Pop_Attribut()
+            self.Pop_Attribut()
         event.Skip()  
     ## Eventhandler LIST - double click in connected addresses list
     def On_DClick_Verbindung(self,event):

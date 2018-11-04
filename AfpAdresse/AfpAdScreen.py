@@ -42,7 +42,7 @@ from AfpBase.AfpUtilities.AfpBaseUtilities import Afp_existsFile
 from AfpBase.AfpDatabase import *
 from AfpBase.AfpDatabase.AfpSQL import AfpSQL
 from AfpBase.AfpDatabase.AfpSuperbase import AfpSuperbase
-from AfpBase.AfpBaseRoutines import AfpMailSender
+from AfpBase.AfpBaseRoutines import AfpMailSender, Afp_ModulNames
 from AfpBase.AfpBaseDialog import AfpReq_Info, AfpReq_Question
 from AfpBase.AfpBaseDialogCommon import  AfpReq_Information, Afp_editMail
 from AfpBase.AfpBaseScreen import AfpScreen
@@ -94,7 +94,7 @@ class AfpAdScreen(AfpScreen):
         self.combo_Filter_Merk = wx.ComboBox(panel, -1, value="", pos=(529,16), size=(150,20), choices=[], style=wx.CB_DROPDOWN, name="Filter_Merk")
         self.Bind(wx.EVT_COMBOBOX, self.On_Filter_Merk, self.combo_Filter_Merk)
         
-        self.combo_Archiv = wx.ComboBox(panel, -1, value="Dokumente", pos=(23,236), size=(186,20), choices=["Dokumente","Anmeldungen","Mietfahrten","Rechnungs-Ausgang","Rechnungs-Eingang", "Merkmale","Beziehungen"], style=wx.CB_DROPDOWN, name="Archivtyp")
+        self.combo_Archiv = wx.ComboBox(panel, -1, value="Dokumente", pos=(23,236), size=(186,20), choices=["Dokumente","Merkmale","Beziehungen"], style=wx.CB_DROPDOWN, name="Archivtyp")
         #self.combo_Archiv = wx.ComboBox(panel, -1, value="Rechnungs-Ausgang", pos=(23,236), size=(186,20), choices=["Dokumente","Anmeldungen","Mietfahrten","Rechnungs-Ausgang","Rechnungs-Eingang"], style=wx.CB_DROPDOWN, name="Archiv")
         self.Bind(wx.EVT_COMBOBOX, self.On_Filter_Archiv, self.combo_Archiv)
         
@@ -190,6 +190,33 @@ class AfpAdScreen(AfpScreen):
         tmp_menu.AppendItem(mmenu)
         self.menubar.Append(tmp_menu, "Adresse")
         return
+        
+    ## connect to database and populate widgets
+    # overwritten from AfpScreen
+    # @param globals - global variables, including database connection
+    # @param sb - AfpSuperbase database object , if supplied, otherwise it is created
+    # @param origin - string from where to get data for initial record, 
+    # to allow syncronised display of screens (only works if 'sb' is given)
+    def init_database(self, globals, sb, origin):
+        super(AfpAdScreen, self).init_database(globals, sb, origin)
+        self.add_grid_choices()
+
+    ## check available choices for grid
+    def add_grid_choices(self):
+        choices = []
+        tables = self.mysql.get_tables()
+        mods = Afp_ModulNames(self.globals, False)
+        if "Event" in mods and "ANMELD" in tables and "EVENT" in tables:
+            choices.append("Anmeldungen")
+        if "Charter" in mods and "FAHRTEN" in tables:
+            choices.append("Mietfahrten")
+        if "RECHNG" in tables:
+            choices.append("Rechnungs-Ausgang")
+        if "VERBIND" in tables:
+            choices.append("Rechnungs-Eingang")
+        if choices:
+            for choice in choices:
+                self.combo_Archiv.Append(choice)
 
     ## Eventhandler MENU; BUTTON - select other address, either direkt or via attribut
     def On_Adresse_AuswErw(self,event):

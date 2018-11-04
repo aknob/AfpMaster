@@ -302,6 +302,7 @@ class AfpEvClient(AfpSelectionList):
         self.mainvalue = ""
         self.spezial_bez = []
         if sb:
+            print "AfpEvClient Konstruktor, EventNr:", sb.get_value("EventNr.EVENT"), sb.get_value("EventNr.ANMELD"), sb.get_string_value("AnmeldNr.ANMELD")
             if  sb.get_value("EventNr.EVENT") == sb.get_value("EventNr.ANMELD"):
                 self.mainvalue = sb.get_string_value("AnmeldNr.ANMELD")
                 Selection = sb.gen_selection("ANMELD", "AnmeldNr", debug)

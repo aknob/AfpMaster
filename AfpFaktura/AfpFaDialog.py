@@ -320,7 +320,7 @@ class AfpDialog_FaCustomSelect(AfpDialog):
     # @param globals - globals to be attached
     def attach_globals(self, globals):
         self.globals = globals
-        self. debug = globals.is_debug()
+        self.debug = globals.is_debug()
         if self.globals.os_is_windows():
             self.rows = int(1.4 * self.rows)
             self.minrows = int(1.4 * self.minrows)

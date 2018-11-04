@@ -3,12 +3,14 @@
 
 ## @package AfpEvent.AfpEvScreen
 # AfpEvScreen module provides the graphic screen to access all data of the Afp-'Event' modul 
+# specialized screen for 'tourist' handling, intergrated from former 'Tourist' modul
 # it holds the class
 # - AfpEvScreen
 #
 #   History: \n
-#        15 May 2018 - inital code generated - Andreas.Knoblauch@afptech.de
-
+#        15 Jan. 2016 - inital code of 'Tourist' modul generated - Andreas.Knoblauch@afptech.de
+#        15 May 2018 - integrated into 'Event' modul - Andreas.Knoblauch@afptech.de
+#        25 Oct 2018 - corrections due to database changes in 'Event' modul- Andreas.Knoblauch@afptech.de
 
 #
 # This file is part of the  'Open Source' project "BusAfp" by 
@@ -59,7 +61,7 @@ class AfpEvScreen(AfpScreen):
     # @param debug - flag for debug info
     def __init__(self, debug = None):
         AfpScreen.__init__(self,None, -1, "")
-        self.typ = "Event"
+        self.typ = "Tourist"
         self.einsatz = None # to invoke import of 'Einsatz' modules in 'init_database'
         self.custs_rows = 8
         self.grid_rows["Customers"] = self.custs_rows
@@ -104,7 +106,7 @@ class AfpEvScreen(AfpScreen):
         self.filtermap = {"Eigen-Anmeldungen":"Eigen-Anmeldung","Eigen-Stornierungen":"Eigen-Storno","Eigen-Reservierungen":"Eigen-Reserv","Fremd-Buchungen":"Fremd-","Fremd-Anfragen":"Fremd-Anfrage","Fremd-Anmeldungen":"Fremd-Anmeldung","Fremd-Stornierungen":"Fremd-Storno"}
         self.combo_Sortierung = wx.ComboBox(panel, -1, value="Kennung", pos=(689,16), size=(80,20), choices=["Kennung","Ort","Beginn","Anmeldung"], style=wx.CB_DROPDOWN, name="Sortierung")
         self.Bind(wx.EVT_COMBOBOX, self.On_Event_Index, self.combo_Sortierung)
-        self.indexmap = {"Kennung":"Kennung","Ort":"Ort","Beginn":"Beginn","Anmeldung":"RechNr"}
+        self.indexmap = {"Kennung":"Kennung","Ort":"Bez","Beginn":"Beginn","Anmeldung":"RechNr"}
         self.combo_Jahr = wx.ComboBox(panel, -1, value="Aktuell", pos=(420,16), size=(84,20), style=wx.CB_DROPDOWN, name="Jahr")
         self.Bind(wx.EVT_COMBOBOX, self.On_Jahr_Filter, self.combo_Jahr)
         self.Bind(wx.EVT_TEXT_ENTER, self.On_Jahr_Filter, self.combo_Jahr)
@@ -247,7 +249,7 @@ class AfpEvScreen(AfpScreen):
         mmenu =  wx.MenuItem(tmp_menu, wx.NewId(), "&Einsatz", "")
         self.Bind(wx.EVT_MENU, self.On_VehicleOperation, mmenu)
         tmp_menu.AppendItem(mmenu)
-        self.menubar.Append(tmp_menu, "Event")
+        self.menubar.Append(tmp_menu, "Tourist")
         # setup address menu
         tmp_menu = wx.Menu() 
         mmenu =  wx.MenuItem(tmp_menu, wx.NewId(), "&Suche", "")
@@ -342,11 +344,17 @@ class AfpEvScreen(AfpScreen):
         s_key = self.sb.get_value()
         value = self.filtermap[value]
         filter = value.split("-")
-        re_filter = "Art LIKE \"" + filter[0] + "\""
-        an_filter = "Zustand LIKE \"" + filter[1] + "\""
+        re_filter = "Art LIKE \"Reise\""
+        if filter[0] == "Fremd":
+            re_filter += " AND AgentNr > 0"
+        else:
+            re_filter += " AND NOT AgentNr > 0"
+        if filter[1]: an_filter = "Zustand LIKE \"" + filter[1] + "\""
+        else: an_filter = ""
         if self.sb_date_filter:
             if self.sb_master == "ANMELD":
-                an_filter += " AND " + self.get_minor_date_filter()
+                if an_filter: an_filter += " AND "
+                an_filter += self.get_minor_date_filter()
             else:
                 re_filter += " AND " + self.sb_date_filter
         if re_filter != self.sb_re_filter:
@@ -616,6 +624,7 @@ class AfpEvScreen(AfpScreen):
         index = self.combo_Sortierung.GetValue()  
         if ANr:
             #self.sb.set_debug()
+            self.sb_master = "ANMELD"
             self.sb.CurrentIndexName("AnmeldNr","ANMELD")
             self.sb.select_key(ANr,"AnmeldNr","ANMELD")
             FNr = self.sb.get_value("EventNr.ANMELD")

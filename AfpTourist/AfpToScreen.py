@@ -617,6 +617,7 @@ class AfpToScreen(AfpScreen):
         index = self.combo_Sortierung.GetValue()  
         if ANr:
             #self.sb.set_debug()
+            self.sb_master = "ANMELD"
             self.sb.CurrentIndexName("AnmeldNr","ANMELD")
             self.sb.select_key(ANr,"AnmeldNr","ANMELD")
             FNr = self.sb.get_value("FahrtNr.ANMELD")

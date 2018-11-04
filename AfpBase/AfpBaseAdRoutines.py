@@ -145,7 +145,7 @@ class AfpAdresse(AfpSelectionList):
         self.selects["RECHNG"] = [ "RECHNG","KundenNr = KundenNr.ADRESSE"] 
         self.selects["ANMELD"] = [ "ANMELD","KundenNr = KundenNr.ADRESSE"] 
         self.selects["AnmeldAgent"] = [ "ANMELD","AgentNr = KundenNr.ADRESSE"] 
-        self.selects["REISEN"] = [ "REISEN","AgentNr = KundenNr.ADRESSE"] 
+        self.selects["EVENT"] = [ "EVENT","AgentNr = KundenNr.ADRESSE"] 
         self.selects["VERBIND"] = [ "VERBIND","KundenNr = KundenNr.ADRESSE"] 
         if complete: self.create_selections()
         if self.debug: print "AfpAdresse Konstruktor, KundenNr:", self.mainvalue
@@ -239,9 +239,9 @@ class AfpAdresse(AfpSelectionList):
             debitor = self.get_account("Debitor")
             kreditor = self.get_account("Kreditor")
             selects = self.get_selection_names()
-            names = {"ADRESATT": "Name","ANMELDER": "AgentName","REISEN":"AgentName", "VERBIND":"Name", "FAHRTEN":"Name","AnmeldAgent":"AgentName"}
-            debitors = {"ANMELDER": "AgentDebitor", "RECHNG":"Debitor", "REISEN":"Debitor"}
-            kreditors = {"VERBIND": "Kreditor","REISEN":"Kreditor"}
+            names = {"ADRESATT": "Name","ANMELDER": "AgentName","EVENT":"AgentName", "VERBIND":"Name", "FAHRTEN":"Name","AnmeldAgent":"AgentName"}
+            debitors = {"ANMELDER": "AgentDebitor", "RECHNG":"Debitor", "EVENT":"Debitor"}
+            kreditors = {"VERBIND": "Kreditor","EVENT":"Kreditor"}
             # move through all selections and replave the values
             for sel in selects:
                 selection = victim.get_selection(sel)

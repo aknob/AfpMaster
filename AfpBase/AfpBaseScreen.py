@@ -131,6 +131,7 @@ class AfpScreen(wx.Frame):
         self.Populate()
         # Keyboard Binding
         self.no_keydown = self.get_no_keydown()
+        self.Bind(wx.EVT_KEY_DOWN, self.On_KeyDown)
         self.panel.Bind(wx.EVT_KEY_DOWN, self.On_KeyDown)
         children = self.panel.GetChildren()
         for child in children:
@@ -232,7 +233,7 @@ class AfpScreen(wx.Frame):
         if new_lgh < self.grid_minrows[name]:
             new_lgh =  self.grid_minrows[name]
         old_lgh = grid.GetNumberRows()
-        print "AfpScreen.grid_resize:", old_lgh, new_lgh
+        #print "AfpScreen.grid_resize:", old_lgh, new_lgh
         if new_lgh > old_lgh:
             grid.AppendRows(new_lgh - old_lgh)
             for row in range(old_lgh, new_lgh):
@@ -369,7 +370,7 @@ class AfpScreen(wx.Frame):
         if keycode == wx.WXK_LEFT: next = -1
         if keycode == wx.WXK_RIGHT: next = 1
         self.CurrentData(next)
-        event.Skip()
+        #event.Skip()) #invokes eventhandler twice on windows
         
     ## Eventhandler resize event
     def On_ReSize(self, event):
@@ -541,15 +542,15 @@ def Afp_loadScreen(globals, modulname, sb = None, origin = None):
     Modul = None
     if Afp_inModuls(modulname, globals):
         name, flavour = Afp_getModulFlavour(modulname)
-        print "Afp_loadScreen:", modulname, name, flavour
+        #print "Afp_loadScreen:", modulname, name, flavour
         screen = "Afp" + Afp_getModulShortName(name) + "Screen" 
         if flavour: flavour = "_" + flavour
         modname = "Afp" + name + "." + screen + flavour
-        print "Afp_loadScreen:", modname
+        #print "Afp_loadScreen:", modname
         pyModul =  Afp_importPyModul(modname, globals)
         #print "Afp_loadScreen:", pyModul
         pyBefehl = "Modul = pyModul." + screen + "()"
-        print "Afp_loadScreen:", pyBefehl
+        #print "Afp_loadScreen:", pyBefehl
         exec pyBefehl
     if Modul:
         Modul.init_database(globals, sb, origin)

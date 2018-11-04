@@ -79,7 +79,7 @@ def Afp_getModulShortName(modul):
 # @param flavour - None: names are given as they come, False: only modul part is listed, True: flavour parts are listed, if given, else modul parts
 def Afp_ModulNames(globals = None, flavour = None):
     mods = Afp_graphicModulNames(globals)
-    print "Afp_ModulNames input:", mods, flavour
+    #print "Afp_ModulNames input:", mods, flavour
     modules = []
     # check if appropriate python files exists, if global variables are given
     if globals and mods:
@@ -105,7 +105,7 @@ def Afp_ModulNames(globals = None, flavour = None):
                 modules.append(mod)
     else:
         modules = mods
-    print "Afp_ModulNames modules:", modules
+    #print "Afp_ModulNames modules:", modules
     return modules
 ## get all possible afp-modul names
 def Afp_allModulNames():
@@ -196,12 +196,12 @@ def Afp_ModulFileNames(modul, delimiter, path):
 def Afp_existsModulFiles(modul, delimiter, path):
     filenames = Afp_ModulFileNames(modul, delimiter, path)
     if filenames:
-        print "Afp_existsModulFiles filenames:", filenames
+        #print "Afp_existsModulFiles filenames:", filenames
         exists = True
         for file in filenames:
                 # look if appropriate .py or .pyc file exists im path
                 exists = exists and (Afp_existsFile(file) or Afp_existsFile(file + "c"))
-                print "Afp_existsModulFiles exists:", exists
+                #print "Afp_existsModulFiles exists:", exists
         return exists
     return False
 ## get 'modul info' (timestamp) of all python-modul files for a afp-modul
@@ -434,6 +434,48 @@ def Afp_getListe_fromTableSelection(table_sel, select, ident, order = None, keep
 
 # with database access
 
+##  check if needed database tables are present, if not generate them
+# param globals - global data holding mysql-connection and modul data
+# param correct - flag if needed database tables should be generated
+def Afp_verifyDatabase(globals, correct = False):
+    mysql = globals.get_mysql()
+    debug = globals.is_debug()
+    tables = mysql.get_tables()
+    if not tables: # no tables detected, look if mysql schema is present
+        if debug: print "Afp_verifyDatabase no tables detected!"
+        print "Afp_verifyDatabase no tables detected!"
+        tables = []
+    neededTables = {}
+    modules = Afp_ModulNames(globals)
+    for mod in modules:
+        if ":" in mod:
+            modul = mod.spli(":")[0]
+            flavour = mod.spli(":")[1]
+        else:
+            modul = mod
+            flavour = None
+        pymod = None
+        modulfiles = Afp_ModulPyNames(modul)
+        for file in modulfiles:
+            if "Routines" in file:
+                pymod =  Afp_importPyModul(modul, globals)
+        if pymod:
+            befehl = "neededTables = pymod.Afp" + mod + "_getTables(flavour, neededTables)"
+            if debug: print "Afp_verifyDatabase execute:", befehl
+            exec befehl
+    print "Afp_verifyDatabase neededTables:", neededTables
+    for tab in neededTables:
+        if tab in tables:
+            neededTables[tab] = ""
+    print "Afp_verifyDatabase neededTables not existent:", neededTables
+    if correct:
+        for tab in neededTables:
+            if neededTables[tab]:
+                mysql.execute(neededTables[tab])
+    ok = true
+    for tab in neededTables:
+        print "hier weiter..."
+
 ##   retrieve a list of database entries with same "KundenNr" from table
 # @param mysql - database where values are retrieved from
 # @param table  - name of database table where values are retrieved from
@@ -553,6 +595,8 @@ def Afp_getOrderlistOfTable(mysql, datei, keep = None, indirect = None, special 
             if entry in liste and liste[entry] is None:
                 liste[entry] = ""
     return liste
+
+# classes for different uses
 
 ##   base class of all Afp-database objects
 # common class to hold and manipulate the data for a given afp-module \ņ

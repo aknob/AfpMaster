@@ -336,6 +336,14 @@ class AfpSQL(object):
                 print "AfpSQL.write_insert: length data does not match number of fields (", flen, ",", len(datarow), ")" 
         if not Befehl is None:
             self.db_cursor.execute("COMMIT;")
+    ## direct execution of given mysql commands
+    # @ param commands - given commands
+    def execute(self, commands):
+        befehle = commands.split(";")
+        for befehl in befehle:
+            if befehl:
+                if self.debug: print "AfpSQL.execute:", befehl + ";"
+                self.db_cursor.execute(befehl + ";")
 
 ## handles SQL-selections for one table
 class AfpSQLTableSelection(object):

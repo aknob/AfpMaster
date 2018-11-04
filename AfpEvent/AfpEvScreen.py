@@ -51,7 +51,7 @@ from AfpBase.AfpBaseFiDialog import AfpLoad_DiFiZahl
 import AfpEvent
 from AfpEvent import AfpEvRoutines, AfpEvDialog
 from AfpEvent.AfpEvRoutines import *
-from AfpEvent.AfpEvDialog import AfpEvent_copy, AfpLoad_EvAusw, AfpLoad_EventEdit_fromSb, AfpLoad_EvClientEdit_fromSb
+from AfpEvent.AfpEvDialog import AfpLoad_EvAusw, AfpLoad_EventEdit_fromSb, AfpLoad_EvClientEdit_fromSb
 
 ## Class AfpEvScreen shows 'Event' screen and handles interactions
 class AfpEvScreen(AfpScreen):
@@ -63,6 +63,7 @@ class AfpEvScreen(AfpScreen):
         #self.einsatz = None # to invoke import of 'Einsatz' modules in 'init_database'
         self.grid_rows["Customers"] = 12 
         self.grid_cols["Customers"] = 7
+        self.grid_row_selected = False
         self.dynamic_grid_name = "Customers"
         self.dynamic_grid_col_percents = [20, 20, 11, 5, 14, 14, 16]
         self.fixed_width = 80
@@ -101,10 +102,9 @@ class AfpEvScreen(AfpScreen):
         self.grid_panel_sizer =wx.BoxSizer(wx.HORIZONTAL)
         
         # right BUTTON sizer
-        #self.combo_Sortierung = wx.ComboBox(panel, -1, value="Kennung", choices=["Kennung","Ort","Beginn","Anmeldung"], size=(100,30), style=wx.CB_DROPDOWN, name="Sortierung")
-        self.combo_Sortierung = wx.ComboBox(panel, -1, value="Kennung", choices=["Kennung","Ort","Beginn"], size=(100,30), style=wx.CB_DROPDOWN, name="Sortierung")
+        self.combo_Sortierung = wx.ComboBox(panel, -1, value="Kennung", choices=["Kennung","Bezeichnung","Beginn"], size=(100,30), style=wx.CB_DROPDOWN, name="Sortierung")
         self.Bind(wx.EVT_COMBOBOX, self.On_Event_Index, self.combo_Sortierung)
-        self.indexmap = {"Kennung":"Kennung","Ort":"Ort","Beginn":"Beginn","Anmeldung":"RechNr"}
+        self.indexmap = {"Kennung":"Kennung","Bezeichnung":"Bez","Ort":"Bez","Beginn":"Beginn"}
         
         self.button_Auswahl = wx.Button(panel, -1, label="Aus&wahl",size=(77,50), name="BAuswahl")
         self.Bind(wx.EVT_BUTTON, self.On_Event_Ausw, self.button_Auswahl)
@@ -212,7 +212,7 @@ class AfpEvScreen(AfpScreen):
         self.grid_custs.CreateGrid(self.grid_rows["Customers"], self.grid_cols["Customers"])
         self.grid_custs.SetRowLabelSize(0)
         self.grid_custs.SetColLabelSize(18)
-        self.grid_custs.EnableEditing(0)
+        self.grid_custs.EnableEditing(False)
         self.grid_custs.EnableDragColSize(0)
         self.grid_custs.EnableDragRowSize(0)
         self.grid_custs.EnableDragGridSize(0)
@@ -268,7 +268,7 @@ class AfpEvScreen(AfpScreen):
         self.Bind(wx.EVT_MENU, self.On_Anmeldung, mmenu)
         tmp_menu.AppendItem(mmenu)
         mmenu =  wx.MenuItem(tmp_menu, wx.NewId(), "&Kopie", "")
-        self.Bind(wx.EVT_MENU, self.On_MCharter_copy, mmenu)
+        self.Bind(wx.EVT_MENU, self.On_MEvent_copy, mmenu)
         tmp_menu.AppendItem(mmenu)
         mmenu =  wx.MenuItem(tmp_menu, wx.NewId(), "&Bearbeiten", "")
         self.Bind(wx.EVT_MENU, self.On_Event_modify, mmenu)
@@ -306,11 +306,11 @@ class AfpEvScreen(AfpScreen):
     def enable_tour_widgets(self):
         if AfpEvent_isTour(self.data.get_value("Art")):
             self.button_Einsatz.Enable(True) 
-            self.label_Ende.SetLabel("Ende")
+            self.label_Ende.SetLabel("Ende:")
             self.textmap["Ende"] = "Ende.EVENT"
         else:
             self.button_Einsatz.Enable(False) 
-            self.label_Ende.SetLabel("Zeit")
+            self.label_Ende.SetLabel("Zeit:")
             self.textmap["Ende"] = "Uhrzeit.EVENT"
     ## populate text widgets
     # overwritten from AfpBaseScreen to handle dependant tourist display
@@ -411,7 +411,7 @@ class AfpEvScreen(AfpScreen):
         return self.sb_date_filter.replace("Beginn","Anmeldung")
 
     ## Eventhandler COMBOBOX - sort index
-    def On_Event_Index(self,event = None):
+    def On_Event_Index(self, event = None):
         value = self.combo_Sortierung.GetValue()
         if self.debug: print "Event handler `On_Event_Index'",value
         index = self.indexmap[value]
@@ -426,7 +426,7 @@ class AfpEvScreen(AfpScreen):
         #print "AfpEvScreen.On_Event_Index index:", index
         self.sb.set_index(index)
         self.sb.CurrentIndexName(index)
-        #print "AfpScreen.On_Event_Index current index", self.sb.get_value("AnmeldNr.ANMELD")
+        #print "AfpScreen.On_Event_Index current index", self.sb.get_value("AnmeldNr.ANMELD"), self.sb.CurrentFile.indexname, self.sb.CurrentFile.name, self.sb.CurrentFile.CurrentIndex.name
         self.set_jahr_filter()
         #print "AfpScreen.On_Event_Index filter", self.sb.get_value("AnmeldNr.ANMELD")
         self.CurrentData()
@@ -552,12 +552,16 @@ class AfpEvScreen(AfpScreen):
             AfpReq_Info("Für eine Fremd-Reise" , "ist kein Einsatz möglich!".decode("UTF-8"))
         event.Skip()
 
-    ## Eventhandler BUTTON, MENU - modify touristic entry \n
+    ## Eventhandler BUTTON, MENU - modify client entry \n
     def On_Anmeldung(self,event):   
         #self.sb.set_debug()      
         if self.debug: print "AfpEvScreen Event handler `On_Anmeldung'"
-        changed = AfpLoad_EvClientEdit_fromSb(self.globals, self.sb, True)
-        #print"On_Anmeldung", changed
+        if self.grid_row_selected:
+            new = False
+        else:
+            new = True
+        changed = AfpLoad_EvClientEdit_fromSb(self.globals, self.sb, new)
+        #print"AfpEvSreen.On_Anmeldung", changed
         if changed: 
             self.Reload()
         #self.sb.unset_debug()
@@ -598,39 +602,43 @@ class AfpEvScreen(AfpScreen):
         
     ## Eventhandler Grid - double click Grid 'Customers'
     def On_DClick_Custs(self, event):
-        if self.debug: print "Event handler `On_DClick_Custs'", event
+        if self.debug: print "Event handler `On_DClick_Custs'"
         self.On_Click_Custs(event)
         changed = AfpLoad_EvClientEdit_fromSb(self.globals, self.sb)
+        self.grid_row_selected = True
         if changed: 
             self.Reload()      
         
-    ## Eventhandler Grid - double click Grid 'Customers'
+    ## Eventhandler Grid - single click Grid 'Customers'
     def On_Click_Custs(self, event):
-        if self.debug: print "Event handler `On_Click_Custs'", event
+        if self.debug: print "Event handler `On_Click_Custs'"
         index = event.GetRow()
-        ANr = Afp_fromString(self.grid_id["Customers"][index])
-        if ANr:
-            #col = event.GetColumn(), Spalte extrahieren, evtl. Selectionsmethode in der Deklaration ändern
-            col =event.GetCol()
-            self.load_direct(0, ANr)
-            self.Reload()
-            if col == 6:
-                print "AfpEvScreen.On_DClick_Custs last column selected"
-                #text_g = self.grid_custs.getCellValue(index, col)
-                name = AfpAdresse(self.globals, self.sb.get_value("KundenNr.ANMELD")).get_name()
-                text = self.sb.get_value("Info.ANMELD")
-                if not text: text = ""
-                text, Ok = AfpReq_Text("Bitte Information für Anmeldung".decode("UTF-8"),  name+ " eingeben.", text, "Info")
-                if Ok:
-                    data = AfpEvClient(self.globals, ANr)
-                    data.set_value("Info", text)
-                    data.store()
-                    self.Reload()
+        print "AfpEvScreen.On_Click_Custs:", self.grid_id["Customers"], len(self.grid_id["Customers"]), index
+        if len(self.grid_id["Customers"]) > index:
+            self.grid_row_selected = True
+            ANr = Afp_fromString(self.grid_id["Customers"][index])
+            if ANr:
+                #col = event.GetColumn(), Spalte extrahieren, evtl. Selectionsmethode in der Deklaration ändern
+                col = event.GetCol()
+                self.load_direct(0, ANr)
+                self.Reload()
+                if col == 6:
+                    print "AfpEvScreen.On_Click_Custs last column selected"
+                    #text_g = self.grid_custs.getCellValue(index, col)
+                    name = AfpAdresse(self.globals, self.sb.get_value("KundenNr.ANMELD")).get_name()
+                    text = self.sb.get_value("Info.ANMELD")
+                    if not text: text = ""
+                    text, Ok = AfpReq_Text("Bitte Information für Anmeldung".decode("UTF-8"),  name+ " eingeben.", text, "Info")
+                    if Ok:
+                        data = AfpEvClient(self.globals, ANr)
+                        data.set_value("Info", text)
+                        data.store()
+                        self.Reload()
         event.Skip()
       
     ## Eventhandler MENU - copy charter entry \n
-    def On_MCharter_copy(self,event):   
-        print "AfpEvScreen Event handler `On_MCharter_copy' not needed!"
+    def On_MEvent_copy(self,event):   
+        print "AfpEvScreen Event handler `On_MEvent_copy' not needed!"
         event.Skip()  
    
     ## Eventhandler MENU - tourist seach via address 
@@ -676,6 +684,15 @@ class AfpEvScreen(AfpScreen):
         print "AfpEvScreen.On_ReSize Button size:", self.button_sizer.GetSize()
         super(AfpEvScreen, self).On_ReSize(event)
         event.Skip()
+        
+    ## Eventhandler Keyboard - handle key-down events - overwritten from AfpScreen
+    def On_KeyDown(self, event):
+        keycode = event.GetKeyCode()        
+        if self.debug: print "AfpEvScreen Event handler `On_KeyDown'", keycode
+        if keycode == wx.WXK_ESCAPE or keycode == wx.WXK_DELETE:
+            self.grid_row_selected = False
+            self.grid_custs.ClearSelection()
+        super(AfpEvScreen, self).On_KeyDown(event)
 
     ## set database to show indicated tour
     # @param ENr - number of event 
@@ -684,19 +701,17 @@ class AfpEvScreen(AfpScreen):
         index = self.combo_Sortierung.GetValue()  
         if ANr:
             #self.sb.set_debug()
+            self.sb_master = "ANMELD"
             self.sb.CurrentIndexName("AnmeldNr","ANMELD")
-            self.sb.select_key(ANr,"AnmeldNr","ANMELD")
+            self.sb.select_key(ANr,"AnmeldNr","ANMELD") 
+            #print "AfpEvScreen.load_direct select key:", self.sb.get_value("AnmeldNr.ANMELD"), self.sb.get_value("EventNr.ANMELD")
             ENr = self.sb.get_value("EventNr.ANMELD")
-            self.combo_Sortierung.SetValue("Anmeldung")
-        else:
-            if index == "Anmeldung":
-                self.combo_Sortierung.SetValue("Kennung")
         self.sb.select_key(ENr,"EventNr","EVENT")
         #print "AfpEvScreen.load_direct:", ANr, ENr
         self.On_Event_Index()
-        #print "AfpEvScreen.load_direct Index set:", self.sb.get_value("AnmeldNr.ANMELD")
+        #print "AfpEvScreen.load_direct Index set:", self.sb.get_value("AnmeldNr.ANMELD"), self.sb.get_value("EventNr.ANMELD")
         self.set_current_record()
-        #print "AfpEvScreen.load_direct current record:", self.sb.get_value("AnmeldNr.ANMELD")
+        #print "AfpEvScreen.load_direct current record:", self.sb.get_value("AnmeldNr.ANMELD"), self.sb.get_value("EventNr.ANMELD")
     
     # routines to be overwritten
     ## load global veriables for this afp-module
@@ -787,8 +802,8 @@ class AfpEvScreen(AfpScreen):
         return Ok
     ## supply list of graphic object where keydown events should not be traced.
     def get_no_keydown(self):
-        #return ["Jahr"]
-        return []
+        return ["Customers"]
+        #return []
     ## get names of database tables to be opened for this screen
     # (overwritten from AfpScreen)
     def get_dateinamen(self):

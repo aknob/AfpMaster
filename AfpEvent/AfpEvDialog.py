@@ -99,10 +99,15 @@ def AfpEv_editLocation(ort = "", ken = ""):
 # @param data - tour data to be copied
 def AfpEvent_copy(data):
     if data.is_debug(): print "AfpEvent_copy: copy Event data!"
-    text1 = "Soll eine Kopie der aktuellen Reise erstellt werden?"
-    text2 = "Bitte auswählen was übernommen werden soll,\n'Abbruch' kopiert alles bis auf Datii und Zusatzbeschreibung".decode("UTF-8")
-    liste = ["Beginn/Ende","Veranstalter,Transferroute","Preise","Zusatzbeschreibung","Reisedaten"]
-    keep_flags = AfpReq_MultiLine(text1, text2, "Check", liste, "Reise kopieren?", 350)
+    if AfpEvent_isTour(data.get_value("Art")):
+        typ = "Reise"
+        liste = ["Beginn/Ende","Veranstalter,Transferroute","Preise","Zusatzbeschreibung","Reisedaten"]
+    else:
+        typ = "Veranstaltung"
+        liste = ["Datum/Uhrzeit","Veranstalter,Veranstaltungsort","Preise","Zusatzbeschreibung","Veranstaltungsdaten"]
+    text1 =  "Soll eine Kopie der aktuellen " + typ + " erstellt werden?"
+    text2 = "Bitte auswählen was übernommen werden soll,\n'Abbruch' kopiert alles bis auf Zeiten und Zusatzbeschreibung".decode("UTF-8")
+    keep_flags = AfpReq_MultiLine(text1, text2, "Check", liste, typ +" kopieren?", 350)
     if keep_flags:
         data.set_new(keep_flags)
         return data
@@ -255,7 +260,7 @@ class AfpDialog_EventEdit(AfpDialog):
         self.label_T_Agent = wx.StaticText(panel, -1, label="Agent:", pos=(16,190), size=(50,18), name="T_Agent")
         self.label_AgentName = wx.StaticText(panel, -1, label="", pos=(78,190), size=(198,30), name="AgentName")
         self.labelmap["AgentName"] = "AgentName.EVENT"
-        self.check_Kopie = wx.CheckBox(panel, -1, label="Kopie", pos=(10,226), size=(62,20), name="Kopie")
+        self.check_Kopie = wx.CheckBox(panel, -1, label="Kopie", pos=(10,226), size=(82,20), name="Kopie")
         self.button_Neu = wx.Button(panel, -1, label="&Neu", pos=(80,220), size=(90,30), name="Neu")
         self.Bind(wx.EVT_BUTTON, self.On_EVENT_Neu, self.button_Neu)
         self.button_Agent = wx.Button(panel, -1, label="&Agent", pos=(180,220), size=(90,30), name="Verst")
@@ -1310,15 +1315,20 @@ def AfpLoad_EvClientEdit(data, edit = False, onlyOk = None):
 ## loader routine for dialog EvClientEdit according to the given superbase object \n
 # @param globals - global variables holding database connection
 # @param sb - AfpSuperbase object, where data can be taken from
+# @param new - if given, flag if new Client entry should be edited
 # @param edit - if given, flag if dialog should open in edit modus
-def AfpLoad_EvClientEdit_fromSb(globals, sb, edit = False):
-    EvClient = AfpEvClient(globals, None, sb, sb.debug, False)
+def AfpLoad_EvClientEdit_fromSb(globals, sb, new = False, edit = False):
+    if new:
+        EvClient = AfpEvClient(globals, None, None, globals.is_debug(), False)
+        edit = True
+    else:
+        EvClient = AfpEvClient(globals, None, sb, globals.is_debug(), False)
     #if sb.eof("EventNr","ANMELD"): EvClient.set_new(True)
     if EvClient.is_new():
-        FNr = sb.get_value("EventNr.EVENT")
+        ENr = sb.get_value("EventNr.EVENT")
         text = "Bitte Kunden für neue Anmeldung auswählen:".decode("UTF-8")
         KNr = AfpLoad_AdAusw(globals,"ADRESSE","NamSort","", None, text, True)
-        if KNr: EvClient.set_new(FNr, KNr)
+        if KNr: EvClient.set_new(ENr, KNr)
         else: EvClient = None
     elif EvClient.is_cancelled():
         return AfpLoad_EvClientCancel(EvClient, edit)
