@@ -326,7 +326,7 @@ class AfpFaktura(AfpSelectionList):
     ## helper routine to set archive and report dependencies
     def gen_dependent_selects(self):
         self.selects["ARCHIV"] = ["ARCHIV", "Tab = \"" + self.maintable + "\" AND TabNr = RechNr.Main"] 
-        self.selects["AUSGABE"] = [ "AUSGABE","Modul = \"Faktura " + self.listname + "\" AND Typ = Zustand.Main"] 
+        self.selects["AUSGABE"] = [ "AUSGABE","Modul = \"Faktura\" AND Art = \"" + self.get_listname() + "\" AND Typ = Zustand.Main"] 
         print "AfpFaktura.gen_dependent_selects:", self.selects["ARCHIV"], self.selects["AUSGABE"]
     ## initialisation routine for the use of different database constructions
     # @param mainfield - name.tablename of the identifier of the mani selection

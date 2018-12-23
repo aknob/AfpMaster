@@ -99,7 +99,34 @@ def Afp_toQuotedString(data, date_conv = False):
             if len(split[2]) < 3: split[2] = "20" + split[2]
             string = "datetime.date(" + split[2] + ", " + split[1] + ", " + split[0] + ")"
     return string
-## convert data to string, 
+## convert data to date string according to input format, 
+# dates and times are converted to internal representation (yyyy-mm-dd)
+# @param data - data to be converted
+# @param format - format for string creation
+def Afp_toDateString(data, format):
+    string = ""
+    use = ""
+    lg = len(format)
+    for i in range(lg):
+        char = format[i]
+        if use and (not use[0] == char or i == lg-1):
+            if i == lg-1: use += char
+            if use[0] == "y":
+                st = Afp_toString(data.year)
+            elif use[0] =="m":
+                st = Afp_toString(data.month)
+            elif use[0] == "d":
+                st = Afp_toString(data.day)
+            else:
+                st = use
+            lgh = len(use)
+            if len(st) > lgh: st = st[-lgh]
+            elif len(st) < lgh: st = "0"*(lgh - len(st)) + st
+            string += st
+            use = ""
+        use += char
+    return string
+## convert data to intern date string, 
 # dates and times are converted to internal representation (yyyy-mm-dd)
 # @param data - data to be converted
 def Afp_toInternDateString(data):
@@ -490,11 +517,11 @@ def Afp_combineValues(indices, array):
    
 ## DEPRECATED FUNCTION: use Afp_extractPureValues or Afp_extractStringValues instead
 def Afp_extractValues(indices, array):
-    #print "deprecated function Afp_extractValues In:",indices, array
+    #print "DEPRECATED FUNCTION: use Afp_extractPureValues or Afp_extractStringValues instead In:",indices, array
     if indices is None:
         wert = []
         for entry in array:
-            wert.append(Afp_maskiere(Afp_toString(entry)))
+            wert.append(Afp_maskiere(Afp_toInternDateString(entry)))
     else:
         if len(indices) == 1:
             # single index, each type possible
@@ -506,18 +533,23 @@ def Afp_extractValues(indices, array):
             # multiple index, only string possible
             wert = []
             for ind in indices:
-                wert.append(Afp_maskiere(Afp_toString(array[ind])))
-    #print "deprecated function Afp_extractValues Out:", wert
+                wert.append(Afp_maskiere(Afp_toInternDateString(array[ind])))
+    #print "DEPRECATED FUNCTION: Afp_extractValues Out:", wert
     return wert
 ## extract values from array (list) and convert them to strings
 # @param indices - indices of values to be extracted from array, None all entries are extracted
-# @param array- list of values
-def Afp_extractStringValues(indices, array):
-    #print "Afp_extractStringValues:",indices, array
-    werte = Afp_extractPureValues(indices,array)
+# @param array - list of values
+# @param date - flag if internal date representation should be used
+def Afp_extractStringValues(indices, array, intern_date = False):
+    #print "Afp_extractStringValues:", indices, array, date
     strings = []
+    if array: werte = Afp_extractPureValues(indices,array)
+    else: werte = []
     for entry in werte:
-        strings.append(Afp_maskiere(Afp_toString(entry)))
+        if intern_date:
+            strings.append(Afp_maskiere(Afp_toInternDateString(entry)))
+        else:
+            strings.append(Afp_maskiere(Afp_toString(entry)))
     return strings
 
 ## compare two values extracted from database

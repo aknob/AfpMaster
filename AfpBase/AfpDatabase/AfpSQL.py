@@ -8,6 +8,7 @@
 # - AfpSQLTableSelection
 #
 #   History: \n
+#        04 Nov. 2018 - AfpSQL: add free execution of sql-statements - Andreas.Knoblauch@afptech.de \n
 #        28 Mar. 2016 - AfpSQLTableSelection: add afterburner - Andreas.Knoblauch@afptech.de \n
 #        14 Apr. 2015 - AfpSQLTableSelection: keep original values in modification - Andreas.Knoblauch@afptech.de \n
 #        19 Okt. 2014 - adapt package hierarchy - Andreas.Knoblauch@afptech.de \n
@@ -18,7 +19,7 @@
 #  AfpTechnologies (afptech.de)
 #
 #    BusAfp is a software to manage coach and travel acivities
-#    Copyright © 1989 - 2016  afptech.de (Andreas Knoblauch)
+#    Copyright © 1989 - 2018  afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -49,6 +50,7 @@ class AfpSQL(object):
     # @param debug - flag for debug output
     def  __init__(self, dbhost, dbuser, dbword, dbname, debug):
         self.dbname = dbname
+        self.create_db = False
         self.debug = debug
         self.db_connection = None
         self.db_cursor = None      
@@ -58,6 +60,16 @@ class AfpSQL(object):
         self.select_clause= None
         self.version = self.get_version()
         if self.debug: print "AfpSQL Konstruktor"
+        if self.create_db: 
+            try:
+                self.execute("CREATE DATABASE " + self.dbname + ";")
+                self.execute("USE " + self.dbname + ";")
+                print "AfpSQL database created:", self.dbname
+            except  MySQLdb.Error, e:
+                print "ERROR %d in MySQL connection: %s" % (e.args[0], e.args[1])
+                if e.args[0] == 1044:
+                    print "MySQL-User has not the right privileges to create database! Please restart with administrative MySQL-User."
+                sys.exit (1)
     ## destructor
     def __del__(self):
         if self.db_cursor: self.db_cursor.close ()
@@ -83,7 +95,19 @@ class AfpSQL(object):
             if self.debug: print "AfpSQL connect:", sql_host, sql_user, sql_db
         except MySQLdb.Error, e:
             print "ERROR %d in MySQL connection: %s" % (e.args[0], e.args[1])
-            sys.exit (1)
+            if e.args[0] == 1049: 
+                # unknown database, connect without database name, set flag for later creation
+                try:
+                    connection = MySQLdb.connect (host = sql_host,
+                                                  user = sql_user,
+                                                  passwd = sql_word.decode("base64"))
+                    print "AfpSQL connect without database:", sql_host, sql_user
+                    self.create_db = True
+                except MySQLdb.Error, e: 
+                    print "ERROR %d in MySQL connection: %s" % (e.args[0], e.args[1])
+                    sys.exit (1)
+            else:
+                sys.exit (1)
         return connection 
     ## return debug flag
     def get_debug(self):
@@ -100,14 +124,14 @@ class AfpSQL(object):
     ## return database version
     def get_version(self):
         Befehl = "SELECT VERSION()"
-        if self.debug: print Befehl
+        if self.debug: print "AfpSQL.get_version:", Befehl
         self.db_cursor.execute (Befehl)     
         rows = self.db_cursor.fetchall()
         return rows[0][0]
     ## return tables available in this database
     def get_tables(self):
         Befehl = "SHOW TABLES"
-        if self.debug: print Befehl
+        if self.debug: print "AfpSQL.get_tables:", Befehl
         self.db_cursor.execute (Befehl)     
         rows = self.db_cursor.fetchall()
         return Afp_extractColumns(0, rows)
@@ -120,7 +144,7 @@ class AfpSQL(object):
             Befehl = "SHOW INDEX FROM " + datei
         else:
             Befehl = "SHOW FIELDS FROM " + datei
-        if self.debug: print Befehl
+        if self.debug: print "AfpSQL.get_info:", Befehl
         self.db_cursor.execute (Befehl)     
         rows = self.db_cursor.fetchall ()
         result = []
@@ -135,6 +159,9 @@ class AfpSQL(object):
         else:
             result = rows
         return result
+    ## check if database has been created
+    def database_created(self):
+        return self.create_db
     ## extract different parts of the mysql select clause for  database access \n
     # returns a list holding:
     # - feld_clause: part of the clause indicating the desired columns of the tables
@@ -336,15 +363,20 @@ class AfpSQL(object):
                 print "AfpSQL.write_insert: length data does not match number of fields (", flen, ",", len(datarow), ")" 
         if not Befehl is None:
             self.db_cursor.execute("COMMIT;")
-    ## direct execution of given mysql commands
+    ## direct execution of given mysql commands, retuns the returnvalue of the last command
     # @ param commands - given commands
     def execute(self, commands):
-        befehle = commands.split(";")
-        for befehl in befehle:
-            if befehl:
-                if self.debug: print "AfpSQL.execute:", befehl + ";"
-                self.db_cursor.execute(befehl + ";")
-
+        retval = None
+        if commands:
+            befehle = commands.split(";")
+            for befehl in befehle:
+                if befehl:
+                    if self.debug: print "AfpSQL.execute:", befehl + ";"
+                    retval = self.db_cursor.execute(befehl + ";")
+            if not befehle is None:
+                self.db_cursor.execute("COMMIT;")
+        return retval
+        
 ## handles SQL-selections for one table
 class AfpSQLTableSelection(object):
     ## initializes the object 
@@ -493,7 +525,11 @@ class AfpSQLTableSelection(object):
     def load_datei_data(self, datei, select):  
         self.select = select
         if self.dbg: print "AfpSQLTableSelection.load_datei_data select:", self.select
-        self.data = map(list, [datei.get_values()])
+        values = datei.get_values()
+        if values:
+            self.data = map(list, [datei.get_values()])
+        else:
+            self.data = [values]
         self.manipulation = []    
     ## attach input to data property
     # @param data - data to be attached

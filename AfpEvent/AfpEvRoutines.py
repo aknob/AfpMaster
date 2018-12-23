@@ -38,13 +38,14 @@ from AfpBase.AfpBaseAdRoutines import AfpAdresse, AfpAdresse_getListOfTable
 def AfpEvClient_possibleEventKinds():
     #return ["Indi","Eigen","Fremd"]
     #return ["Eigen","Fremd"]
-    return ["Event","Reise","Eigen","Fremd"]
+    #return ["Event","Reise","Eigen","Fremd"]
+    return ["Event","Touristik"]
 ## returns if event is a tour in the sense of the 'tourist' modul
 # @param art - kind of event
 def AfpEvent_isTour(art):
     if art == "Event":
         return False
-    elif art == "Fremd" or art == "Eigen" or art == "Reise":
+    elif art == "Fremd" or art == "Eigen" or art == "Reise" or Art == "Touristik":
         return True
     return False
  ## available 'Zustand' values are set here \n
@@ -163,8 +164,8 @@ class AfpEvent(AfpSelectionList):
         #  self.selects[name of selection]  [tablename,, select criteria, optional: unique fieldname]
         self.selects["ANMELD"] = [ "ANMELD","EventNr = EventNr.EVENT","AnmeldNr"] 
         self.selects["PREISE"] = [ "PREISE","EventNr = EventNr.EVENT"] 
-        self.selects["ERTRAG"] = [ "ERTRAG","EventNr = EventNr.EVENT"] 
-        self.selects["EINSATZ"] = [ "EINSATZ","EVENTr = EventNr.EVENT","EinsatzNr"] 
+        self.selects["ERTRAG"] = [ "ERTRAG","FahrtNr = EventNr.EVENT"] 
+        self.selects["EINSATZ"] = [ "EINSATZ","ReiseNr = EventNr.EVENT","EinsatzNr"] 
         self.selects["TNAME"] = [ "TNAME","TourNr = Route.EVENT","TourNr"] 
         self.selects["Agent"] = [ "ADRESSE","KundenNr = AgentNr.EVENT"] 
         self.selects["Ort"] = [ "ADRESSE","KundenNr = Route.EVENT"] 
@@ -280,7 +281,10 @@ class AfpEvent(AfpSelectionList):
     ## return specific identification string to be used in dialogs \n
     # - overwritten from AfpSelectionList
     def get_identification_string(self):
-        return "Reise am "  +  self.get_string_value("Beginn") + " nach " + self.get_string_value("Ort")
+        if self.is_tour():
+            return "Reise am "  +  self.get_string_value("Beginn") + " nach " + self.get_string_value("Bez")
+        else:
+            return "Veranstaltung (" + +  self.get_string_value("Bez") + ") am "  +  self.get_string_value("Beginn") + " in " + self.get_string_value("Name.Ort")
 
 ## baseclass for client handling         
 class AfpEvClient(AfpSelectionList):
@@ -302,8 +306,8 @@ class AfpEvClient(AfpSelectionList):
         self.mainvalue = ""
         self.spezial_bez = []
         if sb:
-            print "AfpEvClient Konstruktor, EventNr:", sb.get_value("EventNr.EVENT"), sb.get_value("EventNr.ANMELD"), sb.get_string_value("AnmeldNr.ANMELD")
-            if  sb.get_value("EventNr.EVENT") == sb.get_value("EventNr.ANMELD"):
+            if self.debug: print "AfpEvClient Konstruktor, EventNr:", sb.get_value("EventNr.EVENT"), sb.get_value("EventNr.ANMELD"), sb.get_string_value("AnmeldNr.ANMELD")
+            if  sb.get_value("EventNr.ANMELD") and sb.get_value("EventNr.EVENT") == sb.get_value("EventNr.ANMELD"):
                 self.mainvalue = sb.get_string_value("AnmeldNr.ANMELD")
                 Selection = sb.gen_selection("ANMELD", "AnmeldNr", debug)
             else:
@@ -328,13 +332,15 @@ class AfpEvClient(AfpSelectionList):
         self.selects["ANMELDEX"] = [ "ANMELDEX","AnmeldNr = AnmeldNr.ANMELD"] 
         self.selects["RECHNG"] = [ "RECHNG","RechNr = RechNr.ANMELD","RechNr"]
         self.selects["ARCHIV"] = ["ARCHIV", "Tab = \"ANMELD\" AND TabNr = AnmeldNr.ANMELD"]
-        self.selects["AUSGABE"] = [ "AUSGABE","Typ = Art.EVENT + Zustand.ANMELD"] 
+        self.selects["AUSGABE"] = [ "AUSGABE","Modul = \"" + self.get_listname() + "\" AND Art = Art.EVENT AND Typ = Zustand.ANMELD"] 
+        #self.selects["AUSGABE"] = [ "AUSGABE","Typ = Art.EVENT + Zustand.ANMELD"] 
         #self.selects["AUSGABE"] = [ "AUSGABE","Typ = \"EigenAnmeldung\""] 
         self.selects["RechNr"] = [ "ANMELD","RechNr = RechNr.ANMELD"] 
         self.selects["Agent"] = [ "ADRESSE","KundenNr = AgentNr.ANMELD"] 
         self.selects["ExtraPreis"] = [ "PREISE","!EventNr = 0"] 
         self.selects["Preis"] = [ "PREISE","EventNr = EventNr.ANMELD AND PreisNr = PreisNr.ANMELD"] 
         self.selects["Umbuchung"] = [ "EVENT","EventNr = UmbAuf.ANMELD"] 
+        self.selects["Ort"] = [ "ADRESSE","KundenNr = Route.ANMELD"] 
         #self.selects["ERTRAG"] = [ "ERTRAG","EventNr = EventNr.ANMELD"] 
         #self.selects["EINSATZ"] = [ "EINSATZ","EVENTr = EventNr.ANMELD"] 
         if complete: self.create_selections()
@@ -453,7 +459,7 @@ class AfpEvClient(AfpSelectionList):
     ## return field to be increased to generate 'RechNr'  
     def get_RechNr_name(self):
         if self.get_value("AgentNr.EVENT"): return "Nummer.ExternNr" 
-        # possible values "Eigen","Reise","Event"
+        # possible values "Eigen","Touristik","Event"
         elif self.get_value("Art.EVENT"):  return "RechNr.EVENT"
         return "RechNr.RECHNG"
     ## generate invoice number
@@ -520,7 +526,10 @@ class AfpEvClient(AfpSelectionList):
         data["RechBetrag"] = betrag
         data["Kontierung"] = Afp_getSpecialAccount(self.get_mysql(), "ERL")
         data["Zustand"] = "offen"
-        data["Wofuer"] = "Reiseanmeldung Nr " + self.get_string_value("AnmeldNr") + " am " + self.get_string_value("Beginn.EVENT") + " nach " + self.get_string_value("Ort.EVENT")
+        if self.event_is_tour:
+            data["Wofuer"] = "Reiseanmeldung Nr " + self.get_string_value("AnmeldNr") + " am " + self.get_string_value("Beginn.EVENT") + " nach " + self.get_string_value("Bez.EVENT")
+        else:
+            data["Wofuer"] = "Veranstaltungsanmeldung Nr " + self.get_string_value("AnmeldNr") + " für " + self.get_string_value("Bez.EVENT") + " am " + self.get_string_value("Beginn.EVENT") .decode("UTF-8")
         if self.get_value("ZahlDat"):
             data["Zahlung"] = self.get_value("Zahlung")
             data["ZahlDat"] = self.get_value("ZahlDat")
@@ -546,7 +555,9 @@ class AfpEvClient(AfpSelectionList):
         self.set_data_values(data, "RECHNG")
     ## one line to hold all relevant values of client, to be displayed 
     def line(self):
-        zeile =  self.get_string_value("RechNr").rjust(8) + " " +  self.get_string_value("Anmeldung") + "  "  + self.get_name().rjust(35)  + " " + self.get_string_value("Kennung.TORT")  
+        zeile =  self.get_string_value("RechNr").rjust(8) + " " +  self.get_string_value("Anmeldung") + "  "  + self.get_name().rjust(35) 
+        if self.event_has_route():
+             zeile += " " + self.get_string_value("Kennung.TORT")  
         zeile += " " + self.get_string_value("Preis").rjust(10) + " " +self.get_string_value("Zahlung").rjust(10) 
         return zeile
     ## internal routine to set the appropriate agency name
@@ -852,4 +863,3 @@ class AfpEvRoute(AfpSelectionList):
         self.add_location_to_route(None, time, preis)
         print "AfpEvRoute.add_new_route_location"
                 
-

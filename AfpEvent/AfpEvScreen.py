@@ -82,7 +82,8 @@ class AfpEvScreen(AfpScreen):
         self.SetFont(wx.Font(9, wx.DEFAULT, wx.NORMAL, wx.NORMAL, 0, "DejaVu Sans"))
         self.Bind(wx.EVT_SIZE, self.On_ReSize)
         if self.debug: print "AfpEvScreen Konstruktor"
-
+    
+    ## initialize widgets
     def initWx(self):
        #panel = self.panel
         panel = self
@@ -120,6 +121,7 @@ class AfpEvScreen(AfpScreen):
         self.Bind(wx.EVT_BUTTON, self.On_Listen_Ausgabe, self.button_Dokumente)
         self.button_Einsatz = wx.Button(panel, -1, label="Ein&satz",size=(77,50), name="BEinsatz")
         self.Bind(wx.EVT_BUTTON, self.On_VehicleOperation, self.button_Einsatz)               
+        self.button_Einsatz.Enable(False)
         self.button_Ende = wx.Button(panel, -1, label="Be&enden",size=(77,50), name="BEnde")
         self.Bind(wx.EVT_BUTTON, self.On_Ende, self.button_Ende)
         
@@ -183,9 +185,6 @@ class AfpEvScreen(AfpScreen):
         self.label_Anmeldungen = wx.StaticText(panel, -1,  label="Anmeldungen:", name="LAnmeldungen")
         self.text_Anmeldungen = wx.TextCtrl(panel, -1, value="", style=wx.TE_READONLY, name="Anmeldungen")
         self.textmap["Anmeldungen"] = "Anmeldungen.EVENT"
-        #self.label_Route = wx.StaticText(panel, -1,  label="Route:", pos=(196,98), size=(47,18), name="LRoute")
-        #self.text_Route = wx.TextCtrl(panel, -1, value="", pos=(240,96), size=(128,20), style=wx.TE_READONLY, name="Route")
-        #self.textmap["Route"] = "Name.TNAME"
         #self.text_Bem= wx.TextCtrl(panel, -1, value="", pos=(135,123), size=(370,35), style=wx.TE_MULTILINE|wx.TE_LINEWRAP, name="ReiseBem")
         #self.textmap["ReiseBem"] = "Bem.EVENT"
         #self.text_IntText = wx.TextCtrl(panel, -1, value="", pos=(509,50), size=(164,101), style=wx.TE_MULTILINE, name="IntText")
@@ -282,7 +281,10 @@ class AfpEvScreen(AfpScreen):
         mmenu =  wx.MenuItem(tmp_menu, wx.NewId(), "&Einsatz", "")
         self.Bind(wx.EVT_MENU, self.On_VehicleOperation, mmenu)
         tmp_menu.AppendItem(mmenu)
-        self.menubar.Append(tmp_menu, "Event")
+        if self.flavour:
+            self.menubar.Append(tmp_menu, self.flavour)
+        else:
+            self.menubar.Append(tmp_menu, "Event")
         # setup address menu
         tmp_menu = wx.Menu() 
         mmenu =  wx.MenuItem(tmp_menu, wx.NewId(), "&Suche", "")
@@ -372,7 +374,7 @@ class AfpEvScreen(AfpScreen):
             else:    
                 start = Afp_genDate(today.year, 1, 1)
             self.sb_date_filter = "Beginn >= \"" + Afp_toInternDateString(start) + "\"" 
-        print "AfpEvScreen.set_sb_date Startdate:", start, self.sb_date_filter, "CURRENT RECORD:", self.sb.get_value()
+        if self.debug: print "AfpEvScreen.set_sb_date Startdate:", start, self.sb_date_filter, "CURRENT RECORD:", self.sb.get_value()
         
     ## Eventhandler COMBOBOX - filter
     def On_Event_Filter(self,event=None):
@@ -443,17 +445,20 @@ class AfpEvScreen(AfpScreen):
     ## Eventhandler BUTTON - proceed inquirery 
     def On_Event_Anfrage(self,event):
         print "Event handler `On_Anfrage' not implemented!"
+        print "AfpEvScreen.On_Event_Anfrage globals:", self.globals.view()
         event.Skip()
       
     ## Eventhandler BUTTON - payment
     def On_Zahlung(self,event):
         if self.debug: print "Event handler `On_Zahlung'"
         Client = self.get_data(False)
-        Ok, data = AfpLoad_DiFiZahl(Client,["RechNr","EventNr"])
-        if Ok: 
-            data.view() # for debug
-            data.store()
-            self.Reload()
+        print "AfpEvScreen.On_Zahlung:", Client.is_new()
+        if not Client.is_new():
+            Ok, data = AfpLoad_DiFiZahl(Client,["RechNr","EventNr"])
+            if Ok: 
+                data.view() # for debug
+                data.store()
+                self.Reload()
         event.Skip()
 
     ## Eventhandler BUTTON - selection
@@ -489,82 +494,54 @@ class AfpEvScreen(AfpScreen):
         if self.debug and event: print "Event handler `On_Listen_Ausgabe'"
         print "Event handler `On_Listen_Ausgabe' not implemented"
         Client = self.get_data(False)
-        prefix = "Event " + Client.get_string_value("Zustand").strip()
-        header = "Anmeldung"
-        archiv = "direkt"
-        if Client.get_value("AgentNr"):
-            if Client.event_is_tour():
-                header = "Reisebüro".decode("UTF-8")
+        if not Client.is_new():
+            prefix = "Event " + Client.get_string_value("Zustand").strip()
+            header = "Anmeldung"
+            archiv = "direkt"
+            if Client.get_value("AgentNr"):
+                if Client.event_is_tour():
+                    header = "Reisebüro".decode("UTF-8")
+                else:
+                    header = "Verkäufer".decode("UTF-8")
+                archiv = Client.get_string_value("AgentName")
+                agent = "Verkauf"
+            else: 
+                agent = ""
+            if Client.get_value("AgentNr.EVENT"):
+                art =  "Fremd"
             else:
-                header = "Vermittler".decode("UTF-8")
-            archiv = Client.get_string_value("AgentName")
-            agent = "Vermittler"
-        else: 
-            agent = ""
-        select = "Typ = \"" + Client.get_string_value("Art.EVENT") + Client.get_string_value("Zustand") + agent + "\""
-        Client.get_selection("AUSGABE").load_data(select)
-        print "AfpEvScreen.On_Listen_Ausgabe:", header, prefix, archiv
-        Client.view()
-        AfpLoad_DiReport(Client, self.globals, header, prefix, archiv)
+                art = "Eigen"
+            select = "Modul = \"Event\" AND Art = \"" + art + Client.get_string_value("Art.EVENT")+ "\" and Typ = \""  + Client.get_string_value("Zustand") + agent + "\""
+            Client.get_selection("AUSGABE").load_data(select)
+            print "AfpEvScreen.On_Listen_Ausgabe:", header, prefix, archiv
+            Client.view()
+            AfpLoad_DiReport(Client, self.globals, header, prefix, archiv)
         if event:
             self.Reload()
             event.Skip()
 
-    ## Eventhandler BUTTON, MENU - tour operation
+    ## Eventhandler BUTTON, MENU - tour operation \n
+    # skeletton handler, to be overwritten if tour opwerations are needed \n
+    # - not really needed here - but kept als long als menu-entry holds a reference
     def On_VehicleOperation(self,event):
         if self.debug: print "Event handler `On_VehicleOperation'"
-        Event = self.get_data(True)
-        if Event.is_own_tour():
-            needed = AfpEvClient_checkVehicle(self.globals.get_mysql(), Event.get_string_value("Route"))
-            print "AfpEvScreen.On_VehicleOperation needed:", needed
-            if needed and self.einsatz:
-                selection = Event.get_selection("EINSATZ")
-                ENr = None
-                #print "AfpEvScreen.On_VehicleOperation Einsatz:", self.einsatz
-                #print "AfpEvScreen.On_VehicleOperation:", selection.get_data_length(), selection, Event.selections
-                New = False
-                if selection.get_data_length() == 0:
-                    New = AfpReq_Question("Kein Einsatz für diese Reise vorhanden,".decode("UTF-8"),"neuen Einsatz erstellen?","Einsatz?")
-                    if New:
-                        Einsatz = self.einsatz[1].AfpEinsatz(Event.get_globals(), None, None, Event.get_value("EventNr"), None, None)  
-                        Einsatz.store()                    
-                        print "AfpEvScreen.On_VehicleOperation neuer Einsatz:", Einsatz
-                        selection.reload_data()
-                if selection.get_data_length() > 0: 
-                    if selection.get_data_length() > 1:
-                        liste = selection.get_value_lines("StellDatum,StellZeit,StellOrt,Bus")
-                        ident = selection.get_values("EinsatzNr")
-                        #print "Liste:", liste
-                        #print ident
-                        Ort = Event.get_string_value("Beginn") + " nach " +Event.get_string_value("Ort") 
-                        ENr, Ok = AfpReq_Selection("Bitte Einsatz für Reise am ".decode("UTF-8") , Ort + " auswählen.".decode("UTF-8"), liste, "Einsatzauswahl", ident)
-                        ENr = ENr[0]
-                    else:
-                        ENr = selection.get_value("EinsatzNr")
-                        Ok = True
-                    if Ok: 
-                        print "AfpEvScreen.On_VehicleOperation EinsatzNr:", ENr
-                        Einsatz = self.einsatz[1].AfpEinsatz(Event.get_globals(), ENr)
-                        Ok = self.einsatz[0].AfpLoad_DiEinsatz(Einsatz, New)
-            else:
-                AfpReq_Info("Für eine eigene Reise mit dieser Route".decode("UTF-8") , "ist kein Einsatz nötig!".decode("UTF-8"))
-        else:
-            AfpReq_Info("Für eine Fremd-Reise" , "ist kein Einsatz möglich!".decode("UTF-8"))
+        AfpReq_Info("Für diese Veranstaltung" , "ist kein Einsatz möglich!".decode("UTF-8"))
         event.Skip()
 
     ## Eventhandler BUTTON, MENU - modify client entry \n
     def On_Anmeldung(self,event):   
         #self.sb.set_debug()      
         if self.debug: print "AfpEvScreen Event handler `On_Anmeldung'"
-        if self.grid_row_selected:
-            new = False
-        else:
-            new = True
-        changed = AfpLoad_EvClientEdit_fromSb(self.globals, self.sb, new)
-        #print"AfpEvSreen.On_Anmeldung", changed
-        if changed: 
-            self.Reload()
-        #self.sb.unset_debug()
+        if self.sb.get_value("EventNr"):
+            if self.grid_row_selected:
+                new = False
+            else:
+                new = True
+            changed = AfpLoad_EvClientEdit_fromSb(self.globals, self.sb, None, new)
+            #print"AfpEvSreen.On_Anmeldung", changed
+            if changed: 
+                self.Reload()
+            #self.sb.unset_debug()
         event.Skip()  
         
     ## Eventhandler BUTTON , MENU - modify tour
@@ -579,27 +556,6 @@ class AfpEvScreen(AfpScreen):
         #self.sb.unset_debug()
         event.Skip()
       
-    ## Eventhandler ListBox - double click ListBox 'Archiv'
-    def On_DClick_Archiv(self, event):
-        if self.debug: print "Event handler `On_DClick_Archiv'", event
-        rows = self.list_id["Archiv"]
-        if rows:
-            object = event.GetEventObject()
-            index = object.GetSelection()
-            if index < len(rows):
-                delimiter = self.globals.get_value("path-delimiter")
-                file = Afp_archivName(rows[index], delimiter)
-                if file:
-                    filename = Afp_addRootpath(self.globals.get_value("archivdir"), file)
-                    if not Afp_existsFile(filename):
-                        print "WARNING in AfpEvScreen: External file", filename, "does not exist, look in 'antiquedir'." 
-                        filename = Afp_addRootpath(self.globals.get_value("antiquedir"), file)
-                    if Afp_existsFile(filename):
-                        Afp_startFile(filename, self.globals, self.debug, True)
-                    else:
-                        print "WARNING in AfpEvScreen: External file", filename, "does not exist!" 
-        event.Skip()
-        
     ## Eventhandler Grid - double click Grid 'Customers'
     def On_DClick_Custs(self, event):
         if self.debug: print "Event handler `On_DClick_Custs'"
@@ -706,6 +662,10 @@ class AfpEvScreen(AfpScreen):
             self.sb.select_key(ANr,"AnmeldNr","ANMELD") 
             #print "AfpEvScreen.load_direct select key:", self.sb.get_value("AnmeldNr.ANMELD"), self.sb.get_value("EventNr.ANMELD")
             ENr = self.sb.get_value("EventNr.ANMELD")
+            if self.combo_Sortierung.FindString("Anmeldung"):
+                self.combo_Sortierung.SetValue("Anmeldung")
+        elif self.combo_Sortierung.GetValue() == "Anmeldung":
+            self.combo_Sortierung.SetSelection(0)
         self.sb.select_key(ENr,"EventNr","EVENT")
         #print "AfpEvScreen.load_direct:", ANr, ENr
         self.On_Event_Index()
@@ -713,16 +673,12 @@ class AfpEvScreen(AfpScreen):
         self.set_current_record()
         #print "AfpEvScreen.load_direct current record:", self.sb.get_value("AnmeldNr.ANMELD"), self.sb.get_value("EventNr.ANMELD")
     
-    # routines to be overwritten
-    ## load global veriables for this afp-module
-    # (overwritten from AfpScreen) 
-    def load_additional_globals(self):
-        self.globals.set_value(None, None, "Einsatz")
-    ## generate AfpEvClient object from the present screen, overwritten from AfpScreen
+    ## generate AfpEvent or AfpEvClient object from the present screen, overwritten from AfpScreen
+    # @param event - flag if 'Event'  should be generated, otherwise 'EvClient'
     # @param complete - flag if all TableSelections should be generated
-    def get_data(self, tour = None, complete = False):
-        if tour is None:
-            tour = self.sb_master == "EVENT"
+    def get_data(self, event = None, complete = False):
+        if event is None:
+            event = self.sb_master == "EVENT"
         if tour:
             return  AfpEvent(self.globals, None, self.sb, self.sb.debug, complete)
         else:
@@ -736,29 +692,7 @@ class AfpEvScreen(AfpScreen):
             print "AfpEvScreen.set_current_record: ",
             self.data.view()
         return
-        #print "AfpEvScreen.set_current_record initial:", self.sb.get_value("AnmeldNr.ANMELD"), self.sb.get_value("RechNr.ANMELD")
-        FNr = self.sb.get_value("EventNr")
-        if self.sb_master == "ANMELD": slave = "EVENT"
-        else: slave = "ANMELD"
-        self.sb.select_key(FNr,"EventNr",slave)
-        ANr = self.sb.get_value("AnmeldNr.ANMELD")    
-        #print "AfpEvScreen.set_current_record ANr:", ANr, FNr, slave
-        KNr = self.sb.get_value("KundenNr.ANMELD")      
-        TNr = self.sb.get_value("Route.EVENT")      
-        PNr = self.sb.get_value("PreisNr.ANMELD") 
-        PNr = PNr - 100*(int(PNr/100))
-        self.sb.select_key(KNr,"KundenNr","ADRESSE")        
-        self.sb.select_key(TNr,"TourNr","TNAME")        
-        self.sb.select_key(FNr,"EventNr","PREISE")
-        nr = self.sb.get_value("PreisNr.PREISE")
-        fnr = FNr
-        while self.sb.neof("EventNr","PREISE") and nr != PNr and fnr == FNr:
-            self.sb.select_next("EventNr","PREISE")
-            nr = self.sb.get_value("PreisNr.PREISE")
-            fnr = self.sb.get_value("EventNr.PREISE")
-        if fnr != FNr: self.sb.select_key(FNr,"EventNr","PREISE")
-        if self.debug: print "AfpEvScreen.set_current_record Event:", FNr,"Anmeld:",ANr,"Kunde:",KNr,"Tour:",TNr,"Preis:",PNr,nr
-        return   
+
     ## set initial record to be shown, when screen opens the first time
     #overwritten from AfpScreen) 
     # @param origin - string where to find initial data
@@ -789,6 +723,7 @@ class AfpEvScreen(AfpScreen):
     def slave_exists(self):
         FNr =  self.sb.get_value("EventNr.EVENT")     
         fnr =  self.sb.get_value("EventNr.ANMELD") 
+        if not FNr: FNr = -1
         if self.sb.eof(): fnr = FNr + 1
         return FNr == fnr
     ## check if string points to slave data
@@ -807,8 +742,7 @@ class AfpEvScreen(AfpScreen):
     ## get names of database tables to be opened for this screen
     # (overwritten from AfpScreen)
     def get_dateinamen(self):
-        return ["EVENT","ANMELD","PREISE","ANMELDEX","ADRESSE","TORT", "TNAME"]
-        #return ["EVENT","ANMELD"]
+        return ["EVENT","ANMELD","PREISE","ANMELDEX","ADRESSE"]
     ## get rows to populate lists \n
     # default - empty, to be overwritten if grids are to be displayed on screen \n
     # possible selection criterias have to be separated by a "None" value
@@ -841,23 +775,17 @@ class AfpEvScreen(AfpScreen):
     # @param typ - name of grid to be populated
     def get_grid_rows(self, typ):
         rows = []
-        EventNr =  self.sb.get_value("EventNr")     
-        select = ( "EventNr = %d")% EventNr
-        if typ == "Customers" and self.sb.neof():
-            select = ( "EventNr = %d")% EventNr
-            if self.sb_an_filter: select = "(" + select +") and (" + self.sb_an_filter + ")"
-            tmps = []
-            tmps = self.mysql.select_strings("RechNr,Zahlung,Preis,Info,AnmeldNr,Ab,KundenNr",select,"ANMELD")
+        if self.debug: print "AfpEvScreen.get_grid_rows Population routine", typ
+        if typ == "Customers" and self.data:
+            id_col = 5      
+            tmps = self.data.get_value_rows("ANMELD","RechNr,Zahlung,Preis,Info,AnmeldNr,Ab,KundenNr")
+            print "AfpEvScreen.get_grid_rows tmps:", tmps  
             for tmp in tmps:
-                select =  "KundenNr = " + tmp[-1]
-                name = self.mysql.select_strings("Vorname,Name", select,"ADRESSE")
-                if not name: name = [["",""]]
-                if not tmp[-2]: tmp[-2] = "0"
-                select =  "OrtsNr = " + tmp[-2]
-                ort = self.mysql.select_strings("Kennung", select,"TORT")
-                if not ort: ort = [["--"]]
-                #print "AfpEvScreen.get_grid_rows append:", name, ort, tmp
-                rows.append([name[0][0], name[0][1], tmp[0], ort[0][0]] + tmp[1:-2])
+                adresse = AfpAdresse(self.globals, tmp[6])
+                ab = "" 
+                if self.data.has_route() and tmp[5]:
+                    print "AfpEvScreen.get_grid_rows data has route not implemented!"
+                rows.append([adresse.get_value("Vorname"), adresse.get_value("Name"), Afp_toString(tmp[0]), ab, Afp_toString(tmp[1]), Afp_toString(tmp[2]), Afp_toString(tmp[3])])
+        print "AfpEvScreen.get_grid_rows rows:", rows 
         return rows
-
 # end of class AfpEvScreen

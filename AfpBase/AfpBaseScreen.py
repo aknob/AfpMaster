@@ -90,6 +90,7 @@ class AfpScreen(wx.Frame):
         self.actuelbuttoncolor = (255,255,255)
         #self.panel = wx.Panel(self, -1, style = wx.WANTS_CHARS) 
         self.panel = self
+        if not hasattr(self,'flavour'): self.flavour = None
         
     ## connect to database and populate widgets
     # @param globals - global variables, including database connection
@@ -108,17 +109,17 @@ class AfpScreen(wx.Frame):
         #self.debug = True
         self.globals.set_value(None, None, self.typ)
         self.load_additional_globals()
+        setting = self.globals.get_setting(self.typ)
+        if not self.debug and not setting is None: 
+            if setting.exists_key("debug"):
+                self.debug = setting.get("debug")
         # add 'Einsatz' moduls if desired
         if hasattr(self,'einsatz'):
             self.einsatz = Afp_importAfpModul("Einsatz", globals)
         else:
             self.einsatz = None
-        print "AfpScreen.init_database Einsatz:", self.einsatz
+        if self.debug: print "AfpScreen.init_database Einsatz:", self.einsatz
         # generate Superbase
-        setting = self.globals.get_setting(self.typ)
-        if not self.debug and not setting is None: 
-            if setting.exists_key("debug"):
-                self.debug = setting.get("debug")
         if sb:
             self.sb = sb
         else:
@@ -203,7 +204,8 @@ class AfpScreen(wx.Frame):
                     for mod in modules:
                         self.button_modules[mod] = wx.Button(self, -1, label=mod, size=(75,30), name="B"+ mod)
                         self.Bind(wx.EVT_BUTTON, self.On_ScreenButton, self.button_modules[mod])
-                        if mod == self.typ:
+                        print "AfpBaseScreen.create_modul_buttons:", mod, self.typ, self.flavour
+                        if mod == self.typ or mod == self.flavour:
                             self.button_modules[mod] .SetBackgroundColour(self.actuelbuttoncolor)
                         else:
                             self.button_modules[mod] .SetBackgroundColour(self.buttoncolor)
@@ -219,7 +221,8 @@ class AfpScreen(wx.Frame):
                     self.button_modules[mod] = wx.Button(self.panel, -1, label=mod, pos=(35 + cnt*80,10), size=(75,30), name="B"+ mod)
                     self.Bind(wx.EVT_BUTTON, self.On_ScreenButton, self.button_modules[mod])
                     cnt += 1
-                    if mod == self.typ:
+                    print "AfpBaseScreen.create_modul_buttons:", mod, self.typ, self.flavour
+                    if mod == self.typ or mod == self.flavour:
                         self.button_modules[mod] .SetBackgroundColour(self.actuelbuttoncolor)
                     else:
                         self.button_modules[mod] .SetBackgroundColour(self.buttoncolor)
@@ -328,7 +331,8 @@ class AfpScreen(wx.Frame):
             self.On_Ende(event)
         else:
             # Afp_writeTarget(self.globals, text, self.typ)
-            Afp_loadScreen(self.globals, text, self.sb, self.typ)
+            pos = self.GetPosition().Get()
+            Afp_loadScreen(self.globals, text, self.sb, self.typ, pos)
             self.Close()
         #event.Skip() #invokes eventhandler twice on windows
 
@@ -351,7 +355,8 @@ class AfpScreen(wx.Frame):
         name = object.GetName()
         text = name[1:]
         if not text == self.typ:
-            Afp_loadScreen(self.globals, text, self.sb, self.typ)
+            pos = self.GetPosition().Get()
+            Afp_loadScreen(self.globals, text, self.sb, self.typ, pos)
             self.Close()
         #event.Skip() #invokes eventhandler twice on windows
       
@@ -538,7 +543,8 @@ class AfpScreen(wx.Frame):
 # @param sb - AfpSuperbase object which holds the current settings on the mysql tables
 # @param origin - value which identifies mysql tableentry to be displayed
 # the parameter 'sb' and 'origin' may only be used alternatively
-def Afp_loadScreen(globals, modulname, sb = None, origin = None):
+# @param pos - position tuple where screen should be placed
+def Afp_loadScreen(globals, modulname, sb = None, origin = None, pos = None):
     Modul = None
     if Afp_inModuls(modulname, globals):
         name, flavour = Afp_getModulFlavour(modulname)
@@ -548,11 +554,13 @@ def Afp_loadScreen(globals, modulname, sb = None, origin = None):
         modname = "Afp" + name + "." + screen + flavour
         #print "Afp_loadScreen:", modname
         pyModul =  Afp_importPyModul(modname, globals)
-        #print "Afp_loadScreen:", pyModul
-        pyBefehl = "Modul = pyModul." + screen + "()"
-        #print "Afp_loadScreen:", pyBefehl
+        print "Afp_loadScreen pyModul:", pyModul
+        pyBefehl = "Modul = pyModul." + screen + flavour + "()"
+        print "Afp_loadScreen Modul:", pyBefehl
         exec pyBefehl
     if Modul:
+        if pos:
+            Modul.SetPosition(pos)
         Modul.init_database(globals, sb, origin)
         Modul.set_focus()
         Modul.Show()

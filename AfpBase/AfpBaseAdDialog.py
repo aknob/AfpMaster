@@ -402,6 +402,7 @@ class AfpDialog_DiAdEin(AfpDialog):
         self.Bind(wx.EVT_CHOICE, self.On_CAnrede, self.choice_Anrede)      
         self.label_Geschlecht = wx.StaticText(panel, -1, label="&Geschlecht:", pos=(200,6), size=(80,18), name="Geschlecht")      
         self.choice_Geschlecht = wx.Choice(panel, -1,  pos=(290,5), size=(50,20),  choices=["W","N","M"],  name="CGeschlecht")
+        self.choice_Geschlecht.SetSelection(1)
         self.choicemap["CGeschlecht"] = "Geschlecht.ADRESSE"
         self.Bind(wx.EVT_CHOICE, self.On_CGeschlecht, self.choice_Geschlecht)
         self.choice_Status = wx.Choice(panel, -1,  pos=(280,338), size=(154,20),  choices=["Passiv", "Aktiv", "Neutral", "Markiert", "Inaktiv"],  name="CStatus")
@@ -429,25 +430,37 @@ class AfpDialog_DiAdEin(AfpDialog):
         for entry in self.choicevalues:
             name = entry.split(".")[0]
             data[name] = self.choicevalues[entry]
-        if self.new and len(data) > 1:
-            self.data.set_data_values(data)
+        if self.new: 
+            data = self.complete_data(data)
+            if len(data) > 1:
+                self.data.set_data_values(data)
             self.Ok = True
         elif data or self.change_data:
             if data: self.data.set_data_values(data)
             self.Ok = True
         if self.Ok:
-            if self.data.get_value("Kennung") is None:
-                print "AfpDialog_DiAdEin.store_database set default 'Kennung' -> passiv"
-                self.data.set_value("Kennung",0)
             self.data.store()
             self.new = False               
         self.changed_text = []
+    ## complete data if necessary
+    # @param data - data dictionary to be completed to ashure necessary datafields to be set
+    def complete_data(self, data):
+        if not "Vorname" in data:
+            data["Vorname"] = ""
+        if not "Kennung" in data:
+            data["Kennung"] = 0
+        if not "Geschlecht" in data:
+            data["Geschlecht"] = self.choice_Geschlecht.GetStringSelection()
+        if not "Anrede" in data:
+            data["Anrede"] = self.choice_Anrede.GetStringSelection()
+        return data
     ## populate choice widgets ((overwritten from AfpDialog)
     def Pop_choice(self):
       for entry in self.choicemap:
             Choice= self.FindWindowByName(entry)
             if entry == "CStatus":         
                 stat = self.data.get_value(self.choicemap[entry])
+                if not stat: stat = 0
                 cset = AfpAdresse_StatusMap()[stat]
                 Choice.SetSelection(cset) 
             else:

@@ -59,8 +59,8 @@ def Afp_setGlobalVars(settings):
 # @param modul - name of initialized modul
 def Afp_iniGlobalVars(settings, modul = None):
     if modul is None:
-        if not "database" in settings:
-            settings["database"] = "BusAfp"
+        #if not "database" in settings:
+        #   settings["database"] = "BusAfp"
         if not "database-user" in settings:
             settings["database-user"] = "server"      
         if not "database-host" in settings:
@@ -207,7 +207,9 @@ class AfpSettings(object):
     ## check if variable exists in setting
     # @param name - name of global variable
     def exists_key(self, name):
-        return name in self.settings
+        if name in self.settings and self.settings[name]:
+            return True
+        return False
     ## return all available variable names
     def get_keys(self):
         return self.settings.keys()

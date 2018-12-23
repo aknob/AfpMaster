@@ -6,6 +6,7 @@
 # no display and user interaction in this modul.
 #
 #   History: \n
+#        12 Nov. 2015 - add mysql-table define data - Andreas.Knoblauch@afptech.de \n
 #        04 Feb. 2015 - add data export - Andreas.Knoblauch@afptech.de \n
 #        19 Okt. 2014 - adapt package hierarchy - Andreas.Knoblauch@afptech.de \n
 #        14 Feb. 2014 - inital code generated - Andreas.Knoblauch@afptech.de
@@ -534,4 +535,12 @@ class AfpFinanceExport(AfpSelectionList):
         if not self.information:
             self.information = self.get_globals().get_value(vname + ".info", "Finance")
         Export.write_to_file(fieldlist, self.information)
+
+# database tables
+
+## get dictionary with required database tables and mysql generation code
+# @param flavour - if given flavour of modul
+def AfpFinance_getSqlTables(flavour = None):
+    required = {}
+    return required
         

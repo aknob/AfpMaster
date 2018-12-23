@@ -61,6 +61,7 @@ def Afp_internalModulNames(globals = None):
     if globals:
         modules = ["Finance"]
         mods = globals.get_value("graphic-moduls")
+        if not mods: mods = []
         if "Charter" in mods or "Tourist" in mods:
             modules.append("Einsatz")
         if "Einsatz" in modules or "Event" in mods:
@@ -434,47 +435,77 @@ def Afp_getListe_fromTableSelection(table_sel, select, ident, order = None, keep
 
 # with database access
 
-##  check if needed database tables are present, if not generate them
+##  check if needed database tables are present, if flag is set, generate them \n 
+# output: list of not available tables, resp. generated tables
 # param globals - global data holding mysql-connection and modul data
-# param correct - flag if needed database tables should be generated
-def Afp_verifyDatabase(globals, correct = False):
+# param create - flag if needed database tables should be generated
+def Afp_verifyDatabase(globals, create = False):
     mysql = globals.get_mysql()
     debug = globals.is_debug()
     tables = mysql.get_tables()
-    if not tables: # no tables detected, look if mysql schema is present
-        if debug: print "Afp_verifyDatabase no tables detected!"
-        print "Afp_verifyDatabase no tables detected!"
-        tables = []
-    neededTables = {}
+    if not tables: tables = []
+    required = {}
     modules = Afp_ModulNames(globals)
+    internals = Afp_internalModulNames(globals)
+    for intern in internals:
+        modules.append(intern)
+    # get common tables
+    required = AfpBase_getSqlTables()
+    # get afp-modul tables
+    if debug: print "Afp_verifyDatabase available modules:", modules
+    global_flavour = None
+    # proceed "Adresse" first, as tables may filled from other modules
+    if "Adresse" in modules:
+        modul = modules[modules.index("Adresse")]
+        if ":" in modul:
+            global_flavour = modul.split(":")[1]
+        required = Afp_getPyModTables(globals, required, "Adresse", global_flavour)
     for mod in modules:
+        if mod =="Adresse": continue # already proceeded
+        if mod =="Calendar": continue # no tables for calendar modul needed
+        if mod =="Finance" : continue # will be proceeded later
         if ":" in mod:
-            modul = mod.spli(":")[0]
-            flavour = mod.spli(":")[1]
+            modul = mod.split(":")[0]
+            flavour = mod.split(":")[1]
+            global_flavour = flavour
         else:
             modul = mod
             flavour = None
-        pymod = None
-        modulfiles = Afp_ModulPyNames(modul)
-        for file in modulfiles:
-            if "Routines" in file:
-                pymod =  Afp_importPyModul(modul, globals)
-        if pymod:
-            befehl = "neededTables = pymod.Afp" + mod + "_getTables(flavour, neededTables)"
-            if debug: print "Afp_verifyDatabase execute:", befehl
-            exec befehl
-    print "Afp_verifyDatabase neededTables:", neededTables
-    for tab in neededTables:
+        required = Afp_getPyModTables(globals, required, modul, flavour)
+    # proceed "Finance" modul, no tables if accounting is skipped
+    if "Finance" in modules and not globals.skip_accounting(): 
+        required = Afp_getPyModTables(globals, required, "Finance", global_flavour)
+    #print "Afp_verifyDatabase required Tables :", required
+    for tab in required:
         if tab in tables:
-            neededTables[tab] = ""
-    print "Afp_verifyDatabase neededTables not existent:", neededTables
-    if correct:
-        for tab in neededTables:
-            if neededTables[tab]:
-                mysql.execute(neededTables[tab])
-    ok = true
-    for tab in neededTables:
-        print "hier weiter..."
+            required[tab] = ""
+    needed = []
+    for tab in required:
+        if required[tab]:
+            needed.append(tab)        
+    if debug: 
+        print "Afp_verifyDatabase tables to be created:", needed
+    if create:
+        for tab in required:
+            if required[tab]:
+                mysql.execute(required[tab])
+    return needed
+## get required tables from python module 'Routines'
+# @param globals - global values needed
+# @param required - dictionary where table data should be added
+# @param modul - name of modul
+# @param flavour - flavour needed to extract table names
+def Afp_getPyModTables(globals, required, modul, flavour):
+    md = Afp_getModulShortName(modul)  
+    file = "Afp" + modul  + "."+ "Afp" + md + "SqlTemplate" 
+    pymod =  Afp_importPyModul(file, globals)
+    if pymod:
+        befehl = "local = pymod.Afp" + modul + "_getSqlTables" + "(flavour)"
+        if globals.is_debug(): print "Afp_getPyModTables execute:", befehl
+        exec befehl
+        if local:
+            required = Afp_addDict(required, local)
+    return required
 
 ##   retrieve a list of database entries with same "KundenNr" from table
 # @param mysql - database where values are retrieved from
@@ -1557,3 +1588,23 @@ class AfpMailSender(object):
         print "AfpMailSender message:", self.message
         print "AfpMailSender htmltext:", self.htmltext
         print "AfpMailSender attachments:", self.attachments
+
+# database tables
+## get dictionary with required database tables and mysql generation code
+# @param flavours - if given list of flavours of moduls
+def AfpBase_getSqlTables(flavours = None):
+    required = {}
+    required["AUSGABE"] = """CREATE TABLE `AUSGABE` (
+  `BerichtNr` mediumint(8) unsigned zerofill NOT NULL AUTO_INCREMENT,
+  `Modul` tinytext CHARACTER SET latin1 NOT NULL,
+  `Art` tinytext CHARACTER SET latin1 NOT NULL,
+  `Typ` tinytext CHARACTER SET latin1 NOT NULL,
+  `Datei` char(20) CHARACTER SET latin1 NOT NULL,
+  `Bez` tinytext CHARACTER SET latin1 NOT NULL,
+  `Stempel` tinytext CHARACTER SET latin1 DEFAULT NULL,
+  PRIMARY KEY (`BerichtNr`),
+  KEY `BerichtNr` (`BerichtNr`),
+  KEY `Bez` (`Bez`(50))
+) ENGINE=InnoDB AUTO_INCREMENT=0 DEFAULT CHARSET=latin1 COLLATE=latin1_german2_ci;"""
+    # return data
+    return required

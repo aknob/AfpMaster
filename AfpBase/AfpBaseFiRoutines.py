@@ -28,8 +28,8 @@
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>. 
 #
 
-import AfpBaseRoutines
-from AfpBaseRoutines import *
+import AfpBase
+from AfpBase.AfpBaseRoutines import *
 
 
 ##class for payment in afp-modules
@@ -87,6 +87,9 @@ class AfpZahlung(object):
         print "AfpZahlung.view():"
         for data in self.selected_list: data.view()
         if self.finance: self.finance.view() 
+    ## return if finance modul is attached
+    def has_finance(self):
+        return not self.finance is None
     ## check if a tableselection according to given values is avauilable
     # @param tablename - name of database table to be checked
     # @param nr - identification number checked
@@ -334,7 +337,6 @@ class AfpZahlung(object):
         for entry in self.selected_list: entry.store()
         if self.finance: self.finance.store()
             
-        
 ## invoice base class
 class AfpRechnung(AfpSelectionList):
     ## initialise a invoice base class
@@ -405,4 +407,3 @@ class AfpRechnung(AfpSelectionList):
         if self.get_value("MietNr"):
             self.set_value("Zahlung.FAHRTEN", payment)
             self.set_value("ZahlDat.FAHRTEN", datum)
-    

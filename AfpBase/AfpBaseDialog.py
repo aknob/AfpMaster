@@ -11,6 +11,7 @@
 # - AfpDialog - dialog base class
 #
 #   History: \n
+#        22 Dez. 2018 - allow flavous in AfpDialog 
 #        27 Jan. 2017 - allow grids in AfpDialog 
 #        05 May 2016 - allow typ list in AfpReq_MultiLine 
 #        10 Apr. 2016 - add 'keepeditable' flag to AfpDialog 
@@ -644,6 +645,16 @@ class AfpDialog(wx.Dialog):
     ## constructor
     def __init__(self, *args, **kw):
         #style=wx.DEFAULT_DIALOG_STYLE|wx.RESIZE_BORDER
+        if args and args[0]:
+            self.flavour = args[0]
+            # remove argument from tuple (which is immutable)
+            lst = list(args)                
+            lst.remove(self.flavour)
+            if not lst: lst = [None]
+            args = tuple(lst)
+        #if "flavour" in kw:    # parameter via kw
+        #   self.flavour = kw["flavour"]
+        #    del kw["flavour"]
         super(AfpDialog, self).__init__(*args, **kw) 
         self.Ok = False
         self.new = False

@@ -351,7 +351,8 @@ class AfpDialog_DiReport(wx.Dialog):
                 self.reportflag.append(False)
                 self.reportdel.append(False)
         self.list_Report.Clear()
-        self.list_Report.InsertItems(self.reportname, 0)
+        if self.reportname:
+            self.list_Report.InsertItems(self.reportname, 0)
         return None
     ## fille preset value into archiv description
     # @param text - text to be displayed
@@ -515,7 +516,7 @@ class AfpDialog_DiReport(wx.Dialog):
                         name, ok = AfpReq_Text("Bitte " + neu + "Namen eingeben unter dem die neue Vorlage","für '".decode("UTF-8") + rows[0][0] + " " + rows[0][1] + "' abgelegt werden soll!",rows[0][2], "Vorlagenbezeichnung")
                         neu = "NEUEN "
                     if ok:
-                        data = {"Art": rows[0][0], "Typ": rows[0][1], "Bez": name, "Datei": ""}
+                        data = {"Modul":self.globals.get_name(),"Art": rows[0][0], "Typ": rows[0][1], "Bez": name, "Datei": ""}
                         ausgabe = AfpSQLTableSelection(self.data.get_mysql(), "AUSGABE", self.debug, "BerichtNr", self.data.get_selection("AUSGABE").get_feldnamen())
                         ausgabe.new_data()
                         ausgabe.set_data_values(data)

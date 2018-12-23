@@ -445,6 +445,16 @@ class AfpDialog_DiFiZahl(AfpDialog):
         if self.selector_buttons:
             self.is_full = True
         #print "AfpZahlung.gen_sel_buttons:", selectors, self.is_full
+    ## attaches data to this dialog, invokes population of widgets \n
+    # overwritten from AfpDialog
+    # @param data - AfpSelectionList which holds data to be filled into dialog wodgets 
+    # @param new - flag if new database entry has to be created 
+    # @param editable - flag if dialogentries are editable when dialog pops up
+    def attach_data(self, data, new = False, editable = False):
+        super(AfpDialog_DiFiZahl, self).attach_data( data, new, editable)
+        self.has_finance = data.has_finance()
+        if not self.has_finance:
+            self.text_Auszug.Enable(False)
     ## population routine for labels \n
     # overwritten from AfpDialog to fill 'Zahlung'-labels if list does not exist
     def Pop_label(self):
@@ -491,7 +501,10 @@ class AfpDialog_DiFiZahl(AfpDialog):
     # @param auszug - identifier of statement of account to be checked
     def check_auszug(self, auszug):
         if not auszug:
-            Ok = AfpReq_Question("Barzahlung?","","Zahlung")
+            if self.has_finance:
+                Ok = AfpReq_Question("Barzahlung?","","Zahlung")
+            else:
+                 Ok = True
             if Ok:
                 auszug = self.data.get_cash_auszug()
                 self.text_Auszug.SetValue(auszug)

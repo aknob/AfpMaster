@@ -169,7 +169,8 @@ class AfpCharter(AfpSelectionList):
         self.selects["FAHRTI"] = [ "FAHRTI","FahrtNr = FahrtNr.FAHRTEN"] 
         self.selects["FAHRTEX"] = [ "FAHRTEX","FahrtNr = FahrtNr.FAHRTEN"] 
         self.selects["ARCHIV"] = ["ARCHIV", "Tab = \"FAHRTEN\" AND TabNr = FahrtNr.FAHRTEN"]
-        self.selects["AUSGABE"] = [ "AUSGABE","Typ = Zustand.FAHRTEN"] 
+        self.selects["AUSGABE"] = [ "AUSGABE", "Modul = \"Charter\" AND Art = \"" + self.get_listname()  + "\" AND Typ = Zustand.FAHRTEN"] 
+        #self.selects["AUSGABE"] = [ "AUSGABE","Typ = Zustand.FAHRTEN"] 
         self.selects["FAHRTVOR"] = [ "FAHRTVOR","VorgangsNr = Vorgang.FAHRTEN","VorgangsNr"] 
         self.selects["RECHNG"] = [ "RECHNG","RechNr = RechNr.FAHRTEN","RechNr"] 
         self.selects["ERTRAG"] = [ "ERTRAG","FahrtNr = -FahrtNr.FAHRTEN"] 
@@ -363,5 +364,4 @@ class AfpCharter(AfpSelectionList):
     # - overwritten from AfpSelectionList
     def get_identification_string(self):
         return "Mietfahrt am "  +  self.get_string_value("Abfahrt") + " nach " + self.get_string_value("Zielort")
-
 

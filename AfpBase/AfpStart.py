@@ -6,6 +6,7 @@
 #    Copyright© 1989 - 2018  afptech.de (Andreas Knoblauch) \n
 # \n
 #   History: \n
+#        15 Nov. 2018 - set initial database name to product name - Andreas.Knoblauch@afptech.de \n
 #        16 Jan. 2017 - separate software specific code from parameter extraction - Andreas.Knoblauch@afptech.de \n
 #        26 Aug. 2015 - change direct execution parameter to normal input, to be used via os - Andreas.Knoblauch@afptech.de \n
 #        11 Jun. 2015 - enable direct routine execution via command line option - Andreas.Knoblauch@afptech.de \n
@@ -87,7 +88,7 @@ class AfpMainApp(wx.App):
     # @param config - configuration string to set global variables
     # @param info - software information object
     def initialize(self, debug, startpath, confpath, dbhost, dbname, dbuser, dbword, config, info): 
-        name = None
+        name = "BusAfp"
         description = None
         picture = None
         website = "http://www.afptech.de"
@@ -130,9 +131,12 @@ class AfpMainApp(wx.App):
         set = AfpGlobal.AfpSettings(debug, confpath)
         set.set("graphic-moduls", moduls)
         if startpath: set.set("start-path", startpath)
-        if dbhost: set.set("database-host", dbhost)      
+        if dbhost: set.set("database-host", dbhost) 
+        if not set.get("database") and not dbname: dbname = name
         if dbname: set.set("database", dbname)      
-        if dbuser: set.set("database-user", dbuser)      
+        if dbuser: 
+            set.set("database-user", dbuser)      
+            set.set("database-word", "")      
         if not set.exists_key("database-word") and dbword is None:
             if dbuser is None: dbuser = set.get("database-user")
             dbword, ok = AfpBaseDialog.AfpReq_Text("Für die Verbindung zur Datenbank wird eine Authentifizierung benötigt!".decode("UTF-8"),"Bitte das Passwort für den Benutzer '".decode("UTF-8") + dbuser+ "' eingeben:","","Passwort Eingabe",True)
@@ -141,6 +145,7 @@ class AfpMainApp(wx.App):
         self.globals = AfpGlobal.AfpGlobal(name, mysql, set)
         self.globals.set_infos(version, baseversion, copyright, website, description, license, picture, developers)
         if config: self.globals.set_configuration(config)
+        if mysql.database_created(): AfpBaseRoutines.Afp_verifyDatabase(self.globals, True)
         wx.InitAllImageHandlers()
     
     ## load appropriate modul     

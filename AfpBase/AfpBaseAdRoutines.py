@@ -99,8 +99,8 @@ def AfpAdresse_getAddresslistOfAttribut(globals, attribut):
         namen.append(adresse.get_address_line())
         idents.append(adresse.get_value("KundenNr"))
     return namen, idents
-
-## baseclass for address handling      
+    
+### baseclass for address handling      
 class AfpAdresse(AfpSelectionList):
     ## initialize AfpAdresse class
     # @param globals - global values including the mysql connection - this input is mandatory
@@ -121,8 +121,11 @@ class AfpAdresse(AfpSelectionList):
         self.spezial_bez = []
         if sb:
             self.mainvalue = sb.get_string_value("KundenNr.ADRESSE")
-            AdSelection = sb.gen_selection("ADRESSE", "KundenNr", debug)
-            self.selections["ADRESSE"] = AdSelection
+            if self.mainvalue:
+                AdSelection = sb.gen_selection("ADRESSE", "KundenNr", debug)
+                self.selections["ADRESSE"] = AdSelection
+            else:
+                self.new = True
         else:
             if KundenNr:
                 self.mainvalue = Afp_toString(KundenNr)
@@ -265,4 +268,85 @@ class AfpAdresse(AfpSelectionList):
         account = Afp_getIndividualAccount(self.globals.get_mysql(), self.get_value("KundenNr"), typ)
         return account
 
-      
+# database tables
+
+## get dictionary with required database tables and mysql generation code
+# @param flavour - if given flavour of modul
+def AfpAdresse_getSqlTables(flavour = None):
+    required = {}
+    # address attribut table
+    required["ADRESATT"] = """CREATE TABLE `ADRESATT` (
+  `KundenNr` mediumint(8) unsigned zerofill NOT NULL DEFAULT '00000000',
+  `Name` tinytext CHARACTER SET latin1,
+  `Attribut` char(20) CHARACTER SET latin1 NOT NULL,
+  `AttNr` smallint(5) DEFAULT NULL,
+  `AttText` tinytext CHARACTER SET latin1,
+  `Tag` tinytext CHARACTER SET latin1,
+  `Aktion` tinytext CHARACTER SET latin1,
+  KEY `KundenNr` (`KundenNr`),
+  KEY `Name` (`Name`(50)),
+  KEY `AttKdNr` (`Attribut`,`KundenNr`),
+  KEY `AttName` (`Attribut`,`Name`(50))
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_german2_ci;"""
+    # address table
+    required["ADRESSE"] = """CREATE TABLE `ADRESSE` (
+  `KundenNr` mediumint(8) unsigned zerofill NOT NULL AUTO_INCREMENT,
+  `Vorname` tinytext CHARACTER SET latin1,
+  `Name` tinytext CHARACTER SET latin1 COLLATE latin1_german1_ci NOT NULL,
+  `Strasse` tinytext CHARACTER SET latin1,
+  `Plz` char(5) CHARACTER SET latin1 DEFAULT NULL,
+  `Ort` tinytext CHARACTER SET latin1,
+  `Telefon` tinytext CHARACTER SET latin1,
+  `Geburtstag` date DEFAULT NULL,
+  `Reise` mediumint(8) unsigned zerofill DEFAULT NULL,
+  `Miet` mediumint(8) unsigned zerofill DEFAULT NULL,
+  `Kontakt` date DEFAULT NULL,
+  `Bez` mediumint(8) unsigned zerofill DEFAULT NULL,
+  `Bem` tinytext CHARACTER SET latin1,
+  `Kennung` smallint(6) NOT NULL,
+  `NamSort` tinytext CHARACTER SET latin1,
+  `Tel2` tinytext CHARACTER SET latin1,
+  `Fax` tinytext CHARACTER SET latin1,
+  `Mail` tinytext CHARACTER SET latin1,
+  `BemExt` char(20) CHARACTER SET latin1 DEFAULT NULL,
+  `Geschlecht` char(1) CHARACTER SET latin1 NOT NULL,
+  `Anrede` char(3) CHARACTER SET latin1 NOT NULL,
+  `SteuerNr` char(20) CHARACTER SET latin1 DEFAULT NULL,
+  PRIMARY KEY (`KundenNr`),
+  KEY `KundenNr` (`KundenNr`),
+  KEY `Plz` (`Plz`),
+  KEY `Ort` (`Ort`(50)),
+  KEY `Bez` (`Bez`),
+  KEY `NamSort` (`Name`(50),`Vorname`(20)),
+  KEY `Name` (`Name`(50))
+) ENGINE=InnoDB AUTO_INCREMENT=0 DEFAULT CHARSET=latin1 COLLATE=latin1_german2_ci;"""
+    # archiv table
+    required["ARCHIV"] = """CREATE TABLE `ARCHIV` (
+  `KundenNr` mediumint(8) unsigned zerofill NOT NULL,
+  `Art` char(20) CHARACTER SET latin1 NOT NULL,
+  `Typ` char(20) CHARACTER SET latin1 NOT NULL,
+  `Gruppe` char(20) CHARACTER SET latin1 NOT NULL,
+  `Bem` tinytext CHARACTER SET latin1,
+  `Extern` tinytext CHARACTER SET latin1 NOT NULL,
+  `Datum` date NOT NULL,
+  `Tab` varchar(10) CHARACTER SET latin1 DEFAULT NULL,
+  `TabNr` mediumint(9) DEFAULT NULL,
+  KEY `KundenNr` (`KundenNr`),
+  KEY `Extern` (`Extern`(50)),
+  KEY `Datum` (`Datum`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_german2_ci;"""
+    # registration revenue table
+    required["ANFRAGE"] = """CREATE TABLE `ANFRAGE` (
+  `KundenNr` mediumint(8) unsigned zerofill NOT NULL,
+  `Datum` date NOT NULL,
+  `Info` tinytext CHARACTER SET latin1 NOT NULL,
+  `Zustand` smallint(6) NOT NULL,
+  `KdNrInfo` tinytext CHARACTER SET latin1 NOT NULL,
+  KEY `KundenNr` (`KundenNr`),
+  KEY `Datum` (`Datum`),
+  KEY `Zustand` (`Zustand`),
+  KEY `KdNrInfo` (`KundenNr`,`Info`(50))
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_german2_ci;"""
+    # return values
+    return required
+

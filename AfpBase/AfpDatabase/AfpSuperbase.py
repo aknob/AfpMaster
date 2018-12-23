@@ -15,6 +15,7 @@
 # - AfpSuperbase
 #
 #   History: \n
+#        15 Nov. 2018 - remove deprecated function 'Afp_extractValues' - Andreas.Knoblauch@afptech.de \n
 #        20 Jan. 2015 - add array cache for next step selection \n
 #                            -  shortcut for duplicate check - Andreas.Knoblauch@afptech.de \n
 #        19 Okt. 2014 - adapt package hierarchy - Andreas.Knoblauch@afptech.de \n
@@ -189,7 +190,7 @@ class AfpSbIndex(object):
             if len(self.felder) <= ind: return ""
             wert = self.felder[ind]
         else: # array
-            wert = Afp_extractValues(ind, self.felder)
+            wert = Afp_extractStringValues(ind, self.felder)
         #print "AfpSbIndex.get_value:", self.name, ind, type(ind),  wert
         return wert
     def get_values(self, indices=None):
@@ -233,7 +234,7 @@ class AfpSbIndex(object):
             #print FNr
             self.indexoffset = None
             self.indexdups = None
-            indexwert = Afp_extractValues(self.index_ind, index.felder)
+            indexwert = Afp_extractStringValues(self.index_ind, index.felder, True)
             self.indexwert = indexwert
             self.select_plus_step(0)
             equal = self.is_equal(index)
@@ -294,7 +295,7 @@ class AfpSbIndex(object):
             index_ind = self.uind_ind
         else:
             index_ind = self.index_ind
-        return Afp_extractValues(index_ind, self.felder)
+        return Afp_extractStringValues(index_ind, self.felder, True)
     def reverse_dup_bloc(self, rows, index, offset = 0):
         if self.is_date(): return rows # may be is_numeric() has to be used here
         ind = 0
@@ -375,7 +376,7 @@ class AfpSbIndex(object):
             self.db_cursor.execute (Befehl)
             row = self.db_cursor.fetchone()
             if row: values.append(row[0])
-        self.indexwert =  Afp_extractValues(None, values)
+        self.indexwert =  Afp_extractStringValues(None, values, True)
         if self.debug: print "AfpSbIndex.gen_first_indexwert:", self.indexwert
     def gen_next_indexwert(self, order):
         values = []
@@ -411,7 +412,7 @@ class AfpSbIndex(object):
             self.endoffile = False
             self.indexoffset = None
             self.indexdups = None
-            self.indexwert =  Afp_extractValues(None, indices)
+            self.indexwert =  Afp_extractStringValues(None, indices, True)
         print "AfpSbIndex,gen_next_indexwert out:",self.indexwert
     def cached_select(self, Befehl):
         rows = None
@@ -573,9 +574,12 @@ class AfpSbIndex(object):
     def select_keywert(self, indexwert):
         if self.is_numeric() != Afp_isNumeric(indexwert): 
             print "Warning: AfpSuperbase.select_keywert: FALSCHER EINGABETYP", Afp_isNumeric(indexwert)
-            if self.debug: print self.datei, self.name, self.type
-            if self.is_numeric(): indexwert = int(indexwert)
-            else: indexwert =  ("%5.2f")%(indexwert)
+            if self.debug: print self.datei, self.name, self.type, type(indexwert)
+            if self.is_numeric(): 
+                if not indexwert: indexwert = 0
+                indexwert = int(indexwert)
+            else: 
+                indexwert =  ("%5.2f")%(indexwert)
         do_selection = True
         anz = 0
         dup = -1
@@ -585,6 +589,7 @@ class AfpSbIndex(object):
         index_clause = self.gen_index_clause(False, False, indexwert) 
         while do_selection:        
             limit =  (" LIMIT 0,%d") % ident
+            print "AfpSbIndex.select_keywert where:", where_clause, "Index:", index_clause
             Befehl = "SELECT * FROM " + self.db + "." + self.datei +" WHERE "+ where_clause + index_clause + limit
             if self.debug: print "AfpSbIndex.select_keywert:", Befehl
             self.db_cursor.execute (Befehl)

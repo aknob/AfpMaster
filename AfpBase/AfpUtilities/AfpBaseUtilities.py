@@ -114,11 +114,12 @@ def Afp_extractPureValues(indices, array):
             werte.append(entry)
     else:
         werte = []
-        for ind in indices:
-            if ind is None:
-                werte.append(None)
-            else:
-                werte.append(array[ind])
+        if array:
+            for ind in indices:
+                if ind is None:
+                    werte.append(None)
+                else:
+                    werte.append(array[ind])
     return werte
  
 ## distributes given value in given parts, \n 
@@ -458,6 +459,17 @@ def Afp_swapDict(dict):
     for entry in dict:
         new_dict[dict[entry]] = entry
     return new_dict
+## add values to dicionary, if already present add new value to old
+# @param dict - original dictionary
+# @param adddict - dictionary holding values to be added
+def Afp_addDict(dict, adddict):
+    new_dict = {}
+    for entry in adddict:
+        if entry in dict:
+            dict[entry] += adddict[entry]
+        else:
+            dict[entry] = adddict[entry]
+    return dict
 ## compare two arrays and return list of indices where values of first array occur in second \n
 # i = index in first array, indices[i] = index in second array or None, if value doesen't occur in second array
 # @param master - array from which entries should be found in second

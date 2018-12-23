@@ -351,6 +351,7 @@ class AfpAdScreen(AfpScreen):
     ## set right status-choice for this address
     def Pop_choice_status(self):
         stat = self.sb.get_value("Kennung.ADRESSE")
+        if not stat: stat = 0
         choice = self.choicemap[stat]
         self.choice_Status.SetSelection(choice)
         if self.debug: print "AfpAdScreen Population routine`Pop_choice_status'", choice
@@ -417,6 +418,7 @@ class AfpAdScreen(AfpScreen):
         if name == "Archiv":
             typ= self.combo_Archiv.GetValue()
             KundenNr =  self.sb.get_value("KundenNr") 
+            if not KundenNr: KundenNr = 0
             id_col = 5      
             select = ( "KundenNr = %d")% KundenNr
             if typ == "Dokumente":
