@@ -362,13 +362,13 @@ class AfpEvScreen_Tourist(AfpEvScreen):
     def set_current_record(self):
         #self.data = self.get_data() 
         #return
-        #print "AfpEvScreen.set_current_record initial:", self.sb.get_value("AnmeldNr.ANMELD"), self.sb.get_value("RechNr.ANMELD")
         FNr = self.sb.get_value("EventNr")
+        print "AfpEvScreen.set_current_record initial:", FNr, self.sb.get_value("AnmeldNr.ANMELD"), self.sb.get_value("RechNr.ANMELD")
         if self.sb_master == "ANMELD": slave = "EVENT"
         else: slave = "ANMELD"
         self.sb.select_key(FNr,"EventNr",slave)
         ANr = self.sb.get_value("AnmeldNr.ANMELD")    
-        #print "AfpEvScreen.set_current_record ANr:", ANr, FNr, slave
+        print "AfpEvScreen.set_current_record ANr:", ANr, FNr, slave
         KNr = self.sb.get_value("KundenNr.ANMELD")      
         TNr = self.sb.get_value("Route.EVENT")      
         PNr = self.sb.get_value("PreisNr.ANMELD") 
@@ -383,7 +383,7 @@ class AfpEvScreen_Tourist(AfpEvScreen):
             nr = self.sb.get_value("PreisNr.PREISE")
             fnr = self.sb.get_value("EventNr.PREISE")
         if fnr != FNr: self.sb.select_key(FNr,"EventNr","PREISE")
-        #print "AfpEvScreen.set_current_record Fahrt:", FNr,"Anmeld:",ANr,"Kunde:",KNr,"Tour:",TNr,"Preis:",PNr,nr
+        print "AfpEvScreen.set_current_record Fahrt:", FNr,"Anmeld:",ANr,"Kunde:",KNr,"Tour:",TNr,"Preis:",PNr,nr
         return 
         
     ## get names of database tables to be opened for this screen

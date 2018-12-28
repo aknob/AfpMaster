@@ -557,9 +557,11 @@ def Afp_extractStringValues(indices, array, intern_date = False):
 # @param v2 - second value
 # @param debug - flag for debug output
 def Afp_compareSql(v1, v2, debug = False):
+    if v1 is None or v2 is None:
+        return (v1 == v2)
     if Afp_isNumeric(v1):
         return (v1 == v2)
-    elif v1.lower() == v2.lower():
+    elif  v1.lower() == v2.lower():
         return True
     v1 = Afp_replaceUml(v1.lower())
     v2 = Afp_replaceUml(v2.lower())

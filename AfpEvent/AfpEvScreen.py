@@ -469,7 +469,7 @@ class AfpEvScreen(AfpScreen):
         where = AfpSelectEnrich_dbname(self.sb.identify_index().get_where(), "EVENT")
         #value = self.sb.get_string_value(index, True)
         value = self.sb.get_string_value(index)
-        auswahl = AfpLoad_EvAusw(self.globals, index, value, where, True)
+        auswahl = AfpLoad_EvAusw(self.globals, index, self.flavour, value, where, True)
         if not auswahl is None:
             if self.sb_master == "ANMELD":
                 self.sb.CurrentIndexName(Index, "EVENT")
@@ -537,7 +537,7 @@ class AfpEvScreen(AfpScreen):
                 new = False
             else:
                 new = True
-            changed = AfpLoad_EvClientEdit_fromSb(self.globals, self.sb, None, new)
+            changed = AfpLoad_EvClientEdit_fromSb(self.globals, self.sb, self.flavour, None, new)
             #print"AfpEvSreen.On_Anmeldung", changed
             if changed: 
                 self.Reload()
@@ -545,15 +545,11 @@ class AfpEvScreen(AfpScreen):
         event.Skip()  
         
     ## Eventhandler BUTTON , MENU - modify tour
-    def On_Event_modify(self,event):
-        #self.sb.set_debug()      
+    def On_Event_modify(self,event):     
         if self.debug: print "AfpEvScreen Event handler `On_Event_modify'"
-        print "AfpEvScreen Event handler `On_Event_modify'"
-        changed = AfpLoad_EventEdit_fromSb(self.globals, self.sb, True)
-        #print"On_Event_modify", changed
+        changed = AfpLoad_EventEdit_fromSb(self.globals, self.sb, self.flavour, True)
         if changed: 
             self.Reload()
-        #self.sb.unset_debug()
         event.Skip()
       
     ## Eventhandler Grid - double click Grid 'Customers'
@@ -679,7 +675,7 @@ class AfpEvScreen(AfpScreen):
     def get_data(self, event = None, complete = False):
         if event is None:
             event = self.sb_master == "EVENT"
-        if tour:
+        if event:
             return  AfpEvent(self.globals, None, self.sb, self.sb.debug, complete)
         else:
             return  AfpEvClient(self.globals, None, self.sb, self.sb.debug, complete)

@@ -11,7 +11,7 @@
 # - AfpDialog - dialog base class
 #
 #   History: \n
-#        22 Dez. 2018 - allow flavous in AfpDialog 
+#        22 Dez. 2018 - allow flavours in AfpDialog 
 #        27 Jan. 2017 - allow grids in AfpDialog 
 #        05 May 2016 - allow typ list in AfpReq_MultiLine 
 #        10 Apr. 2016 - add 'keepeditable' flag to AfpDialog 
@@ -40,6 +40,7 @@
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>. 
 #
 
+import locale 
 import wx
 import wx.grid
 import wx.calendar
@@ -493,6 +494,7 @@ class AfpDialog_Calendar(wx.Dialog):
     ## constructor \n
     # strings for multi calendar
     def __init__(self, *args, **kw):
+        locale.setlocale(locale.LC_ALL, 'de_DE.utf8') 
         self.multi = [""]
         if "multi" in kw:
             self.multi = kw["multi"]
@@ -652,6 +654,8 @@ class AfpDialog(wx.Dialog):
             lst.remove(self.flavour)
             if not lst: lst = [None]
             args = tuple(lst)
+        else:
+            self.flavour = None
         #if "flavour" in kw:    # parameter via kw
         #   self.flavour = kw["flavour"]
         #    del kw["flavour"]
@@ -1192,9 +1196,9 @@ class AfpDialog_Auswahl(wx.Dialog):
             self.valuecol = indexcol
         if not self.sortname: 
             self.sortname =   self.selectname
-            self.SetTitle("Auswahl " +  self.datei.capitalize() + " Sortierung: " + self.selectname.split(".")[0])
+            self.SetTitle(self.typ + " Sortierung: " + self.selectname.split(".")[0])
         else:
-            self.SetTitle("Auswahl " +  self.datei.capitalize() + " Sortierung: " + self.sortname)
+            self.SetTitle(self.typ + " Sortierung: " + self.sortname)
         if text: self.label_Auswahl.SetLabel(text)
         #if not value == "":
         #    self.select = self.selectname  + " >= \"" + value + "\""

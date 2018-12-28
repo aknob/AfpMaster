@@ -36,7 +36,7 @@ from AfpBase.AfpDatabase.AfpSuperbase import AfpSuperbase
 from AfpBase.AfpBaseRoutines import *
 from AfpBase.AfpBaseDialog import *
 from AfpBase.AfpBaseDialogCommon import *
-from AfpBase.AfpBaseAdDialog import AfpLoad_AdAusw, AfpLoad_DiAdEin_fromKNr
+from AfpBase.AfpBaseAdDialog import AfpLoad_AdAusw, AfpLoad_DiAdEin_fromKNr, AfpAdresse_addAttributToAdresse
 from AfpBase.AfpBaseAdRoutines import AfpAdresse_getAddresslistOfAttribut
 from AfpBase.AfpBaseFiDialog import AfpLoad_DiFiZahl
 
@@ -139,20 +139,26 @@ def AfpEvClient_copy(data, preset = None):
 # selects an entry from the EVENT table
 class AfpDialog_EvAusw(AfpDialog_Auswahl):
     ## initialise dialog
-    def __init__(self):
+    def __init__(self, flavour = None):
+        self.flavour = flavour
         AfpDialog_Auswahl.__init__(self,None, -1, "", style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER)
-        self.typ = "Reiseauswahl"
+        self.typ = "Veranstaltungsauswahl"
+        if self.flavour == "Tourist":
+            self.typ = "Reiseauswahl"
         self.datei = "EVENT"
         self.modul = "Event"
+        
     ## get the definition of the selection grid content \n
     # overwritten for "Event" use
     def get_grid_felder(self): 
         Felder = [["Beginn.EVENT",15], 
-                            ["Ende.EVENT", 15], 
+                            ["Uhrzeit.EVENT", 15], 
                             ["Bez.EVENT",50], 
                             ["Kennung.EVENT",15], 
                             ["Anmeldungen.EVENT",5], 
                             ["EventNr.EVENT",None]] # Ident column
+        if self.flavour == "Tourist":
+            Felder[1] =  ["Ende.EVENT", 15]
         return Felder
     ## invoke the dialog for a new entry \n
     # overwritten for "Event" use
@@ -161,37 +167,36 @@ class AfpDialog_EvAusw(AfpDialog_Auswahl):
         superbase.open_datei("EVENT")
         superbase.CurrentIndexName("Bez")
         superbase.select_key(eingabe)
-        return AfpLoad_DiToEin_fromSb(globals, superbase, eingabe)      
+        return AfpLoad_EventEdit_fromSb(globals, superbase, eingabe)      
  
 ## loader routine for event selection dialog 
 # @param globals - global variables including database connection
 # @param index - column which should give the order
+# @param flavour - if given, flavour (certain type) of dialog 
 # @param value -  if given,initial value to be searched
 # @param where - if given, filter for search in table
 # @param ask - flag if it should be asked for a string before filling dialog
-def AfpLoad_EvAusw(globals, index, value = "", where = None, ask = False):
+def AfpLoad_EvAusw(globals, index, flavour = None, value = "", where = None, ask = False):
     result = None
     Ok = True
     print "AfpLoad_EvAusw input:", index, value, where, ask
     if ask:
         sort_list = AfpEvClient_getOrderlistOfTable(globals.get_mysql(), index)        
-        #print "AfpLoad_EvAusw sort_list:", sort_list
-        value, index, Ok = Afp_autoEingabe(value, index, sort_list, "EVENT")
+        if flavour == "Tourist": name = "Reise"
+        else:  name = "Veranstaltungs"    
+        value, index, Ok = Afp_autoEingabe(value, index, sort_list, name)
         print "AfpLoad_EvAusw index:", index, value, Ok
     if Ok:
-        DiAusw = AfpDialog_EvAusw()
-        #print Index, value, where
-        text = "Bitte Veranstaltung auswählen:".decode("UTF-8")        
-        #print "AfpLoad_EvAusw dialog:", index, value, where
+        DiAusw = AfpDialog_EvAusw(flavour)
+        if flavour == "Tourist": text = "Bitte Reise auswählen:".decode("UTF-8")     
+        else: text = "Bitte Veranstaltung auswählen:".decode("UTF-8")        
         DiAusw.initialize(globals, index, value, where, text)
         DiAusw.ShowModal()
         result = DiAusw.get_result()
-        #print result
         DiAusw.Destroy()
     elif Ok is None:
         # flag for direct selection
         result = Afp_selectGetValue(globals.get_mysql(), "EVENT", "EventNr", index, value)
-        #print result
     return result      
 
 ## allows the display and manipulation of a tour 
@@ -200,6 +205,7 @@ class AfpDialog_EventEdit(AfpDialog):
     def __init__(self, *args, **kw):   
         self.change_data = False
         AfpDialog.__init__(self,*args, **kw)
+        print "AfpDialog_EventEdit.init flavour:", self.flavour
         self.lock_data = True
         self.agent = None
         self.active = None
@@ -210,6 +216,7 @@ class AfpDialog_EventEdit(AfpDialog):
         self.is_multidays = False
         self.SetSize((592,290))
         self.SetTitle("Veranstaltung")
+        if self.flavour == "Tourist": self.SetTitle("Reise")
         self.Bind(wx.EVT_ACTIVATE, self.On_Activate)
         
     ## set up dialog widgets - overwritten from AfpDialog
@@ -231,11 +238,14 @@ class AfpDialog_EventEdit(AfpDialog):
         self.text_Kenn = wx.TextCtrl(panel, -1, value="", pos=(350,12), size=(80,22), style=0, name="Kenn")
         self.textmap["Kenn"] = "Kennung.EVENT"
         self.text_Kenn.Bind(wx.EVT_SET_FOCUS, self.On_EVENT_setKenn)
-        self.text_Kenn.Bind(wx.EVT_KILL_FOCUS, self.On_EVENT_setKst)
-        self.label_T_Kst = wx.StaticText(panel, -1, label="&Konto:", pos=(280,42), size=(60,18), name="T_Kst")
-        self.text_Kst = wx.TextCtrl(panel, -1, value="", pos=(350,40), size=(80,22), style=0, name="Kst")
-        self.textmap["Kst"] = "Kostenst.EVENT"
-        self.text_Kst.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
+        if self.flavour == "Tourist":
+            self.text_Kenn.Bind(wx.EVT_KILL_FOCUS, self.On_EVENT_setKst)
+            self.label_T_Kst = wx.StaticText(panel, -1, label="&Konto:", pos=(280,42), size=(60,18), name="T_Kst")
+            self.text_Kst = wx.TextCtrl(panel, -1, value="", pos=(350,40), size=(80,22), style=0, name="Kst")
+            self.textmap["Kst"] = "Kostenst.EVENT"
+            self.text_Kst.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
+        else:
+            self.text_Kenn.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
         self.label_Anmeldungen = wx.StaticText(panel, -1, label="", pos=(458,12), size=(24,18), name="Anmeldungen")
         self.labelmap["Anmeldungen"] = "Anmeldungen.EVENT"
         self.label_TTeil = wx.StaticText(panel, -1, label="Teilnehmer", pos=(484,12), size=(78,18), name="TTeil")
@@ -251,12 +261,12 @@ class AfpDialog_EventEdit(AfpDialog):
         self.list_Preise = wx.ListBox(panel, -1, pos=(298,120), size=(258,86), name="Preise")
         self.Bind(wx.EVT_LISTBOX_DCLICK, self.On_Preise, self.list_Preise)
         self.listmap.append("Preise")
-        self.label_T_Art = wx.StaticText(panel, -1, label="Art:", pos=(16,130), size=(50,18), name="T_Art")
-        self.choice_Art = wx.Choice(panel, -1,  pos=(78,120), size=(198,30),  choices=AfpEvClient_possibleEventKinds(),  name="CArt")      
-        self.choicemap["CArt"] = "Art.EVENT"
-        self.Bind(wx.EVT_CHOICE, self.On_CArt, self.choice_Art)  
-        self.label_T_Ort = wx.StaticText(panel, -1, label="Ort:", pos=(16,160), size=(50,18), name="T_Ort")
-        self.choice_Ort = wx.Choice(panel, -1,  pos=(78,150), size=(198,30),  choices="",  name="COrt")      
+        #self.label_T_Art = wx.StaticText(panel, -1, label="Art:", pos=(16,130), size=(50,18), name="T_Art")
+        #self.choice_Art = wx.Choice(panel, -1,  pos=(78,120), size=(198,30),  choices=AfpEvClient_possibleEventKinds(),  name="CArt")      
+        #self.choicemap["CArt"] = "Art.EVENT"
+        #self.Bind(wx.EVT_CHOICE, self.On_CArt, self.choice_Art)  
+        self.label_T_Ort = wx.StaticText(panel, -1, label="Ort:", pos=(16,130), size=(50,18), name="T_Ort")
+        self.choice_Ort = wx.Choice(panel, -1,  pos=(78,120), size=(198,30),  choices="",  name="COrt")      
         self.choicemap["COrt"] = "Route.EVENT"
         self.Bind(wx.EVT_CHOICE, self.On_COrt, self.choice_Ort)  
         self.label_T_Agent = wx.StaticText(panel, -1, label="Agent:", pos=(16,190), size=(50,18), name="T_Agent")
@@ -277,8 +287,10 @@ class AfpDialog_EventEdit(AfpDialog):
     # @param editable - flag if dialogentries are editable when dialog pops up
     def attach_data(self, data, new = False, editable = False):
         if new:
-            if data.get_globals().get_value("edit-new-multidays","Event"):
+            if self.flavour == "Tourist":
                 self.is_multidays = True
+            else:
+                self.is_multidays = False
         else:
             self.is_multidays = data.is_multidays()
             self.has_route = data.has_route()
@@ -314,12 +326,15 @@ class AfpDialog_EventEdit(AfpDialog):
     # @param data - SelectionList where data has to be completed
     def complete_data(self, data):
         data["Anmeldungen"] = 0
-        if not "Art" in data: data["Art"] = "Event"
+        if not "Art" in data: 
+            if self.flavour:
+                data["Art"] = self.flavour
+            else: 
+                data["Art"] = "Event"
         if not "Personen" in data: data["Personen"] = 0
         if not "Beginn" in data: data["Beginn"] = self.globals.get_today()
         if not "Kostenst" in data: data["Kostenst"] = "4711"
-        if self.choice_Art.GetStringSelection() == "Reise":
-            data["Art"] = "Reise"
+        if self.flavour == "Touristik":
             if not "Kennung" in data: 
                 data["Kennung"] = ""
                 if self.agent:
@@ -329,15 +344,15 @@ class AfpDialog_EventEdit(AfpDialog):
             if "Beginn" in data: 
                 month = Afp_toString(data["Beginn"].month)
                 if len(month) == 1: month = "0" + month
-                data["ErloesKt"] = "ERL" + month
+                data["ErloesKt"] = "ERL" + month  # ErloesKt nicht nur für Touristik (verschiedene Möglichkeiten über globals?
         return data
         
     ## create a new route entry
     def add_new_route(self):
         rname = self.routes[self.routenr.index(self.route)]
-        select = self.data.get_selection("TNAME")
-        select.new_data(False, True) 
-        select.set_value("Name", rname)
+        sel = self.data.get_selection("TNAME")
+        sel.new_data(False, True) 
+        sel.set_value("Name", rname)
  
     ## add additonal agent data, if agent has been changed
     # @param data - data where additional data is added
@@ -348,6 +363,7 @@ class AfpDialog_EventEdit(AfpDialog):
             data["Kreditor"] = self.agent.get_account("Kreditor")
             data["Debitor"] = self.agent.get_account("Debitor")
         elif "AgentNr" in data or self.data.get_value("AgentNr"):
+            # agent entry has been deleted
             data["AgentNr"] = None
             data["AgentName"] = None
             data["Kreditor"] = None
@@ -377,15 +393,23 @@ class AfpDialog_EventEdit(AfpDialog):
         #print "AfpDialog_EventEdit.On_CRoute sel:", sel
         if sel:
             self.route = self.routenr[sel-1]
-        else:
-            rname = ""
-            rname, Ok = AfpReq_Text("Neue Transferroute wird erstellt,", "bitte Bezeichnung der neuen Route eingeben.", rname, "Neue Route")
+        else: # sel == 0 => generate new entry
+            if self.flavour == "Tourist":
+                rname = ""
+                rname, Ok = AfpReq_Text("Neue Transferroute wird erstellt,", "bitte Bezeichnung der neuen Route eingeben.", rname, "Neue Route")
+                KNr = 0
+            else:
+                rname, KNr = AfpAdresse_addAttributToAdresse(self.data.get_globals(),"Veranstaltungsort","Bitte Adresse des neuen Veranstaltungsortes auswählen.".decode("UTF-8"))
+                Ok = True
             if Ok and rname:
-                lastnr = self.routenr[-1]
-                if lastnr > 0: lastnr = 0
                 self.choice_Ort.Append(rname)
                 self.routes.append(rname)
-                self.route = lastnr-1
+                if KNr:
+                    self.route = KNr
+                else:
+                    lastnr = self.routenr[-1]
+                    if lastnr > 0: lastnr = 0
+                    self.route = lastnr-1
                 #print"AfpDialog_EventEdit.On_CRoute:", self.route
                 self.routenr.append(self.route)
                 self.choice_Ort.SetSelection(len(self.routes))
@@ -395,6 +419,7 @@ class AfpDialog_EventEdit(AfpDialog):
                 else: route = self.data.get_value("Route")
                 ind = self.routenr.index(route) + 1
                 self.choice_Ort.SetSelection(ind)
+
             
     ## execution in case the OK button ist hit - overwritten from AfpDialog
     def execute_Ok(self):
@@ -403,8 +428,8 @@ class AfpDialog_EventEdit(AfpDialog):
     ## population routine for choices
     # overwritten from AfpDialog
     def Pop_choice(self):
-        value = self.data.get_string_value(self.choicemap["CArt"])
-        self.choice_Art.SetStringSelection(value)
+        #value = self.data.get_string_value(self.choicemap["CArt"])
+        #self.choice_Art.SetStringSelection(value)
         value = self.data.get_value(self.choicemap["COrt"])
         print "AfpDialog_EventEdit.Pop_choice:", self.has_route, self.routenr, self.routes, value
         if not self.has_route and self.routenr and value in self.routenr:
@@ -612,15 +637,11 @@ class AfpDialog_EventEdit(AfpDialog):
     # @param event - event which initiated this action   
     def On_COrt(self,event):
         if self.debug: print "Event handler `On_COrt'"
-        if self.data.get_globals().get_value("edit-indirect-location","Event"): 
-            self.select_Route()
+        sel = self.choice_Ort.GetCurrentSelection() 
+        if sel: 
+            self.route = self.routenr[sel-1]
         else:
-            sel = self.choice_Ort.GetCurrentSelection() 
-            #print "AfpDialog_EventEdit.On_COrt sel:", sel
-            if sel > -1:
-                self.route = self.routenr[sel]
-            else:
-                print "AfpDialog_EventEdit.On_COrt: New location generation not yet implemented!" 
+            self.select_Route()
         event.Skip()
     
     ## event handler when window is activated
@@ -628,16 +649,15 @@ class AfpDialog_EventEdit(AfpDialog):
     def On_Activate(self,event):
         #print "Event handler `On_Activate' not implemented"
         if self.active is None:
-            if self.debug: print "Event handler `On_Activate'"
+            if self.debug: print "AfpDialog_EventEdit Event handler `On_Activate'"
             self.active = True
-            if self.data.get_globals().get_value("edit-indirect-location","Event"): 
+            if self.flavour == "Tourist":
                 self.routes, self.routenr = AfpEvClient_getRouteNames(self.data.globals.get_mysql())
                 #print "AfpDialog_EventEdit.On_Activate:", routes
                 self.choice_Ort.Append(" --- Neue Transferroute --- ")
             else: 
                 self.routes, self.routenr = AfpAdresse_getAddresslistOfAttribut(self.data.get_globals(), "Veranstaltungsort")
-                self.routes = [""] + self.routes
-                self.routenr = [None] + self.routenr
+                self.choice_Ort.Append(" --- Neuer Veranstaltungsort --- ")
             for route in self.routes:
                 self.choice_Ort.Append(Afp_toString(route))
             self.Pop_choice()
@@ -652,8 +672,8 @@ class AfpDialog_EventEdit(AfpDialog):
 # @param data - AfpEvent data to be loaded
 # @param flavour - if given, flavour (certain type) of dialog 
 # @param edit - if given, flag if dialog should open in edit modus
-def AfpLoad_EventEdit(data, edit = False):
-    DiEventEin = AfpDialog_EventEdit(None)
+def AfpLoad_EventEdit(data, flavour = None, edit = False):
+    DiEventEin = AfpDialog_EventEdit(flavour)
     new = data.is_new()
     DiEventEin.attach_data(data, new, edit)
     DiEventEin.ShowModal()
@@ -664,16 +684,19 @@ def AfpLoad_EventEdit(data, edit = False):
 ## loader routine for dialog EventEin according to the given superbase object \n
 # @param globals - global variables holding database connection
 # @param sb - AfpSuperbase object, where data can be taken from
+# @param flavour - if given, flavour (certain type) of dialog 
 # @param edit - if given, flag if dialog should open in edit modus
-def AfpLoad_EventEdit_fromSb(globals, sb, edit = False):
+def AfpLoad_EventEdit_fromSb(globals, sb, flavour = None, edit = False):
     Event = AfpEvent(globals, None, sb, sb.debug, False)
     if sb.eof(): Event.set_new(True)
-    return AfpLoad_EventEdit(Event, edit)
+    return AfpLoad_EventEdit(Event, flavour, edit)
 ## loader routine for dialog DiChEin according to the given charter identification number \n
 # @param globals - global variables holding database connection
 # @param EventNr -  identification number of charter to be filled into dialog
 def AfpLoad_EventEdit_fromFNr(globals, EventNr):
     Event = AfpEvent(globals, EventNr)
+    flavour = Event.get_value("Art")
+    if flavour == "Event": flavour = None
     return AfpLoad_EventEdit(Event)
  
  ## allows the display and manipulation of a tour price entry
@@ -1373,7 +1396,9 @@ def AfpLoad_EvClientEdit_fromSb(globals, sb, flavour = None, new = False, edit =
 # @param anmeldnr -  identification number of EvClient emtry to be filled into dialog
 def AfpLoad_EvClientEdit_fromANr(globals, anmeldnr):
     EvClient = AfpEvClient(globals, anmeldnr)
-    return AfpLoad_EvClientEdit(EvClient)
+    flavour = EvClient.get_value("Art.Event")
+    if flavour == "Event": flavour = None
+    return AfpLoad_EvClientEdit(EvClient, flavour)
   
 ## allows cancellation and tour change for  EvClient data   
 class AfpDialog_EvClientCancel(AfpDialog):

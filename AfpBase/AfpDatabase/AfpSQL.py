@@ -754,7 +754,7 @@ class AfpSQLTableSelection(object):
         return indices
     ## retrieve values of indicated columns
     # @param felder - if a colon separated list is given, the appropriate values are returned. None - all values are returned
-    # @param row - index of row where values are extracted from. row < 0 values are extracte from all rows
+    # @param row - index of row where values are extracted from. row < 0 values are extract from all rows
     def get_values(self, felder = None, row = -1):
         # felder == None: complete data, resp. row
         # felder == 'Name1, Name2, ...': data of columns Name1, Name2, ..., resp. only indicated row

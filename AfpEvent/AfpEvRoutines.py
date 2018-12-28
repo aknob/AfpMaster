@@ -45,7 +45,7 @@ def AfpEvClient_possibleEventKinds():
 def AfpEvent_isTour(art):
     if art == "Event":
         return False
-    elif art == "Fremd" or art == "Eigen" or art == "Reise" or Art == "Touristik":
+    elif art == "Fremd" or art == "Eigen" or art == "Reise" or art == "Touristik":
         return True
     return False
  ## available 'Zustand' values are set here \n

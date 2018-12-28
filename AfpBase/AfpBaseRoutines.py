@@ -398,13 +398,13 @@ def Afp_toDatetime(date, time, hightime = None):
 ##  provide a list from a SQLTableSelection object - \n
 #    mostly to allow additional selection
 # @param table_sel - input AfpSQLTableSelection object for which an additional selection has to be made
-# @param select     - filter to get possible additional selections from database
+# @param filter       - filter to get possible additional selections from database
 # @param ident      - identification column for filtered data entries 
 # @param order     - order in which list is displayed
 # @param keep      - column which could skip check for double entries 
-def Afp_getListe_fromTableSelection(table_sel, select, ident, order = None, keep = None):
+def Afp_getListe_fromTableSelection(table_sel, filter, ident, order = None, keep = None):
     attributs = table_sel.create_initialized_copy()
-    attributs.load_data(select, order)
+    attributs.load_data(filter, order)
     print "Afp_getListe_fromTableSelection init:",  table_sel, table_sel.data, attributs, attributs.data
     if keep and not keep in attributs.get_feldnamen():
         keep = None
@@ -667,6 +667,7 @@ class AfpSelectionList(object):
         self.tagmap = None
         self.debug = debug
         self.new = False
+        self.tables = self.mysql.get_tables()
         if self.debug: print "AfpSelectionList Konstruktor",listname
     ## destructor
     def __del__(self):   
@@ -807,7 +808,7 @@ class AfpSelectionList(object):
         if selname is None: selname = self.mainselection
         if selname in self.selects:        
             sel_vals = self.selects[selname]
-            if len(sel_vals) > 1:
+            if  len(sel_vals) > 1 and sel_vals[0] in self.tables:
                 implicit = False
                 unique = None
                 if len(sel_vals) > 2: unique = sel_vals[2]
@@ -815,29 +816,29 @@ class AfpSelectionList(object):
                 selection = AfpSQLTableSelection(self.mysql, sel_vals[0], self.debug, unique)
         return selection  
     ## create selection - retrieve values from database
-    # @param select - name of TableSelection
+    # @param name - name of TableSelection
     # @param allow_new - allow creation of a new TableSelection with no data attached
-    def create_selection(self, select, allow_new = True):
+    def create_selection(self, name, allow_new = True):
         if allow_new and self.new: new = True
         else: new = False
-        selection = self.constitute_selection(select)
-        select_clause, order_clause = self.evaluate_selects(select)
+        selection = self.constitute_selection(name)
+        select_clause, order_clause = self.evaluate_selects(name)
         #print "AfpSelectionList.create_selection:", "\"" + select + "\"", select_clause, new, selection
         if selection is None and select_clause == []:
-            if new: selection = self.spezial_selection(select, True)
-            else:   selection = self.spezial_selection(select)
+            if new: selection = self.spezial_selection(name, True)
+            else:   selection = self.spezial_selection(name)
         elif selection and select_clause:
             if new: selection.new_data()
             else:   selection.load_data(select_clause, order_clause)
-        elif selection is None and select == self.mainselection:
-            selection = AfpSQLTableSelection(self.mysql, select, self.debug, self.mainindex)
+        elif selection is None and name == self.mainselection:
+            selection = AfpSQLTableSelection(self.mysql, name, self.debug, self.mainindex)
         if not selection is None:
-            self.selections[select] = selection
+            self.selections[name] = selection
     ## create all TableSelections
     def create_selections(self):
-        for select in self.selects:
-            if not select in self.selections:
-                self.create_selection(select)
+        for name in self.selects:
+            if not name in self.selections:
+                self.create_selection(name)
     ## add formula to afterburner of TableSelection
     # @param selname - name of TableSelection
     # @param formula - formula to be evaluated after storage
@@ -892,12 +893,12 @@ class AfpSelectionList(object):
     # @param selname - name of TableSelection 
     # @param row - index of row in TableSelection where data is retrieved
     def get_selection_from_row(self, selname, row):
-        select = self.get_selection(selname)
-        selection = select.create_initialized_copy()
+        sel = self.get_selection(selname)
+        selection = sel.create_initialized_copy()
         if row is None:
             selection.new_data()
         else:
-            rows = select.get_values(None, row)         
+            rows = sel.get_values(None, row)         
             selection.set_data(rows)
         #print "AfpSelectionList.get_selection_from_row:",selname, row, selection
         return selection

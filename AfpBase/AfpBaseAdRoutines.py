@@ -96,7 +96,8 @@ def AfpAdresse_getAddresslistOfAttribut(globals, attribut):
     rows = adresatt.get_values()
     for row in rows:
         adresse = AfpAdresse(globals, row[0])
-        namen.append(adresse.get_address_line())
+        #namen.append(adresse.get_address_line())
+        namen.append(adresse.get_name())
         idents.append(adresse.get_value("KundenNr"))
     return namen, idents
     

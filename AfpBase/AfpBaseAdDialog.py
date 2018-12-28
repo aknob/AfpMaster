@@ -122,9 +122,9 @@ def AfpAdresse_selectAttributRow(Adresse, direct=True):
         direct = True
         no_unique = True
     # generate text and selection depending on 'direct'
-    select = "KundenNr = 0"
+    filter = "KundenNr = 0"
     if direct:
-        select += " AND AttNr IS NULL"
+        filter += " AND AttNr IS NULL"
         input_line = "   ---   Neues Adressenmerkmal eingeben!   ---   "
         text = "Adressenmerkmal"
         text1 = "Bitte Bezeichnung für neues Adressenmerkmal eingeben.".decode("UTF-8")
@@ -133,12 +133,12 @@ def AfpAdresse_selectAttributRow(Adresse, direct=True):
         text = "Merkmal oder Vorlage"
         text1 = "Bitte Bezeichnung für neues Merkmal oder neue Vorlage eingeben,\n Vorlagen bitte mit ' +' kennzeichnen.".decode("UTF-8")
     else:
-        select += " AND AttNr > 0"
+        filter += " AND AttNr > 0"
         input_line = "   ---   Neue Merkmalvorlage eingeben!   ---   "
         text = "Vorlage"
         text1 = "Bitte Bezeichnung für neue Vorlage eingeben.".decode("UTF-8")
 
-    liste, rows = Afp_getListe_fromTableSelection(sel, select, "Attribut", "Attribut", "AttNr")
+    liste, rows = Afp_getListe_fromTableSelection(sel, filter, "Attribut", "Attribut", "AttNr")
     print "AfpAdresse_selectAttributRow Liste:", liste, rows, imax, sel, sel.data
     liste = Afp_ArraytoString(liste)
     liste = [input_line] + liste
@@ -244,7 +244,35 @@ def AfpAdresse_spezialAttribut(name, attribut, text, tag, action, no_delete = Fa
             text = result[0]
             Ok = True
     return Ok, text, tag
-
+    
+## select an address and add given attribut to it
+def AfpAdresse_addAttributToAdresse(globals, attribut, text):
+    Ok = False
+    nmae = None
+    KNr = AfpLoad_AdAusw(globals,"ADRESSE","Name","", None,text,True)
+    if KNr:
+        adresse = AfpAdresse(globals, KNr, None, globals.is_debug())
+        sel = adresse.get_selection("ADRESATT")
+        actuel = sel.get_values("Attribut")
+        if not attribut in actuel:
+            filter = "KundenNr = 0"
+            liste, rows = Afp_getListe_fromTableSelection(sel, filter, "Attribut", "Attribut", "AttNr")
+            if attribut in liste:
+                ok = AfpReq_Question( "Der Adresse '" + adresse.get_name() + "'".decode("UTF-8"), "wird das Merkmal '" + attribut + "' zugeordnet!", "Merkmalzuordnung") 
+                if ok:
+                    index = liste.index(attribut)
+                    row = rows[index]
+                    row[0] = adresse.get_value("KundenNr")
+                    sel.add_row(row)
+                    sel.store()
+                    Ok = True
+                    name = adresse.get_name()
+            else:
+                AfpReq_Info("Das Merkmal '" + attribut + "' existiert nicht,","keine Zuordnung möglich!".decode("UTF-8"), "Warnung")
+        else: 
+            AfpReq_Info("Das Merkmal '" + attribut + "'ist der Adresse", adresse.get_name() +"schon zugeordnet".decode("UTF-8"), "Info")
+    return name, Ok
+    
 ## dialog for selection of adress data \n
 # selects an entry from the adress table
 class AfpDialog_AdAusw(AfpDialog_Auswahl):
