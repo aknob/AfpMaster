@@ -14,7 +14,7 @@
 #  AfpTechnologies (afptech.de)
 #
 #    BusAfp is a software to manage coach and travel acivities
-#    Copyright (C) 1989 - 2015  afptech.de (Andreas Knoblauch)
+#    Copyright© 1989 - 2019 afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -48,11 +48,11 @@ def AfpFinance_get_ZahlSelectors(globals = None):
     mysql = globals.get_mysql()
     debug = globals.is_debug()
     finmods = []
-    print "AfpFinance_get_ZahlSelectors:", globals.get_value("only-direct-payment")
+    #print "AfpFinance_get_ZahlSelectors:", globals.get_value("only-direct-payment")
     if not globals.get_value("only-direct-payment"):
         modules = Afp_ModulNames(globals)
         finmods = modules[1:]
-    print "AfpFinance_get_ZahlSelectors:", finmods
+    #print "AfpFinance_get_ZahlSelectors:", finmods
     for mod in finmods:
         select = []
         if mod == "Charter":
@@ -492,7 +492,7 @@ class AfpDialog_DiFiZahl(AfpDialog):
                 self.data.distribute_payment(value)
                 if self.do_store: self.data.store()
                 self.Ok = True
-        print "AfpDialog_DiFiZahl.execute_Ok:", Auszug, value, direct_cash, self.do_store, self.Ok
+        #print "AfpDialog_DiFiZahl.execute_Ok:", Auszug, value, direct_cash, self.do_store, self.Ok
     ## set flag to avoid writing into database when leaving the dialog \n
     # execution should then be performed by the caller
     def do_not_store(self):
@@ -581,15 +581,14 @@ class AfpDialog_DiFiZahl(AfpDialog):
     # Event Handlers 
     ## event handler when cursor leaves the 'statement of account' (Auszug) textbox
     def On_Zahlung_Auszug(self,event):
-        if self.debug: print "Event handler `On_Zahlung_Auszug'"
-        print "Event handler `On_Zahlung_Auszug'"
+        if self.debug: print "AfpDialog_DiFiZahl Event handler `On_Zahlung_Auszug'"
         Auszug = self.text_Auszug.GetValue()
         self.check_auszug(Auszug)
         event.Skip()
 
     ##Eventhandler BUTTON - add an entry to this payment, depending on name of the button \n
     def On_Zahlung_Select(self,event):
-        if self.debug: print "Event handler `On_Zahlung_select'"
+        if self.debug: print "AfpDialog_DiFiZahl Event handler `On_Zahlung_select'"
         object = event.GetEventObject()
         name = object.GetName()
         self.select_selection_by_name(name)
@@ -597,7 +596,7 @@ class AfpDialog_DiFiZahl(AfpDialog):
 
     ##Eventhandler BUTTON - remove an entry from this payment \n
     def On_Zahlung_Delete(self,event):
-        if self.debug: print "Event handler `On_Zahlung_Delete'"
+        if self.debug: print "AfpDialog_DiFiZahl Event handler `On_Zahlung_Delete'"
         index = self.list_Zahlungen.GetSelections()[0] 
         if index > 0:
             self.data.remove_selection(index)
@@ -606,7 +605,7 @@ class AfpDialog_DiFiZahl(AfpDialog):
 
     ##Eventhandler BUTTON - show list of financial payment transaction \n
     def On_Zahlung_Liste(self,event):
-        if self.debug: print "Event handler `On_Zahlung_Liste'"
+        if self.debug: print "AfpDialog_DiFiZahl Event handler `On_Zahlung_Liste'"
         if self.data.finance:
             liste = {}
             for data in self.data.selected_list:
@@ -618,7 +617,7 @@ class AfpDialog_DiFiZahl(AfpDialog):
                 for row in rows:
                     zahlungen.append(Afp_ArraytoLine(row))
                 liste[ident] = zahlungen
-                print "AfpDialog_DiFiZahl.On_Zahlung_Liste:", liste
+                #print "AfpDialog_DiFiZahl.On_Zahlung_Liste:", liste
             Afp_printToInfoFile(self.data.globals, liste)
         else:
             AfpReq_Info("Finanzmodul nicht installiert!","Funktion steht nicht zur Verfügung!".decode("UTF-8"))
@@ -627,14 +626,14 @@ class AfpDialog_DiFiZahl(AfpDialog):
     ##Eventhandler BUTTON - allow manuel distribution of this payment \n
     # not implemented yet
     def On_Zahlung_Manuell(self,event):
-        print "Event handler `On_Zahlung_Manuell' not implemented!"
+        print "AfpDialog_DiFiZahl Event handler `On_Zahlung_Manuell' not implemented!"
         self.On_Zahlung_Bar(event)
         event.Skip()
 
    ##Eventhandler BUTTON - allow manuel distribution of this payment \n
     # not implemented yet
     def On_Zahlung_Bar(self,event):
-        if self.debug: print "Event handler `On_Zahlung_Bar'"
+        if self.debug: print "AfpDialog_DiFiZahl Event handler `On_Zahlung_Bar'"
         self.data.globals.set_value("allow-direct-cash-payment", 1)
         self.execute_Ok()
         event.Skip()
@@ -642,7 +641,7 @@ class AfpDialog_DiFiZahl(AfpDialog):
 
     ##Eventhandler BUTTON - show payment info \n
     def On_Zahlung_Info(self,event):
-        if self.debug: print "Event handler `On_Zahlung_Info'"
+        if self.debug: print "AfpDialog_DiFiZahl Event handler `On_Zahlung_Info'"
         if self.data.finance:
             liste = {}
             for data in self.data.selected_list:

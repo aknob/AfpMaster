@@ -26,7 +26,7 @@
 #  AfpTechnologies (afptech.de)
 #
 #    BusAfp is a software to manage coach and travel acivities
-#    Copyright© 1989 - 2017  afptech.de (Andreas Knoblauch)
+#    Copyright© 1989 - 2019 afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -40,7 +40,6 @@
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>. 
 #
 
-import locale 
 import wx
 import wx.grid
 import wx.calendar
@@ -345,7 +344,7 @@ class AfpDialog_TextEditor(wx.Dialog):
     ## return actuel text, to be called in calling routine
     def get_text(self):
         ret_text = self.text_text.GetValue()
-        print "AfpDialog_TextEditor.get_text:", ret_text
+        #print "AfpDialog_TextEditor.get_text:", ret_text
         #return self.text_text.GetValue()
         return ret_text
     ## Eventhandler CHOICE - handle event of the 'edit','read' od 'quit' choice
@@ -494,7 +493,6 @@ class AfpDialog_Calendar(wx.Dialog):
     ## constructor \n
     # strings for multi calendar
     def __init__(self, *args, **kw):
-        locale.setlocale(locale.LC_ALL, 'de_DE.utf8') 
         self.multi = [""]
         if "multi" in kw:
             self.multi = kw["multi"]
@@ -515,7 +513,8 @@ class AfpDialog_Calendar(wx.Dialog):
         self.Bind(wx.calendar.EVT_CALENDAR_SEL_CHANGED, self.On_Changed)
         # gtk truncates the year - this fixes it
         w, h =  self.calendars[0].Size
-        size = (w+25, h-20)
+        #size = (w+25, h-20)
+        size = (w+25, h)
 
         self.upper_sizer = wx.BoxSizer(wx.HORIZONTAL)
         self.upper_sizer.AddSpacer(10)
@@ -835,7 +834,7 @@ class AfpDialog(wx.Dialog):
     # covention: listmap holds the name to generate the routinename to be called: \n
     # Pop_'name'()
     def Pop_lists(self):
-        print "AfpDialog.Pop_lists", self.listmap
+        #print "AfpDialog.Pop_lists", self.listmap
         for entry in self.listmap:
             Befehl = "self.Pop_" + entry + "()"
             #print Befehl
@@ -844,10 +843,10 @@ class AfpDialog(wx.Dialog):
     # covention: listmap holds the name to generate the routinename to be called: \n
     # Pop_'name'()
     def Pop_grids(self):
-        print "AfpDialog.Pop_grids", self.gridmap
+        #print "AfpDialog.Pop_grids", self.gridmap
         for entry in self.gridmap:
             Befehl = "self.Pop_" + entry + "()"
-            print "AfpDialog.Pop_grids:", Befehl
+            #print "AfpDialog.Pop_grids:", Befehl
             exec Befehl
     ## resize grid rows
     # @param grid - the grid object
@@ -927,8 +926,9 @@ class AfpDialog(wx.Dialog):
     def On_KillFocus(self,event):
         if self.is_editable():
             object = event.GetEventObject()
-            name = object.GetName()
-            if not name in self.changed_text: self.changed_text.append(name)    
+            if object.GetValue():
+                name = object.GetName()
+                if not name in self.changed_text: self.changed_text.append(name)    
     ## Eventhandler CHOICE - handle event of the 'edit','read' or 'quit' choice
     # @param event - event which initiated this action
     def On_CEdit(self,event):
@@ -1264,7 +1264,7 @@ class AfpDialog_Auswahl(wx.Dialog):
             limit = "0,1"
             ssplit = self.select.split()
             rows = self.mysql.select(self.feldlist, self.select, self.dateien, self.sortname + " DESC", limit, self.where, self.link)
-            print "AfpDialog_Auswahl.set_step_back last:", rows, self.valuecol
+            #print "AfpDialog_Auswahl.set_step_back last:", rows, self.valuecol
             value = Afp_toInternDateString(rows[0][self.valuecol])
             self.select = ssplit[0] + " " + ssplit[1] + " \"" + value + "\""
             self.ident[0] = rows[0][-1]
@@ -1289,7 +1289,7 @@ class AfpDialog_Auswahl(wx.Dialog):
             if lgh == anz:
                 anz += anz
             elif offset < 0:
-                print "Warning: AfpDialog_DiAusw.set_step_back: identic entry not found ",anz
+                print "WARNING: AfpDialog_DiAusw.set_step_back: identic entry not found ",anz
                 offset = 0
         self.select = select
         if offset < step:
@@ -1317,17 +1317,17 @@ class AfpDialog_Auswahl(wx.Dialog):
         event.Skip()   
     ## event handler for the Left Mouse Double Click
     def On_DClick(self, event): 
-        if self.debug: print "Event handler `On_DClick'"
+        if self.debug: print "AfpDialog_Auswahl Event handler `On_DClick'"
         self.result_index = event.GetRow()
         self.On_Ausw_Ok()
         event.Skip()
     ## event handler for the Right Mouse Click
     def On_RClick(self, event): 
-        print "Event handler `On_RClick' not implemented"
+        print "AfpDialog_Auswahl Event handler `On_RClick' not implemented"
         event.Skip()
     ## event handler for the Select First button        
     def On_Ausw_First(self,event):
-        if self.debug: print "Event handler `On_Ausw_First'"
+        if self.debug: print "AfpDialog_Auswahl Event handler `On_Ausw_First'"
         ssplit = self.select.split()
         self.select = ssplit[0] + " " + ssplit[1] + " \"\""
         self.offset = 0
@@ -1335,39 +1335,39 @@ class AfpDialog_Auswahl(wx.Dialog):
         event.Skip()
     ## event handler for the Select Previous Page button
     def On_Ausw_PPage(self,event):
-        if self.debug: print "Event handler `On_Ausw_PPage'"
+        if self.debug: print "AfpDialog_Auswahl Event handler `On_Ausw_PPage'"
         self.set_step_back(self.rows - 1)
         self.Pop_grid()
         event.Skip()
     ## event handler for the Select Previous Entry button
     def On_Ausw_Prev(self,event):
-        if self.debug: print "Event handler `On_Ausw_Prev'"
+        if self.debug: print "AfpDialog_Auswahl Event handler `On_Ausw_Prev'"
         self.set_step_back(1)
         self.Pop_grid()
         event.Skip()
     ## event handler for the Select Next Entry button
     def On_Ausw_Next(self,event):
-        if self.debug: print "Event handler `On_Ausw_Next'"
+        if self.debug: print "AfpDialog_Auswahl Event handler `On_Ausw_Next'"
         if self.grid_is_complete():
             self.offset += 1
             self.Pop_grid()
         event.Skip()
     ## event handler for the Select Next Page button
     def On_Ausw_NPage(self,event):
-        if self.debug: print "Event handler `On_Ausw_NPage'"
+        if self.debug: print "AfpDialog_Auswahl Event handler `On_Ausw_NPage'"
         if self.grid_is_complete():
             self.offset += self.rows - 1
             self.Pop_grid()
         event.Skip()
     ## event handler for th Select Last button
     def On_Ausw_Last(self,event = None):
-        if self.debug: print "Event handler `On_Ausw_Last'"
+        if self.debug: print "AfpDialog_Auswahl Event handler `On_Ausw_Last'"
         self.set_step_back(self.rows - 1, True)
         self.Pop_grid()
         if event: event.Skip()
     ## event handler for the Search button
     def On_Ausw_Suchen(self,event):
-        if self.debug: print "Event handler `On_Ausw_Suchen'"
+        if self.debug: print "AfpDialog_Auswahl Event handler `On_Ausw_Suchen'"
         value = self.search
         text, Ok = AfpReq_Text("Suche in Datei " + self.datei.capitalize() + ".", "Bitte Suchbegriff eingeben:", value, "Texteingabe Suche")
         if Ok:
@@ -1380,18 +1380,18 @@ class AfpDialog_Auswahl(wx.Dialog):
         event.Skip()
     ## event handler fpr the New button   
     def On_Ausw_Neu(self,event):
-        if self.debug: print "Event handler `On_Ausw_Neu'"
+        if self.debug: print "AfpDialog_Auswahl Event handler `On_Ausw_Neu'"
         Ok = self.invoke_neu_dialog(self.globals, self.search, self.where)
         if Ok: self.Pop_grid()
         event.Skip() 
     ## event handler for the Cancel button    
     def On_Ausw_Abbruch(self,event):
-        if self.debug: print "Event handler `On_Ausw_Abbruch'"
+        if self.debug: print "AfpDialog_Auswahl Event handler `On_Ausw_Abbruch'"
         event.Skip()
         self.EndModal(wx.ID_CANCEL)
     ## event handler for the OK button
     def On_Ausw_Ok(self, event = None):
-        if self.debug: print "Event handler `On_Ausw_Ok'"
+        if self.debug: print "AfpDialog_Auswahl Event handler `On_Ausw_Ok'"
         if self.result_index > -1:
             self.result = self.ident[self.result_index]
         if self.globals.get_value("enable_size_memory"):

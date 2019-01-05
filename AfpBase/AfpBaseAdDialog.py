@@ -17,7 +17,7 @@
 #  AfpTechnologies (afptech.de)
 #
 #    BusAfp is a software to manage coach and travel acivities
-#    Copyright (C) 1989 - 2015  afptech.de (Andreas Knoblauch)
+#    Copyright© 1989 - 2019 afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -86,7 +86,7 @@ def AfpAdresse_selectAttribut(Adresse, text = "Adressenmerkmal", direct = True):
             liste.append(Afp_toString(row[index[0]]) + " " + Afp_toString(row[index[1]]) + "  " + tag)
     row = None
     lisel, ok = AfpReq_Selection("Bitte " + text + " von", Adresse.get_name() + " auswählen.".decode("UTF-8") , liste, text, ident)
-    print "AfpAdresse_selectAttribut:", lisel, ok, liste
+    #print "AfpAdresse_selectAttribut:", lisel, ok, liste
     if ok: 
         if lisel  == liste[0]:
             ok, row = AfpAdresse_selectAttributRow(Adresse, direct)
@@ -139,7 +139,7 @@ def AfpAdresse_selectAttributRow(Adresse, direct=True):
         text1 = "Bitte Bezeichnung für neue Vorlage eingeben.".decode("UTF-8")
 
     liste, rows = Afp_getListe_fromTableSelection(sel, filter, "Attribut", "Attribut", "AttNr")
-    print "AfpAdresse_selectAttributRow Liste:", liste, rows, imax, sel, sel.data
+    #print "AfpAdresse_selectAttributRow Liste:", liste, rows, imax, sel, sel.data
     liste = Afp_ArraytoString(liste)
     liste = [input_line] + liste
     row = [0]
@@ -163,18 +163,18 @@ def AfpAdresse_selectAttributRow(Adresse, direct=True):
             active, ok = AfpReq_Text("Falls zusätzliche Daten benötigt werden, die Bezeichnungen durch Komma getrennt hier eingeben.".decode("UTF-8"),"Z.B. 'Kennzeichen(anzeigen),Typ,Idenifikationsnummer'")
             if ok and active:
                 row[index[3]] = active
-            print "AfpAdresse_selectAttributRow Store:", row
+            #print "AfpAdresse_selectAttributRow Store:", row
             sel.add_row(row)
             sel.store()
     else:
         attribut = row[index[0]]
-    print "AfpAdresse_selectAttributRow Select:", ok, row, index
+    #print "AfpAdresse_selectAttributRow Select:", ok, row, index
     if ok:
         AttText = row[index[1]]      
         Tag =  row[index[2]] 
         Aktion =  row[index[3]] 
         ok, AttText, Tag = AfpAdresse_spezialAttribut(name, attribut, AttText, Tag, Aktion, True)
-        print "AfpAdresse_selectAttributRow Tag:", ok, AttText, Tag
+        #print "AfpAdresse_selectAttributRow Tag:", ok, AttText, Tag
         if ok:  
             row[index[1]] = AttText
             row[index[2]]  = Tag
@@ -183,7 +183,7 @@ def AfpAdresse_selectAttributRow(Adresse, direct=True):
                 row[1] = Adresse.get_name(True)
                 if index[4] and row[index[4]]:
                     row[index[4]] = next_nr
-    print "AfpAdresse_selectAttributRow:", ok, row
+    #print "AfpAdresse_selectAttributRow:", ok, row
     if ok: return ok, row
     else: return ok, None
    
@@ -248,7 +248,7 @@ def AfpAdresse_spezialAttribut(name, attribut, text, tag, action, no_delete = Fa
 ## select an address and add given attribut to it
 def AfpAdresse_addAttributToAdresse(globals, attribut, text):
     Ok = False
-    nmae = None
+    name = None
     KNr = AfpLoad_AdAusw(globals,"ADRESSE","Name","", None,text,True)
     if KNr:
         adresse = AfpAdresse(globals, KNr, None, globals.is_debug())
@@ -617,21 +617,21 @@ class AfpDialog_DiAdEin_SubMrk(AfpDialog):
 
     ## Eventhandler LIST - double click in attribut list
     def On_DClick_Attribut(self,event):
-        if self.debug: print "Event handler `On_DClick_Attribut'"
+        if self.debug: print "AfpDialog_DiAdEin_SubMrk Event handler `On_DClick_Attribut'"
         index = self.list_attribut.GetSelections()[0]
         if self.is_editable() and index >= 0:
             name = self.data.get_name()
             selection = self.data.get_selection("ADRESATT")
             #attribut = Afp_toString(selection.get_values("Attribut", index)[0][0])
             row = selection.get_values("Attribut,AttText,Tag,Aktion", index)[0]
-            print "AfpDialog_DiAdEin_SubMrk.On_DClick_Attribut:", row
+            #print "AfpDialog_DiAdEin_SubMrk.On_DClick_Attribut:", row
             attribut = Afp_toString(row[0])
             text = Afp_toString(row[1])
             tag = Afp_toString(row[2])
             action = Afp_toString(row[3])
 
             Ok, text, tag = AfpAdresse_spezialAttribut(name, attribut, text, tag, action)
-            print "AfpDialog_DiAdEin_SubMrk.On_DClick_Attribut action:",Ok, text, tag
+            #print "AfpDialog_DiAdEin_SubMrk.On_DClick_Attribut action:",Ok, text, tag
             if Ok is None:
                 Ok = AfpReq_Question("Soll das Merkmal '" + attribut + "'", "für diese Adresse gelöscht werden?".decode("UTF-8"), "Löschen?".decode("UTF-8"))
                 if Ok:
@@ -648,7 +648,7 @@ class AfpDialog_DiAdEin_SubMrk(AfpDialog):
         event.Skip()  
     ## Eventhandler LIST - double click in connected addresses list
     def On_DClick_Verbindung(self,event):
-        if self.debug: print "Event handler `On_DClick_Verbindung'"
+        if self.debug: print "AfpDialog_DiAdEin_SubMrk Event  handler `On_DClick_Verbindung'"
         index = self.list_verbindung.GetSelections()[0]
         if self.is_editable() and index >= 0:
             selection = self.data.get_selection("Bez")
@@ -663,20 +663,18 @@ class AfpDialog_DiAdEin_SubMrk(AfpDialog):
         event.Skip()  
     ## Eventhandler BUTTON - add new entry to attribut list   
     def On_Ad_Merkmal(self,event):
-        if self.debug: print "Event handler `On_Ad_Merkmal'!"
-        print "AfpDialog_DiAdEin_SubMrk.On_Ad_Merkmal init:"
-        self.data.view()
+        if self.debug: print "AfpDialog_DiAdEin_SubMrk Event  handler `On_Ad_Merkmal'!"
         ok, row = AfpAdresse_selectAttributRow(self.data)
-        print "AfpDialog_DiAdEin_SubMrk.On_Ad_Merkmal:", row
+        #print "AfpDialog_DiAdEin_SubMrk.On_Ad_Merkmal:", row
         if ok and row:
-            self.data.view()
+            #self.data.view()
             self.data.get_selection("ADRESATT").add_row(row)
             self.changes = True
             self.Pop_Attribut()
         event.Skip()
     ## Eventhandler BUTTON - add new entry to connected addresses list   
     def On_Ad_Verbindung(self,event):
-        if self.debug: print "Event handler `On_Ad_Verbindung'"
+        if self.debug: print "AfpDialog_DiAdEin_SubMrk Event  handler `On_Ad_Verbindung'"
         name = self.data.get_value("Name")
         text = "Bitte Adresse auswählen die mit der aktuellen in verbunden werden soll."
         auswahl = AfpLoad_AdAusw(self.data.get_mysql(), "ADRESSE", "NamSort", text, name[0])
@@ -693,7 +691,7 @@ class AfpDialog_DiAdEin_SubMrk(AfpDialog):
     # not yet implemented! \n
     # Possibly not needed anymore, as textfields nowerdays can store a lot of information!
     def On_Ad_Bem(self,event):
-        print "Event handler `On_Ad_Bem' not implemented!"
+        print "AfpDialog_DiAdEin_SubMrk Event  handler `On_Ad_Bem' not implemented!"
         event.Skip()
 
 ## loader routine for attribut sub-dialog

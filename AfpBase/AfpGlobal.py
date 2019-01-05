@@ -8,6 +8,7 @@
 # - AfpGlobal
 #
 #   History: \n
+#        02 Jan. 2018 - set locale for different OS - Andreas.Knoblauch@afptech.de \n
 #        23 May 2015 - enable variable setting via configuration string - Andreas.Knoblauch@afptech.de \n
 #        19 Okt. 2014 - adapt package hierarchy - Andreas.Knoblauch@afptech.de \n
 #        30 Nov. 2012 - inital code generated - Andreas.Knoblauch@afptech.de
@@ -17,7 +18,7 @@
 #  AfpTechnologies (afptech.de)
 #
 #    BusAfp is a software to manage coach and travel acivities
-#    Copyright© 1989 - 2018  afptech.de (Andreas Knoblauch)
+#    Copyright© 1989 - 2019 afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -32,6 +33,7 @@
 #
 
 import tempfile
+import locale
 
 import AfpUtilities
 from AfpUtilities import *
@@ -232,6 +234,7 @@ class AfpGlobal(object):
         self.debug = self.setting.is_debug()
         self.confdir = Afp_extractPath(self.setting.config) + self.get_value("path-delimiter")
         self.settings = {}
+        self.set_locale()
         if self.debug: print "AfpGlobal Konstruktor"
     ## destructor
     def __del__(self):
@@ -298,6 +301,12 @@ class AfpGlobal(object):
         if license: self.set_value("license", license)
         if picture: self.set_value("picture", picture)
         if developer: self.set_value("developer", developer)
+    ## set locale
+    def set_locale(self):
+        if self.os_is_windows():
+            locale.setlocale(locale.LC_ALL, 'German') 
+        else:
+            locale.setlocale(locale.LC_ALL, 'de_DE.utf8') 
     ## retrieve value as a string
     # @param name - name of variable to be retrieved
     # @param module - if given, name of afp-module otherwise get value from common variables

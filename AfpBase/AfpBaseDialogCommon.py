@@ -15,7 +15,7 @@
 #  AfpTechnologies (afptech.de)
 #
 #    BusAfp is a software to manage coach and travel acivities
-#    Copyright© 1989 - 2018  afptech.de (Andreas Knoblauch)
+#    Copyright© 1989 - 2019 afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -201,7 +201,7 @@ def Afp_autoEingabe(value, index, sort_list, name, text = None):
     name = name.decode("UTF-8")
     if text is None: text = "Bitte Auswahlkriteium für die ".decode("UTF-8") + name + "auswahl eingeben:"
     value, format, Ok = AfpReq_Eingabe(text, "", value, name +"auswahl")
-    print "Afp_autoEingabe:", Ok, value, format, sort_list
+    #print "Afp_autoEingabe:", Ok, value, format, sort_list
     if Ok:
         #print sort_list
         if format[0] == "!":
@@ -214,7 +214,7 @@ def Afp_autoEingabe(value, index, sort_list, name, text = None):
             for entry in sort_list:
                 if sort_list[entry] and sort_list[entry] == format:
                     index = entry
-        print "Afp_autoEingabe index:", index, value
+        #print "Afp_autoEingabe index:", index, value
         if sort_list[index] is None:
             Ok = None
     return value, index, Ok
@@ -373,7 +373,7 @@ class AfpDialog_DiReport(wx.Dialog):
     def generate_Ausgabe(self):
         empty = Afp_addRootpath(self.globals.get_value("templatedir"), "empty.odt")
         fname, fresult = self.generate_names()
-        print "AfpDialog_DiReport.generate_Ausgabe:", fname, fresult
+        #print "AfpDialog_DiReport.generate_Ausgabe:", fname, fresult
         if fresult:
             out = AfpAusgabe(self.debug, self.data)
             out.inflate(fname)
@@ -412,7 +412,7 @@ class AfpDialog_DiReport(wx.Dialog):
                     template = Afp_addRootpath(self.globals.get_value("antiquedir"), template)
                 else:
                     template = Afp_addRootpath(self.globals.get_value("archivdir"), template)
-            print "AfpDialog_DiReport.get_template_name:", template, self.major_type, self.reportlist[index]
+            #print "AfpDialog_DiReport.get_template_name:", template, self.major_type, self.reportlist[index]
         return template
     ## generate result filename due to list selection
     def get_result_name(self):
@@ -422,7 +422,7 @@ class AfpDialog_DiReport(wx.Dialog):
         if index >= 0 and self.reportflag[index]:
             if archiv:
                 max = 0
-                print "AfpDialog_DiReport.get_result_name:", self.reportlist
+                #print "AfpDialog_DiReport.get_result_name:", self.reportlist
                 for entry in self.reportlist:
                     if entry and "." in entry:
                         split = entry.split(".")
@@ -469,18 +469,18 @@ class AfpDialog_DiReport(wx.Dialog):
     ## Eventhandler left mouse click in list selection
     # @param event - event which initiated this action
     def On_Rep_Click(self,event):
-        print "Event handler `On_Rep_Click' not implemented!"
+        print "AfpDialog_DiReport Event handler `On_Rep_Click' not implemented!"
         event.Skip()
     ## Eventhandler left mouse doubleclick in list selection
     # @param event - event which initiated this action
     def On_Rep_DClick(self,event):
-        if self.debug: print "Event handler `On_Rep_DClick'"
+        if self.debug: print "AfpDialog_DiReport Event handler `On_Rep_DClick'"
         self.On_Rep_Ok()
         event.Skip()
     ## Eventhandler BUTTON - Edit button pushed
     # @param event - event which initiated this action
     def On_Rep_Bearbeiten(self,event):
-        if self.debug: print "Event handler `On_Rep_Bearbeiten'"      
+        if self.debug: print "AfpDialog_DiReport Event handler `On_Rep_Bearbeiten'"      
         template = self.get_template_name()
         choice = self.choice_Bearbeiten.GetStringSelection()
         list_Report_index = self.list_Report.GetSelection()
@@ -536,13 +536,13 @@ class AfpDialog_DiReport(wx.Dialog):
     ## Eventhandler BUTTON - Cancel button pushed
     # @param event - event which initiated this action
     def On_Rep_Abbr(self,event):
-        if self.debug: print "Event handler `On_Rep_Abbr'"
+        if self.debug: print "AfpDialog_DiReport Event handler `On_Rep_Abbr'"
         self.EndModal(wx.ID_CANCEL)
         event.Skip()
     ## Eventhandler BUTTON - Ok button pushed
     # @param event - event which initiated this action
     def On_Rep_Ok(self,event=None):
-        if self.debug: print "Event handler `On_Rep_Ok'"
+        if self.debug: print "AfpDialog_DiReport Event handler `On_Rep_Ok'"
         self.archivname = None
         if self.datas:
             for data in self.datas:
@@ -639,7 +639,7 @@ class AfpDialog_editArchiv(AfpDialog):
                         fresult = entry[2]  + "_" + self.data.get_string_value() + "_" + postfix + "_" + null + str(max) + "." + ext 
                         fpath = Afp_addRootpath(self.data.get_globals().get_value("archivdir"), fresult)
                         if self.debug: print "AfpDialog_editArchiv.execute_Ok copy file:", fname, "to",  fpath
-                        print "AfpDialog_editArchiv.execute_Ok copy file:", fname, "to",  fpath
+                        #print "AfpDialog_editArchiv.execute_Ok copy file:", fname, "to",  fpath
                         Afp_copyFile(fname, fpath)
                         added = {"Datum": entry[0], "Art": entry[1], "Typ": entry[2], "Gruppe": entry[3], "Bem": entry[4], "Extern": fresult}
                         added["KundenNr"] = self.data.get_value("KundenNr")
@@ -681,7 +681,7 @@ class AfpDialog_editArchiv(AfpDialog):
             for row in self.added:
                 liste.append(Afp_ArraytoLine(row, " ", 5))
         self.list_Archiv.Clear()
-        self.list_Archiv.InsertItems(liste, 0)
+        if liste: self.list_Archiv.InsertItems(liste, 0)
     ## overwritten routine for reloading data into display, \n
     # additional rows are deleted
     def re_load(self):
@@ -696,7 +696,7 @@ class AfpDialog_editArchiv(AfpDialog):
     ## Eventhandler DCLICK - list entry dselected
     # @param event - event which initiated this action
     def On_Archiv_edit(self, event):
-        if self.debug: print "Event handler `On_Archiv_edit'"
+        if self.debug: print "AfpDialog_editArchiv Event handler `On_Archiv_edit'"
         index = self.list_Archiv.GetSelections()[0] 
         row = self.data.get_value_rows("ARCHIV","Art,Typ,Gruppe,Bem", index)[0]
         row = Afp_ArraytoString(row)
@@ -730,7 +730,7 @@ class AfpDialog_editArchiv(AfpDialog):
     ## Eventhandler BUTTON - Add button pushed
     # @param event - event which initiated this action
     def On_Button_Add(self,event ):
-        if self.debug: print "Event handler `On_Button_Add'"
+        if self.debug: print "AfpDialog_editArchiv Event handler `On_Button_Add'"
         self.result = None
         dir = ""
         fname, ok = AfpReq_FileName(dir, "", "", True)
@@ -743,7 +743,6 @@ class AfpDialog_editArchiv(AfpDialog):
             self.Pop_Archiv()
         event.Skip()
 
- 
 ## loader routine for dialog editArchiv \n
 # @param data - given SelectionList, where archiv should be manipulated
 # @param label1 - text to be displayed in first line
@@ -755,5 +754,7 @@ def AfpLoad_editArchiv(data, label1, label2):
     if dialog.active():
         dialog.ShowModal()
         Ok = dialog.get_Ok()
+    else:
+        AfpReq_Info("Archiv für aktuelle Daten nicht aktiv".decode("UTF-8"),"oder keine Archiveinträge vorhanden!".decode("UTF-8"),"Archiv")
     dialog.Destroy()
     return Ok  

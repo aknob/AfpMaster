@@ -17,7 +17,7 @@
 #  AfpTechnologies (afptech.de)
 #
 #    BusAfp is a software to manage coach and travel acivities
-#    Copyright©  1989 - 2018  afptech.de (Andreas Knoblauch)
+#    Copyright© 1989 - 2019 afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -65,6 +65,7 @@ class AfpEvScreen_Tourist(AfpEvScreen):
         self.einsatz = None # to invoke import of 'Einsatz' modules in 'init_database'
         AfpEvScreen.__init__(self, debug)
         self.SetTitle("Afp Tourist")
+        self.grid_row_selected = None
         if self.debug: print "AfpEvScreen_Tourist Konstruktor"
     
     ## initialize widgets
@@ -251,7 +252,7 @@ class AfpEvScreen_Tourist(AfpEvScreen):
             else:
                 self.sb_an_filter = an_filter
                 self.sb.select_where(self.sb_an_filter, None, "ANMELD")   
-        print "AfpEvScreen_Tourist.set_client_filter EVENT:", self.sb_re_filter,"ANMELD:", self.sb_an_filter, "CURRENT RECORD:", self.sb.get_value()
+        #print "AfpEvScreen_Tourist.set_client_filter EVENT:", self.sb_re_filter,"ANMELD:", self.sb_an_filter, "CURRENT RECORD:", self.sb.get_value()
 
     ## Eventhandler BUTTON, MENU - tour operation
     def On_VehicleOperation(self,event):
@@ -259,7 +260,7 @@ class AfpEvScreen_Tourist(AfpEvScreen):
         Event = self.get_data(True)
         if not Event.is_new() and Event.is_own_tour():
             needed = AfpEvClient_checkVehicle(self.globals.get_mysql(), Event.get_string_value("Route"))
-            print "AfpEvScreen.On_VehicleOperation needed:", needed
+            #print "AfpEvScreen.On_VehicleOperation needed:", needed
             if needed and self.einsatz:
                 selection = Event.get_selection("EINSATZ")
                 ENr = None
@@ -271,7 +272,7 @@ class AfpEvScreen_Tourist(AfpEvScreen):
                     if New:
                         Einsatz = self.einsatz[1].AfpEinsatz(Event.get_globals(), None, None, Event.get_value("EventNr"), None, None)  
                         Einsatz.store()                    
-                        print "AfpEvScreen.On_VehicleOperation neuer Einsatz:", Einsatz
+                        #print "AfpEvScreen.On_VehicleOperation neuer Einsatz:", Einsatz
                         selection.reload_data()
                 if selection.get_data_length() > 0: 
                     if selection.get_data_length() > 1:
@@ -286,7 +287,7 @@ class AfpEvScreen_Tourist(AfpEvScreen):
                         ENr = selection.get_value("EinsatzNr")
                         Ok = True
                     if Ok: 
-                        print "AfpEvScreen.On_VehicleOperation EinsatzNr:", ENr
+                        #print "AfpEvScreen.On_VehicleOperation EinsatzNr:", ENr
                         Einsatz = self.einsatz[1].AfpEinsatz(Event.get_globals(), ENr)
                         Ok = self.einsatz[0].AfpLoad_DiEinsatz(Einsatz, New)
             else:
@@ -309,7 +310,7 @@ class AfpEvScreen_Tourist(AfpEvScreen):
               
     ## Eventhandler ListBox - double click ListBox 'Archiv'
     def On_DClick_Archiv(self, event):
-        if self.debug: print "Event handler `On_DClick_Archiv'", event
+        if self.debug: print "AfpEvScreen_Tourist Event handler `On_DClick_Archiv'", event
         rows = self.list_id["Archiv"]
         if rows:
             object = event.GetEventObject()
@@ -320,17 +321,17 @@ class AfpEvScreen_Tourist(AfpEvScreen):
                 if file:
                     filename = Afp_addRootpath(self.globals.get_value("archivdir"), file)
                     if not Afp_existsFile(filename):
-                        print "WARNING in AfpEvScreen: External file", filename, "does not exist, look in 'antiquedir'." 
+                        print "WARNING in AfpEvScreen_Tourist: External file", filename, "does not exist, look in 'antiquedir'." 
                         filename = Afp_addRootpath(self.globals.get_value("antiquedir"), file)
                     if Afp_existsFile(filename):
                         Afp_startFile(filename, self.globals, self.debug, True)
                     else:
-                        print "WARNING in AfpEvScreen: External file", filename, "does not exist!" 
+                        print "WARNING in AfpEvScreen_Tourist: External file", filename, "does not exist!" 
         event.Skip()
         
     ## Eventhandler Grid - double click Grid 'Customers'
     def On_DClick_Custs(self, event):
-        if self.debug: print "Event handler `On_DClick_Custs'", event
+        if self.debug: print "AfpEvScreen_Tourist Event handler `On_DClick_Custs'", event
         index = event.GetRow()
         ANr = Afp_fromString(self.grid_id["Customers"][index])
         if ANr:
@@ -339,7 +340,7 @@ class AfpEvScreen_Tourist(AfpEvScreen):
             self.load_direct(0, ANr)
             self.Reload()
             if col == 6:
-                print "AfpEvScreen.On_DClick_Custs last column selected"
+                #print "AfpEvScreen.On_DClick_Custs last column selected"
                 #text_g = self.grid_custs.getCellValue(index, col)
                 name = AfpAdresse(self.globals, self.sb.get_value("KundenNr.ANMELD")).get_name()
                 text = self.sb.get_value("Info.ANMELD")
@@ -357,18 +358,41 @@ class AfpEvScreen_Tourist(AfpEvScreen):
     # (overwritten from AfpScreen) 
     def load_additional_globals(self):
         self.globals.set_value(None, None, "Einsatz")
+        
+    ## set database to show indicated tour
+    # @param ENr - number of event 
+    # @param ANr - if given, will overwrite ENr, number of tourist entry (AnmeldNummer)
+    def load_direct(self, ENr, ANr = None):
+        index = self.combo_Sortierung.GetValue()  
+        if ANr:
+            #self.sb.set_debug()
+            self.sb_master = "ANMELD"
+            self.sb.CurrentIndexName("AnmeldNr","ANMELD")
+            self.sb.select_key(ANr,"AnmeldNr","ANMELD") 
+            #print "AfpEvScreen_Tourist.load_direct select key:", self.sb.get_value("AnmeldNr.ANMELD"), self.sb.get_value("EventNr.ANMELD")
+            ENr = self.sb.get_value("EventNr.ANMELD")
+            if self.combo_Sortierung.FindString("Anmeldung"):
+                self.combo_Sortierung.SetValue("Anmeldung")
+        elif self.combo_Sortierung.GetValue() == "Anmeldung":
+            self.combo_Sortierung.SetSelection(0)
+        self.sb.select_key(ENr,"EventNr","EVENT")
+        #print "AfpEvScreen_Tourist.load_direct:", ANr, ENr
+        self.On_Event_Index()
+        #print "AfpEvScreen_Tourist.load_direct Index set:", self.sb.get_value("AnmeldNr.ANMELD"), self.sb.get_value("EventNr.ANMELD")
+        self.set_current_record()
+        #print "AfpEvScreen_Tourist.load_direct current record:", self.sb.get_value("AnmeldNr.ANMELD"), self.sb.get_value("EventNr.ANMELD")
     ## set current record to be displayed 
     # (overwritten from AfpEvScreen - to allow depricated use of superbase) 
     def set_current_record(self):
         #self.data = self.get_data() 
         #return
         FNr = self.sb.get_value("EventNr")
-        print "AfpEvScreen.set_current_record initial:", FNr, self.sb.get_value("AnmeldNr.ANMELD"), self.sb.get_value("RechNr.ANMELD")
+        #print "AfpEvScreen_Tourist.set_current_record initial:", FNr, self.sb.get_value("AnmeldNr.ANMELD"), self.sb.get_value("RechNr.ANMELD")
         if self.sb_master == "ANMELD": slave = "EVENT"
         else: slave = "ANMELD"
         self.sb.select_key(FNr,"EventNr",slave)
         ANr = self.sb.get_value("AnmeldNr.ANMELD")    
-        print "AfpEvScreen.set_current_record ANr:", ANr, FNr, slave
+        #print "AfpEvScreen_Tourist.set_current_record ANr:", ANr, FNr, slave
         KNr = self.sb.get_value("KundenNr.ANMELD")      
         TNr = self.sb.get_value("Route.EVENT")      
         PNr = self.sb.get_value("PreisNr.ANMELD") 
@@ -383,7 +407,7 @@ class AfpEvScreen_Tourist(AfpEvScreen):
             nr = self.sb.get_value("PreisNr.PREISE")
             fnr = self.sb.get_value("EventNr.PREISE")
         if fnr != FNr: self.sb.select_key(FNr,"EventNr","PREISE")
-        print "AfpEvScreen.set_current_record Fahrt:", FNr,"Anmeld:",ANr,"Kunde:",KNr,"Tour:",TNr,"Preis:",PNr,nr
+        #print "AfpEvScreen_Tourist.set_current_record Fahrt:", FNr,"Anmeld:",ANr,"Kunde:",KNr,"Tour:",TNr,"Preis:",PNr,nr
         return 
         
     ## get names of database tables to be opened for this screen
@@ -411,7 +435,7 @@ class AfpEvScreen_Tourist(AfpEvScreen):
                 select =  "OrtsNr = " + tmp[-2]
                 ort = self.mysql.select_strings("Kennung", select,"TORT")
                 if not ort: ort = [["--"]]
-                #print "AfpEvScreen.get_grid_rows append:", name, ort, tmp
+                #print "AfpEvScreen_Tourist.get_grid_rows append:", name, ort, tmp
                 rows.append([name[0][0], name[0][1], tmp[0], ort[0][0]] + tmp[1:-2])
         return rows
 # end of class AfpEvScreen_Tourist

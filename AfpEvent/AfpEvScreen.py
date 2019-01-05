@@ -15,7 +15,7 @@
 #  AfpTechnologies (afptech.de)
 #
 #    BusAfp is a software to manage coach and travel acivities
-#    Copyright©  1989 - 2018  afptech.de (Andreas Knoblauch)
+#    Copyright© 1989 - 2019 afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -407,7 +407,7 @@ class AfpEvScreen(AfpScreen):
             else:
                 self.sb_an_filter = an_filter
                 self.sb.select_where(self.sb_an_filter, None, "ANMELD")   
-        print "AfpEvScreen.set_client_filter EVENT:", self.sb_re_filter,"ANMELD:", self.sb_an_filter, "CURRENT RECORD:", self.sb.get_value()
+        #print "AfpEvScreen.set_client_filter EVENT:", self.sb_re_filter,"ANMELD:", self.sb_an_filter, "CURRENT RECORD:", self.sb.get_value()
     ## return "ANMELD" filter clause from date filter
     def get_minor_date_filter(self):
         return self.sb_date_filter.replace("Beginn","Anmeldung")
@@ -415,7 +415,7 @@ class AfpEvScreen(AfpScreen):
     ## Eventhandler COMBOBOX - sort index
     def On_Event_Index(self, event = None):
         value = self.combo_Sortierung.GetValue()
-        if self.debug: print "Event handler `On_Event_Index'",value
+        if self.debug: print "AfpEvScreen Event handler `On_Event_Index'",value
         index = self.indexmap[value]
         if index == "RechNr": 
             master = "ANMELD"
@@ -436,23 +436,22 @@ class AfpEvScreen(AfpScreen):
 
     ## Eventhandler BUTTON - change address
     def On_Adresse_aendern(self,event):
-        if self.debug: print "Event handler `On_Adresse_aendern'"
-        print "Event handler `On_Adresse_aendern' not implemented!"
+        if self.debug: print "AfpEvScreen Event handler `On_Adresse_aendern'"
         changed = AfpLoad_DiAdEin_fromSb(self.globals, self.sb)
         if changed: self.Reload()
         event.Skip()
     
     ## Eventhandler BUTTON - proceed inquirery 
     def On_Event_Anfrage(self,event):
-        print "Event handler `On_Anfrage' not implemented!"
-        print "AfpEvScreen.On_Event_Anfrage globals:", self.globals.view()
+        print "AfpEvScreen Event handler `On_Anfrage' not implemented!"
+        #print "AfpEvScreen.On_Event_Anfrage globals:", self.globals.view()
         event.Skip()
       
     ## Eventhandler BUTTON - payment
     def On_Zahlung(self,event):
-        if self.debug: print "Event handler `On_Zahlung'"
+        if self.debug: print "AfpEvScreen Event handler `On_Zahlung'"
         Client = self.get_data(False)
-        print "AfpEvScreen.On_Zahlung:", Client.is_new()
+        #print "AfpEvScreen.On_Zahlung:", Client.is_new()
         if not Client.is_new():
             Ok, data = AfpLoad_DiFiZahl(Client,["RechNr","EventNr"])
             if Ok: 
@@ -463,7 +462,7 @@ class AfpEvScreen(AfpScreen):
 
     ## Eventhandler BUTTON - selection
     def On_Event_Ausw(self,event):
-        if self.debug: print "Event handler `On_Event_Ausw'"
+        if self.debug: print "AfpEvScreen Event handler `On_Event_Ausw'"
         #self.sb.set_debug()
         index = self.sb.identify_index().get_name()
         where = AfpSelectEnrich_dbname(self.sb.identify_index().get_where(), "EVENT")
@@ -479,7 +478,7 @@ class AfpEvScreen(AfpScreen):
             self.sb.set_index(index, "EVENT", "EventNr")  
             self.set_current_record()
             if self.sb.eof(): 
-                print "AfpEvScreen.On_Event_Ausw: remove date filter"
+                #print "AfpEvScreen.On_Event_Ausw: remove date filter"
                 self.combo_Jahr.SetValue("Alle")
                 self.set_jahr_filter()
                 self.sb.select_key(FNr, "EventNr", "EVENT")
@@ -491,8 +490,7 @@ class AfpEvScreen(AfpScreen):
 
     ## Eventhandler BUTTON, MENU - document generation
     def On_Listen_Ausgabe(self,event):
-        if self.debug and event: print "Event handler `On_Listen_Ausgabe'"
-        print "Event handler `On_Listen_Ausgabe' not implemented"
+        if self.debug and event: print "AfpEvScreen Event handler `On_Listen_Ausgabe'"
         Client = self.get_data(False)
         if not Client.is_new():
             prefix = "Event " + Client.get_string_value("Zustand").strip()
@@ -513,8 +511,8 @@ class AfpEvScreen(AfpScreen):
                 art = "Eigen"
             select = "Modul = \"Event\" AND Art = \"" + art + Client.get_string_value("Art.EVENT")+ "\" and Typ = \""  + Client.get_string_value("Zustand") + agent + "\""
             Client.get_selection("AUSGABE").load_data(select)
-            print "AfpEvScreen.On_Listen_Ausgabe:", header, prefix, archiv
-            Client.view()
+            #print "AfpEvScreen.On_Listen_Ausgabe:", header, prefix, archiv
+            #Client.view()
             AfpLoad_DiReport(Client, self.globals, header, prefix, archiv)
         if event:
             self.Reload()
@@ -524,8 +522,8 @@ class AfpEvScreen(AfpScreen):
     # skeletton handler, to be overwritten if tour opwerations are needed \n
     # - not really needed here - but kept als long als menu-entry holds a reference
     def On_VehicleOperation(self,event):
-        if self.debug: print "Event handler `On_VehicleOperation'"
-        AfpReq_Info("Für diese Veranstaltung" , "ist kein Einsatz möglich!".decode("UTF-8"))
+        if self.debug: print "AfpEvScreen Event handler `On_VehicleOperation'"
+        AfpReq_Info("Für diese Veranstaltung".decode("UTF-8") , "ist kein Einsatz möglich!".decode("UTF-8"))
         event.Skip()
 
     ## Eventhandler BUTTON, MENU - modify client entry \n
@@ -554,7 +552,7 @@ class AfpEvScreen(AfpScreen):
       
     ## Eventhandler Grid - double click Grid 'Customers'
     def On_DClick_Custs(self, event):
-        if self.debug: print "Event handler `On_DClick_Custs'"
+        if self.debug: print "AfpEvScreen Event handler `On_DClick_Custs'"
         self.On_Click_Custs(event)
         changed = AfpLoad_EvClientEdit_fromSb(self.globals, self.sb)
         self.grid_row_selected = True
@@ -563,9 +561,9 @@ class AfpEvScreen(AfpScreen):
         
     ## Eventhandler Grid - single click Grid 'Customers'
     def On_Click_Custs(self, event):
-        if self.debug: print "Event handler `On_Click_Custs'"
+        if self.debug: print "AfpEvScreen Event handler `On_Click_Custs'"
         index = event.GetRow()
-        print "AfpEvScreen.On_Click_Custs:", self.grid_id["Customers"], len(self.grid_id["Customers"]), index
+        #print "AfpEvScreen.On_Click_Custs:", self.grid_id["Customers"], len(self.grid_id["Customers"]), index
         if len(self.grid_id["Customers"]) > index:
             self.grid_row_selected = True
             ANr = Afp_fromString(self.grid_id["Customers"][index])
@@ -575,7 +573,7 @@ class AfpEvScreen(AfpScreen):
                 self.load_direct(0, ANr)
                 self.Reload()
                 if col == 6:
-                    print "AfpEvScreen.On_Click_Custs last column selected"
+                    #print "AfpEvScreen.On_Click_Custs last column selected"
                     #text_g = self.grid_custs.getCellValue(index, col)
                     name = AfpAdresse(self.globals, self.sb.get_value("KundenNr.ANMELD")).get_name()
                     text = self.sb.get_value("Info.ANMELD")
@@ -588,9 +586,9 @@ class AfpEvScreen(AfpScreen):
                         self.Reload()
         event.Skip()
       
-    ## Eventhandler MENU - copy charter entry \n
+    ## Eventhandler MENU - copy an event \n
     def On_MEvent_copy(self,event):   
-        print "AfpEvScreen Event handler `On_MEvent_copy' not needed!"
+        print "AfpEvScreen Event handler `On_MEvent_copy' not implemented!"
         event.Skip()  
    
     ## Eventhandler MENU - tourist seach via address 
@@ -614,7 +612,7 @@ class AfpEvScreen(AfpScreen):
                 else:
                     ANr = idents[0]
                     ok = True
-                print "AfpEvScreen.On_MAddress_search:", ANr, ok
+                #print "AfpEvScreen.On_MAddress_search:", ANr, ok
                 if ok:
                     self.load_direct(0, ANr)
                     self.Reload()
@@ -622,7 +620,7 @@ class AfpEvScreen(AfpScreen):
 
     ## Eventhandler MENU - tourist menu - not yet implemented!
     def On_MEvent(self, event):
-        print "Event handler `On_MEvent' not implemented!"
+        print "AfpEvScreen Event handler `On_MEvent' not implemented!"
         event.Skip()
 
     ## Eventhandler Resize - for test reasons
@@ -648,7 +646,7 @@ class AfpEvScreen(AfpScreen):
 
     ## set database to show indicated tour
     # @param ENr - number of event 
-    # @param ANr - if given, will overwrite ENr, number of tourist entry (AnmeldNummer)
+    # @param ANr - if given, will overwrite ENr, number of client entry (AnmeldNummer)
     def load_direct(self, ENr, ANr = None):
         index = self.combo_Sortierung.GetValue()  
         if ANr:
@@ -658,10 +656,6 @@ class AfpEvScreen(AfpScreen):
             self.sb.select_key(ANr,"AnmeldNr","ANMELD") 
             #print "AfpEvScreen.load_direct select key:", self.sb.get_value("AnmeldNr.ANMELD"), self.sb.get_value("EventNr.ANMELD")
             ENr = self.sb.get_value("EventNr.ANMELD")
-            if self.combo_Sortierung.FindString("Anmeldung"):
-                self.combo_Sortierung.SetValue("Anmeldung")
-        elif self.combo_Sortierung.GetValue() == "Anmeldung":
-            self.combo_Sortierung.SetSelection(0)
         self.sb.select_key(ENr,"EventNr","EVENT")
         #print "AfpEvScreen.load_direct:", ANr, ENr
         self.On_Event_Index()
@@ -675,6 +669,8 @@ class AfpEvScreen(AfpScreen):
     def get_data(self, event = None, complete = False):
         if event is None:
             event = self.sb_master == "EVENT"
+            if not self.grid_row_selected is None:
+                 event = not self.grid_row_selected
         if event:
             return  AfpEvent(self.globals, None, self.sb, self.sb.debug, complete)
         else:
@@ -684,9 +680,8 @@ class AfpEvScreen(AfpScreen):
     def set_current_record(self):
         self.data = self.get_data(True) 
         self.enable_tour_widgets()
-        if self.debug: 
-            print "AfpEvScreen.set_current_record: ",
-            self.data.view()
+        if self.debug: print "AfpEvScreen.set_current_record: ",
+        if self.debug: self.data.view()
         return
 
     ## set initial record to be shown, when screen opens the first time
@@ -704,7 +699,7 @@ class AfpEvScreen(AfpScreen):
         if ENr is None: ENr = 0
         # only for testing: in real life startdate  date + 14 should be selected
         if ENr == 0: ENr = 2213
-        print "AfpEvScreen.set_initial_record:", ENr, origin
+        #print "AfpEvScreen.set_initial_record:", ENr, origin
         if ENr:
             self.sb.select_key(ENr, "EventNr","EVENT")
             self.sb.set_index("Kennung","EVENT","EventNr")            
@@ -771,17 +766,18 @@ class AfpEvScreen(AfpScreen):
     # @param typ - name of grid to be populated
     def get_grid_rows(self, typ):
         rows = []
-        if self.debug: print "AfpEvScreen.get_grid_rows Population routine", typ
+        if self.debug: print "AfpEvScreen.get_grid_rows typ:", typ
         if typ == "Customers" and self.data:
             id_col = 5      
             tmps = self.data.get_value_rows("ANMELD","RechNr,Zahlung,Preis,Info,AnmeldNr,Ab,KundenNr")
-            print "AfpEvScreen.get_grid_rows tmps:", tmps  
-            for tmp in tmps:
-                adresse = AfpAdresse(self.globals, tmp[6])
-                ab = "" 
-                if self.data.has_route() and tmp[5]:
-                    print "AfpEvScreen.get_grid_rows data has route not implemented!"
-                rows.append([adresse.get_value("Vorname"), adresse.get_value("Name"), Afp_toString(tmp[0]), ab, Afp_toString(tmp[1]), Afp_toString(tmp[2]), Afp_toString(tmp[3])])
-        print "AfpEvScreen.get_grid_rows rows:", rows 
+            #print "AfpEvScreen.get_grid_rows tmps:", tmps
+            if tmps:			
+                for tmp in tmps:
+                    adresse = AfpAdresse(self.globals, tmp[6])
+                    ab = "" 
+                    if self.data.has_route() and tmp[5]:
+                        print "WARNING: AfpEvScreen.get_grid_rows data has route not implemented!"
+                    rows.append([adresse.get_value("Vorname"), adresse.get_value("Name"), Afp_toString(tmp[0]), ab, Afp_toString(tmp[1]), Afp_toString(tmp[2]), Afp_toString(tmp[3])])
+        if self.debug: print "AfpEvScreen.get_grid_rows rows:", rows 
         return rows
 # end of class AfpEvScreen

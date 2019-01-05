@@ -12,7 +12,7 @@
 #  AfpTechnologies (afptech.de)
 #
 #    BusAfp is a software to manage coach and travel acivities
-#    Copyright© 1989 - 2018  afptech.de (Andreas Knoblauch)
+#    Copyright© 1989 - 2019 afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -65,7 +65,7 @@ def AfpEv_selectLocation(afproute, typ = None, allow_new = True):
         list, idents = afproute.get_sorted_location_list(typ, allow_new)
         value, Ok = AfpReq_Selection("Bitte Ort auswählen".decode("UTF-8"), "an dem der Zustieg erfolgt.", list, "Zustiegsort".decode("UTF-8"), idents)
         if Ok and value == -11:
-            print "value = -11", allow_new
+            #print "AfpDialog_EvClientEdit.On_CBOrt value = -11", allow_new
             ort, ken = AfpTo_editLocation()
             if ort and ken: 
                 for i, entry in enumerate(list):
@@ -76,7 +76,7 @@ def AfpEv_selectLocation(afproute, typ = None, allow_new = True):
         if typ == "allNoRoute" and Ok and (value > 0 or (value == -11 and row)):
             ok2 = AfpReq_Question("Ausgewählten Ort in die Route aufnehmen?".decode("UTF-8"),"","Route")
             if ok2: add_to_route = True
-    print "AfpDialog_EvClientEdit.On_CBOrt Ok:", value, Ok
+    #print "AfpDialog_EvClientEdit.On_CBOrt Ok:", value, Ok
     if Ok and value > 0: # location in route selected
         row = afproute.get_location_data(value)
         if add_to_route: 
@@ -179,13 +179,13 @@ class AfpDialog_EvAusw(AfpDialog_Auswahl):
 def AfpLoad_EvAusw(globals, index, flavour = None, value = "", where = None, ask = False):
     result = None
     Ok = True
-    print "AfpLoad_EvAusw input:", index, value, where, ask
+    #print "AfpLoad_EvAusw input:", index, value, where, ask
     if ask:
         sort_list = AfpEvClient_getOrderlistOfTable(globals.get_mysql(), index)        
         if flavour == "Tourist": name = "Reise"
         else:  name = "Veranstaltungs"    
         value, index, Ok = Afp_autoEingabe(value, index, sort_list, name)
-        print "AfpLoad_EvAusw index:", index, value, Ok
+        #print "AfpLoad_EvAusw index:", index, value, Ok
     if Ok:
         DiAusw = AfpDialog_EvAusw(flavour)
         if flavour == "Tourist": text = "Bitte Reise auswählen:".decode("UTF-8")     
@@ -205,7 +205,6 @@ class AfpDialog_EventEdit(AfpDialog):
     def __init__(self, *args, **kw):   
         self.change_data = False
         AfpDialog.__init__(self,*args, **kw)
-        print "AfpDialog_EventEdit.init flavour:", self.flavour
         self.lock_data = True
         self.agent = None
         self.active = None
@@ -218,6 +217,7 @@ class AfpDialog_EventEdit(AfpDialog):
         self.SetTitle("Veranstaltung")
         if self.flavour == "Tourist": self.SetTitle("Reise")
         self.Bind(wx.EVT_ACTIVATE, self.On_Activate)
+        if self.debug: print "AfpDialog_EventEdit.init flavour:", self.flavour
         
     ## set up dialog widgets - overwritten from AfpDialog
     def InitWx(self):
@@ -272,7 +272,7 @@ class AfpDialog_EventEdit(AfpDialog):
         self.label_T_Agent = wx.StaticText(panel, -1, label="Agent:", pos=(16,190), size=(50,18), name="T_Agent")
         self.label_AgentName = wx.StaticText(panel, -1, label="", pos=(78,190), size=(198,30), name="AgentName")
         self.labelmap["AgentName"] = "AgentName.EVENT"
-        self.check_Kopie = wx.CheckBox(panel, -1, label="Kopie", pos=(10,226), size=(82,20), name="Kopie")
+        self.check_Kopie = wx.CheckBox(panel, -1, label="Kopie", pos=(10,226), size=(70,20), name="Kopie")
         self.button_Neu = wx.Button(panel, -1, label="&Neu", pos=(80,220), size=(90,30), name="Neu")
         self.Bind(wx.EVT_BUTTON, self.On_EVENT_Neu, self.button_Neu)
         self.button_Agent = wx.Button(panel, -1, label="&Agent", pos=(180,220), size=(90,30), name="Verst")
@@ -333,7 +333,9 @@ class AfpDialog_EventEdit(AfpDialog):
                 data["Art"] = "Event"
         if not "Personen" in data: data["Personen"] = 0
         if not "Beginn" in data: data["Beginn"] = self.globals.get_today()
-        if not "Kostenst" in data: data["Kostenst"] = "4711"
+        if not "Kostenst" in data:
+            if "Kennung" in data: data["Kostenst"] = Afp_intString(data["Kennung"])
+            else: data["Kostenst"] = "4711"
         if self.flavour == "Touristik":
             if not "Kennung" in data: 
                 data["Kennung"] = ""
@@ -345,6 +347,8 @@ class AfpDialog_EventEdit(AfpDialog):
                 month = Afp_toString(data["Beginn"].month)
                 if len(month) == 1: month = "0" + month
                 data["ErloesKt"] = "ERL" + month  # ErloesKt nicht nur für Touristik (verschiedene Möglichkeiten über globals?
+        else:
+            data["ErloesKt"] = "ERL"
         return data
         
     ## create a new route entry
@@ -431,11 +435,11 @@ class AfpDialog_EventEdit(AfpDialog):
         #value = self.data.get_string_value(self.choicemap["CArt"])
         #self.choice_Art.SetStringSelection(value)
         value = self.data.get_value(self.choicemap["COrt"])
-        print "AfpDialog_EventEdit.Pop_choice:", self.has_route, self.routenr, self.routes, value
+        #print "AfpDialog_EventEdit.Pop_choice:", self.has_route, self.routenr, self.routes, value
         if not self.has_route and self.routenr and value in self.routenr:
             self.choice_Ort.SetStringSelection(self.routes[self.routenr.index(value)])
         else:
-            print "AfpDialog_EventEdit.Pop_choice set selection:", Afp_toString(value)
+            #print "AfpDialog_EventEdit.Pop_choice set selection:", Afp_toString(value)
             self.choice_Ort.SetStringSelection(Afp_toString(value))
             
         # -> ersetze letzte Zuweisung
@@ -448,12 +452,13 @@ class AfpDialog_EventEdit(AfpDialog):
         liste = ["--- Neuen Preis hinzufügen ---".decode("UTF-8")]
         #print "AfpDialog_EventEdit.Pop_Preise:", rows
         self.maxPreis = 0
-        for row in rows:
-            if row[6] > self.maxPreis: self.maxPreis = row[6]
-            if row[5] == "Aufschlag": Plus = "+"
-            else: Plus = " "
-            if row[1] is None: row[1] = 0
-            liste.append(Plus + Afp_toFloatString(row[0]).rjust(10) + Afp_toString(row[1]).rjust(4) + Afp_toString(row[2]).rjust(3) + "  " + Afp_toString(row[3]))
+        if rows:
+            for row in rows:
+                if row[6] > self.maxPreis: self.maxPreis = row[6]
+                if row[5] == "Aufschlag": Plus = "+"
+                else: Plus = " "
+                if row[1] is None: row[1] = 0
+                liste.append(Plus + Afp_toFloatString(row[0]).rjust(10) + Afp_toString(row[1]).rjust(4) + Afp_toString(row[2]).rjust(3) + "  " + Afp_toString(row[3]))
         self.list_Preise.Clear()
         self.list_Preise.InsertItems(liste, 0)
         if not self.data.get_value("Route"):
@@ -462,21 +467,22 @@ class AfpDialog_EventEdit(AfpDialog):
     ## Eventhandler TEXT-KILLFOCUS - check date syntax 
     # @param event - event which initiated this action 
     def On_Check_Zeit2(self,event):
-        if self.debug: print "Event handler `On_Check_Ende'" 
+        if self.debug: print "AfpDialog_EventEdit Event handler `On_Check_Ende'" 
         if self.is_multidays:
             On_Check_Datum(event)
         else:
             object = event.GetEventObject()
             zeit = object.GetValue()
             time, days = Afp_ChZeit(zeit)
-            object.SetValue(time)
+            if time:
+                object.SetValue(time)
             self.On_KillFocus(event)
             event.Skip()
         
     ## Eventhandler TEXT-KILLFOCUS - check date syntax 
     # @param event - event which initiated this action 
     def On_Check_Datum(self,event):
-        if self.debug: print "Event handler `On_Check_Datum'" 
+        if self.debug: print "AfpDialog_EventEdit Event handler `On_Check_Datum'" 
         object = event.GetEventObject()
         datum = object.GetValue()
         date = Afp_ChDatum(datum)
@@ -487,7 +493,7 @@ class AfpDialog_EventEdit(AfpDialog):
     ## Eventhandler BUTTON - graphic pick for dates 
     # @param event - event which initiated this action   
     def On_Set_Datum(self,event = None):
-        if self.debug: print "Event handler `On_Set_Datum'"
+        if self.debug: print "AfpDialog_EventEdit Event handler `On_Set_Datum'"
         start = self.text_Datum.GetValue()
         if start: start = Afp_ChDatum(start)
         x, y = self.text_Datum.ScreenPosition
@@ -514,7 +520,7 @@ class AfpDialog_EventEdit(AfpDialog):
     ## Eventhandler BUTTON - select tour agent for not self organisied tours
     # @param event - event which initiated this action   
     def On_Agent(self,event):
-        if self.debug: print "Event handler `On_Agent'"
+        if self.debug: print "AfpDialog_EventEdit Event handler `On_Agent'"
         name = self.data.get_value("AgentName")
         if not name: name = "a"
         if self.data.is_tour():
@@ -526,7 +532,7 @@ class AfpDialog_EventEdit(AfpDialog):
         #self.data.globals.mysql.set_debug()
         KNr = AfpLoad_AdAusw(self.data.get_globals(),"ADRESATT","AttName",name, filter, text)
         #self.data.globals.mysql.unset_debug()
-        print "AfpDialog_EventEdit.On_Agent:", KNr
+        #print "AfpDialog_EventEdit.On_Agent:", KNr
         if KNr:
             self.agent = AfpAdresse(self.data.get_globals(),KNr)
             self.label_AgentName.SetLabel(self.agent.get_name())
@@ -537,7 +543,7 @@ class AfpDialog_EventEdit(AfpDialog):
     ## Eventhandler TEXT-KILLFOCUS - set 'Kst' from input for self organised tours 
     # @param event - event which initiated this action 
     def On_EVENT_setKenn(self,event):
-        if self.debug: print "Event handler `On_EVENT_setKenn'"
+        if self.debug: print "AfpDialog_EventEdit Event handler `On_EVENT_setKenn'"
         if not self.text_Kenn.GetValue() and self.text_Datum.GetValue():
             pre = self.data.get_globals().get_value("preset-event-identifier","Event")
             if pre:
@@ -550,7 +556,7 @@ class AfpDialog_EventEdit(AfpDialog):
     ## Eventhandler TEXT-KILLFOCUS - set 'Kst' from input for self organised tours 
     # @param event - event which initiated this action 
     def On_EVENT_setKst(self,event):
-        if self.debug: print "Event handler `On_EVENT_setKst'"
+        if self.debug: print "AfpDialog_EventEdit Event handler `On_EVENT_setKst'"
         if not "Kenn" in self.changed_text: self.changed_text.append("Kenn")
         nr = Afp_fromString(self.text_Kenn.GetValue())
         if nr and  Afp_isInteger(nr):
@@ -568,18 +574,14 @@ class AfpDialog_EventEdit(AfpDialog):
     ## Eventhandler LIST-DOUBLECLICK - modify selected price
     # @param event - event which initiated this action   
     def On_Preise(self,event):
-        if self.debug: print "Event handler `On_Preise'"
+        if self.debug: print "AfpDialog_EventEdit Event handler `On_Preise'"
         data = self.data
         Ok = True
         index = self.list_Preise.GetSelections()[0] - 1
         if index < 0: 
             index = None
         if Ok:
-            print "AfpDialog_EventEdit.On_Preise:", index
-            data.view()
             data = AfpLoad_EventPrices(data, index)
-            print "AfpDialog_EventEdit.On_Preise:", data
-            data.view()
             if data: 
                 self.data = data
                 self.change_data = True
@@ -589,7 +591,7 @@ class AfpDialog_EventEdit(AfpDialog):
     ## Eventhandler BUTTON - generate new tour entrys
     # @param event - event which initiated this action   
     def On_EVENT_Neu(self,event):
-        if self.debug: print "Event handler `On_EVENT_Neu'"
+        if self.debug: print "AfpDialog_EventEdit Event handler `On_EVENT_Neu'"
         copy = self.check_Kopie.GetValue()
         data = None
         if copy:
@@ -611,10 +613,10 @@ class AfpDialog_EventEdit(AfpDialog):
     ## Eventhandler BUTTON - change additional free text of tour
     # @param event - event which initiated this action   
     def On_EVENT_Text(self,event):
-        if self.debug: print "Event handler `On_EVENT_Text'"
+        if self.debug: print "AfpDialog_EventEdit Event handler `On_EVENT_Text'"
         oldtext = self.data.get_string_value("IntText.EVENT")
         text, ok = Afp_editExternText(oldtext, self.data.get_globals())
-        print "AfpDialog_EditEvent.On_EVENT_Text:",ok, text
+        #print "AfpDialog_EditEvent.On_EVENT_Text:",ok, text
         if ok: 
             self.data.set_value("IntText.EVENT", text)
             self.change_data = True
@@ -625,7 +627,7 @@ class AfpDialog_EventEdit(AfpDialog):
     ## Eventhandler CHOICE - enable/disable widgets according to choice value
     # @param event - event which initiated this action   
     def On_CArt(self,event):
-        if self.debug: print "Event handler `On_CArt'"
+        if self.debug: print "AfpDialog_EventEdit Event handler `On_CArt'"
         kind = self.choice_Art.GetStringSelection()
         self.data.set_value("Art", kind)
         self.change_data = True
@@ -636,7 +638,7 @@ class AfpDialog_EventEdit(AfpDialog):
     ## Eventhandler CHOICE - handle route selection
     # @param event - event which initiated this action   
     def On_COrt(self,event):
-        if self.debug: print "Event handler `On_COrt'"
+        if self.debug: print "AfpDialog_EventEdit Event handler `On_COrt'"
         sel = self.choice_Ort.GetCurrentSelection() 
         if sel: 
             self.route = self.routenr[sel-1]
@@ -647,7 +649,6 @@ class AfpDialog_EventEdit(AfpDialog):
     ## event handler when window is activated
     # @param event - event which initiated this action   
     def On_Activate(self,event):
-        #print "Event handler `On_Activate' not implemented"
         if self.active is None:
             if self.debug: print "AfpDialog_EventEdit Event handler `On_Activate'"
             self.active = True
@@ -836,7 +837,7 @@ class AfpDialog_EventPrices(AfpDialog):
     ##  Eventhandler BUTTON  delete current price from tour \n
     # @param event - event which initiated this action   
     def On_Preise_delete(self,event):
-        if self.debug: print "Event handler `On_Preise_delete'", self.index
+        if self.debug: print "AfpDialog_EventPrices Event handler `On_Preise_delete'", self.index
         self.data.delete_row("PREISE", self.index)
         self.Ok = True
         self.EndModal(wx.ID_OK)
@@ -845,13 +846,13 @@ class AfpDialog_EventPrices(AfpDialog):
     # - Aufschlag - is an addtional price
     # @param event - event which initiated this action   
     def On_CTyp(self,event):
-        if self.debug: print "Event handler `On_CTyp'"
+        if self.debug: print "AfpDialog_EventPrices Event handler `On_CTyp'"
         self.typ = self.choice_Typ.GetStringSelection()
         event.Skip()
     ##  Eventhandler CHECKBOX change tprovision typ of price \n
     # @param event - event which initiated this action   
     def On_CBNoPrv(self,event):
-        if self.debug: print "Event handler `On_CBNoPrv'"
+        if self.debug: print "AfpDialog_EventPrices Event handler `On_CBNoPrv'"
         self.noPrv = self.check_NoPrv.GetValue()
         event.Skip()
 
@@ -900,7 +901,7 @@ class AfpDialog_EvClientEdit(AfpDialog):
         self.label_Datum = wx.StaticText(panel, -1,  pos=(300,68), size=(80,18), name="Datum")
         self.labelmap["Datum"] = "Anmeldung.ANMELD"
         self.label_TFuer = wx.StaticText(panel, -1, label="für".decode("UTF-8"), pos=(12,90), size=(20,16), name="TFuer")
-        self.label_Bez = wx.StaticText(panel, -1, pos=(32,90), size=(180,34), name="Bez")
+        self.label_Bez = wx.StaticText(panel, -1, pos=(35,90), size=(180,34), name="Bez")
         self.labelmap["Bez"] = "Bez.EVENT"
         self.label_Buero = wx.StaticText(panel, -1, pos=(224,90), size=(156,34), style=wx.ST_NO_AUTORESIZE, name="Buero")
         self.labelmap["Buero"] = "Name.Agent"
@@ -997,7 +998,7 @@ class AfpDialog_EvClientEdit(AfpDialog):
     def store_data(self):
         self.Ok = False
         data = {}
-        print "AfpDialog_EvClientEdit.store_data changed_text:",self.changed_text
+        #print "AfpDialog_EvClientEdit.store_data changed_text:",self.changed_text
         for entry in self.changed_text:
             name, wert = self.Get_TextValue(entry)
             data[name] = wert
@@ -1012,8 +1013,8 @@ class AfpDialog_EvClientEdit(AfpDialog):
                 data["AgentName"] = None
         if self.zustand:
             data["Zustand"] = self.zustand
-        print "AfpDialog_EvClientEdit.store_data data:",self.new, self.change_preis, data
-        self.data.view()
+        #print "AfpDialog_EvClientEdit.store_data data:",self.new, self.change_preis, data
+        #self.data.view()
         if data or self.change_preis or self.new:
             if self.new:
                 data = self.complete_data(data)
@@ -1094,7 +1095,7 @@ class AfpDialog_EvClientEdit(AfpDialog):
     ## Eventhandler CHOICE - enable/disable widgets according to choice value
     # @param event - event which initiated this action   
     def On_CZustand(self,event):
-        if self.debug: print "Event handler `On_CZustand'"
+        if self.debug: print "AfpDialog_EvClientEdit Event handler `On_CZustand'"
         self.zustand = self.choice_Zustand.GetStringSelection()
         self.label_Zustand.SetLabel(self.zustand)
         self.choice_Zustand.SetSelection(0)
@@ -1103,10 +1104,10 @@ class AfpDialog_EvClientEdit(AfpDialog):
     ## event handler COMBOBOX - select location where to join tour
     # @param event - event which initiated this action   
     def On_CBOrt(self,event):
-        if self.debug: print "Event handler `On_CBOrt'"
+        if self.debug: print "AfpDialog_EvClientEdit Event handler `On_CBOrt'"
         select = self.combo_Ort.GetStringSelection()
         row = []
-        print "AfpDialog_EvClientEdit.On_CBOrt:", select
+        #print "AfpDialog_EvClientEdit.On_CBOrt:", select
         if select == self.route.get_spezial_text("raste"):
             row = AfpEv_selectLocation(self.route,"routeOnlyRaste")
         elif select == self.route.get_spezial_text("free"):
@@ -1122,12 +1123,11 @@ class AfpDialog_EvClientEdit(AfpDialog):
                 self.combo_Ort.SetValue(row[1] + " [" + row[2] + "]")
             else: # direct  selection
                 self.ort = self.ortsnr[self.orte.index(select)]
-        print "AfpDialog_EvClientEdit.On_CBOrt Ort:", self.ort
     ## event handler when window is activated
     # @param event - event which initiated this action   
     def On_Activate(self,event):
         if self.active is None:
-            if self.debug: print "Event handler `On_Activate'"
+            if self.debug: print "AfpDialog_EvClientEdit Event handler `On_Activate'"
             if self.route:
                 self.orte, self.ortsnr = self.route.get_sorted_location_list("routeNoRaste", True)
                 for ort in self.orte:
@@ -1137,7 +1137,7 @@ class AfpDialog_EvClientEdit(AfpDialog):
     ## Eventhandler LISTBOX: extra price is doubleclicked
     # @param event - event which initiated this action   
     def On_Anmeld_Preise(self,event):
-        if self.debug: print "Event handler `On_Anmeld_Preise'"
+        if self.debug: print "AfpDialog_EvClientEdit Event handler `On_Anmeld_Preise'"
         index = self.list_Preise.GetSelections()[0] - 2
         if index < 0: 
             #print "AfpDialog_EvClientEdit.On_Anmeld_Preise:", index
@@ -1147,7 +1147,7 @@ class AfpDialog_EvClientEdit(AfpDialog):
                 self.change_preis = True
         else:
             row = self.data.get_value_rows("AnmeldEx", "Preis,NoPrv", index)[0]
-            print "AfpDialog_EvClientEdit.On_Anmeld_Preise loeschen:", index, row
+            #print "AfpDialog_EvClientEdit.On_Anmeld_Preise loeschen:", index, row
             extra = row[0]
             noPrv = row[1]
             self.data.delete_row("AnmeldEx", index)
@@ -1263,7 +1263,7 @@ class AfpDialog_EvClientEdit(AfpDialog):
     ## Eventhandler LISTBOX: another EvClient entry is selected in same RechNr listbox
     # @param event - event which initiated this action   
     def On_Anmeld_Alle(self,event):
-        if self.debug: print "Event handler `On_Anmeld_Alle'"
+        if self.debug: print "AfpDialog_EvClientEdit Event handler `On_Anmeld_Alle'"
         index = self.list_Alle.GetSelections()[0]
         ANr = self.sameRechNr[index] 
         #print "AfpDialog_EvClientEdit.On_Anmeld_Alle Index:", index, self.data.get_value("AnmeldNr") , ANr
@@ -1277,7 +1277,7 @@ class AfpDialog_EvClientEdit(AfpDialog):
     ## Eventhandler BUTTON - select travel agency
     # @param event - event which initiated this action   
     def On_Agent(self,event):
-        if self.debug: print "Event handler `On_Agent'"
+        if self.debug: print "AfpDialog_EvClientEdit Event handler `On_Agent'"
         name = self.data.get_value("Name.Agent")
         if not name: name = "a"
         if self.data.event_is_tour():
@@ -1290,7 +1290,7 @@ class AfpDialog_EvClientEdit(AfpDialog):
         #self.data.globals.mysql.set_debug()
         KNr = AfpLoad_AdAusw(self.data.get_globals(), "ADRESATT", "AttName", name, filter.decode("UTF-8"), text.decode("UTF-8"))
         #self.data.globals.mysql.unset_debug()
-        print "AfpDialog_EvClientEdit.On_Agent:", KNr
+        #print "AfpDialog_EvClientEdit.On_Agent:", KNr
         changed = False
         if KNr:
             self.agent = AfpAdresse(self.data.get_globals(),KNr)
@@ -1313,14 +1313,14 @@ class AfpDialog_EvClientEdit(AfpDialog):
     # invokes the AfpDialog_DiAdEin dialog
     # @param event - event which initiated this action   
     def On_Adresse_aendern(self,event):
-        if self.debug: print "Event handler `On_Adresse_aendern'"
+        if self.debug: print "AfpDialog_EvClientEdit Event handler `On_Adresse_aendern'"
         KNr = self.data.get_value("KundenNr.ADRESSE")
         changed = AfpLoad_DiAdEin_fromKNr(self.data.get_globals(), KNr)
         if changed: self.Populate()
         event.Skip()
  
     def On_Anmeld_Neu(self,event):
-        if self.debug: print "Event handler `On_Anmeld_Neu'"
+        if self.debug: print "AfpDialog_EvClientEdit Event handler `On_Anmeld_Neu'"
         mehr = self.check_Mehrfach.GetValue()
         new_data = AfpEvClient_copy(self.data, mehr)
         if new_data:
@@ -1332,19 +1332,18 @@ class AfpDialog_EvClientEdit(AfpDialog):
         event.Skip()
 
     def On_Anmeld_Storno(self,event):
-        if self.debug: print "Event handler `On_Anmeld_Storno'"
+        if self.debug: print "AfpDialog_EvClientEdit Event handler `On_Anmeld_Storno'"
         Ok = AfpLoad_EvClientCancel(self.data)
         event.Skip()
         if Ok: self.EndModal(wx.ID_OK)
 
     def On_Zahlung(self,event):
-        print "Event handler `On_Zahlung' not implemented!"
-        if self.debug: print "Event handler `On_Zahlung'"
+        if self.debug: print "AfpDialog_EvClientEdit Event handler `On_Zahlung'"
         Ok, data = AfpLoad_DiFiZahl(self.data,["RechNr","EventNr"])
         if Ok: 
             self.change_data = True
             self.zahl_data = data
-            data.view() # for debug
+            #data.view() # for debug
             self.data = data.get_data()
             self.Populate()
             self.choice_Edit.SetSelection(1)
@@ -1626,7 +1625,7 @@ class AfpDialog_EvClientCancel(AfpDialog):
                     leftover = payment - charge
             data["ZahlDat"] = self.data.globals.today() 
         data["Zahlung"] = pay
-        print "AfpDialog_EvClientCancel.reset_payment:", charge,  leftover, pay  
+        if self.debug: print "AfpDialog_EvClientCancel.reset_payment:", charge,  leftover, pay  
         return data, leftover
     
     ## get values from line in 'mehrfach' list
@@ -1670,12 +1669,12 @@ class AfpDialog_EvClientCancel(AfpDialog):
     ## event handler when charge choice has been changed
     # @param event - event which initiated this action   
     def On_CStornoGeb(self, event):
-        if self.debug: print "Event handler `On_CStornoGeb'"
+        if self.debug: print "AfpDialog_EvClientCancel Event handler `On_CStornoGeb'"
         self.set_charge()
         event.Skip()
        
     def On_Storno_Mehr(self,event):
-        if self.debug: print "Event handler `On_Storno_Mehr'"
+        if self.debug: print "AfpDialog_EvClientCancel Event handler `On_Storno_Mehr'"
         index = self.list_Mehrfach.GetSelections()[0]
         if index == 0:
             AfpReq_Info("Referenzbuchung kann nicht markiert werden!","Bitte eine Buchung als Referenzbuchung auswählen, die storniert werden soll!".decode("UTF-8"))
@@ -1696,7 +1695,7 @@ class AfpDialog_EvClientCancel(AfpDialog):
         event.Skip()
 
     def On_Storno_Dat(self,event):
-        if self.debug: print "Event handler `On_Storno_Dat'"
+        if self.debug: print "AfpDialog_EvClientCancel Event handler `On_Storno_Dat'"
         object = event.GetEventObject()
         datum = object.GetValue()
         date = Afp_ChDatum(datum)
@@ -1706,7 +1705,7 @@ class AfpDialog_EvClientCancel(AfpDialog):
         event.Skip()
 
     def On_Umbuchung(self,event):
-        if self.debug: print "Event handler `On_Umbuchung'"
+        if self.debug: print "AfpDialog_EvClientCancel Event handler `On_Umbuchung'"
         globals = self.data.get_globals()
         start = Afp_addMonthToDate(globals.today(), 1, "-",1)
         where = "'Beginn' > \"" + Afp_toInternDateString(start) +"\""

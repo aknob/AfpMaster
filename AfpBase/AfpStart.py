@@ -3,7 +3,7 @@
 
 ## @package BusAfp
 # BusAfp is a software to manage coach and travel acivities \n
-#    Copyright© 1989 - 2018  afptech.de (Andreas Knoblauch) \n
+#    Copyright© 1989 - 2019  afptech.de (Andreas Knoblauch) \n
 # \n
 #   History: \n
 #        15 Nov. 2018 - set initial database name to product name - Andreas.Knoblauch@afptech.de \n
@@ -19,7 +19,7 @@
 #  AfpTechnologies (afptech.de)
 #
 #    BusAfp is a software to manage coach and travel acivities
-#    Copyright© 1989 - 2018  afptech.de (Andreas Knoblauch)
+#    Copyright© 1989 - 2019 afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -92,9 +92,9 @@ class AfpMainApp(wx.App):
         description = None
         picture = None
         website = "http://www.afptech.de"
-        baseversion = "6.0.2 alpha"       
+        baseversion = "6.1.1 beta"       
         version = baseversion    
-        copyright = 'Copyright (C) 1989 - 2018  AfpTech.de'
+        copyright = 'Copyright (C) 1989 - 2019  AfpTech.de'
         moduls = ["Adresse"]
         if info:
             name = info.get_name()
@@ -112,7 +112,7 @@ class AfpMainApp(wx.App):
         rechtssichere englische Version:
         
         """.decode("UTF-8") + name + """ is a software to manage coach and travel acivities
-         Copyright© 1989 - 2018  afptech.de (Andreas Knoblauch)
+         Copyright© 1989 - 2019  afptech.de (Andreas Knoblauch)
 
          This program is free software: you can redistribute it and/or modify
          it under the terms of the GNU General Public License as published by
@@ -146,7 +146,7 @@ class AfpMainApp(wx.App):
         self.globals.set_infos(version, baseversion, copyright, website, description, license, picture, developers)
         if config: self.globals.set_configuration(config)
         if mysql.database_created(): AfpBaseRoutines.Afp_verifyDatabase(self.globals, True)
-        wx.InitAllImageHandlers()
+        #wx.InitAllImageHandlers() # deprecated function, obvoiusly not needed here
     
     ## load appropriate modul     
     # @param modulname - afp-modul name to be loaded

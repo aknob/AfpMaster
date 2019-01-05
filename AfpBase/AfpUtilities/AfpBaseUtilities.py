@@ -15,7 +15,7 @@
 #  AfpTechnologies (afptech.de)
 #
 #    BusAfp is a software to manage coach and travel acivities
-#    Copyright© 1989 - 2016  afptech.de (Andreas Knoblauch)
+#    Copyright© 1989 - 2019  afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -43,7 +43,7 @@ import glob
 # for email sending
 import smtplib
 from email.mime.text import MIMEText
-from email.MIMEMultipart import MIMEMultipart
+from email.mime.multipart import MIMEMultipart
 from email.MIMEBase import MIMEBase
 from email.utils import formatdate
 from email import Encoders
@@ -335,25 +335,26 @@ def AfpPy_checkModule(modul):
 # @param modul - name of modul to be imported
 # @param path - path to modul to be imported
 def AfpPy_Import(modul, path=None):
-    # path = None: to load standard modul not implemented/tested yet
     mod = None
     pathname = None
+    #print "AfpPy_Import wanted:", modul, path
     try:
         return sys.modules[modul]
     except KeyError:
         pass
     try:
-        #print "AfpPy_Import:", modul, path
+        #print "AfpPy_Import find:", modul, path
         if path:
             fp, pathname, description = imp.find_module(modul, [path])
         else:
             fp, pathname, description = imp.find_module(modul)
-        #print "AfpPy_Import:", fp, pathname, description
+        #print "AfpPy_Import load:", fp, pathname, description
         mod = imp.load_module(modul, fp, pathname, description)   
     except:
-         print "ERROR: dynamic modul " + modul + " not found!"
-         if pathname and Afp_existsFile(pathname):
-             print "File \"" + pathname + "\" exists, propably a syntax problem."
+        if path:
+            print "ERROR: dynamic modul " + modul + " not found!"
+            if pathname and Afp_existsFile(pathname):
+                print "WARNING: File \"" + pathname + "\" exists, propably a syntax problem."
     return mod
 
 ## import data of extern file and return it
@@ -436,7 +437,6 @@ def Afp_getMaxOfColumn(matrix, col=3):
         if len(row) > col and row[col]:
             if Max is None or row[col] > Max:
                 Max = row[col]
-    print "Afp_getMaxOfColumn:", Max, matrix, col
     return Max
 ## deep copy of an array (list)
 # @param array - array to be copied
@@ -653,7 +653,7 @@ def Afp_sendOverSMTP(sender, recipients, subject, message, html_message, attachm
             text += " html-message body"
         if text[-1] == ",": text = text[:-1]
         text += " delivered!"
-        print "WARNING Afp_sendOverSMTP Mail not send due to the lack of input!", text
+        print "WARNING: Afp_sendOverSMTP Mail not send due to the lack of input!", text
         
 ##   class to hold cached database requests for multiple use
 class AfpArrayCache(object):

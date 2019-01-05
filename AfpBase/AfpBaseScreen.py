@@ -14,7 +14,7 @@
 #  AfpTechnologies (afptech.de)
 #
 #    BusAfp is a software to manage coach and travel acivities
-#    Copyright© 1989 - 2018  afptech.de (Andreas Knoblauch)
+#    Copyright© 1989 - 2019 afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -141,7 +141,7 @@ class AfpScreen(wx.Frame):
         # set background if necessary
         if self.globals.os_is_windows():
             self.SetBackgroundColour(self.windowsbackgroundcolor)
-            print "AfpScreen.init_database Windows Background set:", self.windowsbackgroundcolor
+            #print "AfpScreen.init_database Windows Background set:", self.windowsbackgroundcolor
             for entry in self.grid_minrows:
                 self.grid_minrows[entry] =  int(1.4 * self.grid_minrows[entry])
                 
@@ -204,11 +204,11 @@ class AfpScreen(wx.Frame):
                     for mod in modules:
                         self.button_modules[mod] = wx.Button(self, -1, label=mod, size=(75,30), name="B"+ mod)
                         self.Bind(wx.EVT_BUTTON, self.On_ScreenButton, self.button_modules[mod])
-                        print "AfpBaseScreen.create_modul_buttons:", mod, self.typ, self.flavour
+                        #print "AfpBaseScreen.create_modul_buttons:", mod, self.typ, self.flavour
                         if mod == self.typ or mod == self.flavour:
-                            self.button_modules[mod] .SetBackgroundColour(self.actuelbuttoncolor)
+                            self.button_modules[mod].SetBackgroundColour(self.actuelbuttoncolor)
                         else:
-                            self.button_modules[mod] .SetBackgroundColour(self.buttoncolor)
+                            self.button_modules[mod].SetBackgroundColour(self.buttoncolor)
                         self.modul_button_sizer.AddSpacer(10)
                         self.modul_button_sizer.Add(self.button_modules[mod] ,0,wx.EXPAND)
             self.SetSizerAndFit(self.sizer)
@@ -221,11 +221,11 @@ class AfpScreen(wx.Frame):
                     self.button_modules[mod] = wx.Button(self.panel, -1, label=mod, pos=(35 + cnt*80,10), size=(75,30), name="B"+ mod)
                     self.Bind(wx.EVT_BUTTON, self.On_ScreenButton, self.button_modules[mod])
                     cnt += 1
-                    print "AfpBaseScreen.create_modul_buttons:", mod, self.typ, self.flavour
+                    #print "AfpBaseScreen.create_modul_buttons:", mod, self.typ, self.flavour
                     if mod == self.typ or mod == self.flavour:
-                        self.button_modules[mod] .SetBackgroundColour(self.actuelbuttoncolor)
+                        self.button_modules[mod].SetBackgroundColour(self.actuelbuttoncolor)
                     else:
-                        self.button_modules[mod] .SetBackgroundColour(self.buttoncolor)
+                        self.button_modules[mod].SetBackgroundColour(self.buttoncolor)
 
     ## resize grid rows - only needed, if grid should be exactly filled up with rows
     # @param name - name of grid
@@ -313,7 +313,6 @@ class AfpScreen(wx.Frame):
    ## Eventhandler Menu - select and start additional programs
     def On_ScreenZusatz(self, event):
         if self.debug: print "AfpScreen Event handler `On_ScreenZusatz'!"
-        print "AfpScreen Event handler `On_ScreenZusatz' not implemented!"
         fname, ok = AfpReq_extraProgram(self.globals.get_value("extradir"), self.typ)
         if ok and fname:
             Afp_startExtraProgram(fname, self.globals, self.debug)
@@ -554,9 +553,9 @@ def Afp_loadScreen(globals, modulname, sb = None, origin = None, pos = None):
         modname = "Afp" + name + "." + screen + flavour
         #print "Afp_loadScreen:", modname
         pyModul =  Afp_importPyModul(modname, globals)
-        print "Afp_loadScreen pyModul:", pyModul
+        #print "Afp_loadScreen pyModul:", pyModul
         pyBefehl = "Modul = pyModul." + screen + flavour + "()"
-        print "Afp_loadScreen Modul:", pyBefehl
+        #print "Afp_loadScreen Modul:", pyBefehl
         exec pyBefehl
     if Modul:
         if pos:
@@ -650,7 +649,7 @@ class AfpEditScreen(AfpScreen):
     # @param store - flag if data should be stored during leaving the modus, default: True
     def leave_editmodus(self, store=True):
         if  self.is_editable() :
-            print "AfpEditScreen.leave_editmodus ReadOnly:", self.is_editable(), store
+            if self.debug: print "AfpEditScreen.leave_editmodus ReadOnly:", self.is_editable(), store
             checked = None
             if store:
                 checked = self.check_data()
@@ -670,7 +669,7 @@ class AfpEditScreen(AfpScreen):
             if self.editable_rows:
                 self.select_row(self.editable_rows)
             self.panel.Refresh()
-            print "AfpEditScreen.invoke_editmodus Edit:", self.is_editable()
+            if self.debug: print "AfpEditScreen.invoke_editmodus Edit:", self.is_editable()
             self.data.lock_data()
             self.edit_data()
     ## resize grid rows - overwritten from AfpScreen
@@ -741,54 +740,53 @@ class AfpEditScreen(AfpScreen):
         if keycode == wx.WXK_SPACE:
             if self.is_editable():
                 if not self.selected_row is None:
-                    print "AfpEditScreen.editable_keydown deselect row"
+                    if self.debug: print "AfpEditScreen.editable_keydown deselect row"
                     self.select_row(-1)
                 else:
                     #self.data.lock_data()
-                    print "AfpEditScreen.editable_keydown lock edit"
+                    if self.debug: print "AfpEditScreen.editable_keydown lock edit"
                     self.edit_data()
             else:
-                print "AfpEditScreen.editable_keydown invoke editmodus"
+                if self.debug: print "AfpEditScreen.editable_keydown invoke editmodus"
                 self.invoke_editmodus()
             caught = True
         elif keycode == wx.WXK_ESCAPE:
             if self.is_editable():
-                print "AfpEditScreen.editable_keydown unlock editmodus"
+                if self.debug: print "AfpEditScreen.editable_keydown unlock editmodus"
                 self.leave_editmodus(False)
             caught = True
         elif keycode == wx.WXK_RETURN:
             if self.is_editable() and not self.selected_row is None:
-                print "AfpEditScreen.editable_keydown edit row:", self.selected_row
+                if self.debug: print "AfpEditScreen.editable_keydown edit row:", self.selected_row
                 self.edit_data(self.selected_row)
             elif self.use_RETURN:
                 if self.is_editable():
-                    print "AfpEditScreen.editable_keydown leave editmodus"
+                    if self.debug: print "AfpEditScreen.editable_keydown leave editmodus"
                     self.leave_editmodus()
                 else:
-                    print "AfpEditScreen.editable_keydown invoke editmodus"
+                    if self.debug: print "AfpEditScreen.editable_keydown invoke editmodus"
                     self.invoke_editmodus()
             caught = True
         elif keycode == wx.WXK_DELETE:
-            print "AfpEditScreen.editable_keydown DELETE"
+            if self.debug: print "AfpEditScreen.editable_keydown DELETE"
             self.delete_row(self.selected_row)
             self.select_row(self.selected_row)
         elif keycode == wx.WXK_INSERT:
-            print "AfpEditScreen.editable_keydown INSERT"
+            if self.debug: print "AfpEditScreen.editable_keydown INSERT"
             self.insert_row(self.selected_row)
             self.select_row(self.selected_row)
         elif self.is_editable():
             if keycode == wx.WXK_DOWN: 
                 if not self.selected_row is None and self.selected_row < self.editable_rows: 
-                    print "AfpEditScreen.editable_keydown rows:", self.selected_row +1, self.editable_rows
+                    if self.debug: print "AfpEditScreen.editable_keydown rows:", self.selected_row +1, self.editable_rows
                     self.select_row(self.selected_row + 1)
                 caught = True
             elif keycode == wx.WXK_UP: 
                 if self.selected_row: 
-                    print "AfpEditScreen.editable_keydown rows:", self.selected_row - 1, self.editable_rows
+                    if self.debug: print "AfpEditScreen.editable_keydown rows:", self.selected_row - 1, self.editable_rows
                     self.select_row(self.selected_row - 1)
                 caught = True
         if self.debug: print "AfpEditScreen.editable_keydown:", keycode, caught
-        print "AfpEditScreen.editable_keydown:", keycode, caught
         return caught
              
     ## Eventhandler Grid - double click editable grid \n
@@ -796,20 +794,20 @@ class AfpEditScreen(AfpScreen):
     def On_LClick_EditGrid(self, event):
         if self.is_editable():
             row = event.GetRow()
-            print "Event handler `On_LClick_EditGrid' invoked", row
+            if self.debug: print "AfpEditScreen Event handler `On_LClick_EditGrid' invoked", row
             self.select_row(row)
         else:
-            print "Event handler `On_LClick_EditGrid'"
+            if self.debug: print "AfpEditScreen Event handler `On_LClick_EditGrid'"
     ## Eventhandler Grid - double click editable grid \n
     # has to be attached to editable grid in devired class
     def On_DClick_EditGrid(self, event):
         if self.is_editable():
-            print "Event handler `On_LClick_EditGrid' invoked"
+            if self.debug: print "AfpEditScreen Event handler `On_LClick_EditGrid' invoked"
             row = event.GetRow()
             if row <= self.editable_rows:
                 self.edit_data(row)
         else:
-            print "Event handler `On_LClick_EditGrid'"
+            if self.debug: print "AfpEditScreen Event handler `On_LClick_EditGrid'"
             
     ## Eventhandler BUTTON - swap editable modus \n
     # has to be attached to button_Edit if button is present
@@ -830,12 +828,12 @@ class AfpEditScreen(AfpScreen):
    # - False: user selects not to save data
    # - True: data has to be saved
     def check_data(self):
-        print "AfpEditScreen.check_data invoked" 
+        #print "AfpEditScreen.check_data invoked" 
         Ok = AfpReq_Question("Sollen die Daten so gespeichert werden?", "", "Daten speichern?")
         return Ok
     ## store data
     def store_data(self):
-        print "AfpEditScreen.store_data invoked" 
+        #print "AfpEditScreen.store_data invoked" 
         self.data.store()    
     # routines to be overwritten in devired class
     #

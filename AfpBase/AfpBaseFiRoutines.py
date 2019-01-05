@@ -14,7 +14,7 @@
 #  AfpTechnologies (afptech.de)
 #
 #    BusAfp is a software to manage coach and travel acivities
-#    Copyright (C) 1989 - 2015  afptech.de (Andreas Knoblauch)
+#    Copyright© 1989 - 2019 afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -77,7 +77,7 @@ class AfpZahlung(object):
             self.finance_modul = Afp_importAfpModul("Finance", self.globals)[0]
             if self.finance_modul:
                 self.finance = self.finance_modul.AfpFinanceTransactions(self.globals)
-        print "AfpZahlung.finance:", self.finance
+        #print "AfpZahlung.finance:", self.finance
         if self.debug: print "AfpZahlung Konstruktor:", multi
     ## destructor
     def __del__(self):    
@@ -150,17 +150,17 @@ class AfpZahlung(object):
         else:
             datum = self.globals.today()
         self.datum = datum
-        print "AfpZahlung.set_auszug:", self.auszug, self.datum
+        #print "AfpZahlung.set_auszug:", self.auszug, self.datum
     ## append given data to participate from this payment
     # @param data - SelectionList holding data for payment
     def append_payment_data(self, data):
         amount, partial, dummy = data.get_payment_values()
-        print "AfpZahlung.append_payment_data:", amount, partial, dummy
+        #print "AfpZahlung.append_payment_data:", amount, partial, dummy
         self.amount.append(amount)
         self.partial.append(partial)
         if self.partial[-1] is None: self.partial[-1] = 0.0      
         self.balance.append(int(100* (self.amount[-1] - self.partial[-1])))      
-        print "AfpZahlung.append_payment_data:", self.amount, self.partial, self.balance
+        #print "AfpZahlung.append_payment_data:", self.amount, self.partial, self.balance
     ## set values of partial payment in data, invoke financial transaction
     # @param index - index of payment part in selection list
     def set_payment_data(self, index):

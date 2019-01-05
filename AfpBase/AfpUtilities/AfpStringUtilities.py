@@ -15,7 +15,7 @@
 #  AfpTechnologies (afptech.de)
 #
 #    BusAfp is a software to manage coach and travel acivities
-#    Copyright (C) 1989 - 2015  afptech.de (Andreas Knoblauch)
+#    Copyright© 1989 - 2019 afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -658,7 +658,7 @@ def Afp_between(string, start, end):
             instrings.append(split[0])
             outstrings.append(split[1])
             if len(split)>2:
-                print "Afp_between: Assymetric ", start , end,  " pair in \"" + string +"\""
+                print "WARNING Afp_between: Assymetric ", start , end,  " pair in \"" + string +"\""
         else:
             outstrings.append(split[0])
     return instrings,outstrings

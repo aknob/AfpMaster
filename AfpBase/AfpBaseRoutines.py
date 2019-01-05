@@ -20,7 +20,7 @@
 #  AfpTechnologies (afptech.de)
 #
 #    BusAfp is a software to manage coach and travel acivities
-#    Copyright (C) 1989 - 2018  afptech.de (Andreas Knoblauch)
+#    Copyright© 1989 - 2019 afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -325,15 +325,20 @@ def Afp_startRoutine(globals, instring, debug = False):
 # @param modulname -  name of modul to be imported, in python modul syntax "package.modul"
 # @param globals - global variables including the path delimiter to be used for filesystem pathes
 def Afp_importPyModul(modulname, globals):
-    deli = globals.get_value("path-delimiter")
-    path = globals.get_programpath()
-    if not path[-1] == deli: path += deli
-    split = modulname.split(".")
-    modul = split[-1]
-    for i in range(len(split)-1):
-        path += split[i] + deli
-    if globals.is_debug(): print "Afp_importPyModul:", modulname, modul, path
-    return AfpPy_Import(modul, path)
+    debug = globals.is_debug()
+    if debug: print "Afp_importPyModul direct:", modulname
+    modul = AfpPy_Import(modulname)
+    if not modul:
+        deli = globals.get_value("path-delimiter")
+        path = globals.get_programpath()
+        if not path[-1] == deli: path += deli
+        split = modulname.split(".")
+        mod = split[-1]
+        for i in range(len(split)-1):
+            path += split[i] + deli
+        if debug: print "Afp_importPyModul dynamic:", modulname, mod, path
+        modul = AfpPy_Import(mod, path)
+    return modul
 ## dynamic import of 'Afp' modules,
 #  depending on the modul there are one to three pythonfiles to be imported
 # @param modulname - name of Afp-modul to be imported
@@ -405,7 +410,7 @@ def Afp_toDatetime(date, time, hightime = None):
 def Afp_getListe_fromTableSelection(table_sel, filter, ident, order = None, keep = None):
     attributs = table_sel.create_initialized_copy()
     attributs.load_data(filter, order)
-    print "Afp_getListe_fromTableSelection init:",  table_sel, table_sel.data, attributs, attributs.data
+    #print "Afp_getListe_fromTableSelection init:",  table_sel, table_sel.data, attributs, attributs.data
     if keep and not keep in attributs.get_feldnamen():
         keep = None
     manipulate = []
@@ -423,14 +428,14 @@ def Afp_getListe_fromTableSelection(table_sel, filter, ident, order = None, keep
                     if table_sel.get_values(ident, j) == attributs.get_values(ident, i):
                         manipulate.append([i - deleted, None])
                         deleted += 1
-    print "Afp_getListe_fromTableSelection:", manipulate
+    #print "Afp_getListe_fromTableSelection:", manipulate
     if manipulate:
         attributs.manipulate_data(manipulate)
     liste = []
     for i in range(attributs.get_data_length()):
         liste.append(attributs.get_values(ident, i)[0][0])
     # return a slice to be shown (liste) and the complete values (attributs.get_values()) for further use
-    print "Afp_getListe_fromTableSelection exit:",  table_sel, table_sel.data, attributs, attributs.data
+    #print "Afp_getListe_fromTableSelection exit:",  table_sel, table_sel.data, attributs, attributs.data
     return liste, attributs.get_values()
 
 # with database access
@@ -483,8 +488,7 @@ def Afp_verifyDatabase(globals, create = False):
     for tab in required:
         if required[tab]:
             needed.append(tab)        
-    if debug: 
-        print "Afp_verifyDatabase tables to be created:", needed
+    if debug: print "Afp_verifyDatabase tables to be created:", needed
     if create:
         for tab in required:
             if required[tab]:
@@ -814,6 +818,8 @@ class AfpSelectionList(object):
                 if len(sel_vals) > 2: unique = sel_vals[2]
                 #print "AfpSelectionList.constitute_selection:", sel_vals, unique
                 selection = AfpSQLTableSelection(self.mysql, sel_vals[0], self.debug, unique)
+            elif not sel_vals[0] in self.tables:
+                print "WARNING: AfpSelectionList.constitute_selection table not found:", selname, sel_vals[0], self.tables
         return selection  
     ## create selection - retrieve values from database
     # @param name - name of TableSelection
@@ -1142,7 +1148,7 @@ class AfpSelectionList(object):
                     value = victim.get_value(name)
                     if value:
                         self.set_value(name, value)
-                        print "AfpSelectionList.cannibalise step 1:", name, value
+                        if self.debug: print "AfpSelectionList.cannibalise step 1:", name, value
         if selnames:
             names = selnames
         else:
@@ -1156,7 +1162,7 @@ class AfpSelectionList(object):
                 # step 2: get complete data if both refer the same database table
                 if to_sel.get_tablename() == from_sel.get_tablename():
                     identic = True
-                    print "AfpSelectionList.cannibalise step 2:", name, identic
+                    if self.debug: print "AfpSelectionList.cannibalise step 2:", name, identic
                 else:
                     # step 3: get complete data if field names are identic
                     indices = Afp_findIndices(to_sel.get_feldnamen(), from_sel.get_feldnamen())
@@ -1164,7 +1170,7 @@ class AfpSelectionList(object):
                     for i in range(len(indices)):
                         if identic and i != indices[i]: 
                             identic = False
-                    print "AfpSelectionList.cannibalise step 3:", name, identic
+                    if self.debug: print "AfpSelectionList.cannibalise step 3:", name, identic
                 if identic:
                     # fulfill step 2 and 3 (cannibalise)
                     to_sel.set_data(from_sel.get_values())
@@ -1174,26 +1180,24 @@ class AfpSelectionList(object):
                 else:
                     # step 4: copy colums needed from data (fill new colums with 'None's)
                     data = Afp_getColumns(indices, from_sel.get_values())
-                    print "AfpSelectionList.cannibalise step 4:", name, indices, data
+                    if self.debug: print "AfpSelectionList.cannibalise step 4:", name, indices, data
                     to_sel.set_data(data)
     ## store complete SelectionList
     def store(self):
         self.store_preparation()
-        #print "AfpTableSelectionList.store()", self.mainselection
-        #print "AfpTableSelectionList.store() selections:", self.selections
         if self.mainselection:
             select = self.selections[self.mainselection]
-            print "AfpTableSelectionList.store mainselection:", self.mainselection
+            if self.debug: print "AfpTableSelectionList.store mainselection:", self.mainselection
             select.store()
             if self.new:
                 self.mainvalue = select.get_string_value(self.mainindex)
                 # spread mainvalue into selections
                 # self.spread_value()
                 self.spread_mainvalue()
-                print "AfpTableSelectionList.store new mainvalue spreaded to other selections:", self.mainvalue
+                if self.debug: print "AfpTableSelectionList.store new mainvalue spreaded to other selections:", self.mainvalue
         #print "AfpTableSelectionList.store() selections 2:", self.selections
         for sel in self.selections: 
-            print "AfpTableSelectionList.store:", sel,"ListNew:", self.new,"New:", self.selections[sel].new,"hasChanged:", self.selections[sel].has_changed(),"Select:", self.selections[sel].select,"\n", self.selections[sel].data
+            if self.debug: print "AfpTableSelectionList.store:", sel,"ListNew:", self.new,"New:", self.selections[sel].new,"hasChanged:", self.selections[sel].has_changed(),"Select:", self.selections[sel].select,"\n", self.selections[sel].data
             if not (sel == self.mainselection) and self.selections[sel].has_changed():
                 if self.selects[sel] == []:
                     self.spezial_save(sel)
@@ -1203,7 +1207,7 @@ class AfpSelectionList(object):
                 self.resample_value(sel)
         # second try to catch all spreaded values
         for sel in self.selections:
-            print "AfpTableSelectionList.store second try:",sel,"hasChanged:", self.selections[sel].has_changed() 
+            if self.debug: print "AfpTableSelectionList.store second try:",sel,"hasChanged:", self.selections[sel].has_changed() 
             if self.selections[sel].has_changed():
                 if self.selects[sel] == []:
                     self.spezial_save(sel)

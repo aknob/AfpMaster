@@ -13,7 +13,7 @@
 #  AfpTechnologies (afptech.de)
 #
 #    BusAfp is a software to manage coach and travel acivities
-#    Copyright© 1989 - 2016  afptech.de (Andreas Knoblauch)
+#    Copyright© 1989 - 2019 afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -72,7 +72,7 @@ def AfpEvClient_getAnmeldListOfAdresse(globals, knr):
             row += entry
             #print "AfpEvClient_getAnmeldListOfAdresse row:", row
             rows.append(row)
-    print "AfpEvClient_getAnmeldListOfAdresse rows:", rows, name
+    #print "AfpEvClient_getAnmeldListOfAdresse rows:", rows, name
     return rows, name  
 
 ## read all route names from table
@@ -226,8 +226,8 @@ class AfpEvent(AfpSelectionList):
             data["Bem"] = self.get_value("Bem")
         data["RechNr"] = 0
         data["Anmeldungen"] = 0
-        print "AfpEvent.set_new data:", data
-        print "AfpEvent.set_new keep:", keep
+        #print "AfpEvent.set_new data:", data
+        #print "AfpEvent.set_new keep:", keep
         self.clear_selections(keep)
         self.set_data_values(data,"EVENT")
     ## one line to hold all relevant values of this tour, to be displayed 
@@ -262,15 +262,16 @@ class AfpEvent(AfpSelectionList):
     ## set highest used pricenumber
     def set_maxPreisNr(self):
         sel = self.get_selection("PREISE")
-        for i in range(sel.get_data_length()):
-            PNr = sel.get_values("PreisNr", i)[0][0] 
-            if PNr > self.maxPreisNr:
-                self.maxPreisNr = PNr
+        if sel:
+            for i in range(sel.get_data_length()):
+                PNr = sel.get_values("PreisNr", i)[0][0] 
+                if PNr > self.maxPreisNr:
+                    self.maxPreisNr = PNr
     ## complete price entries in case new prices have been added
     def complete_Preise(self):
         ENr = self.get_value("EventNr")
         sel = self.get_selection("PREISE")
-        print "AfpEvent.complete_Preise:", self.maxPreisNr, sel.get_data_length()
+        #print "AfpEvent.complete_Preise:", self.maxPreisNr, sel.get_data_length()
         for i in range(sel.get_data_length()):
             if not sel.get_values("PreisNr", i)[0][0]: # if PreisNr is not yet set
                 self.maxPreisNr += 1
@@ -284,7 +285,7 @@ class AfpEvent(AfpSelectionList):
         if self.is_tour():
             return "Reise am "  +  self.get_string_value("Beginn") + " nach " + self.get_string_value("Bez")
         else:
-            return "Veranstaltung (" + +  self.get_string_value("Bez") + ") am "  +  self.get_string_value("Beginn") + " in " + self.get_string_value("Name.Ort")
+            return "Veranstaltung (" +  self.get_string_value("Bez") + ") am "  +  self.get_string_value("Beginn") + " in " + self.get_string_value("Name.Ort")
 
 ## baseclass for client handling         
 class AfpEvClient(AfpSelectionList):
@@ -348,7 +349,7 @@ class AfpEvClient(AfpSelectionList):
             self.finance_modul = Afp_importAfpModul("Finance", self.globals)[0]
             if self.finance_modul:
                 self.finance = self.finance_modul.AfpFinanceTransactions(self.globals)
-        print "AfpEvClient.finance:", self.finance
+        #print "AfpEvClient.finance:", self.finance
         if self.debug: print "AfpEvClient Konstruktor, AnmeldNr:", self.mainvalue
     ## destuctor
     def __del__(self):    
@@ -430,8 +431,8 @@ class AfpEvClient(AfpSelectionList):
                 data["Zustand"] = self.get_value("Zustand") 
         data["Zustand"] = AfpEvent_getTransactionList()[0]
         data["Anmeldung"] = self.globals.today()
-        print "AfpEvClient.set_new data:", data, EventNr, KundenNr
-        print "AfpEvClient.set_new keep:", keep
+        #print "AfpEvClient.set_new data:", data, EventNr, KundenNr
+        #print "AfpEvClient.set_new keep:", keep
         self.clear_selections(keep)
         self.set_data_values(data,"ANMELD")
         if keep_flag:
@@ -451,7 +452,7 @@ class AfpEvClient(AfpSelectionList):
     ## extract basic price
     def get_basic_price(self):
         liste = self.get_value_rows("PREISE","Preis,PreisNr,Typ")
-        print "AfpEvClient.get_basic_price:", liste
+        #print "AfpEvClient.get_basic_price:", liste
         for entry in liste:
             if entry[2] == "Grund":
                 return entry[0], entry[1]
@@ -466,14 +467,14 @@ class AfpEvClient(AfpSelectionList):
     def generate_RechNr(self):
         RechNr = None
         typ = self.get_RechNr_name()
-        print "AfpEvClient.generate_RechNr Typ:",typ
+        if self.debug: print "AfpEvClient.generate_RechNr Typ:",typ
         if typ == "RechNr.EVENT":
             self.lock_data("EVENT")
             Nr = self.get_value("RechNr.EVENT") + 1
             self.set_value("RechNr.EVENT", Nr)
             Kst = self.get_value("Kostenst.EVENT")
             RNr = Kst + float(Nr)/100
-            print "AfpEvClient.generate_RechNr RNr:", Kst, Nr, RNr
+            #print "AfpEvClient.generate_RechNr RNr:", Kst, Nr, RNr
             RechNr = Afp_toString(RNr)
         elif typ == "Nummer.ExternNr":
             ExternNr = AfpExternNr(self.data.get_globals(),"Monat", self.debug)
@@ -511,7 +512,7 @@ class AfpEvClient(AfpSelectionList):
             self.finance.add_financial_transactions(original, True)
     ## a separate invoice is created and filled with the appropriate values
     def add_invoice(self):
-        print "AfpEvClient.add_invoice"
+        if self.debug: print "AfpEvClient.add_invoice"
         invoice = AfpSQLTableSelection(self.get_mysql(), "RECHNG", self.debug, "RechNr")
         KNr = self.get_value("KundenNr")
         data = {"Datum": self.globals.today(), "KundenNr": KNr, "Name": self.get_name(True), "Anmeld": self.get_value("AnmeldNr")}
@@ -539,7 +540,7 @@ class AfpEvClient(AfpSelectionList):
         self.selections["RECHNG"] = invoice
     ## routine to hold separate invoice syncron to the actuel client values
     def syncronise_invoice(self):
-        print "AfpEvClient.syncronise_invoice"
+        if self.debug: print "AfpEvClient.syncronise_invoice"
         betrag = self.get_value("Preis")
         data = {}
         data["Zahlbetrag"] = betrag
@@ -594,7 +595,10 @@ class AfpEvClient(AfpSelectionList):
     ## return specific identification string to be used in dialogs \n
     # - overwritten from AfpSelectionList
     def get_identification_string(self):
-        return "Mietfahrt am "  +  self.get_string_value("Beginn") + " nach " + self.get_string_value("Ort")
+        if self.event_is_tour():
+            return "Anmeldung für Reise am ".decode("UTF-8")  +  self.get_string_value("Beginn.EVENT") + " nach " + self.get_string_value("Bez.EVENT")
+        else:
+            return "Anmeldung für die Veranstaltung '".decode("UTF-8") +  self.get_string_value("Bez.EVENT") + "' am "  +  self.get_string_value("Beginn.EVENT") + " in " + self.get_string_value("Name.Ort")
 
 ## baseclass for departure route handling  \n
 # not yet implemented completely, actually only used to retrieve route data!
@@ -834,7 +838,7 @@ class AfpEvRoute(AfpSelectionList):
             changed_data["Zeit"] = time
             changed_data["Preis"] = preis 
         self.set_location_data(changed_data, ortsnr)
-        print "AfpEvRoute.add_location_to_route:", ortsnr, time, preis
+        if self.debug: print "AfpEvRoute.add_location_to_route:", ortsnr, time, preis
     ## add location without adding route entry
     # @param ort - name of location
     # @param ken - short name of location ('Kennung')
@@ -845,7 +849,7 @@ class AfpEvRoute(AfpSelectionList):
             self.new_location = AfpSQLTableSelection(self.mysql, "TORT", self.debug, "OrtsNr", self.feldnamen_orte)
             self.new_location.new_data(False, True)
         self.new_location.set_data_values(changed_data)
-        print "AfpEvRoute.add_new_location:", ort, ken
+        #print "AfpEvRoute.add_new_location:", ort, ken
     ## add the identification number to the new location data
     # @param ortsnr - identification number
     def add_new_location_nr(self, ortsnr):
@@ -861,5 +865,5 @@ class AfpEvRoute(AfpSelectionList):
     def add_new_route_location(self, ort, ken, time = None, preis = None):
         self.add_new_location(ort, ken)
         self.add_location_to_route(None, time, preis)
-        print "AfpEvRoute.add_new_route_location"
+        #print "AfpEvRoute.add_new_route_location"
                 

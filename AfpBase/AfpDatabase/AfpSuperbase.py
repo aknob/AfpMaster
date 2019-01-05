@@ -26,7 +26,7 @@
 #  AfpTechnologies (afptech.de)
 #
 #    BusAfp is a software to manage coach and travel acivities
-#    Copyright (C) 1989 - 2015  afptech.de (Andreas Knoblauch)
+#    Copyright© 1989 - 2019 afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -382,7 +382,7 @@ class AfpSbIndex(object):
         values = []
         lgh = len(self.index_bez)
         indices = self.indexwert[:]
-        print "AfpSbIndex,gen_next_indexwert in:",self.indexwert, indices
+        #print "AfpSbIndex,gen_next_indexwert in:",self.indexwert, indices
         indices[lgh - 1] = ""
         if order == "DESC": unequal = "<"
         else:  unequal = ">"
@@ -413,7 +413,7 @@ class AfpSbIndex(object):
             self.indexoffset = None
             self.indexdups = None
             self.indexwert =  Afp_extractStringValues(None, indices, True)
-        print "AfpSbIndex,gen_next_indexwert out:",self.indexwert
+        #print "AfpSbIndex,gen_next_indexwert out:",self.indexwert
     def cached_select(self, Befehl):
         rows = None
         use_cache = False
@@ -573,7 +573,7 @@ class AfpSbIndex(object):
             #print "AfpSbIndex.select_plus_step Endoffile", self.endoffile, offset, rows
     def select_keywert(self, indexwert):
         if self.is_numeric() != Afp_isNumeric(indexwert): 
-            print "Warning: AfpSuperbase.select_keywert: FALSCHER EINGABETYP", Afp_isNumeric(indexwert)
+            print "WARNING: AfpSuperbase.select_keywert: FALSCHER EINGABETYP", Afp_isNumeric(indexwert)
             if self.debug: print self.datei, self.name, self.type, type(indexwert)
             if self.is_numeric(): 
                 if not indexwert: indexwert = 0
@@ -589,7 +589,7 @@ class AfpSbIndex(object):
         index_clause = self.gen_index_clause(False, False, indexwert) 
         while do_selection:        
             limit =  (" LIMIT 0,%d") % ident
-            print "AfpSbIndex.select_keywert where:", where_clause, "Index:", index_clause
+            #print "AfpSbIndex.select_keywert where:", where_clause, "Index:", index_clause
             Befehl = "SELECT * FROM " + self.db + "." + self.datei +" WHERE "+ where_clause + index_clause + limit
             if self.debug: print "AfpSbIndex.select_keywert:", Befehl
             self.db_cursor.execute (Befehl)
@@ -664,10 +664,10 @@ class AfpSbDatei(object):
         self.indexname = None
         self.CurrentIndex = None
         self.UniqueIndex = None
-        if self.debug: print "Superbase Datei Konstruktor",dateiname      
+        if self.debug: print "AfpSbDatei Konstruktor",dateiname      
         self.open()
     def __del__(self):
-        if self.debug: print "Superbase Datei Destruktor",self.name
+        if self.debug: print "AfpSbDatei Destruktor",self.name
     def open(self):
         name = self.name
         db = self.db
@@ -792,13 +792,13 @@ class AfpSbDatei(object):
             # Table Lock
             Befehl = "ROLLBACK;"
         # mysql statement will be executed here
-        if self.debug: print "set_lock ",typ, pure, commit, ": ",Befehl
+        if self.debug: print "AfpSbDatei.set_lock ",typ, pure, commit, ": ",Befehl
         res = 0
         if pure:
             res = self.db_cursor.execute(Befehl)
         else:
             res = self.db_cursor.execute(Befehl, Index.felder)
-        if uni and res != 1 and not typ == "freigeben": print "-- Fehler in Datenbankbefehl --", res
+        if uni and res != 1 and not typ == "freigeben": print "ERROR AfpSbDatei: Fehler in Datenbankbefehl!", res
         if post_exe:
             # write modification to database
             if commit: self.db_cursor.execute("COMMIT;")
@@ -874,22 +874,22 @@ class AfpSuperbase(object):
         self.dats = 0 
         self.CurrentFile = None
         self.selections = None
-        if self.debug: print "Superbase Konstruktor"
+        if self.debug: print "AfpSuperbase Konstruktor"
     ## destructor
     def __del__(self):
-        if self.debug: print "Superbase Destruktor"
+        if self.debug: print "AfpSuperbase Destruktor"
     ## method to switch debug on,
     # to allow debugging from a certain point in the programflow
     def set_debug(self):
         self.debug = True
-        print "AfpSuperbase: DEBUG flag set!"
+        if self.debug: print "AfpSuperbase: DEBUG flag set!"
         self.globals.get_mysql().set_debug()
         for dat in self.datei:
             dat.set_debug()
     ## method to switch debug off again
     def unset_debug(self):
+        if self.debug: print "AfpSuperbase: DEBUG flag removed!"
         self.debug = False
-        print "AfpSuperbase: DEBUG flag removed!"
         self.globals.get_mysql().unset_debug()
         for dat in self.datei:
             dat.unset_debug()
@@ -942,25 +942,25 @@ class AfpSuperbase(object):
     # @param dateiname - name of the table both indices belong to. None - actuel table is used
     # @param reference - indexname of index which points to target database entry. None - current index of table is used
     def set_index(self, syncronise=None, dateiname=None, reference=None):
-        if self.debug: print "SB: SET INDEX",syncronise,dateiname,reference
+        if self.debug: print "AfpSuperbase: SET INDEX",syncronise,dateiname,reference
         CurrentFile = self.identify_file(dateiname)
         CurrentFile.sync_index(syncronise, reference)
     ## set the actuel table 'Datei' object
     # @param dateiname - name of the table
     def CurrentFileName(self, dateiname):
-        if self.debug: print "SB: CurrentFileName",dateiname
+        if self.debug: print "AfpSuperbase: CurrentFileName",dateiname
         self.identify_file(dateiname, True)
     ## set the actuel index object
     # @param indexname - name of index
     # @param dateiname - name of the table, index belongs to.
     def CurrentIndexName(self, indexname, dateiname=None):
-        if self.debug: print "SB: CurrentIndexName", indexname, dateiname
+        if self.debug: print "AfpSuperbase: CurrentIndexName", indexname, dateiname
         self.identify_index(indexname, dateiname, True)
     ## set and reload the actuel or named index
     # @param indexname - name of index. None - the actuel index is used.
     # @param dateiname - name of the table, index belongs to. None - the actuel table is used.
     def select_current(self, indexname=None, dateiname=None):
-        if self.debug: print "SB: SELECT CURRENT" 
+        if self.debug: print "AfpSuperbase: SELECT CURRENT" 
         CurrentIndex = self.identify_index(indexname, dateiname)
         CurrentIndex.select_current()
         if CurrentIndex.eof():
@@ -969,28 +969,28 @@ class AfpSuperbase(object):
     # @param indexname - name of index. None - the actuel index is used.
     # @param dateiname - name of the table, index belongs to. None - the actuel table is used.
     def select_first(self, indexname=None, dateiname=None):
-        if self.debug: print "SB: SELECT FIRST"
+        if self.debug: print "AfpSuperbase: SELECT FIRST"
         CurrentIndex = self.identify_index(indexname, dateiname)
         CurrentIndex.select_first()
     ## set the actuel or named index to last database entry in order
     # @param indexname - name of index. None - the actuel index is used.
     # @param dateiname - name of the table, index belongs to. None - the actuel table is used.
     def select_last(self, indexname=None, dateiname=None):
-        if self.debug: print "SB: SELECT LAST"
+        if self.debug: print "AfpSuperbase: SELECT LAST"
         CurrentIndex = self.identify_index(indexname, dateiname)
         CurrentIndex.select_last()
     ## set the actuel or named index to previous database entry in order
     # @param indexname - name of index. None - the actuel index is used.
     # @param dateiname - name of the table, index belongs to. None - the actuel table is used.
     def select_previous(self, indexname=None, dateiname=None):
-        if self.debug: print "SB: SELECT PREVIOUS", dateiname, indexname
+        if self.debug: print "AfpSuperbase: SELECT PREVIOUS", dateiname, indexname
         CurrentIndex = self.identify_index(indexname, dateiname)
         CurrentIndex.select_previous()
     ## set the actuel or named index to next database entry in order
     # @param indexname - name of index. None - the actuel index is used.
     # @param dateiname - name of the table, index belongs to. None - the actuel table is used.
     def select_next(self, indexname=None, dateiname=None):
-        if self.debug: print "SB: SELECT NEXT", dateiname, indexname
+        if self.debug: print "AfpSuperbase: SELECT NEXT", dateiname, indexname
         CurrentIndex = self.identify_index(indexname, dateiname)
         CurrentIndex.select_next()
     ## set the actuel or named index to first database entry which matches the indicated keyword, \n
@@ -999,7 +999,7 @@ class AfpSuperbase(object):
     # @param indexname - name of index. None - the actuel index is used.
     # @param dateiname - name of the table, index belongs to. None - the actuel table is used.
     def select_key(self, wert, indexname=None, dateiname=None):
-        if self.debug: print "SB: SELECT KEY", wert, dateiname, indexname
+        if self.debug: print "AfpSuperbase: SELECT KEY", wert, dateiname, indexname
         CurrentIndex = self.identify_index(indexname, dateiname)
         CurrentIndex.select_key(wert)     
     ## set a filter on index, only database entries are accepted which match that filter, \n
@@ -1029,7 +1029,7 @@ class AfpSuperbase(object):
     # @param dateiname - name of the table, index belongs to. None - the actuel table is used.
     def eof(self, indexname=None, dateiname=None):  
         CurrentIndex = self.identify_index(indexname, dateiname)       
-        if self.debug: print "SB: EOF", dateiname, indexname, CurrentIndex.eof() 
+        if self.debug: print "AfpSuperbase: EOF", dateiname, indexname, CurrentIndex.eof() 
         return CurrentIndex.eof() 
     ## return flag if end of file is NOT reached in indexorder
     # @param indexname - name of index. None - the actuel index is used.

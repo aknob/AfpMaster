@@ -19,7 +19,7 @@
 #  AfpTechnologies (afptech.de)
 #
 #    BusAfp is a software to manage coach and travel acivities
-#    Copyright © 1989 - 2018  afptech.de (Andreas Knoblauch)
+#    Copyright© 1989 - 2019 afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -64,11 +64,11 @@ class AfpSQL(object):
             try:
                 self.execute("CREATE DATABASE " + self.dbname + ";")
                 self.execute("USE " + self.dbname + ";")
-                print "AfpSQL database created:", self.dbname
+                print "WARNING: AfpSQL database created:", self.dbname
             except  MySQLdb.Error, e:
                 print "ERROR %d in MySQL connection: %s" % (e.args[0], e.args[1])
                 if e.args[0] == 1044:
-                    print "MySQL-User has not the right privileges to create database! Please restart with administrative MySQL-User."
+                    print "ERROR: MySQL-User has not the right privileges to create database! Please restart with administrative MySQL-User."
                 sys.exit (1)
     ## destructor
     def __del__(self):
@@ -77,11 +77,11 @@ class AfpSQL(object):
         if self.debug: print "AfpSQL Destruktor"
     ## switch debug on
     def set_debug(self):
-        print "AfpSQL.set_debug()"
+        #print "AfpSQL.set_debug()"
         self.debug = True
     ## turn debug off
     def unset_debug(self):
-        print "AfpSQL.unset_debug()"
+        #print "AfpSQL.unset_debug()"
         self.debug = False
     ## create connection to mysql database 
     # @param sql_host, sql_user, sql_word, sql_db - host, user, password for connection, name of database
@@ -101,7 +101,7 @@ class AfpSQL(object):
                     connection = MySQLdb.connect (host = sql_host,
                                                   user = sql_user,
                                                   passwd = sql_word.decode("base64"))
-                    print "AfpSQL connect without database:", sql_host, sql_user
+                    print "WARNING: AfpSQL connect without database:", sql_host, sql_user
                     self.create_db = True
                 except MySQLdb.Error, e: 
                     print "ERROR %d in MySQL connection: %s" % (e.args[0], e.args[1])
@@ -310,7 +310,7 @@ class AfpSQL(object):
             self.write_delete(select_clause)
             split_dat = split_clause[1].split(" WHERE ")
             dateien = split_dat[0].split(",")
-            if len(dateien) > 1 : print "AfpSQL.write_no_unique: multiple tables not yet possible!"
+            if len(dateien) > 1 : print "WARNING: AfpSQL.write_no_unique: multiple tables not yet possible!"
             datei = dateien[0].split(" ")[0]
             self.write_insert(datei, felder, data)
     ## delete data from database
@@ -339,7 +339,7 @@ class AfpSQL(object):
             set_clause =    (" SET %(set)s WHERE ") %   {"set"  : ",".join( [str(i)+"=%s" for i in felder] ) }
             Befehl =  "UPDATE " + self.dbname + "." + datei +  set_clause + select +";" 
         else:
-            print "AfpSQL.write_update: length data does not match number of fields (", flen, ",", len(data), ")" 
+            print "WARNING: AfpSQL.write_update: length data does not match number of fields (", flen, ",", len(data), ")" 
         if not Befehl is None:
             if self.debug: print "AfpSQL.write_update:", Befehl, "DATA:", data
             self.db_cursor.execute (Befehl, data)
@@ -360,7 +360,7 @@ class AfpSQL(object):
                 self.db_cursor.execute (Befehl, datarow)
                 self.db_lastrowid = self.db_cursor.lastrowid
             else:
-                print "AfpSQL.write_insert: length data does not match number of fields (", flen, ",", len(datarow), ")" 
+                print "WARNING: AfpSQL.write_insert: length data does not match number of fields (", flen, ",", len(datarow), ")" 
         if not Befehl is None:
             self.db_cursor.execute("COMMIT;")
     ## direct execution of given mysql commands, retuns the returnvalue of the last command
@@ -473,7 +473,7 @@ class AfpSQLTableSelection(object):
         if self.last_inserted_id and feldname in self.feldnamen:
             index = self.feldnamen.index(feldname)
             self.data[row][index] = self.last_inserted_id
-            if self.dbg: print "set_last_inserted_id:", self.last_inserted_id, self.data[row][index], self.data
+            if self.dbg: print "AfpSQLTableSelection.set_last_inserted_id:", self.last_inserted_id, self.data[row][index], self.data
     ## sets the data column in last row to indicated select criteria
     def set_select_criteria(self):
         # feld [<>=] integer
@@ -487,24 +487,21 @@ class AfpSQLTableSelection(object):
     ## resets select criterium from last row
     def reset_select(self):
         if self.select:
-            print "AfpSQLTableSelection.reset_select select:", self.select
-            #print self.data
-            #self.select = "Tab = \"RECHNG\" AND TabNr = 11658"
             split = self.select.split(" ")
             last_index = self.get_data_length() - 1
             self.select = "" 
-            print "AfpSQLTableSelection.reset_select split:", split
+            #print "AfpSQLTableSelection.reset_select split:", split
             for i in range(0, len(split), 4):
                 if i: self.select += " " + split[i-1] + " "
                 feldname = split[i]
                 mask = split[i+2][0] == "\""
                 values = self.get_values(feldname, last_index)
-                print "AfpSQLTableSelection.reset_select mask:", i, feldname, last_index, mask, values
+                #print "AfpSQLTableSelection.reset_select mask:", i, feldname, last_index, mask, values
                 if values:
                     value = Afp_toString(values[0][0])
                     if mask: value = "\"" + value + "\""
                     self.select += feldname + " = " + value
-                    print "AfpSQLTableSelection.reset_select value:", value, self.select
+                    #print "AfpSQLTableSelection.reset_select value:", value, self.select
             if self.debug: print "AfpSQLTableSelection.reset_select:", self.select
     ## load data into TableSelection according to given select clause
     # @param select - select clause to identify desired data
@@ -535,9 +532,8 @@ class AfpSQLTableSelection(object):
     # @param data - data to be attached
     # @param select - select clause for this  data
     def set_data(self, data, select=None):
-        if self.dbg: print "AfpSQLTableSelection.set_data:", self.select, data
+        if self.dbg: print "AfpSQLTableSelection.set_data:", self.select, data, select
         if select: self.select = select
-        print "AfpSQLTableSelection.set_data select:", self.select
         if data is None:
             self.data = None
         else:

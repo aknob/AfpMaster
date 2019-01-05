@@ -16,7 +16,7 @@
 #  AfpTechnologies (afptech.de)
 #
 #    BusAfp is a software to manage coach and travel acivities
-#    Copyright (C) 1989 - 2015  afptech.de (Andreas Knoblauch)
+#    Copyright© 1989 - 2019 afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -35,7 +35,6 @@ import wx
 import wx.grid
 
 import AfpBase
-from AfpBase import *
 from AfpBase.AfpUtilities import *
 from AfpBase.AfpUtilities.AfpStringUtilities import Afp_MatrixSplitCol, AfpSelectEnrich_dbname, Afp_ArraytoString, Afp_toString
 from AfpBase.AfpUtilities.AfpBaseUtilities import Afp_existsFile
@@ -61,6 +60,7 @@ class AfpAdScreen(AfpScreen):
         self.archiv_rows = 10
         self.archiv_colnames = [["Datum","Art","Ablage","Fach","Bem."],["AnmeldNr","Datum","Veranstaltung","Preis","Zahlung"],["Zustand","Datum","Zielort","Art","Preis"],["RechNr","Datum","Text","Preis","Zahlung"],["RechNr","Datum","Text","Preis","Zahlung"],["Merkmal","Text","-","-","-"],["Name","Vorname","Strasse","Ort","Telefon"]]
         self.archiv_colname = self.archiv_colnames[0]
+        self.grid_cols["Archiv"] = 5
         # self properties
         self.SetTitle("Afp Adresse")
         self.SetSize((800, 600))
@@ -331,7 +331,7 @@ class AfpAdScreen(AfpScreen):
     ## Eventhandler RADIOBOX - only implemented to reset selection due to databas entry
     def On_CStatus(self, event):
         self.Pop_choice_status()
-        print "Event handler `On_CStatus' only implemented to reset selection!"
+        if self.debug: print "Event handler `On_CStatus' only implemented to reset selection!"
         event.Skip()
         
     ## Eventhandler MENU - add an enquirery - not yet implemented! \n

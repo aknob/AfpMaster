@@ -66,7 +66,7 @@ def AfpFinance_getSqlTables(flavour = None):
     ('BK',00001610,'Bank',0,'Bank'),
     ('ERL',00008100,'Erlöse',0,'System'),
     ('SKTO',00004201,'SkontoAufw',0,'System'),
-    ('DIVER',00010000,'Debitor',0,'Debitor')
+    ('DIVER',00010000,'Debitor',0,'Debitor'),
     ('DIVER',00070000,'Kreditor',0,'Kreditor');""".decode("UTF-8")
     # table for bank accunt reference
     required["AUSZUG"] = """ CREATE TABLE `AUSZUG` (
