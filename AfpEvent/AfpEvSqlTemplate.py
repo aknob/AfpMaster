@@ -110,7 +110,7 @@ def AfpEvent_getSqlTables(flavour = None):
   PRIMARY KEY (`AnmeldNr`),
   KEY `AnmeldNr` (`AnmeldNr`),
   KEY `KundenNr` (`KundenNr`),
-  KEY `FahrtNr` (`EventNr`),
+  KEY `EventNr` (`EventNr`),
   KEY `AgentNr` (`AgentNr`),
   KEY `RechNr` (`RechNr`(50)),
   KEY `Anmeldung` (`Anmeldung`),
@@ -207,6 +207,16 @@ def AfpEvent_getSqlTables(flavour = None):
         required["ADRESATT"] = """INSERT INTO `ADRESATT` VALUES 
     (0,NULL,'Reisebüro',NULL,NULL,NULL,'Provision,Reisebürokontierung'),
     (0,NULL,'Reiseveranstalter',NULL,NULL,NULL,'Provision,Veranstalterkontierung');""".decode("UTF-8")
+    elif flavour == "Verein":
+        # insert 'Event' output possibillities into 'AUSGABE' table
+        required["AUSGABE"] = """INSERT INTO `AUSGABE` VALUES 
+    (0,'Event','FremdVerein','Anmeldung','VereinAnmeld','Anmeldebestätigung',''),
+    (0,'Event','FremdVerein','Anmeldung','VereinMahn','Mahnung',''),
+    (0,'Event','FremdVerein','Anmeldung','VereinAnchreiben','Allgemeines Anschreiben',''),
+    (0,'Event','FremdVerein','Storno','VereinStorno','Austrittsbestätigung','');""".decode("UTF-8")
+        # insert 'Agent' attribut template into 'ADRESATT' table
+        required["ADRESATT"] = """INSERT INTO `ADRESATT` VALUES 
+    (0,NULL,'Verein',NULL,NULL,NULL,'Grundbeitrag');""".decode("UTF-8")
     else:
         # insert 'Event' output possibillities into 'AUSGABE' table
         required["AUSGABE"] = """INSERT INTO `AUSGABE` VALUES 

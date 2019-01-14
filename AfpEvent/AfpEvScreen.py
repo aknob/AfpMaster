@@ -324,7 +324,7 @@ class AfpEvScreen(AfpScreen):
                 value = ""
             else:
                 value = self.sb.get_string_value(self.textmap[entry])
-            #print "AfpEvScreen.Pop_text:", entry, value
+            #print "AfpEvScreen.Pop_text:", no_slave, entry, value, self.is_slave(self.textmap[entry])
             TextBox.SetValue(value)
  
     ## Eventhandler COMBOBOX - set date filter
@@ -682,6 +682,8 @@ class AfpEvScreen(AfpScreen):
         self.enable_tour_widgets()
         if self.debug: print "AfpEvScreen.set_current_record: ",
         if self.debug: self.data.view()
+        #print "AfpEvScreen.set_current_record: ",
+        #self.data.view()
         return
 
     ## set initial record to be shown, when screen opens the first time
@@ -698,7 +700,7 @@ class AfpEvScreen(AfpScreen):
             ENr = self.globals.get_value("EventNr", origin)
         if ENr is None: ENr = 0
         # only for testing: in real life startdate  date + 14 should be selected
-        if ENr == 0: ENr = 2213
+        #if ENr == 0: ENr = 2213
         #print "AfpEvScreen.set_initial_record:", ENr, origin
         if ENr:
             self.sb.select_key(ENr, "EventNr","EVENT")
@@ -767,17 +769,20 @@ class AfpEvScreen(AfpScreen):
     def get_grid_rows(self, typ):
         rows = []
         if self.debug: print "AfpEvScreen.get_grid_rows typ:", typ
+        if self.no_data_shown: return  rows
         if typ == "Customers" and self.data:
             id_col = 5      
             tmps = self.data.get_value_rows("ANMELD","RechNr,Zahlung,Preis,Info,AnmeldNr,Ab,KundenNr")
             #print "AfpEvScreen.get_grid_rows tmps:", tmps
+            #print "AfpEvScreen.get_grid_rows data:", 
+            #self.data.view()
             if tmps:			
                 for tmp in tmps:
                     adresse = AfpAdresse(self.globals, tmp[6])
                     ab = "" 
                     if self.data.has_route() and tmp[5]:
                         print "WARNING: AfpEvScreen.get_grid_rows data has route not implemented!"
-                    rows.append([adresse.get_value("Vorname"), adresse.get_value("Name"), Afp_toString(tmp[0]), ab, Afp_toString(tmp[1]), Afp_toString(tmp[2]), Afp_toString(tmp[3])])
+                    rows.append([adresse.get_string_value("Vorname"), adresse.get_string_value("Name"), Afp_toString(tmp[0]), ab, Afp_toString(tmp[1]), Afp_toString(tmp[2]), Afp_toString(tmp[3])])
         if self.debug: print "AfpEvScreen.get_grid_rows rows:", rows 
         return rows
 # end of class AfpEvScreen

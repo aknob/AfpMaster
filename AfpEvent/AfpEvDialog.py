@@ -99,7 +99,10 @@ def AfpEv_editLocation(ort = "", ken = ""):
 # @param data - tour data to be copied
 def AfpEvent_copy(data):
     if data.is_debug(): print "AfpEvent_copy: copy Event data!"
-    if AfpEvent_isTour(data.get_value("Art")):
+    if AfpEvent_isClub(data.get_value("Art")):
+        data.set_new(True)
+        return data
+    elif AfpEvent_isTour(data.get_value("Art")):
         typ = "Reise"
         liste = ["Beginn/Ende","Veranstalter,Transferroute","Preise","Zusatzbeschreibung","Reisedaten"]
     else:
@@ -151,14 +154,20 @@ class AfpDialog_EvAusw(AfpDialog_Auswahl):
     ## get the definition of the selection grid content \n
     # overwritten for "Event" use
     def get_grid_felder(self): 
-        Felder = [["Beginn.EVENT",15], 
-                            ["Uhrzeit.EVENT", 15], 
-                            ["Bez.EVENT",50], 
-                            ["Kennung.EVENT",15], 
-                            ["Anmeldungen.EVENT",5], 
-                            ["EventNr.EVENT",None]] # Ident column
-        if self.flavour == "Tourist":
-            Felder[1] =  ["Ende.EVENT", 15]
+        if self.flavour == "Verein":
+            Felder = [["Kennung.EVENT",15], 
+                                ["Bez.EVENT",75],
+                                ["Anmeldungen.EVENT",10], 
+                                ["EventNr.EVENT",None]] # Ident column
+        else:
+            Felder = [["Beginn.EVENT",15], 
+                                ["Uhrzeit.EVENT", 15], 
+                                ["Bez.EVENT",50], 
+                                ["Kennung.EVENT",15], 
+                                ["Anmeldungen.EVENT",5], 
+                                ["EventNr.EVENT",None]] # Ident column
+            if self.flavour == "Tourist":
+                Felder[1] =  ["Ende.EVENT", 15]
         return Felder
     ## invoke the dialog for a new entry \n
     # overwritten for "Event" use
@@ -183,12 +192,14 @@ def AfpLoad_EvAusw(globals, index, flavour = None, value = "", where = None, ask
     if ask:
         sort_list = AfpEvClient_getOrderlistOfTable(globals.get_mysql(), index)        
         if flavour == "Tourist": name = "Reise"
+        elif flavour == "Verein": name = "Sparten"
         else:  name = "Veranstaltungs"    
         value, index, Ok = Afp_autoEingabe(value, index, sort_list, name)
         #print "AfpLoad_EvAusw index:", index, value, Ok
     if Ok:
         DiAusw = AfpDialog_EvAusw(flavour)
         if flavour == "Tourist": text = "Bitte Reise auswählen:".decode("UTF-8")     
+        elif flavour == "Verein": text = "Bitte Sparte auswählen:".decode("UTF-8")     
         else: text = "Bitte Veranstaltung auswählen:".decode("UTF-8")        
         DiAusw.initialize(globals, index, value, where, text)
         DiAusw.ShowModal()
@@ -199,7 +210,7 @@ def AfpLoad_EvAusw(globals, index, flavour = None, value = "", where = None, ask
         result = Afp_selectGetValue(globals.get_mysql(), "EVENT", "EventNr", index, value)
     return result      
 
-## allows the display and manipulation of a tour 
+## allows the display and manipulation of an event 
 class AfpDialog_EventEdit(AfpDialog):
     ## initialise dialog
     def __init__(self, *args, **kw):   
@@ -216,70 +227,113 @@ class AfpDialog_EventEdit(AfpDialog):
         self.SetSize((592,290))
         self.SetTitle("Veranstaltung")
         if self.flavour == "Tourist": self.SetTitle("Reise")
+        elif self.flavour == "Verein": self.SetTitle("Vereinssparte")
         self.Bind(wx.EVT_ACTIVATE, self.On_Activate)
         if self.debug: print "AfpDialog_EventEdit.init flavour:", self.flavour
         
     ## set up dialog widgets - overwritten from AfpDialog
     def InitWx(self):
         panel = wx.Panel(self, -1)
-        self.label_T_Dat = wx.StaticText(panel, -1, label="&Datum", pos=(16,44), size=(50,20), name="T_Dat")
-        self.text_Datum = wx.TextCtrl(panel, -1, value="", pos=(76,42), size=(80,22), style=0, name="Datum")
-        self.vtextmap["Datum"] = "Beginn.EVENT"
-        self.text_Datum.Bind(wx.EVT_KILL_FOCUS, self.On_Check_Datum)
-        self.label_T_Zeit2 = wx.StaticText(panel, -1, label="&Zeit", pos=(162,44), size=(28,20), name="T_Zeit2")
-        self.text_Zeit2 = wx.TextCtrl(panel, -1, value="", pos=(196,42), size=(80,22), style=0, name="Zeit2")
-        self.vtextmap["Zeit2"] = "Uhrzeit.EVENT"
-        self.text_Zeit2.Bind(wx.EVT_KILL_FOCUS, self.On_Check_Zeit2)
-        self.label_T_Bez = wx.StaticText(panel, -1, label="&Bez:", pos=(16,14), size=(50,18), name="T_Bez")
-        self.text_Bez = wx.TextCtrl(panel, -1, value="", pos=(76,12), size=(200,22), style=0, name="Bez")
+        if self.flavour == "Verein":
+            self.InitWx_Verein(panel)
+        else:
+            self.label_T_Dat = wx.StaticText(panel, -1, label="&Datum", pos=(16,44), size=(50,20), name="T_Dat")
+            self.text_Datum = wx.TextCtrl(panel, -1, value="", pos=(76,42), size=(80,22), style=0, name="Datum")
+            self.vtextmap["Datum"] = "Beginn.EVENT"
+            self.text_Datum.Bind(wx.EVT_KILL_FOCUS, self.On_Check_Datum)
+            self.label_T_Zeit2 = wx.StaticText(panel, -1, label="&Zeit", pos=(162,44), size=(28,20), name="T_Zeit2")
+            self.text_Zeit2 = wx.TextCtrl(panel, -1, value="", pos=(196,42), size=(80,22), style=0, name="Zeit2")
+            self.vtextmap["Zeit2"] = "Uhrzeit.EVENT"
+            self.text_Zeit2.Bind(wx.EVT_KILL_FOCUS, self.On_Check_Zeit2)
+            self.label_T_Bez = wx.StaticText(panel, -1, label="&Bez:", pos=(16,14), size=(50,18), name="T_Bez")
+            self.text_Bez = wx.TextCtrl(panel, -1, value="", pos=(76,12), size=(200,22), style=0, name="Bez")
+            self.textmap["Bez"] = "Bez.EVENT"
+            self.text_Bez.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
+            self.label_T_Kenn = wx.StaticText(panel, -1, label="&EventNr:", pos=(280,14), size=(60,18), name="T_Kenn")
+            self.text_Kenn = wx.TextCtrl(panel, -1, value="", pos=(350,12), size=(80,22), style=0, name="Kenn")
+            self.textmap["Kenn"] = "Kennung.EVENT"
+            self.text_Kenn.Bind(wx.EVT_SET_FOCUS, self.On_EVENT_setKenn)
+            if self.flavour == "Tourist":
+                self.text_Kenn.Bind(wx.EVT_KILL_FOCUS, self.On_EVENT_setKst)
+                self.label_T_Kst = wx.StaticText(panel, -1, label="&Konto:", pos=(280,42), size=(60,18), name="T_Kst")
+                self.text_Kst = wx.TextCtrl(panel, -1, value="", pos=(350,40), size=(80,22), style=0, name="Kst")
+                self.textmap["Kst"] = "Kostenst.EVENT"
+                self.text_Kst.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
+            else:
+                self.text_Kenn.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
+            self.label_Anmeldungen = wx.StaticText(panel, -1, label="", pos=(458,12), size=(24,18), name="Anmeldungen")
+            self.labelmap["Anmeldungen"] = "Anmeldungen.EVENT"
+            self.label_TTeil = wx.StaticText(panel, -1, label="Teilnehmer", pos=(484,12), size=(78,18), name="TTeil")
+            self.label_T_Personen = wx.StaticText(panel, -1, label="&max.:", pos=(460,42), size=(42,18), name="T_Personen")
+            self.text_Personen = wx.TextCtrl(panel, -1, value="", pos=(510,40), size=(44,22), style=0, name="Personen")
+            self.textmap["Personen"] = "Personen.EVENT"
+            self.text_Personen.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
+            self.label_TBem = wx.StaticText(panel, -1, label="&Zusatz:", pos=(10,74), size=(56,18), name="TBem")
+            self.text_Bem = wx.TextCtrl(panel, -1, value="", pos=(74,72), size=(480,40), style=wx.TE_MULTILINE|wx.TE_LINEWRAP, name="Bem")
+            self.textmap["Bem"] = "Bem.EVENT"
+            self.text_Bem.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
+     
+            self.list_Preise = wx.ListBox(panel, -1, pos=(298,120), size=(258,86), name="Preise")
+            self.Bind(wx.EVT_LISTBOX_DCLICK, self.On_Preise, self.list_Preise)
+            self.listmap.append("Preise")
+            #self.label_T_Art = wx.StaticText(panel, -1, label="Art:", pos=(16,130), size=(50,18), name="T_Art")
+            #self.choice_Art = wx.Choice(panel, -1,  pos=(78,120), size=(198,30),  choices=AfpEvClient_possibleEventKinds(),  name="CArt")      
+            #self.choicemap["CArt"] = "Art.EVENT"
+            #self.Bind(wx.EVT_CHOICE, self.On_CArt, self.choice_Art)  
+            self.label_T_Ort = wx.StaticText(panel, -1, label="Ort:", pos=(16,130), size=(50,18), name="T_Ort")
+            self.choice_Ort = wx.Choice(panel, -1,  pos=(78,120), size=(198,30),  choices="",  name="COrt")      
+            self.choicemap["COrt"] = "Route.EVENT"
+            self.Bind(wx.EVT_CHOICE, self.On_COrt, self.choice_Ort)  
+            self.label_T_Agent = wx.StaticText(panel, -1, label="Agent:", pos=(16,190), size=(50,18), name="T_Agent")
+            self.label_AgentName = wx.StaticText(panel, -1, label="", pos=(78,190), size=(198,30), name="AgentName")
+            self.labelmap["AgentName"] = "AgentName.EVENT"
+            self.check_Kopie = wx.CheckBox(panel, -1, label="Kopie", pos=(10,226), size=(70,20), name="Kopie")
+            self.button_Neu = wx.Button(panel, -1, label="&Neu", pos=(80,220), size=(90,30), name="Neu")
+            self.Bind(wx.EVT_BUTTON, self.On_EVENT_Neu, self.button_Neu)
+            self.button_Agent = wx.Button(panel, -1, label="&Agent", pos=(180,220), size=(90,30), name="Verst")
+            self.Bind(wx.EVT_BUTTON, self.On_Agent, self.button_Agent)
+            self.button_IntText = wx.Button(panel, -1, label="Te&xt", pos=(300,220), size=(80,30), name="IntText")
+            self.Bind(wx.EVT_BUTTON, self.On_EVENT_Text, self.button_IntText)
+        self.setWx(panel, [390, 220, 80, 30], [480, 220, 80, 30]) # set Edit and Ok widgets
+
+    ## set up dialog widgets for flavour "Verein"
+    # @param panel: panel weher widgets have to be attached
+    def InitWx_Verein(self, panel):
+        self.label_T_Agent = wx.StaticText(panel, -1, label="Verein:", pos=(16,11), size=(50,18), name="T_Agent")
+        self.label_AgentName = wx.StaticText(panel, -1, label="", pos=(78,10), size=(498,20), name="AgentName")
+        self.labelmap["AgentName"] = "AgentName.EVENT"
+        
+        self.label_T_Bez = wx.StaticText(panel, -1, label="&Sparte:", pos=(16,37), size=(50,18), name="T_Bez")
+        self.text_Bez = wx.TextCtrl(panel, -1, value="", pos=(76,35), size=(200,22), style=0, name="Bez")
         self.textmap["Bez"] = "Bez.EVENT"
         self.text_Bez.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
-        self.label_T_Kenn = wx.StaticText(panel, -1, label="&EventNr:", pos=(280,14), size=(60,18), name="T_Kenn")
-        self.text_Kenn = wx.TextCtrl(panel, -1, value="", pos=(350,12), size=(80,22), style=0, name="Kenn")
+        self.label_T_Kenn = wx.StaticText(panel, -1, label="&SpartenNr:", pos=(280,37), size=(60,18), name="T_Kenn")
+        self.text_Kenn = wx.TextCtrl(panel, -1, value="", pos=(350,35), size=(80,22), style=0, name="Kenn")
         self.textmap["Kenn"] = "Kennung.EVENT"
         self.text_Kenn.Bind(wx.EVT_SET_FOCUS, self.On_EVENT_setKenn)
-        if self.flavour == "Tourist":
-            self.text_Kenn.Bind(wx.EVT_KILL_FOCUS, self.On_EVENT_setKst)
-            self.label_T_Kst = wx.StaticText(panel, -1, label="&Konto:", pos=(280,42), size=(60,18), name="T_Kst")
-            self.text_Kst = wx.TextCtrl(panel, -1, value="", pos=(350,40), size=(80,22), style=0, name="Kst")
-            self.textmap["Kst"] = "Kostenst.EVENT"
-            self.text_Kst.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
-        else:
-            self.text_Kenn.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
-        self.label_Anmeldungen = wx.StaticText(panel, -1, label="", pos=(458,12), size=(24,18), name="Anmeldungen")
+        self.text_Kenn.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
+        self.label_Anmeldungen = wx.StaticText(panel, -1, label="", pos=(458,37), size=(24,18), name="Anmeldungen")
         self.labelmap["Anmeldungen"] = "Anmeldungen.EVENT"
-        self.label_TTeil = wx.StaticText(panel, -1, label="Teilnehmer", pos=(484,12), size=(78,18), name="TTeil")
-        self.label_T_Personen = wx.StaticText(panel, -1, label="&max.:", pos=(460,42), size=(42,18), name="T_Personen")
-        self.text_Personen = wx.TextCtrl(panel, -1, value="", pos=(510,40), size=(44,22), style=0, name="Personen")
-        self.textmap["Personen"] = "Personen.EVENT"
-        self.text_Personen.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
-        self.label_TBem = wx.StaticText(panel, -1, label="&Zusatz:", pos=(10,74), size=(56,18), name="TBem")
-        self.text_Bem = wx.TextCtrl(panel, -1, value="", pos=(74,72), size=(480,40), style=wx.TE_MULTILINE|wx.TE_LINEWRAP, name="Bem")
-        self.textmap["Bem"] = "Bem.EVENT"
-        self.text_Bem.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
- 
-        self.list_Preise = wx.ListBox(panel, -1, pos=(298,120), size=(258,86), name="Preise")
-        self.Bind(wx.EVT_LISTBOX_DCLICK, self.On_Preise, self.list_Preise)
-        self.listmap.append("Preise")
-        #self.label_T_Art = wx.StaticText(panel, -1, label="Art:", pos=(16,130), size=(50,18), name="T_Art")
-        #self.choice_Art = wx.Choice(panel, -1,  pos=(78,120), size=(198,30),  choices=AfpEvClient_possibleEventKinds(),  name="CArt")      
-        #self.choicemap["CArt"] = "Art.EVENT"
-        #self.Bind(wx.EVT_CHOICE, self.On_CArt, self.choice_Art)  
-        self.label_T_Ort = wx.StaticText(panel, -1, label="Ort:", pos=(16,130), size=(50,18), name="T_Ort")
-        self.choice_Ort = wx.Choice(panel, -1,  pos=(78,120), size=(198,30),  choices="",  name="COrt")      
+        self.label_TTeil = wx.StaticText(panel, -1, label="Mitglieder", pos=(484,37), size=(78,18), name="TTeil")
+        self.label_T_Ort = wx.StaticText(panel, -1, label="Ort:", pos=(16,68), size=(50,18), name="T_Ort")
+        self.choice_Ort = wx.Choice(panel, -1,  pos=(78,60), size=(474,30),  choices="",  name="COrt")      
         self.choicemap["COrt"] = "Route.EVENT"
         self.Bind(wx.EVT_CHOICE, self.On_COrt, self.choice_Ort)  
-        self.label_T_Agent = wx.StaticText(panel, -1, label="Agent:", pos=(16,190), size=(50,18), name="T_Agent")
-        self.label_AgentName = wx.StaticText(panel, -1, label="", pos=(78,190), size=(198,30), name="AgentName")
-        self.labelmap["AgentName"] = "AgentName.EVENT"
+ 
+        self.label_TBem = wx.StaticText(panel, -1, label="&Beiträge:".decode("UTF-8"), pos=(10,124), size=(56,18), name="TBem")
+        #self.list_Preise = wx.ListBox(panel, -1, pos=(298,120), size=(258,86), name="Preise")
+        self.list_Preise = wx.ListBox(panel, -1, pos=(74,95), size=(258,110), name="Preise")
+        self.Bind(wx.EVT_LISTBOX_DCLICK, self.On_Preise, self.list_Preise)
+        self.listmap.append("Preise")
+        self.text_Bem = wx.TextCtrl(panel, -1, value="", pos=(348,95), size=(208,110), style=wx.TE_MULTILINE|wx.TE_LINEWRAP, name="Bem")
+        self.textmap["Bem"] = "Bem.EVENT"
+        self.text_Bem.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
+
         self.check_Kopie = wx.CheckBox(panel, -1, label="Kopie", pos=(10,226), size=(70,20), name="Kopie")
-        self.button_Neu = wx.Button(panel, -1, label="&Neu", pos=(80,220), size=(90,30), name="Neu")
+        self.button_Neu = wx.Button(panel, -1, label="&Neu", pos=(80,220), size=(90,30), name="Neue Sparte")
         self.Bind(wx.EVT_BUTTON, self.On_EVENT_Neu, self.button_Neu)
-        self.button_Agent = wx.Button(panel, -1, label="&Agent", pos=(180,220), size=(90,30), name="Verst")
-        self.Bind(wx.EVT_BUTTON, self.On_Agent, self.button_Agent)
         self.button_IntText = wx.Button(panel, -1, label="Te&xt", pos=(300,220), size=(80,30), name="IntText")
         self.Bind(wx.EVT_BUTTON, self.On_EVENT_Text, self.button_IntText)
-        self.setWx(panel, [390, 220, 80, 30], [480, 220, 80, 30]) # set Edit and Ok widgets
 
     ## attaches data to this dialog, invokes population of widgets (overwritten from AfpDialog)
     # @param data - AfpSelectionList which holds data to be filled into dialog wodgets 
@@ -332,7 +386,7 @@ class AfpDialog_EventEdit(AfpDialog):
             else: 
                 data["Art"] = "Event"
         if not "Personen" in data: data["Personen"] = 0
-        if not "Beginn" in data: data["Beginn"] = self.globals.get_today()
+        if not "Beginn" in data: data["Beginn"] = self.data.globals.get_today()
         if not "Kostenst" in data:
             if "Kennung" in data: data["Kostenst"] = Afp_intString(data["Kennung"])
             else: data["Kostenst"] = "4711"
@@ -346,7 +400,7 @@ class AfpDialog_EventEdit(AfpDialog):
             if "Beginn" in data: 
                 month = Afp_toString(data["Beginn"].month)
                 if len(month) == 1: month = "0" + month
-                data["ErloesKt"] = "ERL" + month  # ErloesKt nicht nur für Touristik (verschiedene Möglichkeiten über globals?
+                data["ErloesKt"] = "ERL" + month  # ErloesKt nicht nur für Touristik (verschiedene Möglichkeiten über globals?)
         else:
             data["ErloesKt"] = "ERL"
         return data
@@ -449,7 +503,10 @@ class AfpDialog_EventEdit(AfpDialog):
     # this routine is called from the AfpDialog.Populate
     def Pop_Preise(self):
         rows = self.data.get_value_rows("PREISE", "Preis,Anmeldungen,Plaetze,Bezeichnung,Kennung,Typ,PreisNr")
-        liste = ["--- Neuen Preis hinzufügen ---".decode("UTF-8")]
+        if self.flavour == "Verein":
+            liste = ["--- Neuen Beitrag hinzufügen ---".decode("UTF-8")]
+        else:
+            liste = ["--- Neuen Preis hinzufügen ---".decode("UTF-8")]
         #print "AfpDialog_EventEdit.Pop_Preise:", rows
         self.maxPreis = 0
         if rows:
@@ -457,8 +514,12 @@ class AfpDialog_EventEdit(AfpDialog):
                 if row[6] > self.maxPreis: self.maxPreis = row[6]
                 if row[5] == "Aufschlag": Plus = "+"
                 else: Plus = " "
-                if row[1] is None: row[1] = 0
-                liste.append(Plus + Afp_toFloatString(row[0]).rjust(10) + Afp_toString(row[1]).rjust(4) + Afp_toString(row[2]).rjust(3) + "  " + Afp_toString(row[3]))
+                if row[1] or row[2]:
+                    if row[1] is None: row[1] = 0
+                    middel = Afp_toString(row[1]).rjust(4) + Afp_toString(row[2]).rjust(3)
+                else:
+                    middle = "       "
+                liste.append(Plus + Afp_toFloatString(row[0]).rjust(10) + middle + "  " + Afp_toString(row[3]))
         self.list_Preise.Clear()
         self.list_Preise.InsertItems(liste, 0)
         if not self.data.get_value("Route"):
@@ -494,27 +555,28 @@ class AfpDialog_EventEdit(AfpDialog):
     # @param event - event which initiated this action   
     def On_Set_Datum(self,event = None):
         if self.debug: print "AfpDialog_EventEdit Event handler `On_Set_Datum'"
-        start = self.text_Datum.GetValue()
-        if start: start = Afp_ChDatum(start)
-        x, y = self.text_Datum.ScreenPosition
-        #x += self.text_Datum.GetSize()[0]
-        y += self.text_Datum.GetSize()[1]
-        if self.is_multidays:
-            ende= self.text_Zeit2.GetValue()
-            if ende: ende = Afp_ChDatum(ende)
-            dates = AfpReq_Calendar((x, y), [start, ende],  "Veranstaltungsdatum", None, ["Beginn", "0:Ende"])
-        else:
-            dates = AfpReq_Calendar((x, y), [start],  "Veranstaltungsdatum", None, ["Beginn"])
-        if dates:
-            self.text_Datum.SetValue(dates[0])
-            self.choice_Edit.SetSelection(1)
-            self.Set_Editable(True)
-            self.text_Datum.SetFocus()
-            if not "Datum" in self.changed_text: self.changed_text.append("Datum")
-            if len(dates) > 1:
-                self.text_Zeit2.SetValue(dates[1])
-                if not "Zeit2" in self.changed_text: self.changed_text.append("Zeit2")
-                self.text_Zeit2.SetFocus()
+        if not self.flavour == "Verein":
+            start = self.text_Datum.GetValue()
+            if start: start = Afp_ChDatum(start)
+            x, y = self.text_Datum.ScreenPosition
+            #x += self.text_Datum.GetSize()[0]
+            y += self.text_Datum.GetSize()[1]
+            if self.is_multidays:
+                ende= self.text_Zeit2.GetValue()
+                if ende: ende = Afp_ChDatum(ende)
+                dates = AfpReq_Calendar((x, y), [start, ende],  "Veranstaltungsdatum", None, ["Beginn", "0:Ende"])
+            else:
+                dates = AfpReq_Calendar((x, y), [start],  "Veranstaltungsdatum", None, ["Beginn"])
+            if dates:
+                self.text_Datum.SetValue(dates[0])
+                self.choice_Edit.SetSelection(1)
+                self.Set_Editable(True)
+                self.text_Datum.SetFocus()
+                if not "Datum" in self.changed_text: self.changed_text.append("Datum")
+                if len(dates) > 1:
+                    self.text_Zeit2.SetValue(dates[1])
+                    if not "Zeit2" in self.changed_text: self.changed_text.append("Zeit2")
+                    self.text_Zeit2.SetFocus()
         if event: event.Skip()
 
     ## Eventhandler BUTTON - select tour agent for not self organisied tours
@@ -544,13 +606,15 @@ class AfpDialog_EventEdit(AfpDialog):
     # @param event - event which initiated this action 
     def On_EVENT_setKenn(self,event):
         if self.debug: print "AfpDialog_EventEdit Event handler `On_EVENT_setKenn'"
-        if not self.text_Kenn.GetValue() and self.text_Datum.GetValue():
-            pre = self.data.get_globals().get_value("preset-event-identifier","Event")
-            if pre:
+        preset = self.data.get_globals().get_value("preset-event-identifier","Event")
+        if preset and not self.text_Kenn.GetValue() :
+            if self.flavour == "Verein":
+                kennung = "0815"
+            elif self.text_Datum.GetValue():
                 date = Afp_fromString(self.text_Datum.GetValue())
-                kenn  = Afp_toDateString(date, pre)
-                #print "AfpEvScreen.On_EVENT_setKenn:", date, pre, kenn
-                if kenn: self.text_Kenn.SetValue(kenn)
+                kennug  = Afp_toDateString(date, pre)
+            #print "AfpEvScreen.On_EVENT_setKenn:", date, pre, kenn
+            if kennung: self.text_Kenn.SetValue(kennung)
         event.Skip()
         
     ## Eventhandler TEXT-KILLFOCUS - set 'Kst' from input for self organised tours 

@@ -4,7 +4,7 @@
 ## @package BusAfp
 # AfpEvent is part of the open source BusAfp project,
 # it is a software to manage invoicing and other tasks in the motor related business \n
-#    Copyright© 1989 - 2019  afptech.de (Andreas Knoblauch) \n
+#    Copyright© 1989 - 2019 afptech.de (Andreas Knoblauch) \n
 # \n
 #   History: \n
 #        17 May 2018 - inital code generated - Andreas.Knoblauch@afptech.de
@@ -35,11 +35,16 @@ from AfpBase import AfpStart
 
 # only needed if code is compiled with py2exe
 #import AfpAdresse.AfpAdScreen
-import AfpEvent.AfpEvScreen
+#import AfpEvent.AfpEvScreen
+# if database has to be cerated
+#import AfpAdresse.AfpAdSqlTemplate
+#import AfpEvent.AfpEvSqlTemplate
+
 
 # main program
 name = 'AfpEvent'     
-version = "0.1.1 beta"    
+#version = "0.9.1 strict beta"    
+version = "0.9.1 strict beta"    
 website = 'http://www.busafp.de'
 description = """AfpEvent ist eine Verwaltungsprogramm für Veranstaltungen.
 Es enthält Anmeldungs- und Stornierungsverwaltung, sowie eine mitgeführte Buchhaltung, Zahlungsverfolgung

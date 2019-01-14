@@ -40,6 +40,14 @@ def AfpEvClient_possibleEventKinds():
     #return ["Eigen","Fremd"]
     #return ["Event","Reise","Eigen","Fremd"]
     return ["Event","Touristik"]
+## returns if event is a club 
+# @param art - kind of event
+def AfpEvent_isClub(art):
+    print "AfpEvent_isClub:", art, art == "Verein"
+    if art == "Verein":
+        return True
+    else:
+        return False
 ## returns if event is a tour in the sense of the 'tourist' modul
 # @param art - kind of event
 def AfpEvent_isTour(art):

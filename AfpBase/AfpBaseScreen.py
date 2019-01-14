@@ -90,6 +90,7 @@ class AfpScreen(wx.Frame):
         self.actuelbuttoncolor = (255,255,255)
         #self.panel = wx.Panel(self, -1, style = wx.WANTS_CHARS) 
         self.panel = self
+        self.no_data_shown = None
         if not hasattr(self,'flavour'): self.flavour = None
         
     ## connect to database and populate widgets
@@ -485,6 +486,8 @@ class AfpScreen(wx.Frame):
             self.sb.select_next()
         elif plus == -1:
             self.sb.select_previous()
+        self.no_data_shown = self.sb.eof()
+        #print "AfpScreen.CurrentData", self.sb.eof()
         self.set_current_record()
         #self.sb.unset_debug()
         self.Populate()

@@ -336,14 +336,15 @@ def Afp_ArrayfromLine(line):
 # @param liste - list of values to be merged
 # @param separator - lelement to be filled between the values
 # @param max - maximum number of elements used for merging
-def Afp_ArraytoLine(liste, separator = " ", max = None):
+# @param append - appendix to be added to each line
+def Afp_ArraytoLine(liste, separator = " ", max = None, append = ""):
     if max is None: max = len(liste) 
     sep = len(separator)
     count = 0
     zeile = ""
     for entry in liste:
         if count < max:
-            zeile += Afp_toString(entry) + separator
+            zeile += Afp_toString(entry) + append+ separator
             count += 1
     return zeile[:-sep]
 ## joins two columns in a matrix to one

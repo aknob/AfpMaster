@@ -235,6 +235,7 @@ class AfpSbIndex(object):
             self.indexoffset = None
             self.indexdups = None
             indexwert = Afp_extractStringValues(self.index_ind, index.felder, True)
+            #print "AfpSbIndex.sync_to_index:", indexwert, type(indexwert)
             self.indexwert = indexwert
             self.select_plus_step(0)
             equal = self.is_equal(index)
@@ -292,9 +293,11 @@ class AfpSbIndex(object):
         #print "AfpSbIndex.set_indexoffset:", self.indexwert, self.indexoffset, self.indexdups
     def get_indexwert(self, use_uind = False):
         if use_uind:
+            if self.uind_ind is None: return None
             index_ind = self.uind_ind
         else:
             index_ind = self.index_ind
+        #print "AfpSbIndex.get_indexwert:", use_uind, self.index_ind, self.uind_ind, Afp_extractStringValues(index_ind, self.felder, True)
         return Afp_extractStringValues(index_ind, self.felder, True)
     def reverse_dup_bloc(self, rows, index, offset = 0):
         if self.is_date(): return rows # may be is_numeric() has to be used here
@@ -339,13 +342,18 @@ class AfpSbIndex(object):
             postfix = ""
         if indexwert is None:
             indexwert = self.indexwert
+        if not indexwert:
+            if self.is_numeric(True): indexwert = [1]
+            else: indexwert = [""]
+        if not type(indexwert) is list:
+            indexwert = [indexwert]
         if self.index_bez is None:
             if first:
                 index_clause =  " ORDER BY (" + self.name + ")" + postfix
             elif self.is_numeric(True):
-                index_clause = (self.name + " " + unequal + " \"%d\" ORDER BY (" + self.name + ")" + postfix) % indexwert
+                index_clause = (self.name + " " + unequal + " \"%d\" ORDER BY (" + self.name + ")" + postfix) % indexwert[0]
             else:
-                index_clause = self.name + " " + unequal + " \"" + Afp_toInternDateString(indexwert) + "\" ORDER BY (" + self.name + ")" + postfix
+                index_clause = self.name + " " + unequal + " \"" + Afp_toInternDateString(indexwert[0]) + "\" ORDER BY (" + self.name + ")" + postfix
         else:
             lgh = len(self.index_bez)
             if Afp_isString(indexwert):
@@ -365,7 +373,11 @@ class AfpSbIndex(object):
                     # skip this entry, if it is already set in where_clause
                     if self.where and clause in self.where: continue
                     index_clause += plus + clause
-                index_clause += " ORDER BY " + self.index_bez[-1] + " " + postfix
+                index_clause += " ORDER BY " 
+                for bez in self.index_bez:
+                    index_clause += bez + " " + postfix + ","
+                index_clause = index_clause[:-1]
+        #print "AfpSbIndex.gen_index_clause:", index_clause
         return index_clause
     def gen_first_indexwert(self, order, where_clause):
         values = []
@@ -382,7 +394,7 @@ class AfpSbIndex(object):
         values = []
         lgh = len(self.index_bez)
         indices = self.indexwert[:]
-        #print "AfpSbIndex,gen_next_indexwert in:",self.indexwert, indices
+        #print "AfpSbIndex,gen_next_indexwert in:",self.indexwert, indices, self.index_bez
         indices[lgh - 1] = ""
         if order == "DESC": unequal = "<"
         else:  unequal = ">"
@@ -390,6 +402,11 @@ class AfpSbIndex(object):
         ind = lgh - 2   
         where_clause = ""
         if not self.where is None: where_clause = "(" + self.where + ") and "
+        namen = Afp_ArraytoLine(self. index_bez,", ")
+        if order == "DESC": 
+            orderby = Afp_ArraytoLine(self. index_bez,", ",None," " + order)
+        else:
+            orderby = namen
         while eof and ind >= 0:
             name = self. index_bez[ind]
             equal_clause = name + " = \"" + indices[ind] + "\""
@@ -398,12 +415,13 @@ class AfpSbIndex(object):
                 ind -= 1
                 continue
             index_clause = name + " " + unequal +" \"" + indices[ind] + "\""
-            Befehl = "SELECT " + name + " FROM " + self.db + "." + self.datei +  " WHERE " + where_clause + index_clause + " ORDER BY (" + name + ")" + order + " LIMIT 0,1"
+            Befehl = "SELECT " + namen + " FROM " + self.db + "." + self.datei +  " WHERE " + where_clause + index_clause + " ORDER BY " + orderby + " LIMIT 0,1"
             if self.debug: print "AfpSbIndex.gen_next_indexwert:", Befehl
             self.db_cursor.execute (Befehl)
             row = self.db_cursor.fetchone()
             if row:
-                indices[ind] = row[0]
+                for i in range(lgh - ind):
+                    indices[ind+i] = row[i]
                 eof = False
             else:
                 indices[ind] = ""
@@ -413,7 +431,7 @@ class AfpSbIndex(object):
             self.indexoffset = None
             self.indexdups = None
             self.indexwert =  Afp_extractStringValues(None, indices, True)
-        #print "AfpSbIndex,gen_next_indexwert out:",self.indexwert
+        if self.debug: print "AfpSbIndex,gen_next_indexwert:", self.indexwert
     def cached_select(self, Befehl):
         rows = None
         use_cache = False
@@ -475,7 +493,7 @@ class AfpSbIndex(object):
                         self.imaxident = dup + 2
                         # print "MaxIdent:",self.imaxident , self.indexoffset   
                     self.set_indexoffset(rows, 0, dup, dup, True)
-                    if self.debug: print "AfpSbIndex: indexoffset", self.indexoffset, self.indexdups
+                    if self.debug: print "AfpSbIndex.select_first_last indexoffset:", self.indexoffset, self.indexdups
         else:
             Befehl = "SELECT * FROM " + self.db + "." + self.datei + where_clause + index_clause + " LIMIT 0,1"
             if self.debug: print "AfpSbIndex.select_first_last:", Befehl
@@ -493,6 +511,7 @@ class AfpSbIndex(object):
         else:
             self.endoffile = True
             self.eofrev = (order == "DESC")
+        if self.debug: print "AfpSbIndex.select_first_last:", self.indexwert, self.endoffile, self.eofrev
     def select_step(self, in_step):
         #print  "AfpSbIndex.select_step:", self.name, self.endoffile, self.index_bez, in_step
         self.select_plus_step(in_step)
@@ -503,7 +522,7 @@ class AfpSbIndex(object):
             if self.endoffile == False:
                 self.select_plus_step(0)
     def select_plus_step(self, in_step):
-        if self.debug: print "AfpSbIndex.select_plus_step input:",in_step
+        if self.debug: print "AfpSbIndex.select_plus_step input:", in_step
         step = in_step
         if in_step < 0:
             step *= -1
@@ -516,16 +535,11 @@ class AfpSbIndex(object):
         where_clause = ""
         if not self.where is None: where_clause = "(" + self.where + ") and "
         anz = self.imaxident + step
-        #print "AfpSbIndex.select_plus_step", self.imaxident
-        #if self.imaxident > 8300: 
-            #test = where_clause + anz
         while anz > 0:          
             limit =  (" LIMIT 0,%d") % anz
             Befehl = "SELECT * FROM " + self.db + "." + self.datei +" WHERE "+ where_clause + index_clause + limit
             if self.debug: print "AfpSbIndex.select_plus_step:",Befehl, "Offset:", offset
             rows = self.cached_select(Befehl)
-            #self.db_cursor.execute (Befehl)     
-            #rows = self.db_cursor.fetchall () 
             dup = 0
             ref = 0
             dup_next = 0 
@@ -556,8 +570,7 @@ class AfpSbIndex(object):
                     # print "MaxIdent:",self.imaxident , self.indexoffset   
         # datenfelder einfuellen
         offset += step      
-        #print "AfpSbIndex.select_plus_step rows:",rows
-        #print "AfpSbIndex.select_plus_step Ende rows", dup, anz, offset, len(rows)
+        #print "AfpSbIndex.select_plus_step rows:", in_step, "\n", rows
         if self.endoffile and self.eofrev != (in_step < 0): offset -= step
         if rows and len(rows) > offset:
             self.felder = list(rows[offset])   
@@ -566,11 +579,10 @@ class AfpSbIndex(object):
             self.set_indexoffset(rows, offset, dup, ref,  in_step < 0)
             self.set_uind()
             self.endoffile = False
-            #print  "AfpSbIndex.select_plus_step Offset:",offset, dup, self.felder[1], self.indexwert, self.indexoffset, self.indexdups 
         else:
             self.endoffile = True
             self.eofrev = (in_step < 0)
-            #print "AfpSbIndex.select_plus_step Endoffile", self.endoffile, offset, rows
+        if self.debug: print "AfpSbIndex.select_plus_step:", self.indexwert, self.indexoffset, self.indexdups, self.endoffile
     def select_keywert(self, indexwert):
         if self.is_numeric() != Afp_isNumeric(indexwert): 
             print "WARNING: AfpSuperbase.select_keywert: FALSCHER EINGABETYP", Afp_isNumeric(indexwert)
@@ -618,7 +630,8 @@ class AfpSbIndex(object):
             self.endoffile = False
         else:
             self.endoffile = True
-            self.eofrev = None
+            self.eofrev = None 
+        if self.debug: print "AfpSbIndex.select_keywert:", indexwert, self.indexwert
     def select_where(self, where_clause):
         if where_clause == "":
             self.where = None

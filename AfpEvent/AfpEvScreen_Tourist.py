@@ -427,6 +427,7 @@ class AfpEvScreen_Tourist(AfpEvScreen):
             if self.sb_an_filter: select = "(" + select +") and (" + self.sb_an_filter + ")"
             tmps = []
             tmps = self.mysql.select_strings("RechNr,Zahlung,Preis,Info,AnmeldNr,Ab,KundenNr",select,"ANMELD")
+            #print "AfpEvScreen_Tourist.get_grid_rows tmps:", tmps
             for tmp in tmps:
                 select =  "KundenNr = " + tmp[-1]
                 name = self.mysql.select_strings("Vorname,Name", select,"ADRESSE")

@@ -48,7 +48,7 @@ from AfpUtilities.AfpBaseUtilities import *
 # if globals are given, only modules available for this program are returned
 # @param globals - if given, global variables holding graphic modulnames
 def Afp_graphicModulNames(globals = None):
-    modules = ["Adresse","Charter","Event:Tourist","Event","Faktura"]
+    modules = ["Adresse","Charter","Event:Tourist","Event:Verein","Event","Faktura"]
     if globals:
         mods = globals.get_value("graphic-moduls")
         if mods: modules = mods
@@ -326,9 +326,10 @@ def Afp_startRoutine(globals, instring, debug = False):
 # @param globals - global variables including the path delimiter to be used for filesystem pathes
 def Afp_importPyModul(modulname, globals):
     debug = globals.is_debug()
+    strict = globals.get_value("strict-modul-handling")
     if debug: print "Afp_importPyModul direct:", modulname
     modul = AfpPy_Import(modulname)
-    if not modul:
+    if not modul and not strict:
         deli = globals.get_value("path-delimiter")
         path = globals.get_programpath()
         if not path[-1] == deli: path += deli
@@ -812,14 +813,15 @@ class AfpSelectionList(object):
         if selname is None: selname = self.mainselection
         if selname in self.selects:        
             sel_vals = self.selects[selname]
-            if  len(sel_vals) > 1 and sel_vals[0] in self.tables:
-                implicit = False
-                unique = None
-                if len(sel_vals) > 2: unique = sel_vals[2]
-                #print "AfpSelectionList.constitute_selection:", sel_vals, unique
-                selection = AfpSQLTableSelection(self.mysql, sel_vals[0], self.debug, unique)
-            elif not sel_vals[0] in self.tables:
-                print "WARNING: AfpSelectionList.constitute_selection table not found:", selname, sel_vals[0], self.tables
+            if  len(sel_vals) > 1:
+                if sel_vals[0] in self.tables:
+                    implicit = False
+                    unique = None
+                    if len(sel_vals) > 2: unique = sel_vals[2]
+                    #print "AfpSelectionList.constitute_selection:", sel_vals, unique
+                    selection = AfpSQLTableSelection(self.mysql, sel_vals[0], self.debug, unique)
+                else:
+                    print "WARNING: AfpSelectionList.constitute_selection table not found:", selname, sel_vals[0], self.tables
         return selection  
     ## create selection - retrieve values from database
     # @param name - name of TableSelection

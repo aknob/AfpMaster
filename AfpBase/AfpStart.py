@@ -79,15 +79,17 @@ class AfpSoftwareInformation(object):
 class AfpMainApp(wx.App):
     ## initialize mysql connection, global variables and application
     # @param debug - flag for debug information
-    # @param startpath - path where BusAfp has been started from
-    # @param confpath - path to configuration file
-    # @param dbhost - host for database
-    # @param dbname - name of schema for database
-    # @param dbuser - user on host for database
-    # @param dbword - password for user on host for database
-    # @param config - configuration string to set global variables
+    # @param pars - parameter dictionary, possible values:
+    # - startpath: path where program has been started from
+    # - confpath: path to configuration file
+    # - dbhost: host for database
+    # - dbname: name of schema for database
+    # - dbuser: user on host for database
+    # - dbword: password for user on host for database
+    # - config: configuration string to set global variables
+    # - strict: flag if only strict modul handling should be used
     # @param info - software information object
-    def initialize(self, debug, startpath, confpath, dbhost, dbname, dbuser, dbword, config, info): 
+    def initialize(self, debug, pars, info): 
         name = "BusAfp"
         description = None
         picture = None
@@ -128,23 +130,27 @@ class AfpMainApp(wx.App):
         developers = "Andreas Knoblauch - initiale Version".decode("UTF-8")
        
         self.globals = None
+        confpath = None
+        if "confpath" in pars: confpath = pars["confpath"]
         set = AfpGlobal.AfpSettings(debug, confpath)
         set.set("graphic-moduls", moduls)
-        if startpath: set.set("start-path", startpath)
-        if dbhost: set.set("database-host", dbhost) 
-        if not set.get("database") and not dbname: dbname = name
-        if dbname: set.set("database", dbname)      
-        if dbuser: 
-            set.set("database-user", dbuser)      
+        if "startpath" in pars: set.set("start-path", pars["startpath"])
+        if "dbhost" in pars: set.set("database-host", pars["dbhost"]) 
+        if not set.get("database") and not dbname in pars: pars["dbname"] = name
+        if "dbname" in pars: set.set("database", pars["dbname"])      
+        if "dbuser" in pars: 
+            set.set("database-user", pars["dbuser"])      
             set.set("database-word", "")      
-        if not set.exists_key("database-word") and dbword is None:
-            if dbuser is None: dbuser = set.get("database-user")
-            dbword, ok = AfpBaseDialog.AfpReq_Text("Für die Verbindung zur Datenbank wird eine Authentifizierung benötigt!".decode("UTF-8"),"Bitte das Passwort für den Benutzer '".decode("UTF-8") + dbuser+ "' eingeben:","","Passwort Eingabe",True)
-        if not dbword is None: set.set("database-word", dbword)
+        if not set.exists_key("database-word") and not "dbword" in pars:
+            if not "dbuser" in pars: pars["dbuser"] = set.get("database-user")
+            dbword, ok = AfpBaseDialog.AfpReq_Text("Für die Verbindung zur Datenbank wird eine Authentifizierung benötigt!".decode("UTF-8"),"Bitte das Passwort für den Benutzer '".decode("UTF-8") + pars["dbuser"] + "' eingeben:","","Passwort Eingabe",True)
+            pars["dbword"] = dbword
+        if "dbword" in pars: set.set("database-word", pars["dbword"])
+        if "strict" in pars: set.set("strict-modul-handling",1)
         mysql = AfpDatabase.AfpSQL.AfpSQL(set.get("database-host"), set.get("database-user"), set.get("database-word"), set.get("database"), set.is_debug())
         self.globals = AfpGlobal.AfpGlobal(name, mysql, set)
         self.globals.set_infos(version, baseversion, copyright, website, description, license, picture, developers)
-        if config: self.globals.set_configuration(config)
+        if "config" in pars: self.globals.set_configuration(pars["config"])
         if mysql.database_created(): AfpBaseRoutines.Afp_verifyDatabase(self.globals, True)
         #wx.InitAllImageHandlers() # deprecated function, obvoiusly not needed here
     
@@ -168,45 +174,41 @@ def AfpStart(info):
     debug = False
     execute = True
     direct = False
-    confpath = ""
+    parameter = {}
     modul = "Adresse"
-    dbhost= None
-    dbname= None
-    dbuser = None
-    dbword = None
-    config = None
     routine = None
     lgh = len(sys.argv)
     ev_indices = []
     name = info.get_name()
-    startpath = os.path.dirname(os.path.abspath(sys.argv[0]))
+    parameter["startpath"] = os.path.dirname(os.path.abspath(sys.argv[0]))
     for i in range(1,lgh):
         if sys.argv[i] == "-p" or sys.argv[i] == "--password": 
             ev_indices.append(i+1)
-            if i < lgh-1 and sys.argv[i+1][0] != "-": dbword = sys.argv[i+1]
+            if i < lgh-1 and sys.argv[i+1][0] != "-": parameter["dbword"] = sys.argv[i+1]
         if sys.argv[i] == "-s" or sys.argv[i] == "--server": 
             ev_indices.append(i+1)
-            if i < lgh-1 and sys.argv[i+1][0] != "-": dbhost= sys.argv[i+1]
+            if i < lgh-1 and sys.argv[i+1][0] != "-": parameter["dbhost"] = sys.argv[i+1]
         if sys.argv[i] == "-d" or sys.argv[i] == "--database": 
             ev_indices.append(i+1)
-            if i < lgh-1 and sys.argv[i+1][0] != "-": dbname = sys.argv[i+1] 
+            if i < lgh-1 and sys.argv[i+1][0] != "-": parameter["dbname"] = sys.argv[i+1] 
         if sys.argv[i] == "-u" or sys.argv[i] == "--user": 
             ev_indices.append(i+1)
-            if i < lgh-1 and sys.argv[i+1][0] != "-": dbuser = sys.argv[i+1] 
+            if i < lgh-1 and sys.argv[i+1][0] != "-": parameter["dbuser"] = sys.argv[i+1] 
         if sys.argv[i] == "-o" or sys.argv[i] == "--option": 
             ev_indices.append(i+1)
-            if i < lgh-1 and sys.argv[i+1][0] != "-": config = sys.argv[i+1] 
+            if i < lgh-1 and sys.argv[i+1][0] != "-": parameter["config"] = sys.argv[i+1] 
         if sys.argv[i] == "-c" or sys.argv[i] == "--config": 
             ev_indices.append(i+1)
-            if i < lgh-1 and sys.argv[i+1][0] != "-": confpath = sys.argv[i+1] 
+            if i < lgh-1 and sys.argv[i+1][0] != "-": parameter["confpath"] = sys.argv[i+1] 
         if sys.argv[i] == "-m" or sys.argv[i] == "--modul": 
             ev_indices.append(i+1)
             if i < lgh-1 and sys.argv[i+1][0] != "-": modul = sys.argv[i+1]
         if sys.argv[i] == "-v" or sys.argv[i] == "--verbose": debug = True
+        if sys.argv[i] == "-x" or sys.argv[i] == "--strict": parameter["strict"] = None
         if sys.argv[i] == "-h" or sys.argv[i] == "--help": execute = False
     if execute:
         App = AfpMainApp(0)
-        App.initialize(debug, startpath, confpath, dbhost, dbname, dbuser, dbword, config, info)
+        App.initialize(debug, parameter, info)
         if lgh > 1 and sys.argv[lgh-1][0] != "-"  and not lgh-1 in ev_indices:
             routine = sys.argv[lgh-1] 
             protocol = False
@@ -247,6 +249,7 @@ def AfpStart(info):
         print "-o,--option    manuel setting of different configuration settings follows"
         print "               Usage: [modulname.]variablename=value[, ...]"
         print "-v,--verbose   display comments on all actions (debug-information)"
+        #print "-x,--strict    don't allow dynamic modul handling (needed for py2exe compilation)"
         print "routine, file  pythonmodul and name of routine to be executed"
         print "               or path of a file in which each line represents one call"
         print "               Usage: python.modul.routinename:parameter1[,param2 ...]"
