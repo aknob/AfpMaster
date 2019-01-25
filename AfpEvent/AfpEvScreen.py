@@ -782,7 +782,7 @@ class AfpEvScreen(AfpScreen):
                     ab = "" 
                     if self.data.has_route() and tmp[5]:
                         print "WARNING: AfpEvScreen.get_grid_rows data has route not implemented!"
-                    rows.append([adresse.get_string_value("Vorname"), adresse.get_string_value("Name"), Afp_toString(tmp[0]), ab, Afp_toString(tmp[1]), Afp_toString(tmp[2]), Afp_toString(tmp[3])])
+                    rows.append([adresse.get_string_value("Vorname"), adresse.get_string_value("Name"), Afp_toString(tmp[0]), ab, Afp_toString(tmp[1]), Afp_toString(tmp[2]), Afp_toString(tmp[3]), tmp[4]])
         if self.debug: print "AfpEvScreen.get_grid_rows rows:", rows 
         return rows
 # end of class AfpEvScreen

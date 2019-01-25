@@ -154,7 +154,7 @@ class AfpDialog_EvAusw(AfpDialog_Auswahl):
     ## get the definition of the selection grid content \n
     # overwritten for "Event" use
     def get_grid_felder(self): 
-        if self.flavour == "Verein":
+        if self.flavour == "Club":
             Felder = [["Kennung.EVENT",15], 
                                 ["Bez.EVENT",75],
                                 ["Anmeldungen.EVENT",10], 
@@ -192,14 +192,14 @@ def AfpLoad_EvAusw(globals, index, flavour = None, value = "", where = None, ask
     if ask:
         sort_list = AfpEvClient_getOrderlistOfTable(globals.get_mysql(), index)        
         if flavour == "Tourist": name = "Reise"
-        elif flavour == "Verein": name = "Sparten"
+        elif flavour == "Club": name = "Sparten"
         else:  name = "Veranstaltungs"    
         value, index, Ok = Afp_autoEingabe(value, index, sort_list, name)
         #print "AfpLoad_EvAusw index:", index, value, Ok
     if Ok:
         DiAusw = AfpDialog_EvAusw(flavour)
         if flavour == "Tourist": text = "Bitte Reise auswählen:".decode("UTF-8")     
-        elif flavour == "Verein": text = "Bitte Sparte auswählen:".decode("UTF-8")     
+        elif flavour == "Club": text = "Bitte Sparte auswählen:".decode("UTF-8")     
         else: text = "Bitte Veranstaltung auswählen:".decode("UTF-8")        
         DiAusw.initialize(globals, index, value, where, text)
         DiAusw.ShowModal()
@@ -227,15 +227,15 @@ class AfpDialog_EventEdit(AfpDialog):
         self.SetSize((592,290))
         self.SetTitle("Veranstaltung")
         if self.flavour == "Tourist": self.SetTitle("Reise")
-        elif self.flavour == "Verein": self.SetTitle("Vereinssparte")
+        elif self.flavour == "Club": self.SetTitle("Vereinssparte")
         self.Bind(wx.EVT_ACTIVATE, self.On_Activate)
         if self.debug: print "AfpDialog_EventEdit.init flavour:", self.flavour
         
     ## set up dialog widgets - overwritten from AfpDialog
     def InitWx(self):
         panel = wx.Panel(self, -1)
-        if self.flavour == "Verein":
-            self.InitWx_Verein(panel)
+        if self.flavour == "Club":
+            self.InitWx_Club(panel)
         else:
             self.label_T_Dat = wx.StaticText(panel, -1, label="&Datum", pos=(16,44), size=(50,20), name="T_Dat")
             self.text_Datum = wx.TextCtrl(panel, -1, value="", pos=(76,42), size=(80,22), style=0, name="Datum")
@@ -296,9 +296,9 @@ class AfpDialog_EventEdit(AfpDialog):
             self.Bind(wx.EVT_BUTTON, self.On_EVENT_Text, self.button_IntText)
         self.setWx(panel, [390, 220, 80, 30], [480, 220, 80, 30]) # set Edit and Ok widgets
 
-    ## set up dialog widgets for flavour "Verein"
+    ## set up dialog widgets for flavour "Club"
     # @param panel: panel weher widgets have to be attached
-    def InitWx_Verein(self, panel):
+    def InitWx_Club(self, panel):
         self.label_T_Agent = wx.StaticText(panel, -1, label="Verein:", pos=(16,11), size=(50,18), name="T_Agent")
         self.label_AgentName = wx.StaticText(panel, -1, label="", pos=(78,10), size=(498,20), name="AgentName")
         self.labelmap["AgentName"] = "AgentName.EVENT"
@@ -503,7 +503,7 @@ class AfpDialog_EventEdit(AfpDialog):
     # this routine is called from the AfpDialog.Populate
     def Pop_Preise(self):
         rows = self.data.get_value_rows("PREISE", "Preis,Anmeldungen,Plaetze,Bezeichnung,Kennung,Typ,PreisNr")
-        if self.flavour == "Verein":
+        if self.flavour == "Club":
             liste = ["--- Neuen Beitrag hinzufügen ---".decode("UTF-8")]
         else:
             liste = ["--- Neuen Preis hinzufügen ---".decode("UTF-8")]
@@ -555,7 +555,7 @@ class AfpDialog_EventEdit(AfpDialog):
     # @param event - event which initiated this action   
     def On_Set_Datum(self,event = None):
         if self.debug: print "AfpDialog_EventEdit Event handler `On_Set_Datum'"
-        if not self.flavour == "Verein":
+        if not self.flavour == "Club":
             start = self.text_Datum.GetValue()
             if start: start = Afp_ChDatum(start)
             x, y = self.text_Datum.ScreenPosition
@@ -608,7 +608,7 @@ class AfpDialog_EventEdit(AfpDialog):
         if self.debug: print "AfpDialog_EventEdit Event handler `On_EVENT_setKenn'"
         preset = self.data.get_globals().get_value("preset-event-identifier","Event")
         if preset and not self.text_Kenn.GetValue() :
-            if self.flavour == "Verein":
+            if self.flavour == "Club":
                 kennung = "0815"
             elif self.text_Datum.GetValue():
                 date = Afp_fromString(self.text_Datum.GetValue())

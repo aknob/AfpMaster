@@ -48,7 +48,7 @@ from AfpUtilities.AfpBaseUtilities import *
 # if globals are given, only modules available for this program are returned
 # @param globals - if given, global variables holding graphic modulnames
 def Afp_graphicModulNames(globals = None):
-    modules = ["Adresse","Charter","Event:Tourist","Event:Verein","Event","Faktura"]
+    modules = ["Adresse","Charter","Event:Tourist","Event:Club","Event","Faktura"]
     if globals:
         mods = globals.get_value("graphic-moduls")
         if mods: modules = mods
