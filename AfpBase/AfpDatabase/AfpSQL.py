@@ -386,9 +386,9 @@ class AfpSQLTableSelection(object):
     # @param unique_feldname - name of identifying column, if primary key exsists, otherwise None
     # @param feldnamen - names of columns, if not given they will be retrieved from database
     def  __init__(self, mysql, tablename, debug = False, unique_feldname = None, feldnamen = None):
-        #self.dbg = True # hardecode switch for storage logging
-        self.dbg = False # hardecode switch for storage logging
-        #if debug or tablename == "REISEN": 
+        #self.dbg = True # hardcode switch for storage logging
+        self.dbg = False # hardcode switch for storage logging
+        #if tablename == "PREISE": self.dbg = True
         if debug: 
             print "AfpSQLTableSelection Konstruktor dbg On", tablename
             self.dbg = True # hardcoded switch for storage logging, for debug purpose during programming
@@ -485,7 +485,8 @@ class AfpSQLTableSelection(object):
                 last_index = self.get_data_length() - 1
                 self.set_value(feldname, value, last_index)
     ## resets select criterium from last row
-    def reset_select(self):
+    def reset_select(self): 
+        if self.debug: print "AfpSQLTableSelection.reset_select:", self.select
         if self.select:
             split = self.select.split(" ")
             last_index = self.get_data_length() - 1
@@ -494,7 +495,10 @@ class AfpSQLTableSelection(object):
             for i in range(0, len(split), 4):
                 if i: self.select += " " + split[i-1] + " "
                 feldname = split[i]
-                mask = split[i+2][0] == "\""
+                if i+2 < len(split)  and split[i+2]: 
+                    mask = split[i+2][0] == "\""
+                else: 
+                    mask = False
                 values = self.get_values(feldname, last_index)
                 #print "AfpSQLTableSelection.reset_select mask:", i, feldname, last_index, mask, values
                 if values:
@@ -502,7 +506,6 @@ class AfpSQLTableSelection(object):
                     if mask: value = "\"" + value + "\""
                     self.select += feldname + " = " + value
                     #print "AfpSQLTableSelection.reset_select value:", value, self.select
-            if self.debug: print "AfpSQLTableSelection.reset_select:", self.select
     ## load data into TableSelection according to given select clause
     # @param select - select clause to identify desired data
     # @param order - if given desired order of output rows
@@ -814,6 +817,8 @@ class AfpSQLTableSelection(object):
         lgh = self.get_data_length()
         for row in range(0,lgh):
             self.set_value(feldname, value, row)
+        if self.select is None:
+            self.select =  feldname + " = " + Afp_toString(value)
     ## set indicated column to a given value
     # @param feldname - indicated column name
     # @param value -  value to be filled in indicated column
@@ -944,7 +949,9 @@ class AfpSQLTableSelection(object):
         self.manipulation = []
         if self.afterburner: 
             self.execute_afterburner()
-            if self.dbg: print "AfpSQLTableSelection.store afterburner:", self.manipulation
+            if self.select_clause is None and self.select:
+                self.select_clause = "SELECT * FROM " + self.tablename + " WHERE " + self.select
+            if self.dbg: print "AfpSQLTableSelection.store afterburner:", self.manipulation, self.select, self.select_clause
     
     # end of AfpSQL
       

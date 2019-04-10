@@ -147,6 +147,15 @@ def Afp_toShortDateString(data):
     return string
 ## direct conversion of float data to string
 # @param data - data to be converted
+# @param lgh - minimal length of string, preceding zeros will be added
+def Afp_toIntString(data, lgh = 3):
+    if data is None: return ""
+    string = Afp_toString(data)
+    if len(string) < lgh:
+        string = (lgh - len(string))*"0" + string
+    return string.strip()
+## direct conversion of float data to string
+# @param data - data to be converted
 # @param format - format of data in string
 def Afp_toFloatString(data, format = "8.2f"):
     if data is None: return ""
@@ -742,7 +751,7 @@ def Afp_splitMasked(string, limiter, mask):
         if i%2 == 0:
             if masked[i]:
                 if i > 0 and masked[i][0] == limiter: masked[i] = masked[i][1:]
-                if i < lgh-1 and masked[i][-1] == limiter: masked[i] = masked[i][:-1]
+                if len(masked[i]) and i < lgh-1 and masked[i][-1] == limiter: masked[i] = masked[i][:-1]
                 result += masked[i].split(limiter)
         else:
             result += [masked[i]]

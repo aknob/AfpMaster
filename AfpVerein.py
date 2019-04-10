@@ -2,12 +2,12 @@
 # -*- coding: utf-8 -*-
 
 ## @package BusAfp
-# AfpEvent is part of the open source BusAfp project,
+# AfpVerein is part of the open source BusAfp project,
 # it is a software to manage invoicing and other tasks in the motor related business \n
 #    Copyright© 1989 - 2019 afptech.de (Andreas Knoblauch) \n
 # \n
 #   History: \n
-#        17 May 2018 - inital code generated - Andreas.Knoblauch@afptech.de
+#        10 Jan 2019 - inital code generated - Andreas.Knoblauch@afptech.de
 
 #
 # This file is part of the  'Open Source' project "BusAfp" by 
@@ -34,23 +34,18 @@ import AfpBase
 from AfpBase import AfpStart
 
 # only needed if code is compiled with py2exe
-import AfpAdresse.AfpAdScreen
-import AfpEvent.AfpEvScreen
-# if database has to be cerated
-import AfpAdresse.AfpAdSqlTemplate
-import AfpEvent.AfpEvSqlTemplate
-
+#import AfpAdresse.AfpAdScreen
+#import AfpEvent.AfpEvScreen
 
 # main program
-name = 'AfpEvent'     
-#version = "0.9.1 beta"    
-version = "0.9.1 strict beta"    
+name = 'AfpVerein'     
+version = "0.9.1 beta"    
 website = 'http://www.busafp.de'
-description = """AfpEvent ist eine Verwaltungsprogramm für Veranstaltungen.
-Es enthält Anmeldungs- und Stornierungsverwaltung, sowie eine mitgeführte Buchhaltung, Zahlungsverfolgung
-und diverse weiter nützliche Hilfsmittel.""".decode("UTF-8")
-picture = "AfpEvent_relief.png"
-moduls = ["Adresse","Event"]
+description = """AfpVerein ist eine Verwaltungsprogramm für Vereine.
+Es enthält die Mitgliederverwaltung, sowie eine mitgeführte Buchhaltung, Zahlungsverfolgung
+und diverse weiter nützliche Hilfsmittel für verschiedene Vereine.""".decode("UTF-8")
+picture = "AfpVerein_relief.png"
+moduls = ["Adresse","Event:Verein"]
 AfpEvent = AfpBase.AfpStart.AfpSoftwareInformation(name, moduls, description, picture, website, version)
 AfpBase.AfpStart.AfpStart(AfpEvent)
       

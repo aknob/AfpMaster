@@ -99,7 +99,7 @@ def AfpEv_editLocation(ort = "", ken = ""):
 # @param data - tour data to be copied
 def AfpEvent_copy(data):
     if data.is_debug(): print "AfpEvent_copy: copy Event data!"
-    if AfpEvent_isClub(data.get_value("Art")):
+    if AfpEvent_isVerein(data.get_value("Art")):
         data.set_new(True)
         return data
     elif AfpEvent_isTour(data.get_value("Art")):
@@ -154,7 +154,7 @@ class AfpDialog_EvAusw(AfpDialog_Auswahl):
     ## get the definition of the selection grid content \n
     # overwritten for "Event" use
     def get_grid_felder(self): 
-        if self.flavour == "Club":
+        if self.flavour == "Verein":
             Felder = [["Kennung.EVENT",15], 
                                 ["Bez.EVENT",75],
                                 ["Anmeldungen.EVENT",10], 
@@ -192,14 +192,14 @@ def AfpLoad_EvAusw(globals, index, flavour = None, value = "", where = None, ask
     if ask:
         sort_list = AfpEvClient_getOrderlistOfTable(globals.get_mysql(), index)        
         if flavour == "Tourist": name = "Reise"
-        elif flavour == "Club": name = "Sparten"
+        elif flavour == "Verein": name = "Sparten"
         else:  name = "Veranstaltungs"    
         value, index, Ok = Afp_autoEingabe(value, index, sort_list, name)
         #print "AfpLoad_EvAusw index:", index, value, Ok
     if Ok:
         DiAusw = AfpDialog_EvAusw(flavour)
         if flavour == "Tourist": text = "Bitte Reise auswählen:".decode("UTF-8")     
-        elif flavour == "Club": text = "Bitte Sparte auswählen:".decode("UTF-8")     
+        elif flavour == "Verein": text = "Bitte Sparte auswählen:".decode("UTF-8")     
         else: text = "Bitte Veranstaltung auswählen:".decode("UTF-8")        
         DiAusw.initialize(globals, index, value, where, text)
         DiAusw.ShowModal()
@@ -227,15 +227,15 @@ class AfpDialog_EventEdit(AfpDialog):
         self.SetSize((592,290))
         self.SetTitle("Veranstaltung")
         if self.flavour == "Tourist": self.SetTitle("Reise")
-        elif self.flavour == "Club": self.SetTitle("Vereinssparte")
+        elif self.flavour == "Verein": self.SetTitle("Vereinssparte")
         self.Bind(wx.EVT_ACTIVATE, self.On_Activate)
         if self.debug: print "AfpDialog_EventEdit.init flavour:", self.flavour
         
     ## set up dialog widgets - overwritten from AfpDialog
     def InitWx(self):
         panel = wx.Panel(self, -1)
-        if self.flavour == "Club":
-            self.InitWx_Club(panel)
+        if self.flavour == "Verein":
+            self.InitWx_Verein(panel)
         else:
             self.label_T_Dat = wx.StaticText(panel, -1, label="&Datum", pos=(16,44), size=(50,20), name="T_Dat")
             self.text_Datum = wx.TextCtrl(panel, -1, value="", pos=(76,42), size=(80,22), style=0, name="Datum")
@@ -252,9 +252,9 @@ class AfpDialog_EventEdit(AfpDialog):
             self.label_T_Kenn = wx.StaticText(panel, -1, label="&EventNr:", pos=(280,14), size=(60,18), name="T_Kenn")
             self.text_Kenn = wx.TextCtrl(panel, -1, value="", pos=(350,12), size=(80,22), style=0, name="Kenn")
             self.textmap["Kenn"] = "Kennung.EVENT"
-            self.text_Kenn.Bind(wx.EVT_SET_FOCUS, self.On_EVENT_setKenn)
+            self.text_Kenn.Bind(wx.EVT_SET_FOCUS, self.On_setKenn)
             if self.flavour == "Tourist":
-                self.text_Kenn.Bind(wx.EVT_KILL_FOCUS, self.On_EVENT_setKst)
+                self.text_Kenn.Bind(wx.EVT_KILL_FOCUS, self.On_setKst)
                 self.label_T_Kst = wx.StaticText(panel, -1, label="&Konto:", pos=(280,42), size=(60,18), name="T_Kst")
                 self.text_Kst = wx.TextCtrl(panel, -1, value="", pos=(350,40), size=(80,22), style=0, name="Kst")
                 self.textmap["Kst"] = "Kostenst.EVENT"
@@ -289,16 +289,16 @@ class AfpDialog_EventEdit(AfpDialog):
             self.labelmap["AgentName"] = "AgentName.EVENT"
             self.check_Kopie = wx.CheckBox(panel, -1, label="Kopie", pos=(10,226), size=(70,20), name="Kopie")
             self.button_Neu = wx.Button(panel, -1, label="&Neu", pos=(80,220), size=(90,30), name="Neu")
-            self.Bind(wx.EVT_BUTTON, self.On_EVENT_Neu, self.button_Neu)
+            self.Bind(wx.EVT_BUTTON, self.On_Neu, self.button_Neu)
             self.button_Agent = wx.Button(panel, -1, label="&Agent", pos=(180,220), size=(90,30), name="Verst")
             self.Bind(wx.EVT_BUTTON, self.On_Agent, self.button_Agent)
             self.button_IntText = wx.Button(panel, -1, label="Te&xt", pos=(300,220), size=(80,30), name="IntText")
-            self.Bind(wx.EVT_BUTTON, self.On_EVENT_Text, self.button_IntText)
+            self.Bind(wx.EVT_BUTTON, self.On_Text, self.button_IntText)
         self.setWx(panel, [390, 220, 80, 30], [480, 220, 80, 30]) # set Edit and Ok widgets
 
-    ## set up dialog widgets for flavour "Club"
+    ## set up dialog widgets for flavour "Verein"
     # @param panel: panel weher widgets have to be attached
-    def InitWx_Club(self, panel):
+    def InitWx_Verein(self, panel):
         self.label_T_Agent = wx.StaticText(panel, -1, label="Verein:", pos=(16,11), size=(50,18), name="T_Agent")
         self.label_AgentName = wx.StaticText(panel, -1, label="", pos=(78,10), size=(498,20), name="AgentName")
         self.labelmap["AgentName"] = "AgentName.EVENT"
@@ -310,7 +310,7 @@ class AfpDialog_EventEdit(AfpDialog):
         self.label_T_Kenn = wx.StaticText(panel, -1, label="&SpartenNr:", pos=(280,37), size=(60,18), name="T_Kenn")
         self.text_Kenn = wx.TextCtrl(panel, -1, value="", pos=(350,35), size=(80,22), style=0, name="Kenn")
         self.textmap["Kenn"] = "Kennung.EVENT"
-        self.text_Kenn.Bind(wx.EVT_SET_FOCUS, self.On_EVENT_setKenn)
+        self.text_Kenn.Bind(wx.EVT_SET_FOCUS, self.On_setKenn)
         self.text_Kenn.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
         self.label_Anmeldungen = wx.StaticText(panel, -1, label="", pos=(458,37), size=(24,18), name="Anmeldungen")
         self.labelmap["Anmeldungen"] = "Anmeldungen.EVENT"
@@ -320,20 +320,20 @@ class AfpDialog_EventEdit(AfpDialog):
         self.choicemap["COrt"] = "Route.EVENT"
         self.Bind(wx.EVT_CHOICE, self.On_COrt, self.choice_Ort)  
  
-        self.label_TBem = wx.StaticText(panel, -1, label="&Beiträge:".decode("UTF-8"), pos=(10,124), size=(56,18), name="TBem")
+        self.label_TBem = wx.StaticText(panel, -1, label="&Beiträge:".decode("UTF-8"), pos=(10,100), size=(56,18), name="TBem")
         #self.list_Preise = wx.ListBox(panel, -1, pos=(298,120), size=(258,86), name="Preise")
-        self.list_Preise = wx.ListBox(panel, -1, pos=(74,95), size=(258,110), name="Preise")
+        self.list_Preise = wx.ListBox(panel, -1, pos=(74,95), size=(482,110), name="Preise")
         self.Bind(wx.EVT_LISTBOX_DCLICK, self.On_Preise, self.list_Preise)
         self.listmap.append("Preise")
-        self.text_Bem = wx.TextCtrl(panel, -1, value="", pos=(348,95), size=(208,110), style=wx.TE_MULTILINE|wx.TE_LINEWRAP, name="Bem")
-        self.textmap["Bem"] = "Bem.EVENT"
-        self.text_Bem.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
+        #self.text_Bem = wx.TextCtrl(panel, -1, value="", pos=(348,95), size=(208,110), style=wx.TE_MULTILINE|wx.TE_LINEWRAP, name="Bem")
+        #self.textmap["Bem"] = "Bem.EVENT"
+        #self.text_Bem.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
 
         self.check_Kopie = wx.CheckBox(panel, -1, label="Kopie", pos=(10,226), size=(70,20), name="Kopie")
         self.button_Neu = wx.Button(panel, -1, label="&Neu", pos=(80,220), size=(90,30), name="Neue Sparte")
-        self.Bind(wx.EVT_BUTTON, self.On_EVENT_Neu, self.button_Neu)
+        self.Bind(wx.EVT_BUTTON, self.On_Neu, self.button_Neu)
         self.button_IntText = wx.Button(panel, -1, label="Te&xt", pos=(300,220), size=(80,30), name="IntText")
-        self.Bind(wx.EVT_BUTTON, self.On_EVENT_Text, self.button_IntText)
+        self.Bind(wx.EVT_BUTTON, self.On_Text, self.button_IntText)
 
     ## attaches data to this dialog, invokes population of widgets (overwritten from AfpDialog)
     # @param data - AfpSelectionList which holds data to be filled into dialog wodgets 
@@ -341,14 +341,12 @@ class AfpDialog_EventEdit(AfpDialog):
     # @param editable - flag if dialogentries are editable when dialog pops up
     def attach_data(self, data, new = False, editable = False):
         if new:
-            if self.flavour == "Tourist":
-                self.is_multidays = True
-            else:
-                self.is_multidays = False
-        else:
             self.is_multidays = data.is_multidays()
             self.has_route = data.has_route()
+            if self.flavour == "Tourist":
+                self.is_multidays = True
         super(AfpDialog_EventEdit, self).attach_data(data, new, editable)
+        if self.new:  self.Pop_label()
  
     ## read values from dialog and invoke writing into data         
     def store_data(self):
@@ -379,18 +377,20 @@ class AfpDialog_EventEdit(AfpDialog):
     ## complete data if plain dialog has been started
     # @param data - SelectionList where data has to be completed
     def complete_data(self, data):
+        # all flavours preprocessing
         data["Anmeldungen"] = 0
         if not "Art" in data: 
             if self.flavour:
                 data["Art"] = self.flavour
             else: 
                 data["Art"] = "Event"
-        if not "Personen" in data: data["Personen"] = 0
-        if not "Beginn" in data: data["Beginn"] = self.data.globals.get_today()
-        if not "Kostenst" in data:
-            if "Kennung" in data: data["Kostenst"] = Afp_intString(data["Kennung"])
-            else: data["Kostenst"] = "4711"
-        if self.flavour == "Touristik":
+        if not "Beginn" in data: data["Beginn"] = self.data.globals.today()
+        # special treatment for dofferent flavours
+        if self.flavour is None: # self.flavour == "Event"
+            data["ErloesKt"] = "ERL"
+        elif self.flavour == "Touristik":
+            if not "Kostenst" in data:
+                if "Kennung" in data: data["Kostenst"] = Afp_intString(data["Kennung"])
             if not "Kennung" in data: 
                 data["Kennung"] = ""
                 if self.agent:
@@ -401,8 +401,9 @@ class AfpDialog_EventEdit(AfpDialog):
                 month = Afp_toString(data["Beginn"].month)
                 if len(month) == 1: month = "0" + month
                 data["ErloesKt"] = "ERL" + month  # ErloesKt nicht nur für Touristik (verschiedene Möglichkeiten über globals?)
-        else:
-            data["ErloesKt"] = "ERL"
+        # all flavours postprocessing
+        if not "Personen" in data: data["Personen"] = 0
+        if not "Kostenst" in data: data["Kostenst"] = 0
         return data
         
     ## create a new route entry
@@ -475,10 +476,10 @@ class AfpDialog_EventEdit(AfpDialog):
                 # reset
                 if self.route: route = self.route
                 else: route = self.data.get_value("Route")
-                ind = self.routenr.index(route) + 1
-                self.choice_Ort.SetSelection(ind)
+                if route in self.routenr:
+                    ind = self.routenr.index(route) + 1
+                    self.choice_Ort.SetSelection(ind)
 
-            
     ## execution in case the OK button ist hit - overwritten from AfpDialog
     def execute_Ok(self):
         self.store_data()
@@ -503,7 +504,7 @@ class AfpDialog_EventEdit(AfpDialog):
     # this routine is called from the AfpDialog.Populate
     def Pop_Preise(self):
         rows = self.data.get_value_rows("PREISE", "Preis,Anmeldungen,Plaetze,Bezeichnung,Kennung,Typ,PreisNr")
-        if self.flavour == "Club":
+        if self.flavour == "Verein":
             liste = ["--- Neuen Beitrag hinzufügen ---".decode("UTF-8")]
         else:
             liste = ["--- Neuen Preis hinzufügen ---".decode("UTF-8")]
@@ -516,7 +517,7 @@ class AfpDialog_EventEdit(AfpDialog):
                 else: Plus = " "
                 if row[1] or row[2]:
                     if row[1] is None: row[1] = 0
-                    middel = Afp_toString(row[1]).rjust(4) + Afp_toString(row[2]).rjust(3)
+                    middle = Afp_toString(row[1]).rjust(4) + Afp_toString(row[2]).rjust(3)
                 else:
                     middle = "       "
                 liste.append(Plus + Afp_toFloatString(row[0]).rjust(10) + middle + "  " + Afp_toString(row[3]))
@@ -524,6 +525,27 @@ class AfpDialog_EventEdit(AfpDialog):
         self.list_Preise.InsertItems(liste, 0)
         if not self.data.get_value("Route"):
             self.choice_Ort.SetSelection(0)
+
+    ## event handler when window is activated
+    # @param event - event which initiated this action   
+    def On_Activate(self,event):
+        if self.active is None:
+            if self.debug: print "AfpDialog_EventEdit Event handler `On_Activate'"
+            self.active = True
+            if self.flavour == "Tourist":
+                self.routes, self.routenr = AfpEvClient_getRouteNames(self.data.globals.get_mysql())
+                #print "AfpDialog_EventEdit.On_Activate:", routes
+                self.choice_Ort.Append(" --- Neue Transferroute --- ")
+            else: 
+                self.routes, self.routenr = AfpAdresse_getAddresslistOfAttribut(self.data.get_globals(), "Veranstaltungsort")
+                self.choice_Ort.Append(" --- Neuer Veranstaltungsort --- ")
+            for route in self.routes:
+                self.choice_Ort.Append(Afp_toString(route))
+            self.Pop_choice()
+            if self.new and not self.flavour == "Verein" and self.data.get_globals().get_value("edit-date-first","Event"): 
+                self.On_Set_Datum()
+                if self.text_Datum.GetValue() == "":
+                    self.text_Datum.SetFocus()
 
     ## Eventhandler TEXT-KILLFOCUS - check date syntax 
     # @param event - event which initiated this action 
@@ -555,7 +577,7 @@ class AfpDialog_EventEdit(AfpDialog):
     # @param event - event which initiated this action   
     def On_Set_Datum(self,event = None):
         if self.debug: print "AfpDialog_EventEdit Event handler `On_Set_Datum'"
-        if not self.flavour == "Club":
+        if not self.flavour == "Verein":
             start = self.text_Datum.GetValue()
             if start: start = Afp_ChDatum(start)
             x, y = self.text_Datum.ScreenPosition
@@ -602,25 +624,25 @@ class AfpDialog_EventEdit(AfpDialog):
             self.agent = False
         event.Skip()
     
-    ## Eventhandler TEXT-KILLFOCUS - set 'Kst' from input for self organised tours 
+    ## Eventhandler TEXT-KILLFOCUS - set 'Kennung' from input
     # @param event - event which initiated this action 
-    def On_EVENT_setKenn(self,event):
-        if self.debug: print "AfpDialog_EventEdit Event handler `On_EVENT_setKenn'"
+    def On_setKenn(self,event):
+        if self.debug: print "AfpDialog_EventEdit Event handler `On_setKenn'"
+        kennung = None
         preset = self.data.get_globals().get_value("preset-event-identifier","Event")
         if preset and not self.text_Kenn.GetValue() :
-            if self.flavour == "Club":
-                kennung = "0815"
+            if self.flavour == "Verein":
+                kennung = self.data.get_value("Tag.Verein")
             elif self.text_Datum.GetValue():
                 date = Afp_fromString(self.text_Datum.GetValue())
-                kennug  = Afp_toDateString(date, pre)
-            #print "AfpEvScreen.On_EVENT_setKenn:", date, pre, kenn
-            if kennung: self.text_Kenn.SetValue(kennung)
+                kennung  = Afp_toDateString(date, preset)
+        if kennung: self.text_Kenn.SetValue(kennung)
         event.Skip()
         
     ## Eventhandler TEXT-KILLFOCUS - set 'Kst' from input for self organised tours 
     # @param event - event which initiated this action 
-    def On_EVENT_setKst(self,event):
-        if self.debug: print "AfpDialog_EventEdit Event handler `On_EVENT_setKst'"
+    def On_setKst(self,event):
+        if self.debug: print "AfpDialog_EventEdit Event handler `On_setKst'"
         if not "Kenn" in self.changed_text: self.changed_text.append("Kenn")
         nr = Afp_fromString(self.text_Kenn.GetValue())
         if nr and  Afp_isInteger(nr):
@@ -654,8 +676,8 @@ class AfpDialog_EventEdit(AfpDialog):
 
     ## Eventhandler BUTTON - generate new tour entrys
     # @param event - event which initiated this action   
-    def On_EVENT_Neu(self,event):
-        if self.debug: print "AfpDialog_EventEdit Event handler `On_EVENT_Neu'"
+    def On_Neu(self,event):
+        if self.debug: print "AfpDialog_EventEdit Event handler `On_Neu'"
         copy = self.check_Kopie.GetValue()
         data = None
         if copy:
@@ -676,13 +698,20 @@ class AfpDialog_EventEdit(AfpDialog):
 
     ## Eventhandler BUTTON - change additional free text of tour
     # @param event - event which initiated this action   
-    def On_EVENT_Text(self,event):
-        if self.debug: print "AfpDialog_EventEdit Event handler `On_EVENT_Text'"
-        oldtext = self.data.get_string_value("IntText.EVENT")
-        text, ok = Afp_editExternText(oldtext, self.data.get_globals())
-        #print "AfpDialog_EditEvent.On_EVENT_Text:",ok, text
+    def On_Text(self,event):
+        if self.debug: print "AfpDialog_EventEdit Event handler `On_Text'"
+        if self.flavour == "Verein":
+            oldtext = self.data.get_string_value("Bem.EVENT")
+            text, ok = AfpReq_EditText(oldtext, "Zusatzinformation")
+        else:
+            oldtext = self.data.get_string_value("IntText.EVENT")
+            text, ok = Afp_editExternText(oldtext, self.data.get_globals())
+        #print "AfpDialog_EditEvent.On_Text:",ok, text
         if ok: 
-            self.data.set_value("IntText.EVENT", text)
+            if self.flavour == "Verein":
+                self.data.set_value("Bem.EVENT", text)
+            else:
+                self.data.set_value("IntText.EVENT", text)
             self.change_data = True
             self.choice_Edit.SetSelection(1)
             self.Set_Editable(True)
@@ -704,33 +733,13 @@ class AfpDialog_EventEdit(AfpDialog):
     def On_COrt(self,event):
         if self.debug: print "AfpDialog_EventEdit Event handler `On_COrt'"
         sel = self.choice_Ort.GetCurrentSelection() 
+        #print "AfpDialog_EventEdit:", sel, type(sel)
         if sel: 
             self.route = self.routenr[sel-1]
         else:
             self.select_Route()
         event.Skip()
     
-    ## event handler when window is activated
-    # @param event - event which initiated this action   
-    def On_Activate(self,event):
-        if self.active is None:
-            if self.debug: print "AfpDialog_EventEdit Event handler `On_Activate'"
-            self.active = True
-            if self.flavour == "Tourist":
-                self.routes, self.routenr = AfpEvClient_getRouteNames(self.data.globals.get_mysql())
-                #print "AfpDialog_EventEdit.On_Activate:", routes
-                self.choice_Ort.Append(" --- Neue Transferroute --- ")
-            else: 
-                self.routes, self.routenr = AfpAdresse_getAddresslistOfAttribut(self.data.get_globals(), "Veranstaltungsort")
-                self.choice_Ort.Append(" --- Neuer Veranstaltungsort --- ")
-            for route in self.routes:
-                self.choice_Ort.Append(Afp_toString(route))
-            self.Pop_choice()
-            if self.new and self.data.get_globals().get_value("edit-date-first","Event"): 
-                self.On_Set_Datum()
-                if self.text_Datum.GetValue() == "":
-                    self.text_Datum.SetFocus()
-                    
 # end of class AfpDialog_EventEdit
 
 ## loader routine for dialog EventEin
@@ -753,7 +762,13 @@ def AfpLoad_EventEdit(data, flavour = None, edit = False):
 # @param edit - if given, flag if dialog should open in edit modus
 def AfpLoad_EventEdit_fromSb(globals, sb, flavour = None, edit = False):
     Event = AfpEvent(globals, None, sb, sb.debug, False)
-    if sb.eof(): Event.set_new(True)
+    if sb.eof(): 
+        Event.set_new(True)
+        if flavour and flavour == "Verein":
+            KNr = sb.get_value("KundenNr.ADRESSE")
+            Name = sb.get_value("Name.ADRESSE")
+            Event.set_value("AgentNr.EVENT", KNr)
+            Event.set_value("AgentName.EVENT", Name)
     return AfpLoad_EventEdit(Event, flavour, edit)
 ## loader routine for dialog DiChEin according to the given charter identification number \n
 # @param globals - global variables holding database connection
@@ -762,7 +777,7 @@ def AfpLoad_EventEdit_fromFNr(globals, EventNr):
     Event = AfpEvent(globals, EventNr)
     flavour = Event.get_value("Art")
     if flavour == "Event": flavour = None
-    return AfpLoad_EventEdit(Event)
+    return AfpLoad_EventEdit(Event, flavour)
  
  ## allows the display and manipulation of a tour price entry
 class AfpDialog_EventPrices(AfpDialog):
@@ -808,6 +823,9 @@ class AfpDialog_EventPrices(AfpDialog):
     # @param data - AfpEvent object to hold the data to be displayed
     # @param index - if given, index of row of price to be displayed in data.selections["Preise"]
     def attach_data(self, data, index):
+        art = data.get_value("Art")
+        if data.get_value("Art") == "Verein": 
+            self.check_NoPrv.SetLabel("&Einmalig")
         self.data = data
         self.debug = self.data.debug
         self.index = index
@@ -922,7 +940,7 @@ class AfpDialog_EventPrices(AfpDialog):
 
 ## loader routine for dialog EventPrices
 # @param data - Event data where prices are attached
-# @param index - index of price in tour-data
+# @param index - index of price in event-data
 def AfpLoad_EventPrices(data, index):
     EventPrices = AfpDialog_EventPrices(None)
     EventPrices.attach_data(data, index)
@@ -938,6 +956,8 @@ class AfpDialog_EvClientEdit(AfpDialog):
     ## initialise dialog
     def __init__(self, *args, **kw):   
         self.change_preis = False
+        print "AfpDialog_EvClientEdit._init_:", args, kw
+
         AfpDialog.__init__(self,*args, **kw)
         self.lock_data = True
         self.active = None
@@ -962,8 +982,13 @@ class AfpDialog_EvClientEdit(AfpDialog):
         self.labelmap["Zustand"] = "Zustand.ANMELD"
         self.label_RechNr = wx.StaticText(panel, -1,  pos=(160,68), size=(130,18), name="RechNr")
         self.labelmap["RechNr"] = "RechNr.ANMELD"
-        self.label_Datum = wx.StaticText(panel, -1,  pos=(300,68), size=(80,18), name="Datum")
-        self.labelmap["Datum"] = "Anmeldung.ANMELD"
+        if self.flavour == "Verein":
+            self.text_Datum = wx.TextCtrl(panel, -1,  pos=(300,68), size=(80,18), name="Datum")
+            self.vtextmap["Datum"] = "Anmeldung.ANMELD"
+            self.text_Datum.Bind(wx.EVT_KILL_FOCUS, self.On_Check_Datum)
+        else:
+            self.label_Datum = wx.StaticText(panel, -1,  pos=(300,68), size=(80,18), name="Datum")
+            self.labelmap["Datum"] = "Anmeldung.ANMELD"
         self.label_TFuer = wx.StaticText(panel, -1, label="für".decode("UTF-8"), pos=(12,90), size=(20,16), name="TFuer")
         self.label_Bez = wx.StaticText(panel, -1, pos=(35,90), size=(180,34), name="Bez")
         self.labelmap["Bez"] = "Bez.EVENT"
@@ -1048,6 +1073,11 @@ class AfpDialog_EvClientEdit(AfpDialog):
             self.label_TAb.Show(False)
             self.label_Transfer.Show(False)
             self.label_TTransfer.Show(False)
+        if data.event_is_Verein():
+            self.button_Agent.SetLabel("&Entsender")
+            self.button_Storno.SetLabel("A&bmeldung")
+            self.check_Mehrfach.SetLabel("&Familie")
+            self.check_family(data)
         super(AfpDialog_EvClientEdit, self).attach_data(data, new, editable)
         if new: self.Populate()
     ## only allow OK-button to exit dialog for automatic new creation \n
@@ -1107,14 +1137,17 @@ class AfpDialog_EvClientEdit(AfpDialog):
         self.change_preis = False  
       
     def complete_data(self, data):
+        IdNr = None
         if not "Zustand" in data:
             data["Zustand"] = AfpEvent_getZustandList()[-1]
+        if self.flavour == "Verein" and not self.data.get_value("IdNr"):
+            IdNr= self.data.generate_IdNr() 
+            data["IdNr"] = IdNr
         if not self.data.get_value("RechNr"):
-            RNr = self.data.generate_RechNr()
+            RNr = self.data.generate_RechNr(IdNr)
             data["RechNr"] = RNr
         if not "Ab" in data:
             data["Ab"] = 0
-        self.change_preis = True
         return data
                     
     ## execution in case the OK button ist hit - overwritten from AfpDialog
@@ -1124,7 +1157,16 @@ class AfpDialog_EvClientEdit(AfpDialog):
     # only used in 'only Ok' mode
     def get_RechNr(self):
         return self.data.get_value("RechNr")
-
+    ## check if 'family' id allowed for 'verein'-member
+    # @param data - if given, data to be checked, otherwise self.data is used
+    def check_family(self, data = None):
+        if not data:
+            data = self.data
+        if  data and data.event_is_Verein():
+            if data.pricename_holds("Familie") and not data.pricename_holds("Familien"):
+                self.check_Mehrfach.Enable(True)
+            else:
+                self.check_Mehrfach.Enable(False)
     ## common population routine overwritten from AfpDialog
     #def Populate(self):
         #super(AfpDialog_EvClientEdit, self).Populate()
@@ -1155,7 +1197,17 @@ class AfpDialog_EvClientEdit(AfpDialog):
         self.list_Alle.Clear()
         if liste: self.list_Alle.InsertItems(liste, 0)
         #print "AfpDialog_EvClientEdit.Pop_Alle:", self.sameRechNr
-         
+
+   ## Eventhandler TEXT-KILLFOCUS - check date syntax 
+    # @param event - event which initiated this action 
+    def On_Check_Datum(self,event):
+        if self.debug: print "AfpDialog_EvClientEdit Event handler `On_Check_Datum'" 
+        object = event.GetEventObject()
+        datum = object.GetValue()
+        date = Afp_ChDatum(datum)
+        object.SetValue(date)
+        self.On_KillFocus(event)
+        event.Skip()
     ## Eventhandler CHOICE - enable/disable widgets according to choice value
     # @param event - event which initiated this action   
     def On_CZustand(self,event):
@@ -1204,8 +1256,9 @@ class AfpDialog_EvClientEdit(AfpDialog):
         if self.debug: print "AfpDialog_EvClientEdit Event handler `On_Anmeld_Preise'"
         index = self.list_Preise.GetSelections()[0] - 2
         if index < 0: 
-            #print "AfpDialog_EvClientEdit.On_Anmeld_Preise:", index
+            #print "AfpDialog_EvClientEdit.On_Anmeld_Preise index:", index
             row = self.get_Preis_row(index)
+            #print "AfpDialog_EvClientEdit.On_Anmeld_Preise row:", row
             if row:
                 self.actualise_preise(row)
                 self.change_preis = True
@@ -1218,6 +1271,7 @@ class AfpDialog_EvClientEdit(AfpDialog):
             self.add_extra_preis_value(-extra)
             if not noPrv: self.add_prov_preis_value(-extra)
             self.change_preis = True
+        self.check_family()
         self.Pop_Preise()
         event.Skip()
         
@@ -1234,34 +1288,35 @@ class AfpDialog_EvClientEdit(AfpDialog):
         idents = []
         name = self.data.get_name()
         rows = self.data.get_value_rows("PREISE", "Preis,Bezeichnung,NoPrv,PreisNr,Typ")
+        exlgh = 0
         if index == -1:
             for row in rows:
                 if row[4] == "Grund":
                     liste.append(Afp_toFloatString(row[0]).rjust(10) + "  " + Afp_toString(row[1]))
                     listentries.append(row)
                     idents.append(row[3])
-            #if len(liste) > 1: 
             name = self.data.get_name()
+            #print "AfpDialog_EvClientEdit.get_Preis_row:",  liste , idents
             value, Ok = AfpReq_Selection("Grundpreis für die Anmeldung von ".decode("UTF-8") + name + " ändern?".decode("UTF-8"), "Bitte neuen Grundpreis auswählen!".decode("UTF-8"), liste, "Grundpreis".decode("UTF-8"), idents)
+            #print "AfpDialog_EvClientEdit.get_Preis_row value:",  Ok, value, idents.index(value)
         elif index == -2:
             liste.append(" --- freien Extrapreis eingeben --- ")
             listentries.append(liste[0])
             idents.append(-1)
             extras = self.data.get_value_rows("ExtraPreis", "Preis,Bezeichnung,NoPrv,PreisNr,Typ")
-            ind = 1
+            exlgh = 1
             for ex in extras:
                 liste.append(Afp_toFloatString(ex[0]).rjust(10) + "  " + Afp_toString(ex[1]))
                 listentries.append(ex)
                 idents.append(ind)
-                ind += 1
+                exlgh += 1
             for row in rows:
                 if row[4] == "Aufschlag":
                     liste.append(Afp_toFloatString(row[0]).rjust(10) + "  " + Afp_toString(row[1]))
                     listentries.append(row)
                     idents.append(row[3])
-            #if len(liste) > 1: 
             value, Ok = AfpReq_Selection("Extrapreis für die Anmeldung von ".decode("UTF-8") + name + " eingeben?".decode("UTF-8"), "Bitte neues Extra auswählen!".decode("UTF-8"), liste, "Extrapreis".decode("UTF-8"), idents)
-        #print "AfpDialog_EvClientEdit.get_Preis_row Extrapreis:", Ok, value, idents
+            #print "AfpDialog_EvClientEdit.get_Preis_row Extrapreis:", Ok, value, idents
         if Ok:
             if value == -1: # manual entry
                 res_row = AfpReq_MultiLine("Bitte Extrapreis und Bezeichnung manuell eingeben.", "", ["Text","Text","Check"], [["Preis:", ""], ["Bezeichnung:", ""], "Verprovisionierbar"],"Eingabe Extrapreis")
@@ -1271,7 +1326,7 @@ class AfpDialog_EvClientEdit(AfpDialog):
                     res_row.append(0)
                     res_row.append("")
                 #print "AfpDialog_EvClientEdit.get_Preis_row Manual:", Ok, value, res_row
-            elif value < len(liste): # common extra price selected
+            elif index == -2 and value < exlgh: # common extra price selected
                 res_row = listentries[value]
                 if not res_row[0]:
                     value, Ok = AfpReq_Text("Bitte Preis für das Extra".decode("UTF-8"), "'" + res_row[1] + "' eingeben!","0.0","Preiseingabe")
@@ -1293,10 +1348,16 @@ class AfpDialog_EvClientEdit(AfpDialog):
                 self.preisnr = row[3]
                 select = "EventNr = " + ENr + " AND PreisNr = " + Afp_toString(self.preisnr)
                 self.data.get_selection("Preis").load_data(select)
-                plus = row[0] - Afp_fromString(self.label_Grund.GetLabel())
+                plus = 0.0
+                if row[0]: plus = row[0]
+                if self.label_Grund.GetLabel():
+                    plus = plus - Afp_fromString(self.label_Grund.GetLabel())
+                #print "AfpDialog_EvClientEdit.actualise_preise:", row, self.label_Grund.GetLabel(), plus
                 if plus:
                     self.label_Grund.SetLabel( Afp_toString(row[0]))
-                    preis = Afp_fromString(self.label_Preis.GetLabel())
+                    preis = 0.0
+                    if self.label_Preis.GetLabel():
+                        preis = Afp_fromString(self.label_Preis.GetLabel())
                     preis += plus
                     self.label_Preis.SetLabel(Afp_toString(preis))
                     self.add_prov_preis_value(plus)
@@ -1386,10 +1447,16 @@ class AfpDialog_EvClientEdit(AfpDialog):
     def On_Anmeld_Neu(self,event):
         if self.debug: print "AfpDialog_EvClientEdit Event handler `On_Anmeld_Neu'"
         mehr = self.check_Mehrfach.GetValue()
+        family = mehr and self.data.event_is_Verein()
+        if family:
+            mehr = [True, True, False, False]
         new_data = AfpEvClient_copy(self.data, mehr)
         if new_data:
+            if family:
+                new_data.set_value("PreisNr", 0)
             self.new = True
             self.data = new_data
+            self.check_family()
             self.Populate()
             self.choice_Edit.SetSelection(1)
             self.Set_Editable(True)
@@ -1422,6 +1489,7 @@ class AfpDialog_EvClientEdit(AfpDialog):
 # @param onlyOk - flag if only the Ok exit is possible to leave dialog, used for 'Umbuchung'
 def AfpLoad_EvClientEdit(data, flavour = None, edit = False, onlyOk = None):
     if data:
+        print "AfpLoad_EvClientEdit:", flavour
         DiEvClientEin = AfpDialog_EvClientEdit(flavour)
         new = data.is_new()
         DiEvClientEin.attach_data(data, new, edit)

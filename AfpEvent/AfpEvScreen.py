@@ -41,7 +41,7 @@ from AfpBase.AfpDatabase import *
 from AfpBase.AfpDatabase.AfpSQL import AfpSQL
 from AfpBase.AfpDatabase.AfpSuperbase import AfpSuperbase
 from AfpBase.AfpBaseRoutines import Afp_archivName, Afp_startFile
-from AfpBase.AfpBaseDialog import AfpReq_Info, AfpReq_Selection, AfpReq_Question, AfpReq_Text
+from AfpBase.AfpBaseDialog import AfpReq_Info, AfpReq_Selection, AfpReq_Question, AfpReq_Text, AfpReq_MultiLine
 from AfpBase.AfpBaseDialogCommon import AfpLoad_DiReport
 from AfpBase.AfpBaseScreen import AfpScreen
 from AfpBase.AfpBaseAdRoutines import AfpAdresse
@@ -53,6 +53,16 @@ from AfpEvent import AfpEvRoutines, AfpEvDialog
 from AfpEvent.AfpEvRoutines import *
 from AfpEvent.AfpEvDialog import AfpLoad_EvAusw, AfpLoad_EventEdit_fromSb, AfpLoad_EvClientEdit_fromSb
 
+
+def AfpExtra(globals, debug):
+    jahr = globals.today().year- 1
+    soll = globals.get_value("hours-of-duty","Event")
+    if not soll: soll = 10
+    liste = [["für Jahr:".decode("UTF-8"), Afp_toString(jahr)], ["Pflichtstunden:", Afp_toString(soll)], ["Toleranz:", "1"]]
+    res = AfpReq_MultiLine("Bitte Eckwerte für die Auswertung der Arbeitsstunden eingeben.".decode("UTF-8"), "Test", "Text", liste, "Auswertung Arbeitsstunden")
+    print "AfpExtra:", res
+    return  
+
 ## Class AfpEvScreen shows 'Event' screen and handles interactions
 class AfpEvScreen(AfpScreen):
     ## initialize AfpEvScreen, graphic objects are created here
@@ -60,6 +70,7 @@ class AfpEvScreen(AfpScreen):
     def __init__(self, debug = None):
         AfpScreen.__init__(self,None, -1, "")
         self.typ = "Event"
+        self.flavour = None
         #self.einsatz = None # to invoke import of 'Einsatz' modules in 'init_database'
         self.grid_rows["Customers"] = 12 
         self.grid_cols["Customers"] = 7
@@ -104,15 +115,15 @@ class AfpEvScreen(AfpScreen):
         
         # right BUTTON sizer
         self.combo_Sortierung = wx.ComboBox(panel, -1, value="Kennung", choices=["Kennung","Bezeichnung","Beginn"], size=(100,30), style=wx.CB_DROPDOWN, name="Sortierung")
-        self.Bind(wx.EVT_COMBOBOX, self.On_Event_Index, self.combo_Sortierung)
+        self.Bind(wx.EVT_COMBOBOX, self.On_Index, self.combo_Sortierung)
         self.indexmap = {"Kennung":"Kennung","Bezeichnung":"Bez","Ort":"Bez","Beginn":"Beginn"}
         
         self.button_Auswahl = wx.Button(panel, -1, label="Aus&wahl",size=(77,50), name="BAuswahl")
-        self.Bind(wx.EVT_BUTTON, self.On_Event_Ausw, self.button_Auswahl)
+        self.Bind(wx.EVT_BUTTON, self.On_Ausw, self.button_Auswahl)
         self.button_Anfrage = wx.Button(panel, -1, label="An&frage",size=(77,50), name="BAnfrage")
-        self.Bind(wx.EVT_BUTTON, self.On_Event_Anfrage, self.button_Anfrage)      
+        self.Bind(wx.EVT_BUTTON, self.On_Anfrage, self.button_Anfrage)      
         self.button_Event = wx.Button(panel, -1, label="&Event",size=(77,50), name="Event")
-        self.Bind(wx.EVT_BUTTON, self.On_Event_modify, self.button_Event)
+        self.Bind(wx.EVT_BUTTON, self.On_modify, self.button_Event)
         self.button_Anmeldung = wx.Button(panel, -1, label="&Anmeldung", size=(77,50),name="BAnmeldung")
         self.Bind(wx.EVT_BUTTON, self.On_Anmeldung, self.button_Anmeldung)
         self.button_Zahlung = wx.Button(panel, -1, label="&Zahlung",size=(77,50), name="BZahlung")
@@ -154,7 +165,7 @@ class AfpEvScreen(AfpScreen):
         # COMBOBOX
         #self.combo_Filter = wx.ComboBox(panel, -1, value="Veranstaltung-Anmeldungen", size=(164,20), choices=["Veranstaltung-Anmeldungen","Veranstaltung-Stornierungen","Veranstaltung-Reservierungen","Reisen-Anmeldungen","Reisen-Stornierungen"], style=wx.CB_DROPDOWN, name="Filter")
         self.combo_Filter = wx.ComboBox(panel, -1, value="Anmeldungen", size=(164,20), choices=["Anmeldungen","Stornierungen","Reservierungen","Reisen-Anmeldungen","Reisen-Stornierungen"], style=wx.CB_DROPDOWN, name="Filter")
-        self.Bind(wx.EVT_COMBOBOX, self.On_Event_Filter, self.combo_Filter)
+        self.Bind(wx.EVT_COMBOBOX, self.On_Filter, self.combo_Filter)
         self.filtermap = {"Anmeldungen":"Event-Anmeldung","Stornierungen":"Event-Storno","Reservierungen":"Event-Reserv","Reisen-Anmeldungen":"Reise-Anmeldung","Reisen-Stornierungen":"Reise-Storno"}
         self.combo_Jahr = wx.ComboBox(panel, -1, value="Aktuell", size=(84,20), style=wx.CB_DROPDOWN, name="Jahr")
         self.Bind(wx.EVT_COMBOBOX, self.On_Jahr_Filter, self.combo_Jahr)
@@ -259,9 +270,8 @@ class AfpEvScreen(AfpScreen):
         self.setup_date_filter()
         self.dynamic_grid_sizer = self.grid_panel_sizer
 
-     ## compose tourist specific menu parts
+     ## compose event specific menu parts
     def create_specific_menu(self):
-        # setup tourist menu
         tmp_menu = wx.Menu() 
         mmenu =  wx.MenuItem(tmp_menu, wx.NewId(), "&Anmeldung", "")
         self.Bind(wx.EVT_MENU, self.On_Anmeldung, mmenu)
@@ -270,7 +280,7 @@ class AfpEvScreen(AfpScreen):
         self.Bind(wx.EVT_MENU, self.On_MEvent_copy, mmenu)
         tmp_menu.AppendItem(mmenu)
         mmenu =  wx.MenuItem(tmp_menu, wx.NewId(), "&Bearbeiten", "")
-        self.Bind(wx.EVT_MENU, self.On_Event_modify, mmenu)
+        self.Bind(wx.EVT_MENU, self.On_modify, mmenu)
         tmp_menu.AppendItem(mmenu)
         mmenu =  wx.MenuItem(tmp_menu, wx.NewId(), "&Zahlung", "")
         self.Bind(wx.EVT_MENU, self.On_Zahlung, mmenu)
@@ -322,6 +332,8 @@ class AfpEvScreen(AfpScreen):
             TextBox = self.FindWindowByName(entry)
             if no_slave and self.is_slave(self.textmap[entry]):
                 value = ""
+            elif self.data:
+                value = self.data.get_tagged_value(self.textmap[entry])
             else:
                 value = self.sb.get_string_value(self.textmap[entry])
             #print "AfpEvScreen.Pop_text:", no_slave, entry, value, self.is_slave(self.textmap[entry])
@@ -377,7 +389,7 @@ class AfpEvScreen(AfpScreen):
         if self.debug: print "AfpEvScreen.set_sb_date Startdate:", start, self.sb_date_filter, "CURRENT RECORD:", self.sb.get_value()
         
     ## Eventhandler COMBOBOX - filter
-    def On_Event_Filter(self,event=None):
+    def On_Filter(self,event=None):
         s_key = self.sb.get_value()        
         self.set_client_filter()
         self.sb.select_key(s_key)
@@ -413,9 +425,9 @@ class AfpEvScreen(AfpScreen):
         return self.sb_date_filter.replace("Beginn","Anmeldung")
 
     ## Eventhandler COMBOBOX - sort index
-    def On_Event_Index(self, event = None):
+    def On_Index(self, event = None):
         value = self.combo_Sortierung.GetValue()
-        if self.debug: print "AfpEvScreen Event handler `On_Event_Index'",value
+        if self.debug: print "AfpEvScreen Event handler `On_Index'",value
         index = self.indexmap[value]
         if index == "RechNr": 
             master = "ANMELD"
@@ -423,14 +435,14 @@ class AfpEvScreen(AfpScreen):
         else: master = "EVENT"
         if self.sb_master != master:
             self.sb_master = master
-            #print "AfpEvScreen.On_Event_Index master:", master
+            #print "AfpEvScreen.On_Index master:", master
             self.sb.CurrentFileName(self.sb_master) 
-        #print "AfpEvScreen.On_Event_Index index:", index
+        #print "AfpEvScreen.On_Index index:", index
         self.sb.set_index(index)
         self.sb.CurrentIndexName(index)
-        #print "AfpScreen.On_Event_Index current index", self.sb.get_value("AnmeldNr.ANMELD"), self.sb.CurrentFile.indexname, self.sb.CurrentFile.name, self.sb.CurrentFile.CurrentIndex.name
+        #print "AfpScreen.On_Index current index", self.sb.get_value("AnmeldNr.ANMELD"), self.sb.CurrentFile.indexname, self.sb.CurrentFile.name, self.sb.CurrentFile.CurrentIndex.name
         self.set_jahr_filter()
-        #print "AfpScreen.On_Event_Index filter", self.sb.get_value("AnmeldNr.ANMELD")
+        #print "AfpScreen.On_Index filter", self.sb.get_value("AnmeldNr.ANMELD")
         self.CurrentData()
         if event: event.Skip()
 
@@ -442,11 +454,12 @@ class AfpEvScreen(AfpScreen):
         event.Skip()
     
     ## Eventhandler BUTTON - proceed inquirery 
-    def On_Event_Anfrage(self,event):
+    def On_Anfrage(self,event):
         print "AfpEvScreen Event handler `On_Anfrage' not implemented!"
-        #print "AfpEvScreen.On_Event_Anfrage globals:", self.globals.view()
+        #print "AfpEvScreen.On_Anfrage globals:", self.globals.view()
+        AfpExtra(self.globals, False)
         event.Skip()
-      
+            
     ## Eventhandler BUTTON - payment
     def On_Zahlung(self,event):
         if self.debug: print "AfpEvScreen Event handler `On_Zahlung'"
@@ -461,8 +474,8 @@ class AfpEvScreen(AfpScreen):
         event.Skip()
 
     ## Eventhandler BUTTON - selection
-    def On_Event_Ausw(self,event):
-        if self.debug: print "AfpEvScreen Event handler `On_Event_Ausw'"
+    def On_Ausw(self,event):
+        if self.debug: print "AfpEvScreen Event handler `On_Ausw'"
         #self.sb.set_debug()
         index = self.sb.identify_index().get_name()
         where = AfpSelectEnrich_dbname(self.sb.identify_index().get_where(), "EVENT")
@@ -478,7 +491,7 @@ class AfpEvScreen(AfpScreen):
             self.sb.set_index(index, "EVENT", "EventNr")  
             self.set_current_record()
             if self.sb.eof(): 
-                #print "AfpEvScreen.On_Event_Ausw: remove date filter"
+                #print "AfpEvScreen.On_Ausw: remove date filter"
                 self.combo_Jahr.SetValue("Alle")
                 self.set_jahr_filter()
                 self.sb.select_key(FNr, "EventNr", "EVENT")
@@ -535,26 +548,26 @@ class AfpEvScreen(AfpScreen):
                 new = False
             else:
                 new = True
-            changed = AfpLoad_EvClientEdit_fromSb(self.globals, self.sb, self.flavour, None, new)
+            changed = AfpLoad_EvClientEdit_fromSb(self.globals, self.sb, self.flavour, new)
             #print"AfpEvSreen.On_Anmeldung", changed
             if changed: 
                 self.Reload()
             #self.sb.unset_debug()
         event.Skip()  
         
-    ## Eventhandler BUTTON , MENU - modify tour
-    def On_Event_modify(self,event):     
-        if self.debug: print "AfpEvScreen Event handler `On_Event_modify'"
+    ## Eventhandler BUTTON , MENU - modify event
+    def On_modify(self,event=None):     
+        if self.debug: print "AfpEvScreen Event handler `On_modify'"
         changed = AfpLoad_EventEdit_fromSb(self.globals, self.sb, self.flavour, True)
         if changed: 
             self.Reload()
-        event.Skip()
+        if event: event.Skip()
       
     ## Eventhandler Grid - double click Grid 'Customers'
     def On_DClick_Custs(self, event):
         if self.debug: print "AfpEvScreen Event handler `On_DClick_Custs'"
         self.On_Click_Custs(event)
-        changed = AfpLoad_EvClientEdit_fromSb(self.globals, self.sb)
+        changed = AfpLoad_EvClientEdit_fromSb(self.globals, self.sb, self.flavour)
         self.grid_row_selected = True
         if changed: 
             self.Reload()      
@@ -658,7 +671,7 @@ class AfpEvScreen(AfpScreen):
             ENr = self.sb.get_value("EventNr.ANMELD")
         self.sb.select_key(ENr,"EventNr","EVENT")
         #print "AfpEvScreen.load_direct:", ANr, ENr
-        self.On_Event_Index()
+        self.On_Index()
         #print "AfpEvScreen.load_direct Index set:", self.sb.get_value("AnmeldNr.ANMELD"), self.sb.get_value("EventNr.ANMELD")
         self.set_current_record()
         #print "AfpEvScreen.load_direct current record:", self.sb.get_value("AnmeldNr.ANMELD"), self.sb.get_value("EventNr.ANMELD")
@@ -709,7 +722,7 @@ class AfpEvScreen(AfpScreen):
         else:
             self.sb.select_last() # for tests
         #print "AfpEvScreen.set_initial_record initial record set:", self.sb.get_value()
-        self.On_Event_Index()
+        self.On_Index()
         self.sb.select_current()
         return
     ## check if slave exists

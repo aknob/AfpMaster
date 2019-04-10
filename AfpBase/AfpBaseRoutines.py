@@ -48,7 +48,7 @@ from AfpUtilities.AfpBaseUtilities import *
 # if globals are given, only modules available for this program are returned
 # @param globals - if given, global variables holding graphic modulnames
 def Afp_graphicModulNames(globals = None):
-    modules = ["Adresse","Charter","Event:Tourist","Event:Club","Event","Faktura"]
+    modules = ["Adresse","Charter","Event:Tourist","Event:Verein","Event","Faktura"]
     if globals:
         mods = globals.get_value("graphic-moduls")
         if mods: modules = mods
@@ -83,7 +83,7 @@ def Afp_ModulNames(globals = None, flavour = None):
     #print "Afp_ModulNames input:", mods, flavour
     modules = []
     # check if appropriate python files exists, if global variables are given
-    if globals and mods:
+    if globals and not globals.is_strict()and mods:
         modi = []
         path = globals.get_programpath()
         deli = globals.get_value("path-delimiter") 
@@ -1285,42 +1285,59 @@ class AfpSelectionList(object):
 class AfpExternNr(AfpSQLTableSelection):
     ## initialize AfpExternNr class
     # @param globals - global values including the mysql connection - this input is mandatory
-    def  __init__(self, globals, Typ = None, debug = None):
+    # @param typ - typ of number generation
+    # @param data - if given additional data for creation type
+    # @param typ - typ of number generation
+    def  __init__(self, globals, Typ = None, data = None, debug = None):
         if debug: self.debug = debug
         else: self.debug = globals.is_debug()
         AfpSQLTableSelection.__init__(self, globals.get_mysql(), "EXTERNNR", self.debug)
         self.typ = Typ
+        self.prefix = ""
+        self.separator = ""
         if Typ == "Monat":
-            today = globals.today()
-            jahr = Afp_toString(today.year)[-2:]
-            mon = Afp_toString(today.month)
+            tp = type(data)
+            if tp == datetime.date or tp == datetime.datetime:
+                day = data
+            else:
+                day = globals.today()
+            jahr = Afp_toString(day.year)[-2:]
+            mon = Afp_toString(day.month)
             if len(mon) < 2: mon = "0" + mon
             self.prefix = jahr + mon
             self.separator = "."
+        elif Typ == "Count":
+            if data: self.prefix == data
         if self.debug: print "AfpExternNr Konstruktor"
     ## destuctor
     def __del__(self):    
         if self.debug: print "AfpExternNr Destruktor"
     ## generate new extern number for given prefix and separator
     def get_number(self):
-        ExtNr = None
-        nr = None
+        Nr = None
         self.select = "Typ = \"" + self.typ + "\" AND Pre = \"" + self.prefix + "\""
         self.lock_data()
         self.load_data(self.select)
         lgh = self.get_data_length()
         if lgh == 0:
-            nr = 1
-            self.add_row([self.typ, self.prefix, nr, self.typ+self.prefix])
+            Nr = 1
+            self.add_row([self.typ, self.prefix, Nr, self.typ+self.prefix])
         elif lgh > 1:
             print "WARNING: AfpExternNr.gen_number datalength not 1 but:", lgh
         else:
-            nr = self.get_value("Nummer") + 1
-            self.set_value("Nummer", nr)
-        if nr:
+            Nr = self.get_value("Nummer") + 1
+            self.set_value("Nummer", Nr)
+        if Nr:
             self.store()
-            ExtNr = self.prefix + self.separator + Afp_toString(nr)
-        #self.unlock_data()
+        else:
+            self.unlock_data()
+        return Nr
+    ## generate new number string
+    def get_number_string(self):
+        ExtNr = None
+        Nr = self.get_number()
+        if Nr:
+            ExtNr = self.prefix + self.separator + Afp_toString(Nr)
         return ExtNr
           
 ##  class to export Afp-database entries to other formats 
@@ -1612,6 +1629,13 @@ def AfpBase_getSqlTables(flavours = None):
   PRIMARY KEY (`BerichtNr`),
   KEY `BerichtNr` (`BerichtNr`),
   KEY `Bez` (`Bez`(50))
-) ENGINE=InnoDB AUTO_INCREMENT=0 DEFAULT CHARSET=latin1 COLLATE=latin1_german2_ci;"""
+) ENGINE=InnoDB AUTO_INCREMENT=0 DEFAULT CHARSET=latin1 COLLATE=latin1_german2_ci;""" 
+    required["ExternNr"] = """CREATE TABLE `EXTERNNR` (
+  `Typ` char(20) NOT NULL,
+  `Pre` char(5) NOT NULL,
+  `Nummer` mediumint(8) unsigned zerofill NOT NULL,
+  `TypPre` tinytext NOT NULL,
+  KEY `TypPre` (`Typ`,`Pre`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_german2_ci;"""
     # return data
     return required

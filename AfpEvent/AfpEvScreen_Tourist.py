@@ -77,13 +77,13 @@ class AfpEvScreen_Tourist(AfpEvScreen):
         panel = self.panel
         # BUTTON
         self.button_Auswahl = wx.Button(panel, -1, label="Aus&wahl", pos=(692,50), size=(77,50), name="BAuswahl")
-        self.Bind(wx.EVT_BUTTON, self.On_Event_Ausw, self.button_Auswahl)
+        self.Bind(wx.EVT_BUTTON, self.On_Ausw, self.button_Auswahl)
         #self.button_Adresse = wx.Button(panel, -1, label="A&dresse", pos=(692,110), size=(77,50), name="BAdresse")
         #self.Bind(wx.EVT_BUTTON, self.On_Adresse_aendern, self.button_Adresse)      
         self.button_Anfrage = wx.Button(panel, -1, label="An&frage", pos=(692,110), size=(77,50), name="BAnfrage")
-        self.Bind(wx.EVT_BUTTON, self.On_Event_Anfrage, self.button_Anfrage)      
+        self.Bind(wx.EVT_BUTTON, self.On_Anfrage, self.button_Anfrage)      
         self.button_Reise = wx.Button(panel, -1, label="&Reise", pos=(692,170), size=(77,50), name="Reise")
-        self.Bind(wx.EVT_BUTTON, self.On_Event_modify, self.button_Reise)
+        self.Bind(wx.EVT_BUTTON, self.On_modify, self.button_Reise)
         self.button_Anmeldung = wx.Button(panel, -1, label="&Anmeldung", pos=(692,230), size=(77,50), name="BAnmeldung")
         self.Bind(wx.EVT_BUTTON, self.On_Anmeldung, self.button_Anmeldung)
         self.button_Zahlung = wx.Button(panel, -1, label="&Zahlung", pos=(692,290), size=(77,50), name="BZahlung")
@@ -97,10 +97,10 @@ class AfpEvScreen_Tourist(AfpEvScreen):
       
         # COMBOBOX
         self.combo_Filter = wx.ComboBox(panel, -1, value="Eigen-Anmeldungen", pos=(509,16), size=(164,20), choices=["Eigen-Anmeldungen","Eigen-Stornierungen","Eigen-Reservierungen","Fremd-Buchungen","Fremd-Anfragen","Fremd-Anmeldungen","Fremd-Stornierungen"], style=wx.CB_DROPDOWN, name="Filter")
-        self.Bind(wx.EVT_COMBOBOX, self.On_Event_Filter, self.combo_Filter)
+        self.Bind(wx.EVT_COMBOBOX, self.On_Filter, self.combo_Filter)
         self.filtermap = {"Eigen-Anmeldungen":"Eigen-Anmeldung","Eigen-Stornierungen":"Eigen-Storno","Eigen-Reservierungen":"Eigen-Reserv","Fremd-Buchungen":"Fremd-","Fremd-Anfragen":"Fremd-Anfrage","Fremd-Anmeldungen":"Fremd-Anmeldung","Fremd-Stornierungen":"Fremd-Storno"}
         self.combo_Sortierung = wx.ComboBox(panel, -1, value="Kennung", pos=(689,16), size=(80,20), choices=["Kennung","Ort","Beginn","Anmeldung"], style=wx.CB_DROPDOWN, name="Sortierung")
-        self.Bind(wx.EVT_COMBOBOX, self.On_Event_Index, self.combo_Sortierung)
+        self.Bind(wx.EVT_COMBOBOX, self.On_Index, self.combo_Sortierung)
         self.indexmap = {"Kennung":"Kennung","Ort":"Bez","Beginn":"Beginn","Anmeldung":"RechNr"}
         self.combo_Jahr = wx.ComboBox(panel, -1, value="Aktuell", pos=(420,16), size=(84,20), style=wx.CB_DROPDOWN, name="Jahr")
         self.Bind(wx.EVT_COMBOBOX, self.On_Jahr_Filter, self.combo_Jahr)
@@ -377,7 +377,7 @@ class AfpEvScreen_Tourist(AfpEvScreen):
             self.combo_Sortierung.SetSelection(0)
         self.sb.select_key(ENr,"EventNr","EVENT")
         #print "AfpEvScreen_Tourist.load_direct:", ANr, ENr
-        self.On_Event_Index()
+        self.On_Index()
         #print "AfpEvScreen_Tourist.load_direct Index set:", self.sb.get_value("AnmeldNr.ANMELD"), self.sb.get_value("EventNr.ANMELD")
         self.set_current_record()
         #print "AfpEvScreen_Tourist.load_direct current record:", self.sb.get_value("AnmeldNr.ANMELD"), self.sb.get_value("EventNr.ANMELD")

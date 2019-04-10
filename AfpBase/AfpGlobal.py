@@ -284,7 +284,7 @@ class AfpGlobal(object):
                     modul = None
                 self.set_value(variable, value, modul)
     ## set common information for this program package
-    # @param version - version the apf main program
+    # @param version - version the afp main program
     # @param baseversion - version number of this base package
     # @param copyright - copyright of this package
     # @param website - website information for this package
@@ -356,6 +356,10 @@ class AfpGlobal(object):
     ## return if accounting should be skipped
     def skip_accounting(self):
         if self.get_value("skip-accounting"): return True
+        else: return False
+    ## return if version is strict
+    def is_strict(self):
+        if "strict" in self.get_value("version"): return True
         else: return False
     ## return the date of today
     def today(self):

@@ -229,6 +229,7 @@ class AfpDialog_DiReport(wx.Dialog):
         self.data = None     # data where output should be created for
         self.datas = None   # in case more then one output has to be created, datas are attached here and sucessively assigned to data
         self.datasindex = None # current index in datas of actuel assigned data
+        self.variables = None # given variables used globally in output
         self.globals = None
         self.major_type = None
         self.mail = None
@@ -276,7 +277,8 @@ class AfpDialog_DiReport(wx.Dialog):
     # @param header - header to be display in the dialogts top ribbon
     # @param prepostfix - if given prefix and postfix of resultfile separated by a space
     # @param datas - if given array of SelectionLists, which are assigned sucessively to data
-    def attach_data(self, data, globals, header, prepostfix, datas = None):
+    # @param variables - if given dictionary of variables used globally in output
+    def attach_data(self, data, globals, header, prepostfix, datas = None, variables= None):
         if header: 
             self.SetTitle(self.GetTitle() + ": " + header)
             self.label_Ablage.SetLabel(header)      
@@ -300,6 +302,8 @@ class AfpDialog_DiReport(wx.Dialog):
             self.check_Archiv.SetValue(True)
             self.check_Archiv.Enable(False)
             self.label_Ablage.Enable(False)
+        if variables:
+            self.variables = variables
         mail = AfpMailSender(self.globals, self.debug)
         if mail.is_possible():
             self.mail = mail
@@ -376,6 +380,8 @@ class AfpDialog_DiReport(wx.Dialog):
         #print "AfpDialog_DiReport.generate_Ausgabe:", fname, fresult
         if fresult:
             out = AfpAusgabe(self.debug, self.data)
+            if self.variables:
+                out.set_variables(self.variables)
             out.inflate(fname)
             out.write_resultfile(fresult, empty)
         else:

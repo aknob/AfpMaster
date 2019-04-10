@@ -8,6 +8,7 @@
 # - AfpAusgabe
 #
 #   History: \n
+#        24 Mar. 2019 - add serial letters- Andreas.Knoblauch@afptech.de \n
 #        27 Jan. 2015 - correct condition evaluation- Andreas.Knoblauch@afptech.de \n
 #        19 Okt. 2014 - adapt package hierarchy - Andreas.Knoblauch@afptech.de \n
 #        17 Mar. 2013 - inital code generated - Andreas.Knoblauch@afptech.de
@@ -70,14 +71,20 @@ from AfpBaseRoutines import *
 class AfpAusgabe(object):
     ## Constructor
     # @param debug - flag for debug information
-    # @param data - if given, AfpSelectionList holding data where output is created from
+    # @param data - if given, one or more AfpSelectionList's holding data where output is created from
     def  __init__(self,  debug = False, data = None):
-        self.data = data
+        if type(data) == list:
+            self.data = data.pop()
+            self.serial_data = data
+        else:
+            self.data = data
+            self.serial_data = None
         self.filecontent = None
         self.debug = debug
         self.tempfile = StringIO.StringIO()
         #self.tempfile = tempfile.NamedTemporaryFile('w')
         #self.tempfile = open("/tmp/AfpTemp.txt", 'w') 
+        self.serial_text = None
         self.execute_else= None
         self.while_clauses = []
         self.line_stack = [[]]
@@ -97,6 +104,11 @@ class AfpAusgabe(object):
         if self.data is None: 
             fin = open(filename, 'r') 
             self.filecontent = fin.readlines()
+    ## set variables diretcly
+    # @param vars - dictionary holding variable values
+    def set_variables(self, vars):
+        for var in vars:
+            self.variables[var] = vars[var]
     ## check if line is part of a 'while' statement \n
     # output:  0- no while, 1- start, 2- end
     # @param line - line to be analysed
@@ -126,36 +138,56 @@ class AfpAusgabe(object):
         for line in fin:
             if self.debug: print "AfpAusgabe.inflate:", line
             line = self.correct_line(line)
-            is_while = self.is_while(line)
-            if is_while == 1:
-                # start of new while loop
-                self.line_stack[self.index_stack[-1]].append(line)
-                self.stack_index += 1
-                self.index_stack.append(self.stack_index)
-                self.line_stack.append([])
-                #print line
-            elif is_while == 2:
-                # end of while loop
-                #print line
-                if self.index_stack[-1] > 0:
-                    self.index_stack.pop()
-                    if self.index_stack[-1] == 0:
-                        # back to root, execute while stack
-                        #print "AfpAusgabe.inflate 0:", len(self.line_stack), "1"
-                        #print "AfpAusgabe.inflate:", self.line_stack
-                        self.execute_while(self.line_stack[0][0], 1)
-                        # whiles executed, clear stack
-                        self.line_stack = [[]]
-                        self.stack_index = 0
-                        self.index_stack = [0]
-            else:
-                if self.index_stack[-1] > 0:
-                    # in while loop, add line to stack
-                    self.line_stack[self.index_stack[-1]].append(line)
-                else:
-                    # outside whiles, direct execution
-                    self.execute_line(line)
+            if "</office:text>" in line and self.serial_text:
+                self.loop_serial_text()
+            self.handle_line(line)
+            if not self.serial_text is None:
+                self.serial_text.append(line)
+            if "<office:text text:use-soft-page-breaks=\"true\">" in line and self.serial_data:
+                self.serial_text = []
         fin.close()
+    ## handle serial data
+    def loop_serial_text(self):
+        print "AfpAusgabe.loop_serial_text:"
+        while len(self.serial_data):
+            self.data = self.serial_data.pop()
+            self.values = {}
+            for line in self.serial_text:
+                self.handle_line(line)
+    ## main method handeling a line
+    # - WHILEs are handeled here dirxtly 
+    # - other options are delegated
+    # @param line - line to be proceeded
+    def handle_line(self, line):
+        is_while = self.is_while(line)
+        if is_while == 1:
+            # start of new while loop
+            self.line_stack[self.index_stack[-1]].append(line)
+            self.stack_index += 1
+            self.index_stack.append(self.stack_index)
+            self.line_stack.append([])
+            #print line
+        elif is_while == 2:
+            # end of while loop
+            #print line
+            if self.index_stack[-1] > 0:
+                self.index_stack.pop()
+                if self.index_stack[-1] == 0:
+                    # back to root, execute while stack
+                    #print "AfpAusgabe.inflate 0:", len(self.line_stack), "1"
+                    #print "AfpAusgabe.inflate:", self.line_stack
+                    self.execute_while(self.line_stack[0][0], 1)
+                    # whiles executed, clear stack
+                    self.line_stack = [[]]
+                    self.stack_index = 0
+                    self.index_stack = [0]
+        else:
+            if self.index_stack[-1] > 0:
+                # in while loop, add line to stack
+                self.line_stack[self.index_stack[-1]].append(line)
+            else:
+                # outside whiles, direct execution
+                self.execute_line(line)
     ## correct line, no '<>' brackets in execution brackets '[]', '{}'
     # @paream line - line to be corrected
     def correct_line(self, line):
@@ -269,7 +301,10 @@ class AfpAusgabe(object):
                 #print  "AfpAusgabe.gen_value field:", field, self.values 
                 #print  "AfpAusgabe.gen_value DATA:", self.data.view()
                 if not field in self.values:
-                    self.values[field] = self.retrieve_value(field)
+                    if field in self.variables:
+                        self.values[field] = self.variables[field]
+                    else:
+                        self.values[field] = self.retrieve_value(field)
                 value += " " + Afp_toString(self.values[field])
         #print "AfpAusgabe.gen_value value:", fields, value
         return value.strip()
@@ -284,7 +319,7 @@ class AfpAusgabe(object):
         split = funct.split(sign) 
         var = split[0]
         form, field = Afp_between(split[1],"(",")")
-        #print form, field
+        #print "AfpAusgabe.gen_function:", form, field
         if len(form) > 0: value = self.evaluate_formula(form[0])
         else: value = self.get_value(field[0])
         value = Afp_toString(value)
@@ -488,6 +523,9 @@ class AfpAusgabe(object):
         #print "AfpAusgabe.in_values", fieldname
         if fieldname in self.values:
             return True
+        elif fieldname in self.variables:
+            self.values[fieldname] = self.variables[fieldname]
+            return True
         else:
             wert = self.retrieve_value(fieldname)
             #print "AfpAusgabe.in_values retrieve", fieldname, wert
@@ -616,6 +654,7 @@ class AfpAusgabe(object):
     # @param filename - name of file to be written
     # @param template - name of empty template file to be used for writing in output format
     def write_resultfile(self, filename, template = None):
+        if self.debug: print "AfpAusgabe.write_resultfile input:", filename, template
         if filename[-5:] == ".fodt":
             # write fodt file
             fout = open(filename, 'w') 

@@ -227,12 +227,13 @@ class AfpAdScreen(AfpScreen):
         values = self.sb.identify_index().get_indexwert()
         #print "On_Adresse_AuswErw Ind:",index, "VAL:",values,"Where:", where
         #print "On_Adresse_AuswErw Merkmal:", self.combo_Filter_Merk.GetValue()
-        if self.sb_master == "ADRESATT": 
-            value = values[1]
-            attrib = values[0]
-        else: 
-            value = values[0]
-            attrib = None
+        attrib = None
+        if values:
+            if self.sb_master == "ADRESATT": 
+                value = values[1]
+                attrib = values[0]
+            else: 
+                value = values[0]
         auswahl = AfpLoad_AdAusw(self.globals, self.sb_master, index, value, where, attrib, True)
         if not auswahl is None:
             KNr = int(auswahl)

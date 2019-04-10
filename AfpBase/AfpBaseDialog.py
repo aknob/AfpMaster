@@ -1283,13 +1283,15 @@ class AfpDialog_Auswahl(wx.Dialog):
             limit = "0,"+ str(anz)
             rows = self.mysql.select(self.feldlist, select,self.dateien, self.sortname, limit, self.where, self.link)
             lgh = len(rows)
-            for i in range(0,len(rows)):
-                #if Afp_compareSql(rows[i][-1], self.ident[0],True): offset = i 
-                if rows[i][-1] == self.ident[0]: offset = i
+            if self.ident:
+                for i in range(0,len(rows)):
+                    #if Afp_compareSql(rows[i][-1], self.ident[0],True): offset = i 
+                    if rows[i][-1] == self.ident[0]: offset = i
             if lgh == anz:
                 anz += anz
             elif offset < 0:
-                print "WARNING: AfpDialog_DiAusw.set_step_back: identic entry not found ",anz
+                if self.ident:
+                    print "WARNING: AfpDialog_DiAusw.set_step_back: identic entry not found"
                 offset = 0
         self.select = select
         if offset < step:

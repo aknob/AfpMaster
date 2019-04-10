@@ -246,6 +246,7 @@ class AfpScreen(wx.Frame):
         elif  new_lgh < old_lgh:
             for i in range(old_lgh-1, new_lgh-1, -1):
                 grid.DeleteRows(i)
+        self.grid_rows[name] = new_lgh
     ## retun percentr values of grid col width
     # @param grid - grid object, where col percents should be extracted from
     # @param cols - number of columns in grid
@@ -272,8 +273,10 @@ class AfpScreen(wx.Frame):
         if width and height:
             row_height = grid.GetRowSize(0)
             new_rows = int(height/row_height) - 1
-            self.grid_resize(name, grid, new_rows)
-            self.grid_rows[name] = new_rows  
+            #print "AfpScreen.adjust_grid_rows:", self.grid_rows[name] , new_rows
+            if new_rows > self.grid_rows[name] :
+                self.grid_resize(name, grid, new_rows)
+                self.grid_rows[name] = new_rows  
             percents = self.get_grid_col_percents(grid, self.grid_cols[name])
             if self.dynamic_grid_col_labels or percents:
                 for col in range(self.grid_cols[name]):  
@@ -550,11 +553,11 @@ def Afp_loadScreen(globals, modulname, sb = None, origin = None, pos = None):
     Modul = None
     if Afp_inModuls(modulname, globals):
         name, flavour = Afp_getModulFlavour(modulname)
-        #print "Afp_loadScreen:", modulname, name, flavour
+        #print "Afp_loadScreen name:", modulname, name, flavour
         screen = "Afp" + Afp_getModulShortName(name) + "Screen" 
         if flavour: flavour = "_" + flavour
         modname = "Afp" + name + "." + screen + flavour
-        #print "Afp_loadScreen:", modname
+        #print "Afp_loadScreen modname:", modname
         pyModul =  Afp_importPyModul(modname, globals)
         #print "Afp_loadScreen pyModul:", pyModul
         pyBefehl = "Modul = pyModul." + screen + flavour + "()"

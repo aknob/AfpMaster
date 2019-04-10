@@ -180,7 +180,7 @@ def AfpAdresse_selectAttributRow(Adresse, direct=True):
             row[index[2]]  = Tag
             if row[0] == 0: # here additional manipulation for new  dataset can be made
                 row[0] = Adresse.get_value("KundenNr")
-                row[1] = Adresse.get_name(True)
+                row[1] = Adresse.get_value("Name")
                 if index[4] and row[index[4]]:
                     row[index[4]] = next_nr
     #print "AfpAdresse_selectAttributRow:", ok, row
@@ -202,7 +202,7 @@ def AfpAdresse_spezialAttribut(name, attribut, text, tag, action, no_delete = Fa
     #print "AfpAdresse_spezialAttribut:", attribut, type(attribut), tag, action, Ok
     if action:
         taglist = action.split(",")
-    if not taglist or len(taglist) == 1:
+    if not taglist or len(taglist) == 1 and "Anmeld_" in taglist[0]:
         taglist = AfpAdresse_getAttributTagList(attribut)
     #print "AfpAdresse_spezialAttribut taglist:", tag, taglist
     ind_text = -1
@@ -234,7 +234,9 @@ def AfpAdresse_spezialAttribut(name, attribut, text, tag, action, no_delete = Fa
         else: Ok = False
     if result:
         changed = False
-        for i in range(1,len(taglist)):
+        lgh = len(taglist)  + 1
+        if ind_text > -1: lgh -= 1
+        for i in range(1, lgh):
             if not liste[i][1] == result[i]:
                 changed = True
         if changed: 
@@ -243,6 +245,7 @@ def AfpAdresse_spezialAttribut(name, attribut, text, tag, action, no_delete = Fa
         if not liste[0][1] == result[0]:
             text = result[0]
             Ok = True
+    #print "AfpAdresse_spezialAttribut Return:", Ok, text, tag
     return Ok, text, tag
     
 ## select an address and add given attribut to it
@@ -299,8 +302,7 @@ class AfpDialog_AdAusw(AfpDialog_Auswahl):
     ## invoke the dialog for a new entry
     def invoke_neu_dialog(self, globals, search, where):
         if search is None: search = "a"
-        debug = True
-        Adresse = AfpAdresse(globals, None, None, debug, False)
+        Adresse = AfpAdresse(globals, None, None, globals.is_debug(), False)
         Ok = AfpLoad_DiAdEin(Adresse, search)
         return Ok
 ## dialog for adress selection from attribut \n 
@@ -317,7 +319,7 @@ class AfpDialog_AdAttAusw(AfpDialog_Auswahl):
     ## get the definition of the selection grid content \n
     # overwritten for "Adressen-attribut" use
     def get_grid_felder(self):  
-        Felder = [["Name.AdresAtt.Name",30], 
+        Felder = [["Name.Adresse.Name",30], 
                             ["Vorname.Adresse.Name", 20], 
                             ["Strasse.Adresse",30], 
                             ["Ort.Adresse",20], 
@@ -325,6 +327,13 @@ class AfpDialog_AdAttAusw(AfpDialog_Auswahl):
         return Felder
 
 ## loader routine for adress selection dialog
+# @param globals - global data holding mysql connection to database
+# @param Datei - table name where data should be selected from
+# @param index - name of index column in table
+# @param value - name that should be searched
+# @param where - filter for database search
+# @param attribut_text - if given, attribut looked for in ADRESATT
+# @param ask - flag if input dialog should be shown
 def AfpLoad_AdAusw(globals, Datei, index, value = "", where = None, attribut_text = None, ask = False):
     result = None
     Ok = True
@@ -518,7 +527,7 @@ class AfpDialog_DiAdEin(AfpDialog):
     ## Eventhandler BUTTON - invoke dialog to change attributes
     def On_Adresse_Merk(self,event):
         if self.debug: print "Event handler `On_Adresse_Merk'"
-        #if len(self.changed_text): self.store_database()
+        if self.new: self.store_database()
         changed = AfpLoad_DiAdEin_SubMrk(self.data)
         if changed:      
             self.choice_Edit.SetSelection(1)
@@ -631,7 +640,7 @@ class AfpDialog_DiAdEin_SubMrk(AfpDialog):
             action = Afp_toString(row[3])
 
             Ok, text, tag = AfpAdresse_spezialAttribut(name, attribut, text, tag, action)
-            #print "AfpDialog_DiAdEin_SubMrk.On_DClick_Attribut action:",Ok, text, tag
+            print "AfpDialog_DiAdEin_SubMrk.On_DClick_Attribut action:",Ok, text, tag
             if Ok is None:
                 Ok = AfpReq_Question("Soll das Merkmal '" + attribut + "'", "für diese Adresse gelöscht werden?".decode("UTF-8"), "Löschen?".decode("UTF-8"))
                 if Ok:
@@ -643,7 +652,7 @@ class AfpDialog_DiAdEin_SubMrk(AfpDialog):
                 selection.set_value("Tag", tag, index)
                 selection.set_value("AttText", text, index)
                 self.changes = True
-            #if Ok: self.Pop_Attribut()
+            print "AfpDialog_DiAdEin_SubMrk.On_DClick_Attribut selection:",selection.data
             self.Pop_Attribut()
         event.Skip()  
     ## Eventhandler LIST - double click in connected addresses list

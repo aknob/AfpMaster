@@ -45,7 +45,6 @@ def AfpEvent_getSqlTables(flavour = None):
   `MaxPers` smallint(6) DEFAULT NULL,
   `Anmeldungen` smallint(6) NOT NULL,
   `Preis` float(8,2) DEFAULT NULL,
-  `Menge` smallint(6) DEFAULT NULL,
   `Art` char(15) DEFAULT NULL,
   `Bem` tinytext,
   `IntText` text,
@@ -86,27 +85,25 @@ def AfpEvent_getSqlTables(flavour = None):
   `AnmeldNr` mediumint(8) unsigned zerofill NOT NULL AUTO_INCREMENT,
   `KundenNr` mediumint(8) unsigned zerofill NOT NULL,
   `EventNr` mediumint(8) unsigned zerofill NOT NULL,
-  `AgentNr` mediumint(8) unsigned zerofill DEFAULT NULL,
+  `IdNr` mediumint(8) unsigned zerofill NOT NULL,
   `RechNr` tinytext NOT NULL,
+  `AgentNr` mediumint(8) unsigned zerofill DEFAULT NULL,
   `Anmeldung` date NOT NULL,
   `Ab` smallint(6) DEFAULT NULL,
   `PreisNr` mediumint(8) unsigned zerofill NOT NULL,
   `Preis` float(8,2) NOT NULL,
   `Extra` float(8,2) DEFAULT NULL,
   `Transfer` float(8,2) DEFAULT NULL,
+  `ProvPreis` float(8,2) DEFAULT NULL,
   `Bem` tinytext,
   `ExtText` text,
-  `Anzdatum` date DEFAULT NULL,
-  `Zahlung` float(8,2) DEFAULT NULL,
   `ZahlDat` date DEFAULT NULL,
+  `Zahlung` float(8,2) DEFAULT NULL,
+  `InfoDat` date DEFAULT NULL,
+  `Info` tinytext,
+  `Zustand` char(12) NOT NULL,
   `UmbEvent` mediumint(8) unsigned zerofill DEFAULT NULL,
   `UmbVon` mediumint(8) unsigned zerofill DEFAULT NULL,
-  `Info` tinytext,
-  `InfoDat` date DEFAULT NULL,
-  `BerichtNr` mediumint(8) unsigned zerofill DEFAULT NULL,
-  `ExtDatei` char(20) DEFAULT NULL,
-  `Zustand` char(12) NOT NULL,
-  `ProvPreis` float(8,2) DEFAULT NULL,
   PRIMARY KEY (`AnmeldNr`),
   KEY `AnmeldNr` (`AnmeldNr`),
   KEY `KundenNr` (`KundenNr`),
@@ -139,17 +136,6 @@ def AfpEvent_getSqlTables(flavour = None):
   `GesamtPreis` float(5,2) NOT NULL,
   KEY `RechNr` (`RechNr`(50)),
   KEY `AnmeldNr` (`AnmeldNr`)
-) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_german2_ci;"""
-    # first contact table
-    required["ANMELDEX"] = """CREATE TABLE `ANMELDEX` (
-  `AnmeldNr` mediumint(8) unsigned zerofill NOT NULL,
-  `Kennung` mediumint(8) unsigned zerofill DEFAULT NULL,
-  `Bezeichnung` tinytext NOT NULL,
-  `Preis` float(5,2) NOT NULL,
-  `NoPrv` smallint(6) DEFAULT NULL,
-  `ListKenn` char(3) DEFAULT NULL,
-  KEY `AnmeldNr` (`AnmeldNr`),
-  KEY `Kennung` (`Kennung`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_german2_ci;"""
     # registration extra charge table
     required["ANMELDEX"] = """CREATE TABLE `ANMELDEX` (
@@ -208,15 +194,29 @@ def AfpEvent_getSqlTables(flavour = None):
     (0,NULL,'Reisebüro',NULL,NULL,NULL,'Provision,Reisebürokontierung'),
     (0,NULL,'Reiseveranstalter',NULL,NULL,NULL,'Provision,Veranstalterkontierung');""".decode("UTF-8")
     elif flavour == "Verein":
+        # registration attribut table
+        required["ANMELDATT"] = """CREATE TABLE `ANMELDATT` (
+  `AnmeldNr` mediumint(8) unsigned zerofill NOT NULL,
+  `Attribut` tinytext NOT NULL,
+  `Datum` date DEFAULT NULL,
+  `Menge` float(5,2) NOT NULL, 
+  `Text` tinytext DEFAULT NULL,
+  `Tag` tinytext DEFAULT NULL,
+  KEY `AnmeldNr` (`AnmeldNr`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_german2_ci;"""
         # insert 'Event' output possibillities into 'AUSGABE' table
         required["AUSGABE"] = """INSERT INTO `AUSGABE` VALUES 
     (0,'Event','FremdVerein','Anmeldung','VereinAnmeld','Anmeldebestätigung',''),
+    (0,'Event','FremdVerein','Anmeldung','VereinFamilie','Anmeldebestätigung Familie',''),
     (0,'Event','FremdVerein','Anmeldung','VereinMahn','Mahnung',''),
-    (0,'Event','FremdVerein','Anmeldung','VereinAnchreiben','Allgemeines Anschreiben',''),
+    (0,'Event','FremdVerein','Anmeldung','VereinArbeitstage','Arbeitstage Abrechnung',''),
+    (0,'Event','FremdVerein','Anmeldung','VereinAnschreiben','Allgemeines Anschreiben',''),
     (0,'Event','FremdVerein','Storno','VereinStorno','Austrittsbestätigung','');""".decode("UTF-8")
         # insert 'Agent' attribut template into 'ADRESATT' table
         required["ADRESATT"] = """INSERT INTO `ADRESATT` VALUES 
-    (0,NULL,'Verein',NULL,NULL,NULL,'Grundbeitrag');""".decode("UTF-8")
+    (0,NULL,'Verein',NULL,NULL,NULL,'Kennung'),
+    (0,NULL,'Bankverbindung',1,NULL,NULL,'IBAN,BIC'),
+    (0,NULL,'Veranstaltungsort',NULL,NULL,NULL,NULL);""".decode("UTF-8")
     else:
         # insert 'Event' output possibillities into 'AUSGABE' table
         required["AUSGABE"] = """INSERT INTO `AUSGABE` VALUES 

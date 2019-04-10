@@ -59,9 +59,9 @@ def AfpFinance_get_ZahlSelectors(globals = None):
             select.append(AfpFinance_CharterSelector(mysql, debug))
             select.append(AfpFinance_RechSelector(mysql, debug))
             select.append(AfpFinance_VerbindSelector(mysql, debug))
-        elif mod == "Tourist" or mod == "Event":
+        elif "Tourist" in mod or "Event" in mod:
             select.append(AfpFinance_EventStornoSelector(mysql, debug))
-            if mod == "Tourist":   select.append(AfpFinance_TouristSelector(mysql, debug))
+            if "Tourist" in mod:   select.append(AfpFinance_TouristSelector(mysql, debug))
             else:   select.append(AfpFinance_EventSelector(mysql, debug))
             select.append(AfpFinance_RechSelector(mysql, debug))
             select.append(AfpFinance_VerbindSelector(mysql, debug))

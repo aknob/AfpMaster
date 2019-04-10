@@ -63,10 +63,11 @@ class AfpZahlung(object):
                 value = data.get_string_value(mult)
                 if value:
                     if select: select += " AND "
-                    select += mult + " = " + Afp_toString(value)
+                    select += mult + " = " + Afp_toQuotedString(value)
             if select:
                 feld = data.get_mainindex()
                 table = data.get_selection().get_tablename()
+                #print "AfpZahlung mysql:", feld, select, table
                 rows = self.mysql.select(feld, select, table)
                 if len(rows) > 1:
                     ident = Afp_fromString(data.get_value())

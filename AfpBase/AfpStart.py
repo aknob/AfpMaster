@@ -136,7 +136,7 @@ class AfpMainApp(wx.App):
         set.set("graphic-moduls", moduls)
         if "startpath" in pars: set.set("start-path", pars["startpath"])
         if "dbhost" in pars: set.set("database-host", pars["dbhost"]) 
-        if not set.get("database") and not dbname in pars: pars["dbname"] = name
+        if not set.get("database") and not "dbname" in pars: pars["dbname"] = name
         if "dbname" in pars: set.set("database", pars["dbname"])      
         if "dbuser" in pars: 
             set.set("database-user", pars["dbuser"])      
