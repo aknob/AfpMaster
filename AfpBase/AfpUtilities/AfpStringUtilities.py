@@ -119,8 +119,8 @@ def Afp_toDateString(data, format):
                 st = Afp_toString(data.day)
             else:
                 st = use
-            lgh = len(use)
-            if len(st) > lgh: st = st[-lgh]
+            lgh = len(use)         
+            if len(st) > lgh: st = st[-lgh:]
             elif len(st) < lgh: st = "0"*(lgh - len(st)) + st
             string += st
             use = ""
@@ -132,7 +132,7 @@ def Afp_toDateString(data, format):
 def Afp_toInternDateString(data):
     string = Afp_toString(data)
     if type(data) == datetime.date:
-        string = data.strftime("%y-%m-%d")
+        string = data.strftime("%Y-%m-%d")
     elif type(data) == datetime.time:
         string = data.strftime("%H:%M:%S.%f")
     return string
@@ -228,26 +228,39 @@ def Afp_fromString(string):
 # @param string - string to be converted
 # @param init - value, if no integer can be assigned
 def Afp_intString(string, init = 0):
-    result = init
-    data = Afp_fromString(string)
-    if Afp_isNumeric(data):
-        result = int(data)
-    return result
+    integer = Afp_numericString(string, init)
+    if not integer is None: integer = int(integer)
+    return integer
 ## convert string to a float
 # @param string - string to be converted
 # @param init - value, if no float can be assigned
 def Afp_floatString(string, init = 0.0):
+    flt = Afp_numericString(string, init)
+    if not flt is None: flt = float(flt)
+    return flt
+## convert string to a numeric value
+# @param string - string to be converted
+# @param init - value, if no float can be assigned
+def Afp_numericString(string, init = 0):
     result = init
     data = Afp_fromString(string)
     if Afp_isNumeric(data):
-        result = float(data)
+        result = data
     return result
 ## convert string to a date, if no conversion is found, today is returned
 # @param string - string to be converted
 def Afp_dateString(string):
     result = Afp_fromString(string)
     if type(result) != datetime.date:
-        result = datetime.now().date()
+        # look for date at start or end of string
+        if len(string) > 5:
+            if Afp_hasNumericValue(string[:6]) : string = string[:6]
+            elif "." in string and Afp_hasNumericValue(string.split(".")[0][-6:]): string = string.split(".")[0][-6:]
+            elif Afp_hasNumericValue(string[-6:]) : string = string[-6:]
+            if Afp_hasNumericValue(string[:6]) : string = string[4:6] + "." + string[2:4] + "." + string[:2]
+            result = Afp_fromString(string)
+    if type(result) != datetime.date:
+        result = datetime.datetime.now().date()
     return result
 ## convert string to a time value
 # @param string - string to be converted

@@ -272,20 +272,20 @@ class AfpDialog_DiReport(wx.Dialog):
         self.Bind(wx.EVT_BUTTON, self.On_Rep_Ok, self.button_Okay)
 
     ## attach to database and populate widgets
-    # @param data - SelectionList holding data to be filled into output
-    # @param globals - globas variables including prefix of typ
-    # @param header - header to be display in the dialogts top ribbon
+    # @param selectionlist - SelectionList or list of SelectionLists to be used for output
+    # @param globals - global variables to hold path values for output, including prefix of typ
+    # @param variables - if given, dictionary of possible variable values used for output
+    # @param header - if given, header to be display in the dialogts top ribbon
     # @param prepostfix - if given prefix and postfix of resultfile separated by a space
-    # @param datas - if given array of SelectionLists, which are assigned sucessively to data
-    # @param variables - if given dictionary of variables used globally in output
-    def attach_data(self, data, globals, header, prepostfix, datas = None, variables= None):
+    def attach_data(self, data, globals, variables = None, header = None, prepostfix = None):
         if header: 
             self.SetTitle(self.GetTitle() + ": " + header)
             self.label_Ablage.SetLabel(header)      
-        if data is None and datas:
-            self.data = datas[0]
+        if type(data) == list:
+            self.data = data.pop()
+            self.datas = data
         else:
-            self.data = data 
+            self.data = data
         self.debug = self.data.debug
         self.globals = globals
         self.major_type = globals.get_value("name")
@@ -296,9 +296,7 @@ class AfpDialog_DiReport(wx.Dialog):
                 self.postfix = split[1]
         else:
             self.prefix = self.globals.get_value("prefix", data.typ)
-        if datas: 
-            self.datas = datas
-        else:
+        if not self.datas: 
             self.check_Archiv.SetValue(True)
             self.check_Archiv.Enable(False)
             self.label_Ablage.Enable(False)
@@ -455,9 +453,15 @@ class AfpDialog_DiReport(wx.Dialog):
     def get_list_Report_index(self):
         sel = self.list_Report.GetSelections()
         if sel: index = sel[0]
-        #else: index = 0
-        else: index = -.1
+        else: index = -1
         return index
+    ## return selected list index name
+    def get_list_Report_name(self):
+        name = None
+        index = self.get_list_Report_index()
+        if index >= 0:
+            name = self.reportname[index]
+        return Afp_toString(name)
     ## start editing of generated document in extern editor
     # @param fresult - result filename
     def execute_Ausgabe(self, fresult):
@@ -466,7 +470,8 @@ class AfpDialog_DiReport(wx.Dialog):
     def add_to_archiv(self):
         if not self.archivname: return
         new_data = {}
-        new_data["Gruppe"] = self.label_Ablage.GetLabel()
+        new_data["Typ"] = self.label_Ablage.GetLabel()
+        new_data["Gruppe"] = self.get_list_Report_name()
         new_data["Bem"] = self.text_Bem.GetValue()
         new_data["Extern"] = self.archivname
         self.data.add_to_Archiv(new_data)
@@ -550,13 +555,12 @@ class AfpDialog_DiReport(wx.Dialog):
     def On_Rep_Ok(self,event=None):
         if self.debug: print "AfpDialog_DiReport Event handler `On_Rep_Ok'"
         self.archivname = None
+        self.generate_Ausgabe()
         if self.datas:
             for data in self.datas:
                 self.datasindex = self.datas.index(data)
                 self.data = data
                 self.generate_Ausgabe()
-        else:
-            self.generate_Ausgabe()
         if self.archivname:
             select = self.data.get_selection("ARCHIV")
             if select: select.store()
@@ -565,15 +569,16 @@ class AfpDialog_DiReport(wx.Dialog):
 
 ## loader routine for dialog DiReport \n
 # for multiple output use 'datalist' as input for a list of 'AfpSelectionList's
-# @param selectionlist - SelectionList to be used for output
+# @param selectionlist - SelectionList or list of SelectionLists to be used for output
 # @param globals - global variables to hold path values for output
+# @param variables - dictionary of possible variable values used for output
 # @param header - if given, text displayed in header of dialog
 # @param prefix - if given, prefix for output name creation and archiv entry
 # @param archivtext - if given, preset text for archiv entry
 # @param datalist - if given, list of SelectionLists, entries are filled consecutively into  'selectionlist' for multiple output
-def AfpLoad_DiReport(selectionlist, globals, header = "", prefix = "", archivtext = None, datalist = None):
+def AfpLoad_DiReport(selectionlist, globals, variables = None, header = "", prefix = "", archivtext = None):
     DiReport = AfpDialog_DiReport(None)
-    DiReport.attach_data(selectionlist, globals, header, prefix, datalist)
+    DiReport.attach_data(selectionlist, globals, variables, header, prefix)
     if archivtext: DiReport.preset_text_bem(archivtext)
     DiReport.ShowModal()
     DiReport.Destroy()
@@ -649,8 +654,8 @@ class AfpDialog_editArchiv(AfpDialog):
                         Afp_copyFile(fname, fpath)
                         added = {"Datum": entry[0], "Art": entry[1], "Typ": entry[2], "Gruppe": entry[3], "Bem": entry[4], "Extern": fresult}
                         added["KundenNr"] = self.data.get_value("KundenNr")
-                        target = self.data.get_select_target("ARCHIV")
-                        added[target] = self.data.get_value()
+                        added["Tab"] = self.data.get_mainselection()
+                        added["TabNr"] = self.data.get_value()
                         self.data.set_data_values(added, "ARCHIV", -1)
                         max += 1
         self.data.store()
@@ -710,6 +715,9 @@ class AfpDialog_editArchiv(AfpDialog):
             #liste = [["Art:", row[0]], ["Ablage:", row[1]], ["Fach:", row[2]], ["Bemerkung:", row[3]]]
             liste = [["Fach:", row[2]], ["Bemerkung:", row[3]]]
             text2 = "Art: " + row[0] + ", Ablage: " + row[1]
+        elif row[0] =="SEPA":
+            liste = [["Bemerkung:", row[3]]]
+            text2 = "Art: " + row[0] + ", Ablage: " + row[1] + ", Fach: " + row[2]
         else:
             liste = [["Ablage:", row[1]], ["Fach:", row[2]], ["Bemerkung:", row[3]]]
             text2 = "Art: " + row[0] 
@@ -721,12 +729,9 @@ class AfpDialog_editArchiv(AfpDialog):
             if changed:
                 self.changed = True
                 values = {}
-                start = 0
-                if row[0] != self.major_type: 
-                    values[Typ] = result[0]
-                    start = 1
-                values["Gruppe"] = result[start + 0]
-                values["Bem"] = result[start + 1]
+                value_types = ["Typ", "Gruppe","Bem"]
+                for res in reversed(result):
+                    values[value_types.pop()] = res
                 self.data.set_data_values(values, "ARCHIV", index)
         elif result is None:
             self.changed = True

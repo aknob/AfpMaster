@@ -72,13 +72,30 @@ class AfpAusgabe(object):
     ## Constructor
     # @param debug - flag for debug information
     # @param data - if given, one or more AfpSelectionList's holding data where output is created from
-    def  __init__(self,  debug = False, data = None):
+    # @param serial_tags - if given and data is list, tags to drive serialisation
+    # - serial_tags[0]:  tag to start serialised data sampling
+    # - serial_tags[1]:  tag to end serialised text part and to start serialisation
+    # - serial_tags[2]:  flag if lines holding the tags should be included into serialisation
+    # - serial_tags[3]:  if given, number of skipping start tag (possibly needed for first row of table, etc.)
+    def  __init__(self,  debug = False, data = None, serial_tags = None):
+        self.serial_tag_start = "<office:text text:use-soft-page-breaks=\"true\">"  # tag to start serialised data sampling (libre office start of text part)
+        self.serial_tag_end = "</office:text>" # tag to end serialised text part and to start serialisation (libre office end of text part)
+        self.serial_tag_include = False # flag if lines hodling the tags should be included into serialisation
+        self.serial_tag_start_skips = None # if given, number of start tag occurance before start of serialisation (needed to skip first line of table)
         if type(data) == list:
-            self.data = data.pop()
+            self.serial_index = 0
+            self.data = data[0]
             self.serial_data = data
+            if serial_tags:
+                lgh = len(serial_tags)
+                if lgh: self.serial_tag_start = serial_tags[0]
+                if lgh > 1: self.serial_tag_end = serial_tags[1]
+                if lgh > 2 and serial_tags[2]: self.serial_tag_include = True
+                if lgh > 3: self.serial_tag_start_skips = int(serial_tags[3])
         else:
             self.data = data
             self.serial_data = None
+            self.serial_index = None
         self.filecontent = None
         self.debug = debug
         self.tempfile = StringIO.StringIO()
@@ -90,6 +107,7 @@ class AfpAusgabe(object):
         self.line_stack = [[]]
         self.stack_index = 0
         self.index_stack = [0]
+        self.serialized_variables = []
         self.variables = {}
         self.values = {}
         if self.debug: print "AfpAusgabe Konstruktor" 
@@ -136,26 +154,42 @@ class AfpAusgabe(object):
         #self.line_stack.append([])
         self.line_stack = [[]]
         for line in fin:
-            if self.debug: print "AfpAusgabe.inflate:", line
+            #if self.debug: print "AfpAusgabe.inflate:", line
             line = self.correct_line(line)
-            if "</office:text>" in line and self.serial_text:
+            if self.serial_text and not self.serial_tag_include and self.serial_tag_end in line:
+                # invoke serial text before the end-tag line is executed
                 self.loop_serial_text()
             self.handle_line(line)
             if not self.serial_text is None:
+                # append to serial text, if necessary
                 self.serial_text.append(line)
-            if "<office:text text:use-soft-page-breaks=\"true\">" in line and self.serial_data:
-                self.serial_text = []
+            if self.serial_data:
+                if self.serial_text is None:
+                    if self.serial_tag_start in line :
+                        if self.serial_tag_start_skips:
+                            self.serial_tag_start_skips -= 1
+                        else:
+                            # start sampling of serialised text, either with or without thi actuel line
+                            if self.serial_tag_include: self.serial_text = [line]
+                            else: self.serial_text = []
+                elif self.serial_tag_include and self.serial_tag_end in line: 
+                    # invoke serial text including end-tag line
+                    self.loop_serial_text()
         fin.close()
     ## handle serial data
     def loop_serial_text(self):
-        print "AfpAusgabe.loop_serial_text:"
-        while len(self.serial_data):
-            self.data = self.serial_data.pop()
+        if self.debug: print "AfpAusgabe.loop_serial_text:", self.serial_text
+        while len(self.serial_data) > self.serial_index+1:
+            self.serial_index += 1
+            self.data = self.serial_data[self.serial_index]
+            for var in self.serialized_variables:
+                if var in self.values:
+                    self.variables[var] = self.values[var]
             self.values = {}
             for line in self.serial_text:
                 self.handle_line(line)
     ## main method handeling a line
-    # - WHILEs are handeled here dirxtly 
+    # - WHILEs are handeled here directly 
     # - other options are delegated
     # @param line - line to be proceeded
     def handle_line(self, line):
@@ -233,6 +267,7 @@ class AfpAusgabe(object):
         action, netto= Afp_between(line,"{","}")
         #print "AfpAusgabe.execute_line:", action, netto
         if len(action) == 1:
+            #print "AfpAusgabe.execute_line:", action, netto
             condition = False
             if action[0][0:2] == "IF":
                 phrase = action[0][3:].strip()
@@ -260,27 +295,30 @@ class AfpAusgabe(object):
             line = lines[0]
         else:
             line = ""
-            for ln in lines: line+= " " + ln.strip()
-            line = line.strip()
+            #for ln in lines: line+= " " + ln.strip()
+            for ln in lines: line+= ln
+            #line = line.strip()
         fields,netto = Afp_between(line, "[", "]")
         line = self.concat_line(fields, netto)
-        #print line
-        #self.tempfile.write(line.encode("UTF-8")  +'\n')
+        #if self.debug: print "AfpAusgabe.write_line:", line
         self.tempfile.write(line.encode("UTF-8"))
     ## replace variables with datavalues and concatinate to one line \n
     # if len(netto) > len(fields), the first netto value is placed at the start of the line \n
     # line = [netto] + fields + netto + fields + ... + netto
     # @param fields - variables to be replaced by data-values
     # @param netto - plain text to be placed between data-values
-    def concat_line(self, fields, netto):
+    # @param quoted - flag, if quoted strings should be generated
+    def concat_line(self, fields, netto, quoted = False):
         line = ""
         if len(netto) > len(fields): 
             for i in range(len(fields)):
-                line += netto[i].decode("UTF-8")  + self.gen_value(fields[i])
+                if quoted: line += netto[i].decode("UTF-8")  + Afp_toQuotedString(self.gen_value(fields[i]))
+                else: line += netto[i].decode("UTF-8")  + self.gen_value(fields[i])
             line += netto[-1].decode("UTF-8") 
         else:
             for f,n in fields,netto:
-                line += self.gen_value(f) + n.decode("UTF-8") 
+                if quoted: line += Afp_toQuotedString(self.gen_value(f)) + n.decode("UTF-8") 
+                else: line += self.gen_value(f) + n.decode("UTF-8") 
         return line
     ## generate the values stated in []-phrases \n
     # fields, variables, list of fields are handled here \n
@@ -306,7 +344,7 @@ class AfpAusgabe(object):
                     else:
                         self.values[field] = self.retrieve_value(field)
                 value += " " + Afp_toString(self.values[field])
-        #print "AfpAusgabe.gen_value value:", fields, value
+        #print "AfpAusgabe.gen_value value:", fields, value,
         return value.strip()
     ## handles different function evaluations \n
     # assignments (= , +=, -=) are handled here \n
@@ -324,8 +362,13 @@ class AfpAusgabe(object):
         else: value = self.get_value(field[0])
         value = Afp_toString(value)
         if not var in self.values:
-            self.values[var] = 0.0
+            if var in self.variables:
+                self.values[var] = self.variables[var]
+                if not var in self.serialized_variables: self.serialized_variables.append(var)
+            else:
+                self.values[var] = 0.0
         pyBefehl = "self.values[var]" + sign + value
+        #print "AfpAusgabe.gen_function Befehl:", pyBefehl, var, self.values
         exec pyBefehl      
         return value
     ## evaluates a written condtion and returns the appropriate boolean value
@@ -463,7 +506,7 @@ class AfpAusgabe(object):
                     clause = ""
             else:
                 fields, netto = Afp_between(clause,"[","]")
-                clause = self.concat_line(fields, netto)
+                clause = self.concat_line(fields, netto, True)
                 clause = clause.replace(":","and")
             # get needed fileds from lines 
             felder = []
@@ -650,18 +693,23 @@ class AfpAusgabe(object):
         value = Afp_addDaysToDate(wert, int(vars[1]), sign)
         return value
     ## write result to file \n
-    # currently only .fodt and .odt files are implemented
+    # currently only .xml, .fodt and .odt files are implemented
     # @param filename - name of file to be written
     # @param template - name of empty template file to be used for writing in output format
     def write_resultfile(self, filename, template = None):
         if self.debug: print "AfpAusgabe.write_resultfile input:", filename, template
-        if filename[-5:] == ".fodt":
-            # write fodt file
+        ext = None
+        if filename[-5] == ".": 
+            ext =  filename[-5:]
+        elif filename[-4] == ".": 
+            ext = filename[-4:]
+        if ext == ".fodt" or ext == ".xml":
+            # write plain file (fodt or xml)
             fout = open(filename, 'w') 
             fout.write(self.tempfile.getvalue())
             fout.close()
         elif filename[-4:] == ".odt":
-            # write odt file
+            # write zipped odt file
             if template and template[-4:] == ".odt":
                 Afp_copyFile(template, filename) 
                 odt_file = zipfile.ZipFile(filename,'a')

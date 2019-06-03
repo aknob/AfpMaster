@@ -359,7 +359,7 @@ class AfpGlobal(object):
         else: return False
     ## return if version is strict
     def is_strict(self):
-        if "strict" in self.get_value("version"): return True
+        if self.get_value("version") and "strict" in self.get_value("version"): return True
         else: return False
     ## return the date of today
     def today(self):

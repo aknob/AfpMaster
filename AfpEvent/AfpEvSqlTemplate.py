@@ -148,13 +148,13 @@ def AfpEvent_getSqlTables(flavour = None):
   KEY `AnmeldNr` (`AnmeldNr`),
   KEY `Kennung` (`Kennung`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_german2_ci;"""
-    if flavour == "Tourist":
+    if flavour == "Tourist" of flavour == "Verein":
         # transfer route name table
         required["TNAME"] = """CREATE TABLE `TNAME` (
-  `TourNr` smallint(6) NOT NULL,
+  `TourNr` smallint(6) NOT NULL AUTO_INCREMENT,
   `Name` tinytext NOT NULL,
-  `OhneBus` smallint(6) NOT NULL,
-  KEY `TourNr` (`TourNr`),
+  `OhneBus` smallint(6) AUTO_INCREMENT NULL,
+  UNIQUE KEY `TourNr` (`TourNr`),
   KEY `Name` (`Name`(50))
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_german2_ci;"""
         # transfer route location table
@@ -169,13 +169,14 @@ def AfpEvent_getSqlTables(flavour = None):
         # transfer route, route data table
         required["TROUTE"] = """CREATE TABLE `TROUTE` (
   `KennNr` mediumint(8) unsigned zerofill NOT NULL,
-  `Zeit` float(3,2) NOT NULL,
-  `Preis` float(3,2) NOT NULL,
+  `Zeit` float(3,2) DEFAULT NULL,
+  `Preis` float(3,2) DEFAULT NULL,
   `ZuAb` smallint(6) DEFAULT NULL,
   `ZuNach` smallint(6) DEFAULT NULL,
   KEY `KennNr` (`KennNr`),
   KEY `Zeit` (`Zeit`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_german2_ci;"""
+    if flavour == "Tourist" 
         # insert output possibillities for 'Tourist' flavour into 'AUSGABE' table
         required["AUSGABE"] = """INSERT INTO `AUSGABE` VALUES 
     (0,'Tourist','EigenReise','Anmeldung','Anbest','Anmeldebestätigung',''),
@@ -209,7 +210,7 @@ def AfpEvent_getSqlTables(flavour = None):
     (0,'Event','FremdVerein','Anmeldung','VereinAnmeld','Anmeldebestätigung',''),
     (0,'Event','FremdVerein','Anmeldung','VereinFamilie','Anmeldebestätigung Familie',''),
     (0,'Event','FremdVerein','Anmeldung','VereinMahn','Mahnung',''),
-    (0,'Event','FremdVerein','Anmeldung','VereinArbeitstage','Arbeitstage Abrechnung',''),
+    (0,'Event','FremdVerein','Anmeldung','VereinArbeitstage','Abrechnung Arbeitstage',''),
     (0,'Event','FremdVerein','Anmeldung','VereinAnschreiben','Allgemeines Anschreiben',''),
     (0,'Event','FremdVerein','Storno','VereinStorno','Austrittsbestätigung','');""".decode("UTF-8")
         # insert 'Agent' attribut template into 'ADRESATT' table

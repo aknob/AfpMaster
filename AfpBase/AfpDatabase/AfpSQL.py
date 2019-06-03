@@ -389,6 +389,7 @@ class AfpSQLTableSelection(object):
         #self.dbg = True # hardcode switch for storage logging
         self.dbg = False # hardcode switch for storage logging
         #if tablename == "PREISE": self.dbg = True
+        #if tablename == "PREISE": debug = True
         if debug: 
             print "AfpSQLTableSelection Konstruktor dbg On", tablename
             self.dbg = True # hardcoded switch for storage logging, for debug purpose during programming
@@ -512,8 +513,8 @@ class AfpSQLTableSelection(object):
     def load_data(self, select, order = None):
         self.select = select  
         #print "AfpSQLTableSelection.load_data select:", self.tablename, self.select
-        if self.dbg: print "AfpSQLTableSelection.load_data:", self.select, self.tablename, order
         self.data = map(list, self.mysql.select("*",self.select, self.tablename, order))
+        if self.dbg: print "AfpSQLTableSelection.load_data:", self.select, self.tablename, order, self.data
         self.select_clause = self.mysql.get_select_clause()
         self.manipulation = []  
     ## reload data from database according to last load

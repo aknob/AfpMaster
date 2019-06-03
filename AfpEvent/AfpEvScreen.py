@@ -51,17 +51,7 @@ from AfpBase.AfpBaseFiDialog import AfpLoad_DiFiZahl
 import AfpEvent
 from AfpEvent import AfpEvRoutines, AfpEvDialog
 from AfpEvent.AfpEvRoutines import *
-from AfpEvent.AfpEvDialog import AfpLoad_EvAusw, AfpLoad_EventEdit_fromSb, AfpLoad_EvClientEdit_fromSb
-
-
-def AfpExtra(globals, debug):
-    jahr = globals.today().year- 1
-    soll = globals.get_value("hours-of-duty","Event")
-    if not soll: soll = 10
-    liste = [["für Jahr:".decode("UTF-8"), Afp_toString(jahr)], ["Pflichtstunden:", Afp_toString(soll)], ["Toleranz:", "1"]]
-    res = AfpReq_MultiLine("Bitte Eckwerte für die Auswertung der Arbeitsstunden eingeben.".decode("UTF-8"), "Test", "Text", liste, "Auswertung Arbeitsstunden")
-    print "AfpExtra:", res
-    return  
+from AfpEvent.AfpEvDialog import AfpLoad_EvAusw, AfpLoad_EvClientEdit, AfpLoad_EventEdit
 
 ## Class AfpEvScreen shows 'Event' screen and handles interactions
 class AfpEvScreen(AfpScreen):
@@ -72,6 +62,7 @@ class AfpEvScreen(AfpScreen):
         self.typ = "Event"
         self.flavour = None
         #self.einsatz = None # to invoke import of 'Einsatz' modules in 'init_database'
+        self.slave_data = None
         self.grid_rows["Customers"] = 12 
         self.grid_cols["Customers"] = 7
         self.grid_row_selected = False
@@ -79,6 +70,7 @@ class AfpEvScreen(AfpScreen):
         self.dynamic_grid_col_percents = [20, 20, 11, 5, 14, 14, 16]
         self.fixed_width = 80
         self.fixed_height = 300
+        self.font = wx.Font(10, wx.DEFAULT, wx.NORMAL, wx.NORMAL, 0, "DejaVu Sans")
         self.sb_master = "EVENT"
         self.sb_date_filter = ""
         self.sb_re_filter = ""
@@ -90,7 +82,7 @@ class AfpEvScreen(AfpScreen):
         self.SetSize((800, 600))
         self.SetBackgroundColour(wx.Colour(192, 192, 192))
         self.SetForegroundColour(wx.Colour(20, 19, 18))
-        self.SetFont(wx.Font(9, wx.DEFAULT, wx.NORMAL, wx.NORMAL, 0, "DejaVu Sans"))
+        self.SetFont(self.font)
         self.Bind(wx.EVT_SIZE, self.On_ReSize)
         if self.debug: print "AfpEvScreen Konstruktor"
     
@@ -187,9 +179,9 @@ class AfpEvScreen(AfpScreen):
         self.label_Beginn = wx.StaticText(panel, -1, label="Beginn:", name="LBeginn")
         self.text_Beginn = wx.TextCtrl(panel, -1, value="", style=wx.TE_READONLY, name="Beginn")
         self.textmap["Beginn"] = "Beginn.EVENT"
-        self.label_Ende = wx.StaticText(panel, -1, label="Ende:", name="LEnde")
+        self.label_Ende = wx.StaticText(panel, -1, label="Zeit:", name="LEnde")
         self.text_Ende = wx.TextCtrl(panel, -1, value="", style=wx.TE_READONLY, name="Ende")
-        self.textmap["Ende"] = "Ende.EVENT"
+        self.textmap["Ende"] = "Uhrzeit.EVENT"
         self.label_Teilnehmer = wx.StaticText(panel, -1,  label="Teilnehmer:", name="LTeilnehmer")
         self.text_Personen = wx.TextCtrl(panel, -1, value="", style=wx.TE_READONLY, name="Personen")
         self.textmap["Personen"] = "Personen.EVENT"
@@ -220,6 +212,7 @@ class AfpEvScreen(AfpScreen):
         # self.grid_custs = wx.grid.Grid(panel, -1, pos=(23,256) , size=(653, 264), name="Customers")
         self.grid_custs = wx.grid.Grid(panel, -1, name="Customers")
         self.grid_custs.CreateGrid(self.grid_rows["Customers"], self.grid_cols["Customers"])
+        #self.grid_custs.SetDefaultCellFont(self.font)
         self.grid_custs.SetRowLabelSize(0)
         self.grid_custs.SetColLabelSize(18)
         self.grid_custs.EnableEditing(False)
@@ -314,31 +307,7 @@ class AfpEvScreen(AfpScreen):
             self.combo_Jahr.Append(Afp_toString(year - i))
         self.combo_Jahr.Append("Alle")
         return
-    ## enable and disable tour spezific buttons and labels
-    def enable_tour_widgets(self):
-        if AfpEvent_isTour(self.data.get_value("Art")):
-            self.button_Einsatz.Enable(True) 
-            self.label_Ende.SetLabel("Ende:")
-            self.textmap["Ende"] = "Ende.EVENT"
-        else:
-            self.button_Einsatz.Enable(False) 
-            self.label_Ende.SetLabel("Zeit:")
-            self.textmap["Ende"] = "Uhrzeit.EVENT"
-    ## populate text widgets
-    # overwritten from AfpBaseScreen to handle dependant tourist display
-    def Pop_text(self):
-        no_slave =  not self.slave_exists()
-        for entry in self.textmap:
-            TextBox = self.FindWindowByName(entry)
-            if no_slave and self.is_slave(self.textmap[entry]):
-                value = ""
-            elif self.data:
-                value = self.data.get_tagged_value(self.textmap[entry])
-            else:
-                value = self.sb.get_string_value(self.textmap[entry])
-            #print "AfpEvScreen.Pop_text:", no_slave, entry, value, self.is_slave(self.textmap[entry])
-            TextBox.SetValue(value)
- 
+
     ## Eventhandler COMBOBOX - set date filter
     def On_Jahr_Filter(self,event = None): 
         s_key = self.sb.get_value()        
@@ -419,10 +388,18 @@ class AfpEvScreen(AfpScreen):
             else:
                 self.sb_an_filter = an_filter
                 self.sb.select_where(self.sb_an_filter, None, "ANMELD")   
-        #print "AfpEvScreen.set_client_filter EVENT:", self.sb_re_filter,"ANMELD:", self.sb_an_filter, "CURRENT RECORD:", self.sb.get_value()
+        print "AfpEvScreen.set_client_filter EVENT:", self.sb_re_filter,"ANMELD:", self.sb_an_filter, "CURRENT RECORD:", self.sb.get_value()
     ## return "ANMELD" filter clause from date filter
     def get_minor_date_filter(self):
         return self.sb_date_filter.replace("Beginn","Anmeldung")
+        
+    ## execute SEPA Direct Debit if finance modul is available
+    def gen_SEPA_DD(self):
+        if self.data:
+            clients = self.data.get_SEPA_clients()
+            print "AfpEvScreen.gen_SEPA_DD clients:", clients
+            for client in clients:
+                print "AfpEvScreen.gen_SEPA_DD client:", client.view()
 
     ## Eventhandler COMBOBOX - sort index
     def On_Index(self, event = None):
@@ -432,12 +409,13 @@ class AfpEvScreen(AfpScreen):
         if index == "RechNr": 
             master = "ANMELD"
             self.sb.CurrentIndexName("EventNr","EVENT")
+            self.sb.CurrentIndexName("AnmeldNr","ANMELD")
         else: master = "EVENT"
         if self.sb_master != master:
             self.sb_master = master
             #print "AfpEvScreen.On_Index master:", master
             self.sb.CurrentFileName(self.sb_master) 
-        #print "AfpEvScreen.On_Index index:", index
+        #print "AfpEvScreen.On_Index index:", index, self.sb_master, master
         self.sb.set_index(index)
         self.sb.CurrentIndexName(index)
         #print "AfpScreen.On_Index current index", self.sb.get_value("AnmeldNr.ANMELD"), self.sb.CurrentFile.indexname, self.sb.CurrentFile.name, self.sb.CurrentFile.CurrentIndex.name
@@ -457,13 +435,13 @@ class AfpEvScreen(AfpScreen):
     def On_Anfrage(self,event):
         print "AfpEvScreen Event handler `On_Anfrage' not implemented!"
         #print "AfpEvScreen.On_Anfrage globals:", self.globals.view()
-        AfpExtra(self.globals, False)
+        self.gen_SEPA_DD()
         event.Skip()
             
     ## Eventhandler BUTTON - payment
     def On_Zahlung(self,event):
         if self.debug: print "AfpEvScreen Event handler `On_Zahlung'"
-        Client = self.get_data(False)
+        Client = self.get_client()
         #print "AfpEvScreen.On_Zahlung:", Client.is_new()
         if not Client.is_new():
             Ok, data = AfpLoad_DiFiZahl(Client,["RechNr","EventNr"])
@@ -504,7 +482,7 @@ class AfpEvScreen(AfpScreen):
     ## Eventhandler BUTTON, MENU - document generation
     def On_Listen_Ausgabe(self,event):
         if self.debug and event: print "AfpEvScreen Event handler `On_Listen_Ausgabe'"
-        Client = self.get_data(False)
+        Client = self.get_client()
         if not Client.is_new():
             prefix = "Event " + Client.get_string_value("Zustand").strip()
             header = "Anmeldung"
@@ -526,7 +504,8 @@ class AfpEvScreen(AfpScreen):
             Client.get_selection("AUSGABE").load_data(select)
             #print "AfpEvScreen.On_Listen_Ausgabe:", header, prefix, archiv
             #Client.view()
-            AfpLoad_DiReport(Client, self.globals, header, prefix, archiv)
+            variables = self.get_output_variables(Client)
+            AfpLoad_DiReport(Client, self.globals, variables, header, prefix, archiv)
         if event:
             self.Reload()
             event.Skip()
@@ -545,10 +524,15 @@ class AfpEvScreen(AfpScreen):
         if self.debug: print "AfpEvScreen Event handler `On_Anmeldung'"
         if self.sb.get_value("EventNr"):
             if self.grid_row_selected:
-                new = False
+                data = self.get_client()
             else:
-                new = True
-            changed = AfpLoad_EvClientEdit_fromSb(self.globals, self.sb, self.flavour, new)
+                data = self.get_client(True)
+                ENr = self.sb.get_value("EventNr.EVENT")
+                text = "Bitte Kunden für neue Anmeldung auswählen:".decode("UTF-8")
+                KNr = AfpLoad_AdAusw(self.globals,"ADRESSE","NamSort","", None, text, True)
+                if KNr: data.set_new(ENr, KNr) 
+                else: data = None
+            changed = self.load_client_edit(data)
             #print"AfpEvSreen.On_Anmeldung", changed
             if changed: 
                 self.Reload()
@@ -558,7 +542,8 @@ class AfpEvScreen(AfpScreen):
     ## Eventhandler BUTTON , MENU - modify event
     def On_modify(self,event=None):     
         if self.debug: print "AfpEvScreen Event handler `On_modify'"
-        changed = AfpLoad_EventEdit_fromSb(self.globals, self.sb, self.flavour, True)
+        data = self.get_event()
+        changed = self.load_event_edit(data)
         if changed: 
             self.Reload()
         if event: event.Skip()
@@ -567,7 +552,8 @@ class AfpEvScreen(AfpScreen):
     def On_DClick_Custs(self, event):
         if self.debug: print "AfpEvScreen Event handler `On_DClick_Custs'"
         self.On_Click_Custs(event)
-        changed = AfpLoad_EvClientEdit_fromSb(self.globals, self.sb, self.flavour)
+        data = self.get_client()
+        changed = self.load_client_edit(data)
         self.grid_row_selected = True
         if changed: 
             self.Reload()      
@@ -593,7 +579,7 @@ class AfpEvScreen(AfpScreen):
                     if not text: text = ""
                     text, Ok = AfpReq_Text("Bitte Information für Anmeldung".decode("UTF-8"),  name+ " eingeben.", text, "Info")
                     if Ok:
-                        data = AfpEvClient(self.globals, ANr)
+                        data = self.get_client(ANr)
                         data.set_value("Info", text)
                         data.store()
                         self.Reload()
@@ -667,6 +653,7 @@ class AfpEvScreen(AfpScreen):
             self.sb_master = "ANMELD"
             self.sb.CurrentIndexName("AnmeldNr","ANMELD")
             self.sb.select_key(ANr,"AnmeldNr","ANMELD") 
+            self.sb.set_index("RechNr","ANMELD","AnmeldNr")   
             #print "AfpEvScreen.load_direct select key:", self.sb.get_value("AnmeldNr.ANMELD"), self.sb.get_value("EventNr.ANMELD")
             ENr = self.sb.get_value("EventNr.ANMELD")
         self.sb.select_key(ENr,"EventNr","EVENT")
@@ -678,21 +665,48 @@ class AfpEvScreen(AfpScreen):
     
     ## generate AfpEvent or AfpEvClient object from the present screen, overwritten from AfpScreen
     # @param event - flag if 'Event'  should be generated, otherwise 'EvClient'
-    # @param complete - flag if all TableSelections should be generated
-    def get_data(self, event = None, complete = False):
+    def get_data(self, event = None):
         if event is None:
             event = self.sb_master == "EVENT"
             if not self.grid_row_selected is None:
                  event = not self.grid_row_selected
         if event:
-            return  AfpEvent(self.globals, None, self.sb, self.sb.debug, complete)
+            return  self.get_event()
         else:
-            return  AfpEvClient(self.globals, None, self.sb, self.sb.debug, complete)
+            return  self.get_client()
+    #
+    # methods which may be overwritten in devired classes        
+    #
+    ## generate the dedicated event
+    # @param ENr - if given:True - new event; Number - EventNr of event
+    def get_event(self, ENr = None):
+        if ENr == True: return AfpEvent(self.globals)
+        elif ENr:  return  AfpEvent(self.globals, ENr)
+        return  AfpEvent(self.globals, None, self.sb)
+    ## load event edit dialog
+    # @param data - data to be edited
+    def load_event_edit(self, data):
+        return AfpLoad_EventEdit(data, self.flavour)
+    ## generate the dedicated event client
+    # @param ANr - if given:True - new client; Number - AnmeldNr of client
+    def get_client(self, ANr = None):
+        if ANr == True: return AfpEvClient(self.globals)
+        elif ANr:  return  AfpEvClient(self.globals, ANr)
+        return  AfpEvClient(self.globals, None, self.sb)
+    ## load client edit dialog
+    # @param data - data to be edited
+    def load_client_edit(self, data):
+        return AfpLoad_EvClientEdit(data, self.flavour)
+    ## generate nedded oiutput variables
+    # @param data - data to be used for output
+    def get_output_variables(self, data):
+        vars= {"Today" : self.globals.today()}
+        return vars
+        
     ## set current record to be displayed 
     # (overwritten from AfpScreen) 
     def set_current_record(self):
-        self.data = self.get_data(True) 
-        self.enable_tour_widgets()
+        self.data = self.get_event() 
         if self.debug: print "AfpEvScreen.set_current_record: ",
         if self.debug: self.data.view()
         #print "AfpEvScreen.set_current_record: ",
@@ -749,33 +763,6 @@ class AfpEvScreen(AfpScreen):
     # (overwritten from AfpScreen)
     def get_dateinamen(self):
         return ["EVENT","ANMELD","PREISE","ANMELDEX","ADRESSE"]
-    ## get rows to populate lists \n
-    # default - empty, to be overwritten if grids are to be displayed on screen \n
-    # possible selection criterias have to be separated by a "None" value
-    # @param typ - name of list to be populated 
-    def get_list_rows(self, typ):
-        rows = []
-        ANr =  self.sb.get_value("AnmeldNr.ANMELD")     
-        select = ( "AnmeldNr = %d")% ANr
-        if typ == "service" and self.slave_exists():
-            bez = self.sb.get_string_value("Bezeichnung.PREISE")  
-            preis = self.sb.get_string_value("Preis.PREISE")  
-            if not bez: bez = "Grundpreis"
-            if not preis: preis = self.sb.get_string_value("Preis.EVENT")  
-            #rows.append(bez + "  " + preis)
-            rows.append(preis + "  " + bez)
-            transfer = self.sb.get_value("Transfer.ANMELD")  
-            if transfer:
-                ort = self.sb.get_string_value("Ort.TORT") 
-                #rows.append(ort + "  " + Afp_toString(transfer)) 
-                rows.append(Afp_toString(transfer) + "  " + ort) 
-            extra = self.sb.get_value("Extra.ANMELD") 
-            if extra:
-                ex_row = self.mysql.select_strings("Bezeichnung,Preis",select,"ANMELDEX")
-                for row in ex_row:
-                    #rows.append(row[0] + "  " + row[1])
-                    rows.append(row[1] + "  " + Afp_toString(row[0]))
-        return rows
     ## get grid rows to populate grids \n
     # (overwritten from AfpScreen) 
     # @param typ - name of grid to be populated

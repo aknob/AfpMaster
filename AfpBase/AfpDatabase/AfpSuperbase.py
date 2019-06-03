@@ -55,6 +55,7 @@ from AfpBase.AfpUtilities.AfpBaseUtilities import *
 # @param typ - type string of field description
 # @param pure - flag if dates should not be considered numeric
 def AfpSb_isNumericType(typ, pure = False):
+    #print "AfpSb_isNumericType:", typ, pure
     if "int(" in typ:
         return True  
     elif not pure and AfpSb_isDateType(typ):
@@ -242,7 +243,7 @@ class AfpSbIndex(object):
             while not equal and not self.endoffile and self.indexwert == indexwert:
                 self.select_plus_step(1)
                 equal =  self.is_equal(index)
-                #print "sync_to_index", equal, self.indexwert, indexwert,  self.endoffile 
+                #print "AfpISbndex.sync_to_index:", equal, self.indexwert, indexwert, self.indexoffset, self.endoffile, FNr 
             return equal
         else: 
             return False
@@ -259,7 +260,7 @@ class AfpSbIndex(object):
         if self.datei == index.datei:
             if not self.uindexwert is None:
                 equal = self.uindexwert == index.uindexwert
-                #print self.uindexwert, index.uindexwert
+                #print "AfpSbIndex.is_equal:", self.uindexwert, index.uindexwert
             else:
                 lgh = len(self.felder)
                 equal = True 
@@ -351,7 +352,7 @@ class AfpSbIndex(object):
             if first:
                 index_clause =  " ORDER BY (" + self.name + ")" + postfix
             elif self.is_numeric(True):
-                index_clause = (self.name + " " + unequal + " \"%d\" ORDER BY (" + self.name + ")" + postfix) % indexwert[0]
+                index_clause = (self.name + " " + unequal + " \"%d\" ORDER BY (" + self.name + ")" + postfix) % Afp_numericString(indexwert[0])
             else:
                 index_clause = self.name + " " + unequal + " \"" + Afp_toInternDateString(indexwert[0]) + "\" ORDER BY (" + self.name + ")" + postfix
         else:

@@ -84,7 +84,8 @@ def AfpFinance_getSqlTables(flavour = None):
   KEY `KtDat` (`KtDat`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_german2_ci;"""
     required["ADRESATT"] = """INSERT INTO `ADRESATT` VALUES 
-    (0,NULL,'Bankverbindung',1,NULL,NULL,'IBAN,BIC');"""
+    (0,NULL,'SEPA Kreditor ID',NULL,NULL,NULL,'Kreditor ID (anzeigen)'),
+    (0,NULL,'Bankverbindung',NULL,NULL,NULL,'IBAN,BIC');"""
     # return data
     return required
     

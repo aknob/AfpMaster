@@ -274,7 +274,7 @@ class AfpChScreen(AfpScreen):
         prefix = "Charter " + zustand
         archiv = Charter.get_string_value("Art").strip()
         if archiv == "Tagesfahrt" : archiv = ""
-        AfpLoad_DiReport(Charter, self.globals, zustand, prefix, archiv)
+        AfpLoad_DiReport(Charter, self.globals, None, zustand, prefix, archiv)
         if event:
             self.Reload()
             event.Skip()

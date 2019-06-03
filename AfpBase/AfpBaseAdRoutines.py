@@ -84,7 +84,7 @@ def AfpAdresse_getListOfTable(globals, KNr, selname, felder):
     name = adresse.get_name()
     return rows, name
     
-## get the list of names (and addresses) of all entries having assiganed the given attribut \n
+## get the list of names (and addresses) of all entries having assigned the given attribut \n
 # @param globals - globals variables, including mysql connection
 # @param attribut - attribut looked for
 # @param felder - name of address-fields to be extracted, separated by ,

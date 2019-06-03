@@ -79,9 +79,9 @@ def AfpAdresse_getSqlTables(flavour = None):
     # archiv table
     required["ARCHIV"] = """CREATE TABLE `ARCHIV` (
   `KundenNr` mediumint(8) unsigned zerofill NOT NULL,
-  `Art` char(20) CHARACTER SET latin1 NOT NULL,
-  `Typ` char(20) CHARACTER SET latin1 NOT NULL,
-  `Gruppe` char(20) CHARACTER SET latin1 NOT NULL,
+  `Art` char(25) CHARACTER SET latin1 NOT NULL,
+  `Typ` char(25) CHARACTER SET latin1 NOT NULL,
+  `Gruppe` char(50) CHARACTER SET latin1 NOT NULL,
   `Bem` tinytext CHARACTER SET latin1,
   `Extern` tinytext CHARACTER SET latin1 NOT NULL,
   `Datum` date NOT NULL,

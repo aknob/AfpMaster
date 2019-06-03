@@ -6,6 +6,7 @@
 # no display and user interaction in this modul.
 #
 #   History: \n
+#        27 Feb. 2019 - add SEPA direct debit handling - Andreas.Knoblauch@afptech.de \n
 #        12 Nov. 2015 - add mysql-table define data - Andreas.Knoblauch@afptech.de \n
 #        04 Feb. 2015 - add data export - Andreas.Knoblauch@afptech.de \n
 #        19 Okt. 2014 - adapt package hierarchy - Andreas.Knoblauch@afptech.de \n
@@ -33,8 +34,188 @@
 import AfpBase
 from AfpBase import AfpBaseRoutines
 from AfpBase.AfpBaseRoutines import *
+from AfpBase import AfpAusgabe
+from AfpBase.AfpAusgabe import AfpAusgabe
 
-## class to handle finance depedencies, 
+## class to handle SEPA direct debit handling, 
+class AfpSEPADD(AfpSelectionList):
+    ## initialize class
+    # @param data - SelectionList data where sepa direct debit is handled for
+    # @param ctable - name of table/SelectionList where the client information is stored
+    # @param filename - name of xml-file in sourcedir to be used for output
+    # @param interval - number of runs per year, default: once a year, possible values 1, 2, 4, 12
+    # @param debug - flag for debug information
+    # @param complete - flag if data from all tables should be retrieved duringl initialisation
+    def  __init__(self, data, ctable, filename, interval = 1, debug = False, complete = False):
+        self.globals = data.get_globals()
+        AfpSelectionList.__init__(self, self.globals, "SEPA-DD", debug)
+        self.data = data
+        self.ctable = ctable
+        self.sourcefile = filename
+        self.debug = debug
+        self.sourcedir = self.globals.get_value("templatedir")
+        self.targetdir = self.globals.get_value("archivdir")
+        self.serial = 1
+        self.today = self.globals.today()
+        self.period = Afp_toString(self.today.year)
+        if interval > 1:
+            month = self.today.month
+            if interval == 12:
+                self.period += "/" + Afp_intString(month, 2)
+            else:
+                if interval == 2:
+                    self.period += "/H" 
+                elif interval == 4:
+                    self.period += "/Q" 
+                else:
+                    self.period += "/" +  Afp_toString(interval) + "X"
+                self.period += Afp_toString(interval*(month-1)/12 + 1)
+        self.creditor_Id= None
+        self.creditor_IBAN = None
+        self.creditor_BIC = None
+        self.lastrun = None
+        self.clients = None
+        self.newclients = None
+        self.mainselection = data.get_mainselection()
+        self.mainindex = data.get_mainindex()
+        self.mainvalue = data.get_value()
+        self.selections[self.mainselection] = data.get_selection()
+        self.selects["Kreditor"] = [ "ADRESATT","Attribut = \"SEPA Kreditor ID\" AND KundenNr = " + data.get_string_value("KundenNr.ADRESSE")] 
+        self.selects["Konto"] = [ "ADRESATT","Attribut = \"Bankverbindung\" AND AttText = \"SEPA-DD\" AND KundenNr = " + data.get_string_value("KundenNr.ADRESSE")] 
+        self.selects["Mandat"] = [ "ARCHIV","Art = \"SEPA-DD\" AND Typ = \"Aktiv\" AND Tab = \"" + ctable + "\""] 
+        self.selects["Execution"] = [ "ARCHIV","Art = \"SEPA-DD\" AND Typ = \"File\" AND Tab = \"" + self.mainselection + "\""] 
+        if self.debug: print "AfpSEPADD Konstruktor:", self.mainindex, self.mainvalue 
+    ## destructor
+    def __del__(self):    
+        if self.debug: print "AfpSEPADD Destruktor"
+        
+    ## check if SEPA Direct Debit creditor data is availabe, if not try to load it
+    def creditor_data_available(self):
+        if not (self.creditor_Id and self.creditor_IBAN and self.creditor_BIC):
+            self.set_creditor_data()
+        if self.creditor_Id and self.creditor_IBAN and self.creditor_BIC:
+            return True
+        else:
+            return False
+    ## get SEPA Direct Debit creditor data
+    def set_creditor_data(self):
+        self.creditor_Id = self.get_value("AttText.Kreditor")
+        bank = self.get_value("Tag.Konto")
+        if bank: 
+            split = bank.split(",") 
+            if len(split) > 1:
+               self.creditor_IBAN = split[0].replace(" ","")
+               self.creditor_BIC = split[1].strip()
+ 
+    ## get date of last SEPA Direct Debit run 
+    def set_last_run(self):    
+        rows = self.get_values("Datum.Execution")
+        datum = None
+        for row in rows:
+            if datum is None: datum = row[0]
+            elif row[0] > datum: datum = row[0]
+        self.lastrun = datum 
+        
+    ## get SEPA Direct Debit mandates or files from designated table
+    def set_mandat_data(self):
+        where = self.data.selects[self.ctable][1]
+        split = where.split("=")
+        clientid = split[0].strip()
+        masterid = split[1].split(".")[0].strip()
+        EvNr = self.get_value(masterid)
+        selection = self.get_selection("Mandat")
+        rows = selection.get_values("KundenNr,Datum,Tab,TabNr,Extern")
+        self.clients = []
+        self.newclients = []
+        self.sum = 0
+        self.newsum = 0
+        for row in rows:
+            client = self.data.get_client(row[3])
+            if client.get_value(clientid) == EvNr:
+                amount = client.get_payment_values()[0]
+                if self.lastrun and row[2] <=  self.lastrun:
+                    self.clients.append(client)
+                    self.sum += amount
+                else:
+                    self.newclients.append(client)
+                    self.newsum += amount
+       
+    ## generate SEPA Direct Debit XML-file from l data
+    # @param firstflag - if given, flag if this is the first time a SEPA Driect Debit is invoked for all data (please separate first and follow-up actions)
+    def gen_SEPA_xml(self, firstflag = False):
+        today = self.globals.today()
+        if firstflag:
+            exe_date = Afp_addDaysToDate(today, 8)
+            first = "True"
+            typ = "Erstlastschrift"
+            datalist = self.newclients
+            sum = self.newsum
+        else:
+            exe_date = Afp_addDaysToDate(today, 5)
+            first = ""
+            typ = "Folgelastschrift"
+            datalist = self.clients
+            sum = self.sum
+        vars = {"BIC": self.creditor_BIC, "IBAN": self.creditor_IBAN}
+        vars["One"] = 1
+        vars["Serial"] = 0
+        vars["Name"] = self.data.get_name()
+        vars["ID"] = self.creditor_Id
+        vars["Total"] = sum
+        vars["First"] = first
+        vars["Count"] = len(datalist)
+        vars["Period"] = Afp_toString(self.period)
+        vars["Timestamp"] = Afp_getNow(True)
+        vars["Execute"] = Afp_toInternDateString(exe_date)
+        vars["MessageId"] = "SEPA_" + self.creditor_BIC + Afp_toDateString(today,"yymmdd") + Afp_toIntString(self.serial)
+        target = self.targetdir  + vars["MessageId"] + ".xml"
+        while Afp_existsFile(target):
+            self.serial += 1
+            vars["MessageId"] = "SEPA_" + self.creditor_BIC + Afp_toDateString(today,"yymmdd") + Afp_toIntString(self.serial)
+            target = self.targetdir  + vars["MessageId"] + ".xml"
+        vars["PaymentId"] = vars["MessageId"] [5:]+ "00"
+        vars["TransId"] = Afp_intString(Afp_toDateString(today,"yymmdd") + Afp_toIntString(self.serial) + "00")
+        # write xml file
+        serial_tags = ["<DrctDbtTxInf>", "</DrctDbtTxInf>", 1]
+        source = self.sourcedir  + self.sourcefile
+        for data in datalist: data.set_international_output()
+        if self.debug: print "AfpSEPADD.gen_SEPA_xml:", self.serial, vars, source, target
+        out = AfpAusgabe(self.debug, datalist, serial_tags)
+        out.set_variables(vars)
+        out.inflate(source)
+        out.write_resultfile(target)
+        # write receipt file
+        serial_tags = ["<table:table-row>", "</table:table-row>", 1, 1]
+        vars["Typ"] = typ
+        source = source[:-4] + ".fodt"
+        target = self.targetdir  + vars["MessageId"] + ".odt"
+        for data in datalist: data.set_international_output(False)
+        if self.debug: print "AfpSEPADD.gen_SEPA_xml Receipt:", self.serial, vars["Typ"], source, target
+        rcpt = AfpAusgabe(self.debug, datalist, serial_tags)
+        rcpt.set_variables(vars)
+        rcpt.inflate(source)
+        rcpt.write_resultfile(target, self.sourcedir + "empty.odt")
+        return vars["MessageId"] + ".xml", vars["MessageId"] + ".odt"
+        
+    ## generate SEPA Direct Debit for designated data
+    def generate_xml(self):
+        sepa_names = []
+        recpt_names = []
+        if self.creditor_data_available():
+            self.set_last_run()
+            self.set_mandat_data()
+            if self.debug: print "AfpSEPADD.generate_xml:", self.newclients, self.clients
+            if self.newclients:
+                xm, odt = self.gen_SEPA_xml(True)
+                sepa_names.append(xm)
+                recpt_names.append(odt)
+            if self.clients:
+                xm, odt = self.gen_SEPA_xml()
+                sepa_names.append(xm)
+                recpt_names.append(odt)
+        return sepa_names, recpt_names
+       
+  ## class to handle finance depedencies, 
 class AfpFinance(AfpSelectionList):
     ## initialize class
     # @param globals - global values including the mysql connection - this input is mandatory
@@ -78,7 +259,7 @@ class AfpFinance(AfpSelectionList):
     def __del__(self):    
         if self.debug: print "AfpFinance Destruktor"
         
-## return financial tarnsaction class, if possible
+## return financial transaction class, if possible
 def AfpFi_getFinanceTransactions(globals):
     #print "AfpFi_getFinanceTransactions:", globals.get_mysql().get_tables()
     if "BUCHUNG" in globals.get_mysql().get_tables():

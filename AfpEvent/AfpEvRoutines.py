@@ -199,15 +199,15 @@ class AfpEvent(AfpSelectionList):
         if not self.mainselection in self.selections:
             self.create_selection(self.mainselection)   
         #  self.selects[name of selection]  [tablename,, select criteria, optional: unique fieldname]
+        self.selects["ADRESSE"] = [ "ADRESSE","KundenNr = AgentNr.EVENT"] 
         self.selects["ANMELD"] = [ "ANMELD","EventNr = EventNr.EVENT","AnmeldNr"] 
         self.selects["PREISE"] = [ "PREISE","EventNr = EventNr.EVENT"] 
         self.selects["ERTRAG"] = [ "ERTRAG","FahrtNr = EventNr.EVENT"] 
         self.selects["EINSATZ"] = [ "EINSATZ","ReiseNr = EventNr.EVENT","EinsatzNr"] 
         self.selects["TNAME"] = [ "TNAME","TourNr = Route.EVENT","TourNr"] 
         self.selects["Ort"] = [ "ADRESSE","KundenNr = Route.EVENT"] 
-        self.selects["Agent"] = [ "ADRESSE","KundenNr = AgentNr.EVENT"] 
-        self.selects["Verein"] = [ "ADRESATT","KundenNr = AgentNr.EVENT AND Attribut = \"Verein\""] 
         self.set_maxPreisNr()
+        self.finance = None
         if complete: self.create_selections()
         if self.debug: print "AfpEvent Konstruktor, EventNr:", self.mainvalue
     ## destuctor
@@ -316,6 +316,31 @@ class AfpEvent(AfpSelectionList):
                 sel.set_value("PreisNr", self.maxPreisNr, i)
             if ENr and not sel.get_values("EventNr", i)[0][0]: # if EventNr is not yet set
                 sel.set_value("EventNr", ENr, i)
+    ## get all clients for SEPA Direct Debit
+    # works only if 'Finance' modul is available
+    def get_SEPA_clients(self):
+        clients = []
+        newclients = []
+        #if not self.finance and not self.globals.skip_accounting():
+        if not self.finance:
+            self.finance = Afp_importAfpModul("Finance", self.globals)[0]
+        if self.finance:
+            name = self.get_name(False, "Agent")
+            creditor, account = self.finance.AfpFinance_getSEPACreditorID(self.globals.get_mysql(), self.get_value("AgentNr"), self.debug)
+            if creditor and account:
+                lastrun = None
+                rows = self.finance.AfpFinance_getSEPAdd(self.globals.get_mysql(), "ANMELD")
+                EvNr = self.get_value("EventNr")
+                for row in rows:
+                    client = self.get_client(row[3])
+                    ENr = client.get_value("EventNr")
+                    if client.get_value("EventNr") == EvNr:
+                        if lastrun and row[2] <=  lastrun:
+                            clients.append(client)
+                        else:
+                            newclients.append(client)
+        return clients, newclients
+            
 
     ## return specific identification string to be used in dialogs \n
     # - overwritten from AfpSelectionList
@@ -324,6 +349,11 @@ class AfpEvent(AfpSelectionList):
             return "Reise am "  +  self.get_string_value("Beginn") + " nach " + self.get_string_value("Bez")
         else:
             return "Veranstaltung (" +  self.get_string_value("Bez") + ") am "  +  self.get_string_value("Beginn") + " in " + self.get_string_value("Name.Ort")
+    ## create client data
+    # may be overwritten in devired class
+    # @param ANr - data will be retrieved for this database entry
+    def get_client(self, ANr):
+        return AfpEvClient(self.globals, ANr)
 
 ## baseclass for client handling         
 class AfpEvClient(AfpSelectionList):
@@ -336,7 +366,7 @@ class AfpEvClient(AfpSelectionList):
     # \n
     # either AnmeldNr or sb (superbase) has to be given for initialisation,otherwise a new, clean object is created
     def  __init__(self, globals, AnmeldNr = None, sb = None, debug = None, complete = False):
-        AfpSelectionList.__init__(self, globals, "EvClient", debug)
+        AfpSelectionList.__init__(self, globals, "Client", debug)
         if debug: self.debug = debug
         else: self.debug = globals.is_debug()
         self.finance = None
@@ -366,12 +396,9 @@ class AfpEvClient(AfpSelectionList):
         self.selects["ADRESSE"] = [ "ADRESSE","KundenNr = KundenNr.ANMELD"] 
         self.selects["EVENT"] = [ "EVENT","EventNr = EventNr.ANMELD"] 
         self.selects["PREISE"] = [ "PREISE","EventNr = EventNr.ANMELD"] 
-        self.selects["TORT"] = [ "TORT","OrtsNr = Ab.ANMELD"] 
         self.selects["ANMELDER"] = [ "ANMELDER","AnmeldNr = AnmeldNr.ANMELD"] 
         self.selects["ANMELDEX"] = [ "ANMELDEX","AnmeldNr = AnmeldNr.ANMELD"] 
-        self.selects["ANMELDATT"] = [ "ANMELDATT","AnmeldNr = AnmeldNr.ANMELD"] 
         self.selects["RECHNG"] = [ "RECHNG","RechNr = RechNr.ANMELD","RechNr"]
-        self.selects["ARCHIV"] = ["ARCHIV", "Tab = \"ANMELD\" AND TabNr = AnmeldNr.ANMELD"]
         self.selects["AUSGABE"] = [ "AUSGABE","Modul = \"" + self.get_listname() + "\" AND Art = Art.EVENT AND Typ = Zustand.ANMELD"] 
         #self.selects["AUSGABE"] = [ "AUSGABE","Typ = Art.EVENT + Zustand.ANMELD"] 
         #self.selects["AUSGABE"] = [ "AUSGABE","Typ = \"EigenAnmeldung\""] 
@@ -381,8 +408,8 @@ class AfpEvClient(AfpSelectionList):
         self.selects["Preis"] = [ "PREISE","EventNr = EventNr.ANMELD AND PreisNr = PreisNr.ANMELD"] 
         self.selects["Umbuchung"] = [ "EVENT","EventNr = UmbAuf.ANMELD"] 
         self.selects["Ort"] = [ "ADRESSE","KundenNr = Route.ANMELD"] 
+        self.selects["SEPA"] = [ "ARCHIV","TabNr = AnmeldNr.ANMELD AND Tab = \"ANMELD\" AND Art = \"SEPA-DD\" AND Typ = \"Aktiv\""] 
         #self.selects["ERTRAG"] = [ "ERTRAG","EventNr = EventNr.ANMELD"] 
-        #self.selects["EINSATZ"] = [ "EINSATZ","EVENTr = EventNr.ANMELD"] 
         if complete: self.create_selections()
         if not self.globals.skip_accounting():
             self.finance_modul = Afp_importAfpModul("Finance", self.globals)[0]
@@ -420,7 +447,7 @@ class AfpEvClient(AfpSelectionList):
         return AfpEvent_isVerein(art)
     ## event has valid route data
     def event_has_route(self):
-        return self.event_is_tour()
+        return self.event_is_tour() or self.event_is_Verein()
     ## clear current SelectionList to behave as a newly created List 
     # @param EventNr - identifier of event, == None if event is kept
     # @param KundenNr - KundenNr of newly selected adress, == None if adress is kept
@@ -500,30 +527,13 @@ class AfpEvClient(AfpSelectionList):
             if entry[2] == "Grund":
                 return entry[0], entry[1]
         return None, None
-    ## check if  the name of the price holds string
-    # @param check - string to be checked
-    def pricename_holds(self, check):
-        return check in  self.get_value("Bezeichnung.Preis")
-    ## generate identification number (membership number for "Verein")  
-    def generate_IdNr(self):
-        IdNr = None
-        # possible values "Touristik","Event", "Verein"
-        art = self.get_value("Art.EVENT")
-        if art == "Verein": 
-            # ToDo: for different 'Sparten' in 'Verein' look for already given id
-            IdNr = self.get_next_RechNr_value()
-            #tag = self.get_value("Tag.Verein")
-            #Extern = AfpExternNr(self.get_globals(),"Count", tag, self.debug)
-            #IdNr = Extern.get_number()
-        return IdNr
     ## return field to be increased to generate 'RechNr'  
+    # may be overwritten in devired class
     def get_RechNr_name(self):
-        # possible values "Touristik","Event", "Verein"
-        art = self.get_value("Art.EVENT")
-        if art == "Verein": return "RechNr.EVENT"
-        elif self.get_value("AgentNr.EVENT"): return "Nummer.ExternNr" 
-        elif art:  return "RechNr.EVENT:Kostenst.EVENT"
-        return "RechNr.RECHNG"
+        if self.get_value("AgentNr.EVENT"): return "Nummer.ExternNr" 
+        else:  return "RechNr.EVENT:Kostenst.EVENT"
+        # possibillity to assign extern invoice number
+        # return "RechNr.RECHNG"
     ## generate next value for  RechNr
     def get_next_RechNr_value(self):
         Nr = None
@@ -553,7 +563,7 @@ class AfpEvClient(AfpSelectionList):
                 RechNr = Afp_toString(RNr)
             else:
                 RNr =  Afp_toIntString(Nr, deci)
-                RechNr = self.get_string_value("Kennung.EVENT") + "." + RNr
+                RechNr = self.get_string_value("Kennung.EVENT") + "-" + RNr
                 #print "AfpEvClient.generate_RechNr RNr:", RNr, RechNr
         elif typ == "Nummer.ExternNr":
             Extern = AfpExternNr(self.get_globals(),"Monat", None, self.debug)
@@ -685,10 +695,7 @@ class AfpEvClient(AfpSelectionList):
     ## return specific identification string to be used in dialogs \n
     # - overwritten from AfpSelectionList
     def get_identification_string(self):
-        if self.event_is_tour():
-            return "Anmeldung für Reise am ".decode("UTF-8")  +  self.get_string_value("Beginn.EVENT") + " nach " + self.get_string_value("Bez.EVENT")
-        else:
-            return "Anmeldung für die Veranstaltung '".decode("UTF-8") +  self.get_string_value("Bez.EVENT") + "' am "  +  self.get_string_value("Beginn.EVENT") + " in " + self.get_string_value("Name.Ort")
+        return "Anmeldung für die Veranstaltung '".decode("UTF-8") +  self.get_string_value("Bez.EVENT") + "' am "  +  self.get_string_value("Beginn.EVENT") + " in " + self.get_string_value("Name.Ort")
 
 ## baseclass for departure route handling  \n
 # not yet implemented completely, actually only used to retrieve route data!

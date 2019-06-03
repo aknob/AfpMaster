@@ -249,17 +249,26 @@ def AfpAdresse_spezialAttribut(name, attribut, text, tag, action, no_delete = Fa
     return Ok, text, tag
     
 ## select an address and add given attribut to it
-def AfpAdresse_addAttributToAdresse(globals, attribut, text):
+# @param globals - global variables, holding mysql connection
+# @param attribut - name of  attribut where an additional entry should be created
+# @param sname - initial name for search
+# @param text - text to be displayed during search
+def AfpAdresse_addAttributToAdresse(globals, attribut, sname, text):
     Ok = False
     name = None
-    KNr = AfpLoad_AdAusw(globals,"ADRESSE","Name","", None,text,True)
+    KNr = AfpLoad_AdAusw(globals, "ADRESSE", "Name", sname, None, text, True)
     if KNr:
         adresse = AfpAdresse(globals, KNr, None, globals.is_debug())
         sel = adresse.get_selection("ADRESATT")
-        actuel = sel.get_values("Attribut")
+        values = sel.get_values("Attribut")
+        actuel = []
+        for value in values:
+            actuel.append(value[0])
+        #print "AfpAdresse_addAttributToAdresse actuel:",attribut, actuel, attribut in actuel
         if not attribut in actuel:
             filter = "KundenNr = 0"
             liste, rows = Afp_getListe_fromTableSelection(sel, filter, "Attribut", "Attribut", "AttNr")
+            #print "AfpAdresse_addAttributToAdresse liste:",attribut, liste
             if attribut in liste:
                 ok = AfpReq_Question( "Der Adresse '" + adresse.get_name() + "'".decode("UTF-8"), "wird das Merkmal '" + attribut + "' zugeordnet!", "Merkmalzuordnung") 
                 if ok:
@@ -315,7 +324,7 @@ class AfpDialog_AdAttAusw(AfpDialog_Auswahl):
         self.datei = "ADRESATT"        
         self.modul = "Adresse"
         # remove 'Neu'-button from panel
-        self.button_Neu.Destroy()
+        #self.button_Neu.Destroy()
     ## get the definition of the selection grid content \n
     # overwritten for "Adressen-attribut" use
     def get_grid_felder(self):  
@@ -325,6 +334,14 @@ class AfpDialog_AdAttAusw(AfpDialog_Auswahl):
                             ["Ort.Adresse",20], 
                             ["KundenNr.AdresAtt = KundenNr.Adresse",None]] 
         return Felder
+    
+    ## invoke the dialog for a new entry
+    def invoke_neu_dialog(self, globals, search, where):
+        if search is None: search = "a"
+        attribut = where.split("=")[1].strip()[1:-1]  #[1:-1] needed as attribut is enclosed by " " in where phrase
+        text = "Bitte neue Adresse als '" + attribut + "' auswählen!".decode("UTF-8")
+        name, Ok = AfpAdresse_addAttributToAdresse(globals, attribut, search, text)
+        return Ok
 
 ## loader routine for adress selection dialog
 # @param globals - global data holding mysql connection to database

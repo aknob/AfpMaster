@@ -258,8 +258,9 @@ def Afp_readExtraInfo(fname):
 # in this case the file must hold a routine "AfpExtra(globals, debug)"
 # @param filepath - name and path of file to be opened
 # @param globals - global variables
+# @param data - data for program execution
 # @param debug - flag for debug messages
-def Afp_startExtraProgram(filepath, globals, debug = False):
+def Afp_startExtraProgram(filepath, globals, data, debug = False):
     if debug: print "Afp_startExtraProgram:",filepath
     split = filepath.split(globals.get_value("path-delimiter"))
     modul = split[-1]
@@ -267,7 +268,7 @@ def Afp_startExtraProgram(filepath, globals, debug = False):
     modul = modul.split(".")[0]
     pymodul = AfpPy_Import(modul, path)
     if pymodul:
-        pymodul.AfpExtra(globals, debug)
+        pymodul.AfpExtra(globals, data, debug)
     else:
         print "WARNING: extra program not available -",filepath
 ##  starts a programfile with the associated program
@@ -672,6 +673,7 @@ class AfpSelectionList(object):
         self.tagmap = None
         self.debug = debug
         self.new = False
+        self.international_output= False
         self.tables = self.mysql.get_tables()
         if self.debug: print "AfpSelectionList Konstruktor",listname
     ## destructor
@@ -692,9 +694,19 @@ class AfpSelectionList(object):
     ## return name of this SelectionList
     def get_listname(self):
         return self.listname
+    ## return main selectin table of this SelectionList
+    def get_mainselection(self):
+        return self.mainselection
     ## return main index of this SelectionList
     def get_mainindex(self):
         return self.mainindex
+    ## set if intern date shoulkd be used for output
+    # @param flag - if given, flag if value should be set to 'True'
+    def set_international_output(self, flag=True):
+        if flag:
+            self.international_output = True
+        else:
+            self.international_output = False
     ## return if this SelectionList has changed
     def has_changed(self):
         has_changed = self.new
@@ -717,6 +729,10 @@ class AfpSelectionList(object):
         target = None
         if self.selects[selname]:
             select = self.selects[selname][1]
+            if "AND" in select:
+                split = select.split("AND")
+                for sp in split:
+                    if "." in sp: select = sp.strip()
             split = select.split("=")
             target = split[0].strip()
             if  "." in target: target = target.split(".")[0]
@@ -831,7 +847,7 @@ class AfpSelectionList(object):
         else: new = False
         selection = self.constitute_selection(name)
         select_clause, order_clause = self.evaluate_selects(name)
-        #print "AfpSelectionList.create_selection:", "\"" + select + "\"", select_clause, new, selection
+        #if name == "ANMELDEX": print "AfpSelectionList.create_selection:", "\"" + name + "\"", select_clause, new, selection
         if selection is None and select_clause == []:
             if new: selection = self.spezial_selection(name, True)
             else:   selection = self.spezial_selection(name)
@@ -995,8 +1011,14 @@ class AfpSelectionList(object):
                     wert = Afp_importFileData(fname)
                 else:
                     wert = value
+                if self.international_output: 
+                    wert = Afp_replaceUml(wert)
             else:
-                wert = Afp_toString(value)
+                if self.international_output: 
+                    wert = Afp_toInternDateString(value)
+                    #print "AfpSelectionList.get_ausgabe_value:", value, type(value), wert
+                else:
+                    wert = Afp_toString(value)
         else:
             wert = ""
         return wert
@@ -1081,24 +1103,25 @@ class AfpSelectionList(object):
     ## sample newly created unique identifier value of dependent selection to the appropriate entries in the main selectrion
     # @param selname - name of TableSelection where new identifier has been created
     def resample_value(self, selname):
-        #print "AfpTableSelectionList.resample_value initiated:", selname
+        #print "AfpTableSelectionList.resample_value initiated:", selname, self.selects[selname]
         target = None
         source = None 
         value = None 
         # uniqueindex
         selarr = self.selects[selname]
-        if len(selarr) > 2:
-            source = selarr[2] + "." + selname
-        target = selarr[1].split("=")[1].strip()
-        #print "AfpTableSelectionList.resample_value source:",source
-        if source:
-            split = source.split(".")
-            #print "AfpTableSelectionList.resample_value split:", source, split
-            if self.get_selection(split[1]).is_last_inserted_id(split[0]):
-                value = self.get_value(source)
-                #print "AfpTableSelectionList.resample_value executed:", source, target, value
-                # uniqueindex filled back into mainselection
-                self.set_value(target, value)
+        if selarr:
+            if len(selarr) > 2:
+                source = selarr[2] + "." + selname
+            target = selarr[1].split("=")[1].strip()
+            #print "AfpTableSelectionList.resample_value source:",source
+            if source:
+                split = source.split(".")
+                #print "AfpTableSelectionList.resample_value split:", source, split
+                if self.get_selection(split[1]).is_last_inserted_id(split[0]):
+                    value = self.get_value(source)
+                    #print "AfpTableSelectionList.resample_value executed:", source, target, value
+                    # uniqueindex filled back into mainselection
+                    self.set_value(target, value)
     ## set a single value of individual TableSelection 
     # @param DateiFeld - column.selection name where data has to be written to
     # @param value - new vaolue of above column
@@ -1229,15 +1252,16 @@ class AfpSelectionList(object):
     # - Bem:  remark on this entry
     # - Extern:  name of archived file (relativ to archiv path) \n
     # it will be completed by:
-    # - Art: (kind) 1st level identification, will be set to "BusAfp"
+    # - Art: (kind) 1st level identification, will be set to program name
     # - Typ: (type) 2nd level identification, will be set to SelectionList listname
     def add_to_Archiv(self, new_data):
         selection = self.get_selection("ARCHIV")
         if selection:
             row = selection.get_data_length()
-            new_data["Art"] = self.globals.get_value("name")
-            new_data["Typ"] = self.listname
-            new_data["KundenNr"] = self.get_value("KundenNr")
+            if not "Art" in new_data: new_data["Art"] = self.globals.get_value("name")
+            if not "Typ" in new_data: new_data["Typ"] = self.listname
+            if not "KundenNr" in new_data: new_data["KundenNr"] = self.get_value("KundenNr")
+            if not new_data["KundenNr"]:  new_data["KundenNr"] = self.get_value("KundenNr.ADRESSE")
             new_data["Datum"] = self.globals.today()
             new_data = self.set_archiv_data(new_data)
             selection.set_data_values(new_data, row)

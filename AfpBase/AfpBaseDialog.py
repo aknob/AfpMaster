@@ -1291,7 +1291,7 @@ class AfpDialog_Auswahl(wx.Dialog):
                 anz += anz
             elif offset < 0:
                 if self.ident:
-                    print "WARNING: AfpDialog_DiAusw.set_step_back: identic entry not found"
+                    print "WARNING: AfpDialog_Auswahl.set_step_back: identic entry not found"
                 offset = 0
         self.select = select
         if offset < step:

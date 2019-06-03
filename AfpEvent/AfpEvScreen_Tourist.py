@@ -8,9 +8,10 @@
 # - AfpEvScreen
 #
 #   History: \n
-#        15 Jan. 2016 - inital code of 'Tourist' modul generated - Andreas.Knoblauch@afptech.de
-#        15 May 2018 - integrated into 'Event' modul - Andreas.Knoblauch@afptech.de
+#        10 Apr. 2019 - integrate all dervired flavour classes into one deck - Andreas.Knoblauch@afptech.de
 #        25 Oct 2018 - corrections due to database changes in 'Event' modul- Andreas.Knoblauch@afptech.de
+#        15 May 2018 - integrated into 'Event' modul - Andreas.Knoblauch@afptech.de
+#        15 Jan. 2016 - inital code of 'Tourist' modul generated - Andreas.Knoblauch@afptech.de
 
 #
 # This file is part of the  'Open Source' project "BusAfp" by 
@@ -44,7 +45,6 @@ from AfpBase.AfpDatabase.AfpSQL import AfpSQL
 from AfpBase.AfpDatabase.AfpSuperbase import AfpSuperbase
 from AfpBase.AfpBaseRoutines import Afp_archivName, Afp_startFile
 from AfpBase.AfpBaseDialog import AfpReq_Info, AfpReq_Selection, AfpReq_Question, AfpReq_Text
-from AfpBase.AfpBaseDialogCommon import AfpLoad_DiReport
 from AfpBase.AfpBaseScreen import AfpScreen
 from AfpBase.AfpBaseAdRoutines import AfpAdresse
 from AfpBase.AfpBaseAdDialog import AfpLoad_AdAusw, AfpLoad_DiAdEin_fromSb
@@ -54,18 +54,80 @@ import AfpEvent
 from AfpEvent import AfpEvRoutines, AfpEvDialog, AfpEvScreen
 from AfpEvent.AfpEvScreen import AfpEvScreen
 from AfpEvent.AfpEvRoutines import *
-from AfpEvent.AfpEvDialog import AfpEvent_copy, AfpLoad_EvAusw, AfpLoad_EventEdit_fromSb, AfpLoad_EvClientEdit_fromSb
+from AfpEvent.AfpEvDialog import AfpEvent_copy, AfpLoad_EvAusw, AfpDialog_EventEdit, AfpDialog_EvClientEdit
+
+
+## baseclass for tour handling         
+class AfpEvTour(AfpEvent):
+    ## initialize AfpEvent class
+    # @param globals - global values including the mysql connection - this input is mandatory
+    # @param EventNr - if given and sb == None, data will be retrieved this database entry
+    # @param sb - if given data will  be retrieved from the actuel AfpSuperbase data
+    # @param debug - flag for debug information
+    # @param complete - flag if data from all tables should be retrieved durin initialisation \n
+    # \n
+    # either EventNr or sb (superbase) has to be given for initialisation, otherwise a new, clean object is created
+    def  __init__(self, globals, EventNr = None, sb = None, debug = None, complete = False):
+        AfpEvent.__init__(self, globals, EventNr, sb, debug, complete)
+        self.listname = "Tour"
+        if not self.get_value("AgentNr") and sb:
+            KNr = sb.get_value("KundenNr.ADRESSE")
+            Name = sb.get_value("Name.ADRESSE")
+            self.set_value("AgentNr.EVENT", KNr)
+            self.set_value("AgentName.EVENT", Name)
+        self.selects["Verein"] = [ "ADRESATT","KundenNr = AgentNr.EVENT AND Attribut = \"Verein\""] 
+        if complete: self.create_selections()
+        if self.debug: print "AfpVerein Konstruktor, EventNr:", self.mainvalue
+
+    ## return specific identification string to be used in dialogs \n
+    # - overwritten from AfpEvent
+    def get_identification_string(self):
+        return "Reise am "  +  self.get_string_value("Beginn") + " nach " + self.get_string_value("Bez")
+    ## create client data
+    # overwritten from AfpEvent
+    # @param ANr - data will be retrieved for this database entry
+    def get_client(self, ANr):
+        return AfpEvTourist(self.globals, ANr)
+
+
+## baseclass for Tourist handling         
+class AfpEvTourist(AfpEvClient):
+    ## initialize AfpEvTourist class, derivate from AfpEvClient
+    # @param globals - global values including the mysql connection - this input is mandatory
+    # @param AnmeldNr - if given and sb == None, data will be retrieved this database entry
+    # @param sb - if given data will  be retrieved from the actuel AfpSuperbase data
+    # @param debug - flag for debug information
+    # @param complete - flag if data from all tables should be retrieved durin initialisation \n
+    # \n
+    # either AnmeldNr or sb (superbase) has to be given for initialisation,otherwise a new, clean object is created
+    def  __init__(self, globals, AnmeldNr = None, sb = None, debug = None, complete = False):
+        AfpEvClient.__init__(self, globals, AnmeldNr, sb, debug, complete)
+        self.listname = "Tourist"
+        #  self.selects[name of selection]  [tablename,, select criteria, optional: unique fieldname]
+        self.selects["TORT"] = [ "TORT","OrtsNr = Ab.ANMELD"] 
+        self.selects["EINSATZ"] = [ "EINSATZ","EventNr = EventNr.ANMELD"] 
+        if complete: self.create_selections()
+        if self.debug: print "AfpEvTourist Konstruktor, AnmeldNr:", self.mainvalue
+
+    ## return specific identification string to be used in dialogs \n
+    # - overwritten from AfpSelectionList
+    def get_identification_string(self):
+        return "Anmeldung für Reise am ".decode("UTF-8")  +  self.get_string_value("Beginn.EVENT") + " nach " + self.get_string_value("Bez.EVENT")
+
+# end of class AfpEvTourist
+
+
 
 ## Class AfpEvScreen_Tourist shows 'Tourist' screen and handles interactions
 class AfpEvScreen_Tourist(AfpEvScreen):
     ## initialize AfpEvScreen, graphic objects are created here
     # @param debug - flag for debug info
     def __init__(self, debug = None):
-        self.flavour = "Tourist"
         self.einsatz = None # to invoke import of 'Einsatz' modules in 'init_database'
         AfpEvScreen.__init__(self, debug)
+        self.flavour = "Tourist"
+        self.grid_row_selected = True
         self.SetTitle("Afp Tourist")
-        self.grid_row_selected = None
         if self.debug: print "AfpEvScreen_Tourist Konstruktor"
     
     ## initialize widgets
@@ -254,6 +316,21 @@ class AfpEvScreen_Tourist(AfpEvScreen):
                 self.sb.select_where(self.sb_an_filter, None, "ANMELD")   
         #print "AfpEvScreen_Tourist.set_client_filter EVENT:", self.sb_re_filter,"ANMELD:", self.sb_an_filter, "CURRENT RECORD:", self.sb.get_value()
 
+    ## populate text widgets
+    # overwritten from AfpBaseScreen to handle dependant tourist display
+    def Pop_text(self):
+        no_slave =  not self.slave_exists()
+        for entry in self.textmap:
+            TextBox = self.FindWindowByName(entry)
+            if no_slave and self.is_slave(self.textmap[entry]):
+                value = ""
+            elif self.data:
+                value = self.data.get_tagged_value(self.textmap[entry])
+            else:
+                value = self.sb.get_string_value(self.textmap[entry])
+            #print "AfpEvScreen.Pop_text:", no_slave, entry, value, self.is_slave(self.textmap[entry])
+            TextBox.SetValue(value)
+
     ## Eventhandler BUTTON, MENU - tour operation
     def On_VehicleOperation(self,event):
         if self.debug: print "AfpEvScreen_Tourist Event handler `On_VehicleOperation'"
@@ -281,7 +358,7 @@ class AfpEvScreen_Tourist(AfpEvScreen):
                         #print "Liste:", liste
                         #print ident
                         Ort = Event.get_string_value("Beginn") + " nach " +Event.get_string_value("Ort") 
-                        ENr, Ok = AfpReq_Selection("Bitte Einsatz für Reise am ".decode("UTF-8") , Ort + " auswählen.".decode("UTF-8"), liste, "Einsatzauswahl", ident)
+                        ENr, Ok = AfpReq_Selection("Bitte Einsatz für Reise am ".decode("UTF-8") , Ort + " auswäAfpDialog_EventEdithlen.".decode("UTF-8"), liste, "Einsatzauswahl", ident)
                         ENr = ENr[0]
                     else:
                         ENr = selection.get_value("EinsatzNr")
@@ -296,17 +373,6 @@ class AfpEvScreen_Tourist(AfpEvScreen):
             AfpReq_Info("Für diese Veranstaltung" , "ist kein Einsatz möglich!".decode("UTF-8"))
         event.Skip()
 
-    ## Eventhandler BUTTON, MENU - modify touristic entry \n
-    # overwritten from AfpEvScreen - for depricated use of superbase
-    def On_Anmeldung(self,event):   
-        #self.sb.set_debug()      
-        if self.debug: print "AfpEvScreen_Tourist Event handler `On_Anmeldung'"
-        changed = AfpLoad_EvClientEdit_fromSb(self.globals, self.sb, self.flavour)
-        #print"On_Anmeldung", changed
-        if changed: 
-            self.Reload()
-        #self.sb.unset_debug()
-        event.Skip()  
               
     ## Eventhandler ListBox - double click ListBox 'Archiv'
     def On_DClick_Archiv(self, event):
@@ -381,8 +447,7 @@ class AfpEvScreen_Tourist(AfpEvScreen):
         #print "AfpEvScreen_Tourist.load_direct Index set:", self.sb.get_value("AnmeldNr.ANMELD"), self.sb.get_value("EventNr.ANMELD")
         self.set_current_record()
         #print "AfpEvScreen_Tourist.load_direct current record:", self.sb.get_value("AnmeldNr.ANMELD"), self.sb.get_value("EventNr.ANMELD")
-    ## set current record to be displayed 
-    # (overwritten from AfpEvScreen - to allow depricated use of superbase) 
+
     def set_current_record(self):
         #self.data = self.get_data() 
         #return
@@ -415,6 +480,34 @@ class AfpEvScreen_Tourist(AfpEvScreen):
     def get_dateinamen(self):
         return ["EVENT","ANMELD","PREISE","ANMELDEX","ADRESSE","TORT", "TNAME"]
 
+   ## get rows to populate lists \n
+    # default - empty, to be overwritten if grids are to be displayed on screen \n
+    # possible selection criterias have to be separated by a "None" value
+    # @param typ - name of list to be populated 
+    def get_list_rows(self, typ):
+        rows = []
+        ANr =  self.sb.get_value("AnmeldNr.ANMELD")     
+        select = ( "AnmeldNr = %d")% ANr
+        if typ == "service" and self.slave_exists():
+            bez = self.sb.get_string_value("Bezeichnung.PREISE")  
+            preis = self.sb.get_string_value("Preis.PREISE")  
+            if not bez: bez = "Grundpreis"
+            if not preis: preis = self.sb.get_string_value("Preis.EVENT")  
+            #rows.append(bez + "  " + preis)
+            rows.append(preis + "  " + bez)
+            transfer = self.sb.get_value("Transfer.ANMELD")  
+            if transfer:
+                ort = self.sb.get_string_value("Ort.TORT") 
+                #rows.append(ort + "  " + Afp_toString(transfer)) 
+                rows.append(Afp_toString(transfer) + "  " + ort) 
+            extra = self.sb.get_value("Extra.ANMELD") 
+            if extra:
+                ex_row = self.mysql.select_strings("Bezeichnung,Preis",select,"ANMELDEX")
+                for row in ex_row:
+                    #rows.append(row[0] + "  " + row[1])
+                    rows.append(row[1] + "  " + Afp_toString(row[0]))
+        return rows
+
     ## get grid rows to populate grids \n
     # (overwritten from AfpEvScreen - to allow depricatesd use of superbase) 
     # @param typ - name of grid to be populated
@@ -439,4 +532,144 @@ class AfpEvScreen_Tourist(AfpEvScreen):
                 #print "AfpEvScreen_Tourist.get_grid_rows append:", name, ort, tmp
                 rows.append([name[0][0], name[0][1], tmp[0], ort[0][0]] + tmp[1:-2])
         return rows
+    #
+    # methods overwrittenAfpEventScreen       
+    #
+    ## generate the dedicated event
+    # @param ENr - if given:True - new event; Number - EventNr of event
+    def get_event(self, ENr = None):
+        if ENr == True: return AfpEvTour(self.globals)
+        elif ENr:  return  AfpEvTour(self.globals, ENr)
+        return  AfpEvTour(self.globals, None, self.sb)
+    ## load event edit dialog
+    # @param data - data to be edited
+    def load_event_edit(self, data):
+        return AfpLoad_EvTourEdit(data, self.flavour)
+    ## generate the dedicated event client
+    # @param ANr - if given:True - new client; Number - AnmeldNr of client
+    def get_client(self, ANr = None):
+        if ANr == True: return AfpEvTourist(self.globals)
+        elif ANr:  return  AfpEvTourist(self.globals, ANr)
+        return  AfpEvTourist(self.globals, None, self.sb)
+    ## load client edit dialog
+    # @param data - data to be edited
+    def load_client_edit(self, data):
+        return AfpLoad_EvTouristEdit(data)
+    ## set current record to be displayed 
+    # (overwritten from AfpEvScreen - to allow depricated use of superbase) 
 # end of class AfpEvScreen_Tourist
+
+## allows the display and manipulation of an event 
+class AfpDialog_EvTourEdit(AfpDialog_EventEdit):
+    ## initialise dialog
+    def __init__(self, *args, **kw):   
+        super(AfpDialog_EvTourEdit, self).__init__(*args, **kw)
+        self.SetTitle("Reise")
+        self.modifyWx()
+        if self.debug: print "AfpDialog_EvTourEdit.init"
+        
+    def modifyWx(self):
+        self.text_Kenn.Bind(wx.EVT_KILL_FOCUS, self.On_setKst)
+        self.label_T_Kst = wx.StaticText(self.panel, -1, label="&Konto:", pos=(280,42), size=(60,18), name="T_Kst")
+        self.text_Kst = wx.TextCtrl(self.panel, -1, value="", pos=(350,40), size=(80,22), style=0, name="Kst")
+        self.textmap["Kst"] = "Kostenst.EVENT"
+        self.text_Kst.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
+        self.label_TZeit.SetLabel("&Ende")
+        self.vtextmap["Zeit"] = "Ende.EVENT"
+        elf.choicemap["COrt"] = "Name.TName"
+    
+    ## fill in available route data
+    # overwritten from AfpDialog_EventEdit
+    def get_route_data(self):
+        routes, routenr = AfpEvClient_getRouteNames(self.data.globals.get_mysql())
+        routetext = " --- Neue Transferroute --- "
+        return routes, routenr, routetext
+  
+    ## handle dialog to get new route name
+    # overwritten from AfpDialog_EventEdit
+    def get_new_route_name(self):
+        rname = ""
+        rname, Ok = AfpReq_Text("Neue Transferroute wird erstellt,", "bitte Bezeichnung der neuen Route eingeben.", rname, "Neue Route")
+        if Ok and rname and rname in self.routes:
+            AfpReq_Info("Bezeichnung schon in Routenliste enthalten!","Bitte dort auswählen.".decode("UTF-8"),"Warnung")
+            Ok = False
+        return Ok, rname, 0
+
+     
+## loader routine for dialog EventEdit flavour 'Tour'
+# @param data - AfpEvent data to be loaded
+# @param flavour - if given, flavour (certain type) of dialog 
+# @param edit - if given, flag if dialog should open in edit modus
+def AfpLoad_EvTourEdit(data, flavour = None, edit = False):
+    DiTour = AfpDialog_EvTourEdit(flavour)
+    new = data.is_new()
+    DiTour.attach_data(data, new, edit)
+    DiTour.ShowModal()
+    Ok = DiTour.get_Ok()
+    DiTour.Destroy()
+    return Ok    
+
+## allows the display and manipulation of a EvClient data, flavour 'Tourist' 
+class AfpDialog_EvTouristEdit(AfpDialog_EvClientEdit):
+    ## initialise dialog
+    def __init__(self, *args, **kw):   
+        print "AfpDialog_EvTouristEdit._init_:", args, kw, super(AfpDialog_EvTouristEdit, self)
+        super(AfpDialog_EvTouristEdit, self).__init__(self, *args, **kw)
+        self.modifyWx()
+        
+    ##  modify Wx objects defined in parent class
+    def modifyWx(self):
+        self.combo_Ort.Show(True)
+        self.combomap["Ort"] = "Ort.TORT"
+        self.label_TAb.Show(True)
+        self.label_TAb.SetLabel("Abfahrts&ort:")
+        self.label_Transfer.Show(True)
+        self.label_TTransfer.Show(True)    
+        self.label_TGrund.SetLabel("Reisepreis:")
+        self.button_Agent.SetLabel("&Reisebüro")
+    ## attaches data to this dialog overwritten from AfpDialog
+    # @param data - AfpSelectionList which holds data to be filled into dialog wodgets 
+    # @param new - flag if new database entry has to be created 
+    # @param editable - flag if dialogentries are editable when dialog pops up
+    def attach_data(self, data, new = False, editable = False):
+        routenr = data.get_value("Route.EVENT")
+        self.route = AfpEvRoute(data.get_globals(), routenr, None, self.debug, True)
+        print "AfpDialog_EvTouristEdit.attach_data:", new, editable
+        super(AfpDialog_EvTouristEdit, self).attach_data(data, new, editable)
+    ## complete data before storing
+    # @param data - data to be completed
+    def complete_data(self, data):
+        if not self.data.get_value("IdNr"):
+            IdNr= self.data.generate_IdNr() 
+            data["IdNr"] = IdNr
+        super(AfpDialog_EvTouristEdit, self).complete_data(data)
+        return data
+    
+    ##  get a client object with given identnumber
+    # overwritten from AfpDialog_EvEventEdit
+    # @parm ANr - if given, identifier
+    def get_client(self, ANr = None):
+        if ANr is None: ANr = self.data.get_value()
+        return  AfpEvTourist(self.data.globals, ANr)
+    ##  get text to be dispalyed in agent selection dialog and attribut value
+    # overwritten from AfpDialog_EvEventEdit
+    def get_agent_text(self):
+         return  "Bitte Reisebüro auswählen:", "\"Reisebüro\""
+
+        
+## loader routine for dialog EvTouristEdit
+# @param data - data to be proceeded
+# @param edit - if given, flag if dialog should open in edit modus
+# @param onlyOk - flag if only the Ok exit is possible to leave dialog, used for 'Umbuchung'
+def AfpLoad_EvTouristEdit(data, edit = False, onlyOk = None):
+    if data:
+        DiEvTourist = AfpDialog_EvTouristEdit()
+        new = data.is_new()
+        DiEvTourist.attach_data(data, new, edit)
+        if onlyOk: DiEvTourist.set_onlyOk()
+        DiEvTourist.ShowModal()
+        Ok = DiEvTourist.get_Ok()
+        if onlyOk: Ok = DiEvTourist.get_RechNr()
+        DiEvTourist.Destroy()
+        return Ok
+    else: return False

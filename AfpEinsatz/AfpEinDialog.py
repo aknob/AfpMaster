@@ -573,7 +573,7 @@ class AfpDialog_DiEinsatz(AfpDialog):
         header = "Einsatz"
         if self.selection_is_fremd():
             self.data.add_Ausgabe()
-            AfpLoad_DiReport(self.data, self.data.globals, header, prefix)
+            AfpLoad_DiReport(self.data, self.data.globals, None, header, prefix)
         else:
             select = self.list_FahrList.GetSelections()
             if select: 
@@ -582,7 +582,7 @@ class AfpDialog_DiEinsatz(AfpDialog):
                 datalist = self.data.create_FahrerList()
             if len(datalist) > 0:
                 datalist[0].add_Ausgabe()
-                AfpLoad_DiReport(None, self.data.globals, header, prefix, None, datalist)
+                AfpLoad_DiReport(datalist, self.data.globals, None, header, prefix)
         event.Skip()
 
 ## loader routine for dialog DiEinsatz \n

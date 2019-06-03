@@ -90,6 +90,7 @@ class AfpScreen(wx.Frame):
         self.actuelbuttoncolor = (255,255,255)
         #self.panel = wx.Panel(self, -1, style = wx.WANTS_CHARS) 
         self.panel = self
+        self.font = None
         self.no_data_shown = None
         if not hasattr(self,'flavour'): self.flavour = None
         
@@ -163,7 +164,7 @@ class AfpScreen(wx.Frame):
                 self.menu_items[new_id] = wx.MenuItem(tmp_menu, new_id, mod, "", wx.ITEM_CHECK)
                 tmp_menu.AppendItem(self.menu_items[new_id])
                 self.Bind(wx.EVT_MENU, self.On_Screenitem, self.menu_items[new_id])
-                if self.menu_items[new_id].GetText() == self.typ: self.menu_items[new_id].Check(True)
+                if self.menu_items[new_id].GetText() == self.typ or self.menu_items[new_id].GetText() == self.flavour: self.menu_items[new_id].Check(True)
         new_id = wx.NewId()
         self.menu_items[new_id] = wx.MenuItem(tmp_menu, new_id, "Beenden", "")
         tmp_menu.AppendItem(self.menu_items[new_id])
@@ -319,7 +320,7 @@ class AfpScreen(wx.Frame):
         if self.debug: print "AfpScreen Event handler `On_ScreenZusatz'!"
         fname, ok = AfpReq_extraProgram(self.globals.get_value("extradir"), self.typ)
         if ok and fname:
-            Afp_startExtraProgram(fname, self.globals, self.debug)
+            Afp_startExtraProgram(fname, self.globals, self.data, self.debug)
       
     ## Eventhandler Menu - switch between screen
     def On_Screenitem(self, event):
@@ -403,6 +404,7 @@ class AfpScreen(wx.Frame):
                 value = self.data.get_tagged_value(self.labelmap[entry])
             else:
                 value = self.sb.get_string_value(self.labelmap[entry])
+            print "AfpScreen.Pop_label:", entry,"=", value
             Label.SetLabel(value)
     ## populate text widgets
     def Pop_text(self):
@@ -463,13 +465,16 @@ class AfpScreen(wx.Frame):
                 for row in range(0,row_lgh):
                     for col in range(0,max_col_lgh):
                         if col >= act_col_lgh:
+                            if self.font: grid.SetCellFont(row, col, self.font)
                             grid.SetCellValue(row, col, "")
                         else:
+                            if self.font: grid.SetCellFont(row, col, self.font)
                             grid.SetCellValue(row, col, rows[row][col])
                     self.grid_id[typ].append(rows[row][act_col_lgh])
                 if row_lgh < self.grid_minrows[typ]:
                     for row in range(row_lgh, self.grid_minrows[typ]):
                         for col in range(0,max_col_lgh):
+                            if self.font: grid.SetCellFont(row, col, self.font)
                             grid.SetCellValue(row, col,"")
     ## population routine for special treatment - to be overwritten in derived class
     def Pop_special(self):
