@@ -63,7 +63,8 @@ class AfpEvScreen(AfpScreen):
         self.flavour = None
         #self.einsatz = None # to invoke import of 'Einsatz' modules in 'init_database'
         self.slave_data = None
-        self.grid_rows["Customers"] = 12 
+        #self.grid_rows["Customers"] = 12 
+        self.grid_rows["Customers"] = 7
         self.grid_cols["Customers"] = 7
         self.grid_row_selected = False
         self.dynamic_grid_name = "Customers"
@@ -263,7 +264,7 @@ class AfpEvScreen(AfpScreen):
         self.setup_date_filter()
         self.dynamic_grid_sizer = self.grid_panel_sizer
 
-     ## compose event specific menu parts
+    ## compose event specific menu parts
     def create_specific_menu(self):
         tmp_menu = wx.Menu() 
         mmenu =  wx.MenuItem(tmp_menu, wx.NewId(), "&Anmeldung", "")
@@ -392,14 +393,6 @@ class AfpEvScreen(AfpScreen):
     ## return "ANMELD" filter clause from date filter
     def get_minor_date_filter(self):
         return self.sb_date_filter.replace("Beginn","Anmeldung")
-        
-    ## execute SEPA Direct Debit if finance modul is available
-    def gen_SEPA_DD(self):
-        if self.data:
-            clients = self.data.get_SEPA_clients()
-            print "AfpEvScreen.gen_SEPA_DD clients:", clients
-            for client in clients:
-                print "AfpEvScreen.gen_SEPA_DD client:", client.view()
 
     ## Eventhandler COMBOBOX - sort index
     def On_Index(self, event = None):
@@ -435,7 +428,6 @@ class AfpEvScreen(AfpScreen):
     def On_Anfrage(self,event):
         print "AfpEvScreen Event handler `On_Anfrage' not implemented!"
         #print "AfpEvScreen.On_Anfrage globals:", self.globals.view()
-        self.gen_SEPA_DD()
         event.Skip()
             
     ## Eventhandler BUTTON - payment

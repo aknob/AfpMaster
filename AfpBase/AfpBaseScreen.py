@@ -345,7 +345,7 @@ class AfpScreen(wx.Frame):
         index = event.GetCol()
         name = event.GetName()
         desc = None
-        if name in self.grid_sort_col and ndex == self.grid_sort_co[name]:
+        if name in self.grid_sort_col and index == self.grid_sort_co[name]:
             if name in self.grid_sort_cdesc: desc = not self.grid_sort_desc[name]
         self.mark_grid_column(name, index)
         self.grid_sort_col[name] = index

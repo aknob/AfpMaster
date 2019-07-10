@@ -168,7 +168,7 @@ def Afp_ModulPyNames(modul):
     parent = "Afp" + name  + "."
     files = [parent + "Afp" + md + "Screen" + fl, parent + "Afp" + md + "Dialog", parent + "Afp" + md + "Routines" ]
     if modul in Afp_internalModulNames():
-        if modul == "Finance" or modul == "Calendar":
+        if modul == "Calendar":
             return [files[2]]
         else:
             return files[1:3]
@@ -670,6 +670,7 @@ class AfpSelectionList(object):
         self.mainselection = None
         self.selects = {}
         self.selections = {}
+        self._tmp = None
         self.tagmap = None
         self.debug = debug
         self.new = False
@@ -694,7 +695,7 @@ class AfpSelectionList(object):
     ## return name of this SelectionList
     def get_listname(self):
         return self.listname
-    ## return main selectin table of this SelectionList
+    ## return main selection table of this SelectionList
     def get_mainselection(self):
         return self.mainselection
     ## return main index of this SelectionList
@@ -739,7 +740,8 @@ class AfpSelectionList(object):
         return target
     ## return an afp-unique identifier of this SelectionList
     def get_identifier(self):
-        return self.listname + self.get_string_value()
+        return self.mainselection + self.get_string_value()
+        #return self.listname + self.get_string_value()
     ## return the name of involved persons
     # @param rev - reverse, first name, followed by surname
     # @param selname - name of TableSelection where to retrieve names
@@ -966,6 +968,7 @@ class AfpSelectionList(object):
         else:
             selname = sel
         selection = self.get_selection(selname, False)
+        #print "AfpSelectionList.get_value_rows:", selname, selection, self.selects
         if selection is None:
             return None
         else:
@@ -995,7 +998,10 @@ class AfpSelectionList(object):
         if len(split) > 1: selname = split[1]
         selection = self.get_selection(selname, False)
         if selection is None:
-            return None
+            if self._tmp and selname == "_tmp" and feld in self._tmp:
+                return self._tmp[feld]
+            else:
+                return None
         else:
             return selection.get_value(feld)  
     ## retrieve text from selection, eventually import extern file data into textfield  \n
@@ -1131,7 +1137,14 @@ class AfpSelectionList(object):
         selname = self.mainselection
         if len(split) > 1: selname = split[1]
         selection = self.get_selection(selname)
-        selection.set_value(feld, value)
+        if selection is None:
+            if selname == "_tmp":
+                if self._tmp:
+                    self._tmp[feld] = value
+                else:
+                    self._tmp = {feld: value}
+        else:
+            selection.set_value(feld, value)
     ## set multiple  values of indicated TableSelection 
     # @param changed_data - dictionary with changed_data[column] = value
     # @param name - name of TableSelection where data should be written to
@@ -1254,19 +1267,25 @@ class AfpSelectionList(object):
     # it will be completed by:
     # - Art: (kind) 1st level identification, will be set to program name
     # - Typ: (type) 2nd level identification, will be set to SelectionList listname
-    def add_to_Archiv(self, new_data):
-        selection = self.get_selection("ARCHIV")
+    # @param selname -name of TableSelection holding data from "ARCHIV" table 
+    def add_to_Archiv(self, new_data, selname = "ARCHIV"):
+        selection = self.get_selection(selname)
         if selection:
             row = selection.get_data_length()
-            if not "Art" in new_data: new_data["Art"] = self.globals.get_value("name")
-            if not "Typ" in new_data: new_data["Typ"] = self.listname
-            if not "KundenNr" in new_data: new_data["KundenNr"] = self.get_value("KundenNr")
-            if not new_data["KundenNr"]:  new_data["KundenNr"] = self.get_value("KundenNr.ADRESSE")
-            new_data["Datum"] = self.globals.today()
             new_data = self.set_archiv_data(new_data)
             selection.set_data_values(new_data, row)
         else:
-            print "WARNING SelectionList.add_to_Archiv called but not implemented for", self.listname
+            print "WARNING SelectionList.add_to_Archiv called but not implemented for", self.listname, "with selection",selname
+    # add missing data tp archiv entry
+    # @param data - dictionary where identifiers should be added
+    def set_archiv_data(self, data):
+        if not "Datum" in data: data["Datum"] = self.globals.today()
+        if not "Art" in data: data["Art"] = self.globals.get_value("name")
+        if not "Typ" in data: data["Typ"] = self.listname
+        if not "KundenNr" in data: data["KundenNr"] = self.get_value("KundenNr")
+        if not data["KundenNr"]:  data["KundenNr"] = self.get_value("KundenNr.ADRESSE")
+        data = self.set_archiv_table(data)
+        return data
     #
     # routines which may be overwritten in devired class, if necessary
     #
@@ -1293,7 +1312,7 @@ class AfpSelectionList(object):
     # default implementation: add name of maintable and mainvalue \n
     # - may be overwritten if necessary
     # @param data - dictionary where identifiers should be added
-    def set_archiv_data(self, data):
+    def set_archiv_table(self, data):
         data["Tab"] = self.get_selection().get_tablename()
         data["TabNr"] = self.get_value()
         return data

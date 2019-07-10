@@ -66,7 +66,7 @@ class AfpEvVerein(AfpEvent):
     # either EventNr or sb (superbase) has to be given for initialisation, otherwise a new, clean object is created
     def  __init__(self, globals, EventNr = None, sb = None, debug = None, complete = False):
         AfpEvent.__init__(self, globals, EventNr, sb, debug, complete)
-        self.listname = "Club"
+        self.listname = "Verein"
         if not self.get_value("AgentNr") and sb:
             KNr = sb.get_value("KundenNr.ADRESSE")
             Name = sb.get_value("Name.ADRESSE")
@@ -88,7 +88,7 @@ class AfpEvVerein(AfpEvent):
     ## create client data
     # overwritten from AfpEvent
     # @param ANr - data will be retrieved for this database entry
-    def get_client(self, ANr):
+    def get_client(self, ANr = None):
         return AfpEvMember(self.globals, ANr)
 
 
@@ -131,7 +131,7 @@ class AfpEvMember(AfpEvClient):
     ## return specific identification string to be used in dialogs \n
     # - overwritten from AfpSelectionList
     def get_identification_string(self):
-        return "Anmeldung für Reise am ".decode("UTF-8")  +  self.get_string_value("Beginn.EVENT") + " nach " + self.get_string_value("Bez.EVENT")
+        return "Anmeldung für den Verein".decode("UTF-8")  +  self.get_string_value("Vorname.Veranstalter") + " " +   self.get_string_value("Name.Veranstalter") 
 
 # end of class AfpMember        
         
@@ -142,6 +142,7 @@ class AfpEvScreen_Verein(AfpEvScreen):
     def __init__(self, debug = None):
         #self.einsatz = None # to invoke import of 'Einsatz' modules in 'init_database'
         self.clubnr = None
+        self.finance_moduls = None
         self.white = wx.Colour(255, 255, 255)
         AfpEvScreen.__init__(self, debug)
         self.flavour = "Verein"
@@ -165,7 +166,9 @@ class AfpEvScreen_Verein(AfpEvScreen):
         self.top_sizer =wx.BoxSizer(wx.HORIZONTAL)
         self.top_mid_sizer =wx.BoxSizer(wx.HORIZONTAL)
         self.modul_button_sizer =wx.BoxSizer(wx.HORIZONTAL)
+        self.event_sizer =wx.BoxSizer(wx.HORIZONTAL)
         self.event_panel_sizer =wx.StaticBoxSizer(wx.StaticBox(panel, -1,label="Sparte"), wx.HORIZONTAL)
+        self.client_sizer =wx.BoxSizer(wx.HORIZONTAL)
         self.client_panel_sizer =wx.StaticBoxSizer(wx.StaticBox(panel, -1,label="Anmeldung"), wx.VERTICAL)
         self.grid_panel_sizer =wx.BoxSizer(wx.HORIZONTAL)
         
@@ -216,7 +219,8 @@ class AfpEvScreen_Verein(AfpEvScreen):
         self.button_sizer.AddSpacer(10)
         self.button_sizer.Add(self.combo_Sortierung,0,wx.EXPAND)
         self.button_sizer.AddSpacer(10)
-        self.button_sizer.Add(self.button_low_sizer,0,wx.EXPAND)
+        self.button_sizer.Add(self.button_low_sizer,1,wx.EXPAND)
+        self.button_sizer.AddSpacer(20)
      
         # COMBOBOX
         self.combo_Filter = wx.ComboBox(panel, -1, value="Mitglieder", size=(164,20), choices=["Mitglieder","Austritte","Kandidaten"], style=wx.CB_DROPDOWN, name="Filter")
@@ -246,6 +250,8 @@ class AfpEvScreen_Verein(AfpEvScreen):
         self.event_panel_sizer.Add(self.label_Mitglieder, 0)
         self.event_panel_sizer.Add(self.label_Anmeldungen, 0)
         self.event_panel_sizer.AddSpacer(10)
+        self.event_sizer.AddSpacer(20)
+        self.event_sizer.Add(self.event_panel_sizer, 1)
         
         # Client
         self.label_Typ = wx.StaticText(panel, -1, label="", name="Typ")
@@ -354,6 +360,8 @@ class AfpEvScreen_Verein(AfpEvScreen):
         self.client_panel_sizer.Add(self.top_client_sizer, 0, wx.EXPAND)
         self.client_panel_sizer.AddSpacer(10)
         self.client_panel_sizer.Add(self.bottom_client_sizer, 1, wx.EXPAND)
+        self.client_sizer.AddSpacer(20)
+        self.client_sizer.Add(self.client_panel_sizer, 1)
         
         # GRID
         # self.grid_custs = wx.grid.Grid(panel, -1, pos=(23,256) , size=(653, 264), name="Customers")
@@ -381,7 +389,7 @@ class AfpEvScreen_Verein(AfpEvScreen):
         self.Bind(wx.grid.EVT_GRID_CMD_CELL_LEFT_DCLICK, self.On_DClick_Custs, self.grid_custs)
         self.Bind(wx.grid.EVT_GRID_CMD_CELL_LEFT_CLICK, self.On_Click_Custs, self.grid_custs)
         
-        self.grid_panel_sizer.AddSpacer(10)
+        self.grid_panel_sizer.AddSpacer(20)
         self.grid_panel_sizer.Add(self.grid_custs,1,wx.EXPAND)
         self.grid_panel_sizer.AddSpacer(10)
        
@@ -391,12 +399,12 @@ class AfpEvScreen_Verein(AfpEvScreen):
         self.panel_left_sizer.AddSpacer(10)
         self.panel_left_sizer.Add(self.top_sizer,0,wx.EXPAND)
         self.panel_left_sizer.AddSpacer(10)
-        self.panel_left_sizer.Add(self.event_panel_sizer,0,wx.EXPAND)
+        self.panel_left_sizer.Add(self.event_sizer,0,wx.EXPAND)
         self.panel_left_sizer.AddSpacer(10)
-        self.panel_left_sizer.Add(self.client_panel_sizer,0,wx.EXPAND)
+        self.panel_left_sizer.Add(self.client_sizer,0,wx.EXPAND)
         self.panel_left_sizer.AddSpacer(10)
         self.panel_left_sizer.Add(self.grid_panel_sizer,1,wx.EXPAND)
-        self.panel_left_sizer.AddSpacer(10)
+        self.panel_left_sizer.AddSpacer(20)
     
         self.sizer.Add(self.panel_left_sizer,1,wx.EXPAND)
         self.sizer.Add(self.button_sizer,0,wx.EXPAND)   
@@ -407,6 +415,20 @@ class AfpEvScreen_Verein(AfpEvScreen):
    # dummy only needed to use the AfpEvScreen-routines
     def set_jahr_filter(self,event = None): 
         return
+
+    ## compose event specific menu parts
+    # overwritten from AfpEvScreen
+    def create_specific_menu(self):
+        super(AfpEvScreen_Verein, self).create_specific_menu()
+        if not self.globals.skip_accounting():
+            self.finance_moduls = Afp_importAfpModul("Finance",self.globals)
+        if self.finance_moduls:
+            tmp_menu = self.menubar.Remove(1)
+            print "AfpEvScreen_Verein.create_specific_menu menu:", tmp_menu
+            mmenu =  wx.MenuItem(tmp_menu, wx.NewId(), "SEPA Lastschrifteinzug", "")
+            self.Bind(wx.EVT_MENU, self.On_SEPADD, mmenu)
+            tmp_menu.AppendItem(mmenu)
+            self.menubar.Insert(1, tmp_menu, "Verein")
 
     ## populate label widgets
     def Pop_label(self):
@@ -428,6 +450,12 @@ class AfpEvScreen_Verein(AfpEvScreen):
             #print "AfpEvScreen_Verein.Pop_label:",  entry, "=", value.strip(), "Flags:", is_slave, len(value.strip()) > 0 and is_slave
             if len(value.strip()) > 0 and is_slave: Label.SetBackgroundColour(self.white)
 
+    ## Eventhandler Menu - handle SEPA direct debit
+    def On_SEPADD(self,event):
+        if self.debug: print "AfpEvScreen_Verein Event handler `On_SEPADD'"
+        print "AfpEvScreen_Verein.On_SEPADD:", self.finance_moduls
+        result = self.finance_moduls[0].AfpLoad_SEPADD(self.data)
+        
     ## Eventhandler BUTTON - selection
     def On_Ausw(self,event=None):
         if self.debug: print "AfpEvScreen_Verein Event handler `On_Ausw'"

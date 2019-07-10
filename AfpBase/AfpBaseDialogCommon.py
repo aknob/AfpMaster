@@ -275,7 +275,7 @@ class AfpDialog_DiReport(wx.Dialog):
     # @param selectionlist - SelectionList or list of SelectionLists to be used for output
     # @param globals - global variables to hold path values for output, including prefix of typ
     # @param variables - if given, dictionary of possible variable values used for output
-    # @param header - if given, header to be display in the dialogts top ribbon
+    # @param header - if given, header to be display in the dialogs top ribbon
     # @param prepostfix - if given prefix and postfix of resultfile separated by a space
     def attach_data(self, data, globals, variables = None, header = None, prepostfix = None):
         if header: 
@@ -345,13 +345,14 @@ class AfpDialog_DiReport(wx.Dialog):
                 self.reportlist.append(row[2])
                 self.reportdel.append(True)
             self.reportflag.append(True)
-        rows = self.data.get_string_rows("ARCHIV", "Datum,Gruppe,Typ,Bem,Extern")
+        rows = self.data.get_string_rows("ARCHIV", "Datum,Gruppe,Typ,Bem,Extern,Art")
         if rows:
             for row in rows:
-                self.reportname.append(row[0] + " " + row[1] + " " + row[2] + " " + row[3])
-                self.reportlist.append(Afp_archivName(row[4], self.globals.get_value("path-delimiter")))
-                self.reportflag.append(False)
-                self.reportdel.append(False)
+                if row[5] == self.globals.get_value("name"):
+                    self.reportname.append(row[0] + " " + row[1] + " " + row[2] + " " + row[3])
+                    self.reportlist.append(Afp_archivName(row[4], self.globals.get_value("path-delimiter")))
+                    self.reportflag.append(False)
+                    self.reportdel.append(False)
         self.list_Report.Clear()
         if self.reportname:
             self.list_Report.InsertItems(self.reportname, 0)
@@ -711,17 +712,14 @@ class AfpDialog_editArchiv(AfpDialog):
         index = self.list_Archiv.GetSelections()[0] 
         row = self.data.get_value_rows("ARCHIV","Art,Typ,Gruppe,Bem", index)[0]
         row = Afp_ArraytoString(row)
-        if row[0] == self.major_type:
+        if row[0] == self.major_type or row[0] =="SEPA-DD":
             #liste = [["Art:", row[0]], ["Ablage:", row[1]], ["Fach:", row[2]], ["Bemerkung:", row[3]]]
             liste = [["Fach:", row[2]], ["Bemerkung:", row[3]]]
             text2 = "Art: " + row[0] + ", Ablage: " + row[1]
-        elif row[0] =="SEPA":
-            liste = [["Bemerkung:", row[3]]]
-            text2 = "Art: " + row[0] + ", Ablage: " + row[1] + ", Fach: " + row[2]
         else:
             liste = [["Ablage:", row[1]], ["Fach:", row[2]], ["Bemerkung:", row[3]]]
             text2 = "Art: " + row[0] 
-        result = AfpReq_MultiLine("Bitte Archiveintrag ändern:".decode("UTF-8"), text2, "Text", liste, "Archiveintrag", 300, False)
+        result = AfpReq_MultiLine("Bitte Archiveintrag ändern:".decode("UTF-8"), text2, "Text", liste, "Archiveintrag", 300, "")
         if result:
             for i in range(len(result)):
                 if result[i] != liste[i][1]:

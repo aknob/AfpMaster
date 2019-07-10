@@ -449,7 +449,10 @@ class AfpAdScreen(AfpScreen):
                 self.archiv_colname = self.archiv_colnames[6]
                 rows = []
                 stack = [int(KundenNr)]
-                KNr = int(self.sb.get_value("Bez.ADRESSE")) 
+                if self.sb.get_value("Bez.ADRESSE"):
+                    KNr = int(self.sb.get_value("Bez.ADRESSE")) 
+                else:
+                    KNr = 0
                 while not KNr in stack and KNr != 0:
                     stack.append(KNr)
                     select = ( "KundenNr = %d")% KNr

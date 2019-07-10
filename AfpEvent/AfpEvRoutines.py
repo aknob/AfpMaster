@@ -206,6 +206,7 @@ class AfpEvent(AfpSelectionList):
         self.selects["EINSATZ"] = [ "EINSATZ","ReiseNr = EventNr.EVENT","EinsatzNr"] 
         self.selects["TNAME"] = [ "TNAME","TourNr = Route.EVENT","TourNr"] 
         self.selects["Ort"] = [ "ADRESSE","KundenNr = Route.EVENT"] 
+        self.selects["ARCHIV"] = [ "ARCHIV","TabNr = EventNr.EVENT AND Tab = \"EVENT\""] 
         self.set_maxPreisNr()
         self.finance = None
         if complete: self.create_selections()
@@ -316,30 +317,14 @@ class AfpEvent(AfpSelectionList):
                 sel.set_value("PreisNr", self.maxPreisNr, i)
             if ENr and not sel.get_values("EventNr", i)[0][0]: # if EventNr is not yet set
                 sel.set_value("EventNr", ENr, i)
-    ## get all clients for SEPA Direct Debit
-    # works only if 'Finance' modul is available
-    def get_SEPA_clients(self):
+    ## get all clients
+    def get_clients(self):
         clients = []
-        newclients = []
-        #if not self.finance and not self.globals.skip_accounting():
-        if not self.finance:
-            self.finance = Afp_importAfpModul("Finance", self.globals)[0]
-        if self.finance:
-            name = self.get_name(False, "Agent")
-            creditor, account = self.finance.AfpFinance_getSEPACreditorID(self.globals.get_mysql(), self.get_value("AgentNr"), self.debug)
-            if creditor and account:
-                lastrun = None
-                rows = self.finance.AfpFinance_getSEPAdd(self.globals.get_mysql(), "ANMELD")
-                EvNr = self.get_value("EventNr")
-                for row in rows:
-                    client = self.get_client(row[3])
-                    ENr = client.get_value("EventNr")
-                    if client.get_value("EventNr") == EvNr:
-                        if lastrun and row[2] <=  lastrun:
-                            clients.append(client)
-                        else:
-                            newclients.append(client)
-        return clients, newclients
+        rows = self.get_value_rows("ANMELD","AnmeldNr")
+        for row in rows:
+            client = self.get_client(row[0])
+            clients.append(client)
+        return clients
             
 
     ## return specific identification string to be used in dialogs \n
@@ -351,8 +336,8 @@ class AfpEvent(AfpSelectionList):
             return "Veranstaltung (" +  self.get_string_value("Bez") + ") am "  +  self.get_string_value("Beginn") + " in " + self.get_string_value("Name.Ort")
     ## create client data
     # may be overwritten in devired class
-    # @param ANr - data will be retrieved for this database entry
-    def get_client(self, ANr):
+    # @param ANr - if given, data will be retrieved for this database entry
+    def get_client(self, ANr = None):
         return AfpEvClient(self.globals, ANr)
 
 ## baseclass for client handling         
@@ -404,11 +389,13 @@ class AfpEvClient(AfpSelectionList):
         #self.selects["AUSGABE"] = [ "AUSGABE","Typ = \"EigenAnmeldung\""] 
         self.selects["RechNr"] = [ "ANMELD","RechNr = RechNr.ANMELD"] 
         self.selects["Agent"] = [ "ADRESSE","KundenNr = AgentNr.ANMELD"] 
+        self.selects["Veranstalter"] = [ "ADRESSE","KundenNr = AgentNr.EVENT"] 
         self.selects["ExtraPreis"] = [ "PREISE","!EventNr = 0"] 
         self.selects["Preis"] = [ "PREISE","EventNr = EventNr.ANMELD AND PreisNr = PreisNr.ANMELD"] 
         self.selects["Umbuchung"] = [ "EVENT","EventNr = UmbAuf.ANMELD"] 
         self.selects["Ort"] = [ "ADRESSE","KundenNr = Route.ANMELD"] 
-        self.selects["SEPA"] = [ "ARCHIV","TabNr = AnmeldNr.ANMELD AND Tab = \"ANMELD\" AND Art = \"SEPA-DD\" AND Typ = \"Aktiv\""] 
+        self.selects["ARCHIV"] = [ "ARCHIV","TabNr = AnmeldNr.ANMELD AND Tab = \"ANMELD\""] 
+        #self.selects["SEPA"] = [ "ARCHIV","TabNr = AnmeldNr.ANMELD AND Tab = \"ANMELD\" AND Art = \"SEPA-DD\" AND Typ = \"Aktiv\""] 
         #self.selects["ERTRAG"] = [ "ERTRAG","EventNr = EventNr.ANMELD"] 
         if complete: self.create_selections()
         if not self.globals.skip_accounting():

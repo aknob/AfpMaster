@@ -30,6 +30,67 @@
 def AfpFinance_getSqlTables(flavour = None):
     required = {}
     # main table for accounting values
+    required["BUCHUNG"] = """CREATE TABLE `BUCHUNG` (
+  `BuchungsNr` mediumint(8) unsigned zerofill NOT NULL AUTO_INCREMENT,
+  `Datum` date NOT NULL,
+  `Konto` mediumint(8) unsigned zerofill NOT NULL,
+  `KtName` char(20) DEFAULT NULL,
+  `Gegenkonto` mediumint(8) unsigned zerofill NOT NULL,
+  `GktName` char(20) DEFAULT NULL,
+  `Beleg` char(10) NOT NULL,
+  `Betrag` float(6,2) NOT NULL,
+  `KundenNr` mediumint(8) unsigned zerofill NOT NULL,
+  `Bem` tinytext NOT NULL,
+  `Art` char(10) NOT NULL,
+  `Von` tinytext NOT NULL,
+  `VorgangsNr` mediumint(8) unsigned zerofill DEFAULT NULL,
+  `Reference` char(20) DEFAULT NULL,
+  `Eintrag` date NOT NULL,
+  `Expo` date DEFAULT NULL,
+  PRIMARY KEY (`BuchungsNr`),
+  KEY `BuchungsNr` (`BuchungsNr`),
+  KEY `Datum` (`Datum`),
+  KEY `Konto` (`Konto`),
+  KEY `Gegenkonto` (`Gegenkonto`),
+  KEY `KundenNr` (`KundenNr`),
+  KEY `Von` (`Von`),
+  KEY `VorgangsNr` (`VorgangsNr`),
+  KEY `Eintrag` (`Eintrag`)
+) ENGINE=InnoDB AUTO_INCREMENT=0 DEFAULT CHARSET=latin1;"""
+
+
+CREATE TABLE `BUCHUNG` (
+  `BuchungsNr` mediumint(8) unsigned zerofill NOT NULL AUTO_INCREMENT,
+  `Datum` date NOT NULL,
+  `Konto` mediumint(8) unsigned zerofill NOT NULL,
+  `Gegenkonto` mediumint(8) unsigned zerofill NOT NULL,
+  `Beleg` char(10) NOT NULL,
+  `Betrag` float(6,2) NOT NULL,
+  `KtName` char(20) DEFAULT NULL,
+  `GktName` char(20) DEFAULT NULL,
+  `KundenNr` mediumint(8) unsigned zerofill NOT NULL,
+  `KtDat` char(15) DEFAULT NULL,
+  `GktDat` char(15) DEFAULT NULL,
+  `Bem` tinytext NOT NULL,
+  `Art` char(10) NOT NULL,
+  `Von` char(20) NOT NULL,
+  `VorgangsNr` mediumint(8) unsigned zerofill DEFAULT NULL,
+  `Expo` date DEFAULT NULL,
+  `Eintrag` date NOT NULL,
+  PRIMARY KEY (`BuchungsNr`),
+  KEY `BuchungsNr` (`BuchungsNr`),
+  KEY `Datum` (`Datum`),
+  KEY `KtName` (`KtName`),
+  KEY `GktName` (`GktName`),
+  KEY `KundenNr` (`KundenNr`),
+  KEY `KtDat` (`KtDat`),
+  KEY `GktDat` (`GktDat`),
+  KEY `Von` (`Von`),
+  KEY `VorgangsNr` (`VorgangsNr`),
+  KEY `Eintrag` (`Eintrag`)
+) ENGINE=InnoDB AUTO_INCREMENT=54 DEFAULT CHARSET=latin1;
+
+
     required["KTNR"] = """CREATE TABLE `KTNR` (
   `KtName` char(5) CHARACTER SET latin1 NOT NULL,
   `KtNr` mediumint(8) unsigned zerofill NOT NULL,

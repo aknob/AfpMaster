@@ -209,14 +209,14 @@ def AfpReq_EditText(oldtext = "", header = "TextEditor", label1 = None, label2 =
 # in case "Text" - [label, text], in case "Check" - checked text
 # @param header - header to be displayed on top ribbon of dialog
 # @param width - width of dialog
-# @param no_delete - flag if 'delete' button should be hidden
-def AfpReq_MultiLine(text1, text2, typ, liste, header = "Multi Editing", width = 250, no_delete = True):
+# @param extra_button - if given, text to be displayed on extra button, None = hide button, "" = delete
+def AfpReq_MultiLine(text1, text2, typ, liste, header = "Multi Editing", width = 250, extra_button = None):
     if Afp_isString(typ):
         types = [typ]
     else:
         types = typ
     dialog = AfpDialog_MultiLines(None, style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER)
-    dialog.attach_data(text1 + '\n' + text2 , header, types, liste, width, no_delete)
+    dialog.attach_data(text1 + '\n' + text2 , header, types, liste, width, extra_button)
     dialog.ShowModal()
     result = dialog.get_result()
     dialog.Destroy()
@@ -380,15 +380,15 @@ class AfpDialog_MultiLines(wx.Dialog):
  
         self.button_Cancel = wx.Button(self, -1, label="&Abbruch", name="Abbruch")
         self.Bind(wx.EVT_BUTTON, self.On_Button_Cancel, self.button_Cancel)   
-        self.button_Delete = wx.Button(self, -1, label="&Löschen".decode("UTF-8"), name="Delete")
-        self.Bind(wx.EVT_BUTTON, self.On_Button_Delete, self.button_Delete)
+        self.button_Extra = wx.Button(self, -1, label="&Löschen".decode("UTF-8"), name="Extra")
+        self.Bind(wx.EVT_BUTTON, self.On_Button_Extra, self.button_Extra)
         self.button_Ok = wx.Button(self, -1, label="&Ok", name="Ok")
         self.Bind(wx.EVT_BUTTON, self.On_Button_Ok, self.button_Ok)
         self.lower_sizer = wx.BoxSizer(wx.HORIZONTAL)
         self.lower_sizer.AddStretchSpacer(1)
         self.lower_sizer.Add(self.button_Cancel,3,wx.EXPAND)
         self.lower_sizer.AddStretchSpacer(1)
-        self.lower_sizer.Add(self.button_Delete,3,wx.EXPAND)
+        self.lower_sizer.Add(self.button_Extra,3,wx.EXPAND)
         self.lower_sizer.AddStretchSpacer(1)
         self.lower_sizer.Add(self.button_Ok,3,wx.EXPAND)
         self.lower_sizer.AddStretchSpacer(1)
@@ -398,10 +398,10 @@ class AfpDialog_MultiLines(wx.Dialog):
     # @param types [typ] - typ of data to be provided, typ of input needed,  at least one entry in array is needed. 
     # If not enough types are provides, the last will be used for the rest
     # @param datas - input data depending on typ -
-    # "Text" typ: [label, text], "Check" typ: text of checkbox - default is set to 'CHECKED'
+    # "Text" typ: [label, text], "Check" typ: text  or [text, flag] of checkbox - default is set to 'CHECKED' if only text is given 
     # @param width - width of dialog (default = 250)
-    # @param no_delete - flag if 'delete' button should be hidden
-    def attach_data(self, text, header, types, datas, width = 250, no_delete = True):
+    # @param extra_button - if given, text to be displayed on extra button, None = hide button, "" = delete
+    def attach_data(self, text, header, types, datas, width = 250, extra_button = None):
         self.statictext.SetLabel(text)
         self.SetTitle(header)
         self.types = types
@@ -409,7 +409,8 @@ class AfpDialog_MultiLines(wx.Dialog):
         self.texts = [None]*self.lines
         self.sizers = [None]*self.lines
         self.check = [None]*self.lines
-        if no_delete: self.button_Delete.Hide()
+        if extra_button is None: self.button_Extra.Hide()
+        elif extra_button: self.button_Extra.SetLabel(extra_button)
         if len(self.types) < self.lines: 
             while len(self.types) < self.lines:
                 self.types.append(self.types[-1])
@@ -426,16 +427,26 @@ class AfpDialog_MultiLines(wx.Dialog):
                 self.sizers[i].AddStretchSpacer(1)
                 height += 30
             elif self.types[i] == "Check":
-                self.check[i] = wx.CheckBox(self, -1, label=data, name=data)
-                self.check[i].SetValue(True)
+                check = True
+                name = data
+                if len(data) > 1:
+                    name = data[0]
+                    check = data[1]
+                if name[-1] == ":":
+                    self.check[i] = wx.CheckBox(self, -1, label=name, style=wx.ALIGN_RIGHT, name=name)
+                else:
+                    self.check[i] = wx.CheckBox(self, -1, label=name, name=name)
+                self.check[i].SetValue(check)
+                self.sizers[i] = wx.BoxSizer(wx.HORIZONTAL)
+                self.sizers[i].AddStretchSpacer(1)
+                self.sizers[i].Add(self.check[i], 14, wx.EXPAND)
+                self.sizers[i].AddStretchSpacer(1)
                 height += 20
         self.sizer=wx.BoxSizer(wx.VERTICAL)
-        self.sizer.Add(self.statictext, 2, wx.EXPAND)
+        self.sizer.AddSpacer(10)
+        self.sizer.Add(self.statictext, 1, wx.EXPAND)
         for i in range(self.lines):
-            if self.types[i] == "Text":
-                self.sizer.Add(self.sizers[i], 1, wx.EXPAND)
-            elif self.types[i] == "Check":
-                self.sizer.Add(self.check[i], 1, wx.EXPAND)
+            self.sizer.Add(self.sizers[i], 1, wx.EXPAND)
         self.sizer.AddSpacer(10)
         self.sizer.Add(self.lower_sizer, 0, wx.EXPAND)
         self.sizer.AddSpacer(10)
@@ -474,7 +485,7 @@ class AfpDialog_MultiLines(wx.Dialog):
         self.EndModal(wx.ID_CANCEL)
     ## Eventhandler BUTTON - Delete button pushed
     # @param event - event which initiated this action
-    def On_Button_Delete(self,event ):
+    def On_Button_Extra(self,event):
         self.result = None
         event.Skip()
         self.EndModal(wx.ID_CANCEL)
@@ -740,7 +751,7 @@ class AfpDialog(wx.Dialog):
     ## return the Ok flag to caller
     def get_Ok(self):
         return self.Ok
-    ## return the attached (an possibly modified) data to caller 
+    ## return the attached (and possibly modified) data to caller 
     def get_data(self):
         return self.data
     ## evaluate a simple condition ( [field1,value1] [==,!=] [field2,value2]) \n
@@ -793,7 +804,7 @@ class AfpDialog(wx.Dialog):
     def Pop_text(self):
         for entry in self.textmap:
             TextBox = self.FindWindowByName(entry)
-            value = self.data.get_string_value(self.textmap[entry])
+            value = self.data.get_tagged_value(self.textmap[entry])
             #print "AfpDialog.Pop_text:", self.textmap[entry], "=", value
             TextBox.SetValue(value)
         for entry in self.vtextmap:
@@ -839,7 +850,7 @@ class AfpDialog(wx.Dialog):
             Befehl = "self.Pop_" + entry + "()"
             #print Befehl
             exec Befehl
-    ## population routine for lists \n
+    ## population routine for grids \n
     # covention: listmap holds the name to generate the routinename to be called: \n
     # Pop_'name'()
     def Pop_grids(self):
@@ -855,9 +866,13 @@ class AfpDialog(wx.Dialog):
         old_lgh = grid.GetNumberRows()
         if new_lgh > old_lgh:
             grid.AppendRows(new_lgh - old_lgh)
+            for row in range(old_lgh, new_lgh):
+                for col in range(grid.GetNumberCols()):
+                    grid.SetReadOnly(row, col)
         elif  new_lgh < old_lgh:
-            for i in range(new_lgh, old_lgh):
-                grid.DeleteRows(1)
+            for i in range(old_lgh, new_lgh, -1):
+                grid.DeleteRows(i-1)
+       
     ## get value from textbox (needed for formating of dates)
     # @param entry - windowname of calling widget
     def Get_TextValue(self, entry):

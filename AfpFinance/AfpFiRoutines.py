@@ -41,104 +41,213 @@ from AfpBase.AfpAusgabe import AfpAusgabe
 class AfpSEPADD(AfpSelectionList):
     ## initialize class
     # @param data - SelectionList data where sepa direct debit is handled for
-    # @param ctable - name of table/SelectionList where the client information is stored
+    # @param fields - dictionary with field names to be used to extract debits from clients
+    # - "regular" - field for regular payment per year
+    # - "extra" - field for extra payment for this year in first draw
+    # - "total" - field where total payment for this year  is hold
+    # - "actuel" - field where the actuel payment amount is written to, may be a temporary field (._tmp)    
     # @param filename - name of xml-file in sourcedir to be used for output
-    # @param interval - number of runs per year, default: once a year, possible values 1, 2, 4, 12
     # @param debug - flag for debug information
     # @param complete - flag if data from all tables should be retrieved duringl initialisation
-    def  __init__(self, data, ctable, filename, interval = 1, debug = False, complete = False):
+    def  __init__(self, data, fields = None, filename = None, debug = False, complete = False):
         self.globals = data.get_globals()
         AfpSelectionList.__init__(self, self.globals, "SEPA-DD", debug)
         self.data = data
-        self.ctable = ctable
-        self.sourcefile = filename
+        self.ctable = data.get_client().get_mainselection()
+        if fields:
+            self.datafields = fields
+        else:
+            self.datafields = {"regular":"ProvPreis", "extra":"Extra", "total":"Preis", "actuel":"Actuel._tmp"}
+        if filename:
+            self.sourcefile = filename
+        else:
+            self.sourcefile = "SEPA_direct_debit.xml"
         self.debug = debug
         self.sourcedir = self.globals.get_value("templatedir")
         self.targetdir = self.globals.get_value("archivdir")
         self.serial = 1
         self.today = self.globals.today()
         self.period = Afp_toString(self.today.year)
-        if interval > 1:
-            month = self.today.month
-            if interval == 12:
-                self.period += "/" + Afp_intString(month, 2)
-            else:
-                if interval == 2:
-                    self.period += "/H" 
-                elif interval == 4:
-                    self.period += "/Q" 
-                else:
-                    self.period += "/" +  Afp_toString(interval) + "X"
-                self.period += Afp_toString(interval*(month-1)/12 + 1)
+        self.interval = 1   # - number of runs per year, default: once a year, possible values 1, 2, 3, 4, 6, 12
+        self.actuel = 1     # - actuel number of current run in year
         self.creditor_Id= None
         self.creditor_IBAN = None
         self.creditor_BIC = None
         self.lastrun = None
         self.clients = None
+        self.clients_file= None
+        self.temp = None
         self.newclients = None
+        self.newclients_file= None
+        self.newtemp = None
         self.mainselection = data.get_mainselection()
         self.mainindex = data.get_mainindex()
         self.mainvalue = data.get_value()
         self.selections[self.mainselection] = data.get_selection()
+        self.selections["ADRESSE"] = data.get_selection("ADRESSE")
         self.selects["Kreditor"] = [ "ADRESATT","Attribut = \"SEPA Kreditor ID\" AND KundenNr = " + data.get_string_value("KundenNr.ADRESSE")] 
         self.selects["Konto"] = [ "ADRESATT","Attribut = \"Bankverbindung\" AND AttText = \"SEPA-DD\" AND KundenNr = " + data.get_string_value("KundenNr.ADRESSE")] 
-        self.selects["Mandat"] = [ "ARCHIV","Art = \"SEPA-DD\" AND Typ = \"Aktiv\" AND Tab = \"" + ctable + "\""] 
-        self.selects["Execution"] = [ "ARCHIV","Art = \"SEPA-DD\" AND Typ = \"File\" AND Tab = \"" + self.mainselection + "\""] 
+        self.selects["Mandat"] = [ "ARCHIV","Art = \"SEPA-DD\" AND Typ = \"Aktiv\" AND Tab = \"" + self.ctable + "\""] 
+        self.selects["Execution"] = [ "ARCHIV","Art = \"SEPA-DD\" AND Typ = \"Datei\" AND Tab = \"" + self.mainselection + "\""] 
         if self.debug: print "AfpSEPADD Konstruktor:", self.mainindex, self.mainvalue 
     ## destructor
     def __del__(self):    
         if self.debug: print "AfpSEPADD Destruktor"
         
+    ## set period from interval input
+    def set_period(self):
+        if self.interval > 1:
+            month = self.today.month
+            if self.interval == 12:
+                self.period += "/" + Afp_toIntString(month, 2)
+                self.actuel = month
+            else:
+                if self.interval == 2:
+                    self.period += "/H" 
+                elif self.interval == 4:
+                    self.period += "/Q" 
+                else:
+                    self.period += "/" +  Afp_toString(self.interval) + "X"
+                self.actuel = self.interval*(month-1)/12 + 1
+                self.period += Afp_toString(self.actuel)
+        print "AfpSEPADD.set_period:", self.interval, self.actuel, self.period
+        
+    ## look if this SEPA Direct Debit is the first run in the year
+    def is_first_in_year(self):
+        if self.lastrun and self.lastrun.year == self.today.year:
+            return False
+        else:
+            return True
+        
     ## check if SEPA Direct Debit creditor data is availabe, if not try to load it
     def creditor_data_available(self):
         if not (self.creditor_Id and self.creditor_IBAN and self.creditor_BIC):
-            self.set_creditor_data()
+            self.read_creditor_data()
         if self.creditor_Id and self.creditor_IBAN and self.creditor_BIC:
             return True
         else:
             return False
+    ## set SEPA Direct Debit creditor data
+    # @param iban - IBAN of creditor account
+    # @param bic - BIC of creditor account
+    # @param interval - number of runs during a year for this SEPA direct debit account
+    def set_creditor_data(self, iban, bic, interval):
+        if iban:
+            self.creditor_IBAN = iban.replace(" ","")
+        if bic:
+            self.creditor_BIC = bic
+        if interval:
+            self.interval = interval
+            self.set_period()
+        Tag = self.creditor_IBAN + "," + self.creditor_BIC
+        if self.interval > 1: Tag += "," + Afp_toString(self.interval)
+        self.set_value("Tag.Konto", Tag)
     ## get SEPA Direct Debit creditor data
-    def set_creditor_data(self):
+    def read_creditor_data(self):
         self.creditor_Id = self.get_value("AttText.Kreditor")
         bank = self.get_value("Tag.Konto")
         if bank: 
             split = bank.split(",") 
             if len(split) > 1:
-               self.creditor_IBAN = split[0].replace(" ","")
-               self.creditor_BIC = split[1].strip()
+                self.creditor_IBAN = split[0].replace(" ","")
+                self.creditor_BIC = split[1].strip()
+                if len(split) > 2:
+                    self.interval = Afp_fromString(split[2].strip())
+                    self.set_period()
  
     ## get date of last SEPA Direct Debit run 
-    def set_last_run(self):    
+    def read_last_run(self):    
         rows = self.get_values("Datum.Execution")
         datum = None
+        print "AfpSEPADD.read_last_run:", rows
         for row in rows:
             if datum is None: datum = row[0]
             elif row[0] > datum: datum = row[0]
         self.lastrun = datum 
         
     ## get SEPA Direct Debit mandates or files from designated table
-    def set_mandat_data(self):
+    def gen_mandat_data(self):
         where = self.data.selects[self.ctable][1]
         split = where.split("=")
         clientid = split[0].strip()
         masterid = split[1].split(".")[0].strip()
         EvNr = self.get_value(masterid)
         selection = self.get_selection("Mandat")
-        rows = selection.get_values("KundenNr,Datum,Tab,TabNr,Extern")
+        rows = selection.get_values("KundenNr,Datum,TabNr,Gruppe,Bem")
+        self.temp = []
+        self.newtemp = []
         self.clients = []
         self.newclients = []
+        self.client_bic = {}
+        self.client_iban = {}
         self.sum = 0
         self.newsum = 0
         for row in rows:
-            client = self.data.get_client(row[3])
+            client = self.data.get_client(row[2])
             if client.get_value(clientid) == EvNr:
-                amount = client.get_payment_values()[0]
-                if self.lastrun and row[2] <=  self.lastrun:
-                    self.clients.append(client)
-                    self.sum += amount
-                else:
+                self.client_bic[row[0]] = row[3]
+                self.client_iban[row[0]] = row[4]
+                print "AfpSEPADD.gen_mandat_data amount:", row[2], client.get_value(self.datafields["regular"]), self.interval, self.datafields["regular"]
+                amount = client.get_value(self.datafields["regular"])/self.interval
+                first = not (self.lastrun and row[1] <=  self.lastrun)
+                #print "AfpSEPADD.gen_mandat_data lastrun:", row[2], self.lastrun, row[1], first
+                #print "AfpSEPADD.gen_mandat_data interval:", row[2], amount, first,self.is_first_in_year(), self.interval, self.actuel
+                if first or self.is_first_in_year():
+                    extra = client.get_value(self.datafields["extra"])
+                    if first:
+                        preis = client.get_value(self.datafields["total"])
+                        preis = preis - (self.interval - self.actuel)*amount
+                        if preis: amount = preis
+                        else: amount += extra
+                    else:
+                        amount += extra                        
+                #print "AfpSEPADD.gen_mandat_data amount:", row[2], amount
+                client.set_value(self.datafields["actuel"], amount)
+                if first:
                     self.newclients.append(client)
                     self.newsum += amount
+                else:
+                    self.clients.append(client)
+                    self.sum += amount
+
+    ## add SEPA Direct Debit mandate 
+    # @param client - client object to be added
+    # @param fname - name of scan of mandat
+    # @param datum - date when mandat has been signed
+    # @param bic - BIC of client account for which mandat has been signed
+    # @param iban - IBAN of client account for which mandat has been signed
+    def add_mandat_data(self, client, fname, datum, bic, iban):
+        if Afp_existsFile(fname) and client and datum and bic and iban:
+            ext = fname.split(".")[-1]
+            max = 1
+            fpath = None
+            while not fpath:
+                if max < 10:  null = "0"
+                else:  null = ""
+                fresult = "SEPA" + "_" + client.get_listname() + "_" + client.get_string_value() + "_" + null + str(max) + "." + ext 
+                fpath = Afp_addRootpath(client.get_globals().get_value("archivdir"), fresult)
+                if Afp_existsFile(fpath):
+                    max+= 1
+                    fpath = None
+            if self.debug: print "AfpSEPADD.add_mandat_data copy file:", fname, "to",  fpath
+            Afp_copyFile(fname, fpath)
+            added = {}
+            added["Art"] = "SEPA-DD"
+            added["Typ"] = "Aktiv"
+            added["Datum"] = datum
+            added["Gruppe"] = bic
+            added["Bem"] = iban
+            added["Extern"] = fresult
+            if client.get_value("AgentNr"):
+                added["KundenNr"] = client.get_value("AgentNr")
+            added = client.set_archiv_data(added)
+            row = self.get_selection("Mandat").get_data_length()
+            print "AfpSEPADD.add_mandat_data set mandat:", added, row
+            self.get_selection("Mandat").set_data_values(added, row)
+            if not self.newclients: self.newclients = [client]
+            else: self.newclients.append(client)
+        else:
+            print "WARNING: SEPA mandat not all data supplied:", fname, datum, bic, iban
        
     ## generate SEPA Direct Debit XML-file from l data
     # @param firstflag - if given, flag if this is the first time a SEPA Driect Debit is invoked for all data (please separate first and follow-up actions)
@@ -167,11 +276,11 @@ class AfpSEPADD(AfpSelectionList):
         vars["Period"] = Afp_toString(self.period)
         vars["Timestamp"] = Afp_getNow(True)
         vars["Execute"] = Afp_toInternDateString(exe_date)
-        vars["MessageId"] = "SEPA_" + self.creditor_BIC + Afp_toDateString(today,"yymmdd") + Afp_toIntString(self.serial)
+        vars["MessageId"] = "SEPA-" + self.creditor_BIC + Afp_toDateString(today,"yymmdd") + Afp_toIntString(self.serial)
         target = self.targetdir  + vars["MessageId"] + ".xml"
         while Afp_existsFile(target):
             self.serial += 1
-            vars["MessageId"] = "SEPA_" + self.creditor_BIC + Afp_toDateString(today,"yymmdd") + Afp_toIntString(self.serial)
+            vars["MessageId"] = "SEPA-" + self.creditor_BIC + Afp_toDateString(today,"yymmdd") + Afp_toIntString(self.serial)
             target = self.targetdir  + vars["MessageId"] + ".xml"
         vars["PaymentId"] = vars["MessageId"] [5:]+ "00"
         vars["TransId"] = Afp_intString(Afp_toDateString(today,"yymmdd") + Afp_toIntString(self.serial) + "00")
@@ -195,26 +304,134 @@ class AfpSEPADD(AfpSelectionList):
         rcpt.set_variables(vars)
         rcpt.inflate(source)
         rcpt.write_resultfile(target, self.sourcedir + "empty.odt")
-        return vars["MessageId"] + ".xml", vars["MessageId"] + ".odt"
+        return vars["MessageId"]
         
+    ## get all non-SEPA clients for outside use
+    def get_possible_clients(self):
+        possible = []
+        clients = self.data.get_clients()
+        for client in clients:
+            if client.get_value(self.datafields["total"]):
+                rows = client.get_selection("ARCHIV").get_values("Art,Typ")
+                add = True
+                for row in rows:
+                    if row[0].strip() == "SEPA-DD" and row[1].strip() == "Aktiv": add = False
+                if add: possible.append(client)
+        return possible
+    ## get SEPA client sums for outside use
+    def get_sums(self):
+        return self.sum, self.newsum
+    ## get SEPA clients for outside use
+    def get_clients(self):
+        return self.clients, self.newclients
+    ## get BIC of client mandat
+    # @param KNr - address identifier for this mandat
+    def get_client_BIC(self, KNr):
+        bic = None
+        if self.client_bic and KNr in self.client_bic:
+            bic = self.client_bic[KNr]
+        return bic
+    ## get IBAN of client mandat
+    # @param KNr - address identifier for this mandat
+    def get_client_IBAN(self, KNr):
+        iban = None
+        if self.client_iban and KNr in self.client_iban:
+            iban = self.client_iban[KNr]
+        return iban
+    ## get filednames of client for different uses
+    # @param typ - identifier which fieldname should be extracted, possible typs:
+    # - "regular" - field for regular payment per year
+    # - "extra" - field for extra payment for this year in first draw
+    # - "total" - field where total payment for this year  is hold
+    # - "actuel" - field where the payment amount is written to
+    def get_client_fieldname(self, typ):
+        if typ in self.datafields:
+            return self.datafields[typ]
+        else:
+            return ""
+     ## set clients after outside manipulation
+    # @param clients - list of client data to be written to clients
+    # @param newclients - list of client data to be written to newclients
+    def set_clients(self, clients, newclients):
+        self.newclients = newclients
+        self.newsum = 0
+        for client in newclients:
+            self.newsum += client.get_value(self.datafields["actuel"])
+        self.clients = clients
+        self.sum = 0
+        for client in clients:
+            self.sum += client.get_value(self.datafields["actuel"])
+        
+    ## reset clients to stored values before changing data
+    def reset_clients(self):
+        if self.newclients:
+            for i in range(len(self.newclients)):
+                self.newclients[i].reset_selects()
+        if self.clients:
+            for i in range(len(self.clients)):
+                self.clients[i].reset_selects()
+          
+    ## add archiv data
+    def add_to_archiv(self):
+        master_data = {"Art":"SEPA-DD", "Typ":"Datei", "Gruppe": self.period}
+        client_data = {"Art":"SEPA-DD", "Typ":"Einzug", "Gruppe": self.period, "Bem":"Beitrag"}
+        if self.newclients_file:
+            master_data["Bem"] = "Ersteinzug"
+            master_data["Extern"] = self.newclients_file + ".xml"
+            client_data["Extern"] = self.newclients_file + ".odt"
+            self.data.add_to_Archiv(master_data)
+            self.data.add_to_Archiv(dict(client_data))
+            for client in self.newclients:
+                # possibly add name of member, as sepa may be paid from other address
+                client.add_to_Archiv(dict(client_data))
+        if self.clients_file:
+            master_data["Bem"] = "Folgeeinzug"
+            master_data["Extern"] = self.clients_file + ".xml"
+            client_data["Extern"] = self.clients_file + ".odt"
+            self.data.add_to_Archiv(master_data)
+            self.data.add_to_Archiv(dict(client_data))
+            for client in self.clients:
+                client.add_to_Archiv(dict(client_data))
+                
+    ## create SEPA Direct Debit data
+    def prepare_xml(self):
+        if self.creditor_data_available():
+            self.read_last_run()
+            self.gen_mandat_data()
+            if self.debug: print "AfpSEPADD.prepare_xml:", self.newclients, self.clients
+            return True
+        else:
+            return False
+            
+    ## generate SEPA Direct Debit xml file
+    def execute_xml(self):
+        #newamount = []
+        if self.newclients:
+            #for client in self.newclients:
+            #    newamount.append(client.get_paymentvalues()[0])
+            self.newclients_file = self.gen_SEPA_xml(True)
+        if self.clients:
+            self.clients_file = self.gen_SEPA_xml()
+        self.reset_clients()
+        self.add_to_archiv()
+            
     ## generate SEPA Direct Debit for designated data
     def generate_xml(self):
-        sepa_names = []
-        recpt_names = []
-        if self.creditor_data_available():
-            self.set_last_run()
-            self.set_mandat_data()
-            if self.debug: print "AfpSEPADD.generate_xml:", self.newclients, self.clients
-            if self.newclients:
-                xm, odt = self.gen_SEPA_xml(True)
-                sepa_names.append(xm)
-                recpt_names.append(odt)
-            if self.clients:
-                xm, odt = self.gen_SEPA_xml()
-                sepa_names.append(xm)
-                recpt_names.append(odt)
-        return sepa_names, recpt_names
-       
+        if self.prepare_xml():
+            self.execute_xml()
+            
+    ## store all data
+    def store(self):
+        if self.has_changed():
+            super(AfpSEPADD, self).store()
+        self.data.store()
+        if self.newclients:
+            for client in self.newclients:
+                client.store()
+        if self.clients:
+            for client in self.clients:
+                client.store()
+    
   ## class to handle finance depedencies, 
 class AfpFinance(AfpSelectionList):
     ## initialize class
@@ -223,7 +440,7 @@ class AfpFinance(AfpSelectionList):
     # @param Von - identifier of a certain incident
     # @param VorgangsNr - identifier of a certain action
     # @param BuchungsNr - identifier of a certain entry
-    # @param complete - flag if data from all tables should be retrieved durin initialisation \n
+    # @param complete - flag if data from all tables should be retrieved during initialisation \n
     # \n
     # either Von, VorgangsNr or BuchungsNr has to be given for initialisation, otherwise a new, clean object is created
     def  __init__(self, globals, debug = False, Von = None, VorgangsNr = None, BuchungsNr = None,  complete = False):
@@ -284,7 +501,8 @@ class AfpFinanceTransactions(AfpSelectionList):
         self.set_main_selects_entry()
         if not self.mainselection in self.selections:
             self.create_selection(self.mainselection)
-        self.selects["AUSZUG"] = [ "AUSZUG","Auszug = Beleg.BUCHUNG"] 
+        #self.selects["AUSZUG"] = [ "AUSZUG","Auszug = Beleg.BUCHUNG"] 
+        self.selects["AUSZUG"] = [ "AUSZUG","Auszug = Reference.BUCHUNG"] 
         if self.debug: print "AfpFinanceTransactions Konstruktor:", self.mainindex, self.mainvalue 
     ## destructor
     def __del__(self):    

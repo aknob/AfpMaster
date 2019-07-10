@@ -388,8 +388,7 @@ class AfpSQLTableSelection(object):
     def  __init__(self, mysql, tablename, debug = False, unique_feldname = None, feldnamen = None):
         #self.dbg = True # hardcode switch for storage logging
         self.dbg = False # hardcode switch for storage logging
-        #if tablename == "PREISE": self.dbg = True
-        #if tablename == "PREISE": debug = True
+        #if tablename == "ARCHIV": debug = True
         if debug: 
             print "AfpSQLTableSelection Konstruktor dbg On", tablename
             self.dbg = True # hardcoded switch for storage logging, for debug purpose during programming
