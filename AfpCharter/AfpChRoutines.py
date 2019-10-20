@@ -139,7 +139,7 @@ class AfpCharter(AfpSelectionList):
     # @param FahrtNr - if given and sb == None, data will be retrieved this database entry
     # @param sb - if given data will  be retrieved from the actuel AfpSuperbase data
     # @param debug - flag for debug information
-    # @param complete - flag if data from all tables should be retrieved durin initialisation \n
+    # @param complete - flag if data from all tables should be retrieved during initialisation \n
     # \n
     # either FahrtNr or sb (superbase) has to be given for initialisation,otherwise a new, clean object is created
     def  __init__(self, globals, FahrtNr = None, sb = None, debug = None, complete = False):
@@ -188,6 +188,9 @@ class AfpCharter(AfpSelectionList):
     def __del__(self):    
         if self.debug: print "AfpCharter Destruktor"
         #AfpSelectionList.__del__(self) 
+    ## decide whether this incident has been cancelled
+    def is_cancelled(self):
+        return "Storno" in self.get_value("Zustand")
     ## decide whether payment is possible or not
     def is_payable(self):
         payable = False

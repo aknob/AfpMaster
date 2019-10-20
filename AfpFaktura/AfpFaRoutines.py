@@ -733,7 +733,7 @@ class AfpInvoice(AfpFaktura):
     # @param RechNr - if given, data will be retrieved this database entry
     # @param sb - if given data will  be retrieved from the actuel AfpSuperbase data
     # @param debug - flag for debug information
-    # @param complete - flag if data from all tables should be retrieved durin initialisation \n
+    # @param complete - flag if data from all tables should be retrieved during initialisation \n
     # \n
     # either KvaNr or sb (superbase) has to be given for initialisation, otherwise a new, clean object is created
     def  __init__(self, globals, RechNr = None, sb = None, debug = None, complete = False):
@@ -846,7 +846,7 @@ class AfpOffer(AfpFaktura):
     # @param KvaNr - if given, data will be retrieved this database entry
     # @param sb - if given data will  be retrieved from the actuel AfpSuperbase data
     # @param debug - flag for debug information
-    # @param complete - flag if data from all tables should be retrieved durin initialisation \n
+    # @param complete - flag if data from all tables should be retrieved during initialisation \n
     # \n
     # either KvaNr or sb (superbase) has to be given for initialisation, otherwise a new, clean object is created
     def  __init__(self, globals, KvaNr = None, sb = None, debug = None, complete = False):
@@ -914,7 +914,7 @@ class AfpOrder(AfpFaktura):
     # @param BestNr - if given, data will be retrieved this database entry
     # @param sb - if given data will  be retrieved from the actuel AfpSuperbase data
     # @param debug - flag for debug information
-    # @param complete - flag if data from all tables should be retrieved durin initialisation \n
+    # @param complete - flag if data from all tables should be retrieved during initialisation \n
     # \n
     # either BestNr or sb (superbase) has to be given for initialisation, otherwise a new, clean object is created
     def  __init__(self, globals, BestNr = None, sb = None, debug = None, complete = False):
@@ -1001,7 +1001,7 @@ class AfpFaTourist(AfpFaktura):
     # @param AnmeldNr - if given, data will be retrieved this database entry
     # @param sb - if given data will  be retrieved from the actuel AfpSuperbase data
     # @param debug - flag for debug information
-    # @param complete - flag if data from all tables should be retrieved durin initialisation \n
+    # @param complete - flag if data from all tables should be retrieved during initialisation \n
     # \n
     # either KvaNr or sb (superbase) has to be given for initialisation, otherwise a new, clean object is created
     def  __init__(self, globals, AnmeldNr = None, sb = None, debug = None, complete = False):

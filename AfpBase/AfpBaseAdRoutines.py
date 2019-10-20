@@ -108,7 +108,7 @@ class AfpAdresse(AfpSelectionList):
     # @param KundenNr - if given and sb == None, data will be retrieved this database entry
     # @param sb - if given data will  be retrieved from the actuel AfpSuperbase data
     # @param debug - flag for debug information
-    # @param complete - flag if data from all tables should be retrieved durin initialisation \n
+    # @param complete - flag if data from all tables should be retrieved during initialisation \n
     # \n
     # either KundenNr or sb (superbase) has to be given for initialisation,otherwise a new, clean object is created
     def  __init__(self, globals, KundenNr = None, sb = None, debug = False, complete = False):

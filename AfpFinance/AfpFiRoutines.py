@@ -36,6 +36,82 @@ from AfpBase import AfpBaseRoutines
 from AfpBase.AfpBaseRoutines import *
 from AfpBase import AfpAusgabe
 from AfpBase.AfpAusgabe import AfpAusgabe
+ 
+## interprete tags of a SEPA direct debit file and create the appropriate data
+# @param globals - global values include mysql connection
+# @param tags - list of tags [tag, name of tag, value, properties]
+# @param datstring - string holding the accounting date of this sepa direct debit
+# @param konto - accounting number of bank account
+# @param gkonto - accounting number of purpose of payment
+# @param beleg - number of receipt
+# @param auszug - identifer of bank account receipt
+# @param flavour - flavour of analise-routine
+def AfpFinance_SEPATagInterpreter(globals, tags, datstring, konto, transfer, gkonto, beleg, auszug,  flavour):
+    mysql = globals.get_mysql()
+    print "AfpFinance_SEPATagInterpreter:", datstring, konto, transfer, gkonto, auszug, flavour
+    datum = Afp_fromString(datstring)
+    data = AfpFinance(globals)
+    is_transaction = False
+    is_header = False
+    accdata = {}
+    sel = None
+    sel_index = None
+    for tag in tags:
+        #print "AfpImport.read_from_xml_file tag:", tag
+        typ = tag[0]
+        if is_transaction:
+            if typ == "InstdAmt":
+                accdata["Betrag"] = tag[2]
+            #elif typ == "DtOfSgntr":
+            #    accdata["Datum"] = tag[2]
+            elif typ == "Ustrd":
+                accdata["Bem"] = tag[2]
+            elif typ == "MndtId":
+                if flavour == "Verein":
+                    accdata = AfpFinance_VereinInterpreter(mysql, tag[2], accdata)
+                else:
+                    accdata["RechNr"] = tag[2]
+            elif typ == "/DrctDbtTxInf":
+                is_transaction = False
+                if accdata and "Datum" in accdata  and "Konto" in accdata and "Gegenkonto" in accdata  and "Betrag" in accdata:
+                    data.add_direct_transaction(accdata)
+        elif is_header:
+            if typ  == "NbOfTxs":
+                accdata["Bem"] = "SEPA-Einzug " + Afp_toString(tag[2]) + " Positionen"
+            elif typ == "CtrlSum":   
+                accdata["Betrag"] = tag[2] 
+            elif typ == "/GrpHdr":
+                is_header = False
+                if accdata and "Datum" in accdata  and "Konto" in accdata and "Gegenkonto" in accdata  and "Betrag" in accdata:
+                    data.add_direct_transaction(accdata)
+        else:
+            if typ == "DrctDbtTxInf":
+                is_transaction = True
+                accdata = {"Datum":datum, "Konto": transfer, "Gegenkonto":gkonto, "Art":"Zahlung", "Beleg":beleg}
+            elif typ == "GrpHdr":
+                is_header = True
+                accdata = {"Datum":datum, "Konto": konto, "Gegenkonto":transfer, "Art":"Zahlung", "Beleg":beleg, "Reference":auszug}
+    return [data]
+
+def AfpFinance_VereinInterpreter(mysql, value, accdata):
+    rows = mysql.select("AnmeldNr,KundenNr,AgentNr,RechNr,Preis", "RechNr = " + Afp_toQuotedString(value), "Anmeld")
+    row = None
+    if len(rows) > 1:
+        for r in rows:
+            if r[-1] and r[-1] > 0.0: 
+                row = r
+                break
+    else:
+        row = rows[0]
+    if row:
+        accdata["Reference"] = row[3]
+        accdata["Tab"] = "Anmeld"
+        accdata["TabNr"] = row[0]
+        if row[2]:
+            accdata["KundenNr"] = row[2]
+        else:
+            accdata["KundenNr"] = row[1]
+    return accdata
 
 ## class to handle SEPA direct debit handling, 
 class AfpSEPADD(AfpSelectionList):
@@ -432,50 +508,6 @@ class AfpSEPADD(AfpSelectionList):
             for client in self.clients:
                 client.store()
     
-  ## class to handle finance depedencies, 
-class AfpFinance(AfpSelectionList):
-    ## initialize class
-    # @param globals - global values including the mysql connection - this input is mandatory
-    # @param debug - flag for debug information
-    # @param Von - identifier of a certain incident
-    # @param VorgangsNr - identifier of a certain action
-    # @param BuchungsNr - identifier of a certain entry
-    # @param complete - flag if data from all tables should be retrieved during initialisation \n
-    # \n
-    # either Von, VorgangsNr or BuchungsNr has to be given for initialisation, otherwise a new, clean object is created
-    def  __init__(self, globals, debug = False, Von = None, VorgangsNr = None, BuchungsNr = None,  complete = False):
-        AfpSelectionList.__init__(self, globals, "BUCHUNG", debug)
-        self.file = None
-        self.transfer = None
-        self.debug = debug
-        if Von or VorgangsNr or BuchungsNr:     
-            self.new = False
-            if BuchungsNr:
-                self.mainindex = "BuchungsNr"
-                self.mainvalue = Afp_toString(BuchungsNr)
-            elif VorgangsNr:
-                self.mainindex = "VorgangsNr"
-                self.mainvalue = Afp_toString(VorgangsNr)
-            else:
-                self.mainindex = "Von"
-                self.mainvalue = Von
-        else:
-            # empty object to hold financial accounting data
-            self.new = True
-            self.mainindex = "VorgangsNr"
-            self.mainvalue = ""
-        self.mainselection = "BUCHUNG"
-        self.set_main_selects_entry()
-        if not self.mainselection in self.selections:
-            self.create_selection(self.mainselection)
-        self.selects["AUSZUG"] = [ "AUSZUG","Auszug = Beleg.BUCHUNG"] 
-        self.selects["Konto"] = [ "KTNR","KtNr = Konto.BUCHUNG"] 
-        self.selects["Gegenkonto"] = [ "KTNR","KtNr = Gegenkonto.BUCHUNG"] 
-        if self.debug: print "AfpFinance Konstruktor:", self.mainindex, self.mainvalue 
-    ## destructor
-    def __del__(self):    
-        if self.debug: print "AfpFinance Destruktor"
-        
 ## return financial transaction class, if possible
 def AfpFi_getFinanceTransactions(globals):
     #print "AfpFi_getFinanceTransactions:", globals.get_mysql().get_tables()
@@ -490,57 +522,103 @@ class AfpFinanceTransactions(AfpSelectionList):
     ## initialize class
     # @param globals - global values including the mysql connection - this input is mandatory
     # a new, clean object is created
-    def  __init__(self, globals):
+    def  __init__(self, globals, value = None, mainindex="BuchungsNr", period = None):
         AfpSelectionList.__init__(self, globals, "BUCHUNG", globals.is_debug())
+        self.set_period(period)
         self.transfer = None
+        self.spread_key = True
+        self.fixed_auszug = False
         # just empty object to hold financial accounting data
-        self.new = True
-        self.mainindex = "BuchungsNr"
-        self.mainvalue = ""
+        if value:     
+            self.new = False
+            self.mainvalue = Afp_toQuotedString(value)
+        else:
+            self.new = True
+            self.mainvalue = ""
+        self.mainindex = mainindex
         self.mainselection = "BUCHUNG"
         self.set_main_selects_entry()
         if not self.mainselection in self.selections:
             self.create_selection(self.mainselection)
-        #self.selects["AUSZUG"] = [ "AUSZUG","Auszug = Beleg.BUCHUNG"] 
-        self.selects["AUSZUG"] = [ "AUSZUG","Auszug = Reference.BUCHUNG"] 
+        self.selects["AUSZUG"] = [ "AUSZUG","Period = \"" + self.period + "\""] 
         if self.debug: print "AfpFinanceTransactions Konstruktor:", self.mainindex, self.mainvalue 
     ## destructor
     def __del__(self):    
         if self.debug: print "AfpFinanceTransactions Destruktor"
+
+    ## set period marker for financial tarnsactions
+    # @param period - if given, period marker to be set, defaut: period is set to current year \n
+    #                            or global variable 'actuel-transaction-period' for 'Finance' modul
+    def set_period(self, period = None):
+        if period:
+            self.period = period
+        else:
+            self.period = self.globals.get_value("actuel-transaction-period","Finance")
+            if not self.period:
+                self.period = Afp_toString(self.globals.today().year)
+    ## set the customised select_clause for the main selection
+    # overwritten from SelectionList to set period
+    def set_main_selects_entry(self):  
+        if self.mainselection and self.mainindex and self.mainvalue:         
+            selname = self.mainselection
+            if self.mainindex == "BuchungsNr":
+                self.selects[selname] = [selname, self.mainindex + " = " + self.mainvalue  + " AND Period = \"" + self.period + "\"", self.mainindex]
+            else:
+                self.selects[selname] = [selname, self.mainindex + " = " + self.mainvalue  + " AND Period = \"" + self.period + "\""]
+        
     ## check if identifier of statement of this account (Auszug) exists, if yes load it
     # @param auszug - identifier of statement of account
     def check_auszug(self, auszug):
-        if not "/" in auszug:
-            auszug += "/" + Afp_toString(self.globals.today().year)[-2:]
         if self.exists_selection("AUSZUG"): 
-            #print "AfpFinanceTransactions.check_auszug exists:", auszug, type(auszug), self.get_value("Auszug.AUSZUG")
             if auszug == self.get_value("Auszug.AUSZUG"): return True
             self.delete_selection("AUSZUG")
-        self.selects["AUSZUG"][1] = "Auszug = \"" + auszug + "\""
-        #print "AfpFinanceTransactions.check_auszug create:", auszug, type(auszug), self.get_value("Auszug.AUSZUG")
+        self.selects["AUSZUG"][1] = "Auszug = \"" + auszug + "\"AND Period = \"" + self.period + "\""
         if auszug == self.get_value("Auszug.AUSZUG"): return True
         return False
     ## set identifier of statement of account (Auszug)
     # @param auszug - identifier of statement of account (xxnnn - xx identifier of bankaccount, nnn number)
-    # @param datum, - date of statement of account 
-    def set_auszug(self, auszug, datum):
+    # @param datum, - if given, date of statement of account 
+    # @param saldo, - if given, startsaldo of statement of account 
+    # @param fixed, - if given, flag if statement is only set once and never changed again, default: False 
+    def set_auszug(self, auszug, datum = None, saldo = None, fixed = False):
         today = self.globals.today()
         if datum is None: datum = today
-        if not "/" in auszug:
-            auszug += "/" + Afp_toString(datum.year)[-2:]
-        if auszug == self.get_value("Auszug.AUSZUG"): return
+        if self.check_auszug(auszug) or self.fixed_auszug: return
         ausname = Afp_getStartLetters(auszug) 
         if not ausname: return
         self.selects["Auszugkonto"] =  [ "KTNR","KtName = \"" + ausname.upper() + "\""] 
         self.create_selection("Auszugkonto", False)
         ktnr = self.get_value("KtNr.Auszugkonto")
         if ktnr is None: 
-            print "WARNING: Account not found for ", auszug
+            print "WARNING: AfpFinance Account not found for", auszug
             return
+        if not saldo:
+            self.selects["Auszugs"] =  [ "AUSZUG","KtNr = " +  Afp_toString(ktnr) +" AND Period = \"" + self.period + "\"" ] 
+            self.create_selection("Auszugs", False)
+            if self.get_selection("Auszugs").get_data_length():
+                lgh = len(ausname)
+                ausnr = Afp_intString(auszug[lgh:].strip())
+                vals = self.get_selection("Auszugs").get_values("Auszug,EndSaldo")
+                for row in vals:
+                    nr = Afp_intString(row[0][lgh:].strip())
+                    if nr == ausnr - 1 and not row[1] is None:
+                        saldo = row[1]
+                        break
         self.set_value("Auszug.AUSZUG", auszug)
-        self.set_value("BuchDat.AUSZUG", datum)
+        if datum: self.set_value("BuchDat.AUSZUG", datum) 
+        if saldo: 
+            self.set_value("StartSaldo.AUSZUG", saldo)
+            self.set_value("EndSaldo.AUSZUG", saldo)
         self.set_value("Datum.AUSZUG", today)
         self.set_value("KtNr.AUSZUG", ktnr)
+        self.set_value("Period.AUSZUG", self.period)
+        self.get_selection("AUSZUG").store()
+        self.fixed_auszug = fixed
+
+    ## set transaction key generation during data storage 
+    # @param flag - flag to turn key generation on (True) or off (False); default: on (True)
+    def set_key_generation(self, flag = True):
+        self.spread_key = flag
     ## export generated data
     # @param filename - destination file for export
     def export(self, filename):
@@ -559,10 +637,10 @@ class AfpFinanceTransactions(AfpSelectionList):
         AfpSelectionList.store(self)
         print "AfpFinanceTransactions.store 1:",self.new, self.mainindex 
         #self.view()
-        if self.new:
+        if self.spread_key and self.new:
             self.new = False
             VNr = self.get_value("BuchungsNr")
-            print "VorgangsNr:", VNr
+            print "AfpFinanceTransactions.store VorgangsNr:", VNr
             changed_data = {"VorgangsNr": VNr}
             for i in range(0, self.get_value_length()):
                 self.set_data_values(changed_data, None, i)
@@ -577,8 +655,6 @@ class AfpFinanceTransactions(AfpSelectionList):
     def add_payment_data_default(self, data):
         if not "Gegenkonto" in data:
             data["Gegenkonto"] = -1
-        if not "Von" in data:
-            data["Von"] = "AfpFinance: data not available"
         return data
     ## flip booking, add remark
     # @param data - data dictornary to be modified and returned
@@ -631,8 +707,9 @@ class AfpFinanceTransactions(AfpSelectionList):
                 skonto = preis - zahlung
                 sgkt = self.get_special_accounts("SKTO")
                 sbem = "Skonto: " + name
-                von = data.get_identifier()
-                acc = {"Datum": today,"Konto": konto, "Gegenkonto ": sgkt,"Beleg": beleg,"Betrag": skonto,"KtName": name ,"GktName": "SKTO","KundenNr": kdnr,"Bem":  sbem,"Von": von}
+                tab = data.get_mainselection()
+                tabnr = data.get_value()
+                acc = {"Datum": today,"Konto": konto, "Gegenkonto ": sgkt,"Beleg": beleg,"Betrag": skonto,"KtName": name ,"GktName": "SKTO","KundenNr": kdnr,"Bem":  sbem,"Tab": tab,"TabNr":tabnr}
         return acc
     ## add one payment entry according to input
     # @param payment - amount of payment
@@ -652,6 +729,8 @@ class AfpFinanceTransactions(AfpSelectionList):
         accdata["KundenNr"] = KdNr
         accdata["Art"] = "Zahlung"
         accdata["Eintrag"] = self.globals.today()
+        accdata["Reference"] = auszug
+        accdata["Period"] = self.period
         if data is None: 
             # received payment, has to be distributed
             self.set_payment_transfer()         
@@ -685,8 +764,9 @@ class AfpFinanceTransactions(AfpSelectionList):
     # @param paymentdata - payment data dictionary to be modified and returned
     # @param data - incident data where relevant values have to be extracted
     def add_payment_data(self, paymentdata, data):
-        # has to return the account number this payment has to be charged ("Gegenkonto"), the identifier ("Von")
-        paymentdata["Von"] = data.get_identifier() 
+        # has to return the account number this payment has to be charged ("Gegenkonto"), the table identifier ("Tab","TabNr")        
+        paymentdata["Tab"] = data.get_mainselection()
+        paymentdata["TabNr"] = data.get_value()
         if data.get_listname() == "Charter":
             paymentdata = self.add_payment_data_charter(paymentdata, data)        
         elif data.get_listname() == "Rechnung":
@@ -713,11 +793,41 @@ class AfpFinanceTransactions(AfpSelectionList):
         print "AfpFinanceTransactions.add_financial_transactions accdata:", accdata
         if accdata:
             for acc in accdata:
-                if not "Von" in acc: acc["Von"] = data.get_identifier()
+                if not "Tab" in acc: 
+                    acc["Tab"] = data.get_maiselection()
+                    acc["TabNr"] = data.get_Value()
                 acc["Art"] = "Intern"
                 acc["Eintrag"] = today
+                acc["Period"] = self.period
                 if storno: acc = self.set_storno_values(acc)
                 self.set_data_values(acc, None, -1)
+    ## direct financial transaction is added to SelectionList
+    # @param accdata - dictionary of financial transaction data the following values have to be given: \n
+    # - 'Datum' - date of transaction
+    # - 'Konto'' - account of left side (Soll)
+    # - 'Gegenkonto' - account of right side (Haben)
+    # - 'Betrag' - amount of this transaction
+    # - 'Beleg' - number of receipt
+    # - 'KundenNr' - address identifier of involved person
+    # - Optional:
+    # - 'Bem' -  remark
+    # - 'Art' -  typ of financial transaction
+    # - 'Tab' - tablename of involved incident
+    # - 'TabNr' - table identifier of involved incident
+    # - 'VorgangsNr' - if given,
+    # - 'Reference' - reference to accountiong receipt
+    def add_direct_transaction(self, accdata):
+        today = self.globals.today()
+        if accdata:
+            if not "Art" in accdata: accdata["Art"] = "Direct"
+            if not "KtName" in accdata:
+                accdata["KtName"] = self.get_account_name(accdata["Konto"])
+            if not "GktName" in accdata:
+                accdata["GktName"] = self.get_account_name(accdata["Gegenkonto"])
+            accdata["Eintrag"] = today
+            accdata["Period"] = self.period
+            #print "AfpFinanceTransactions.add_direct_transactions", accdata
+            self.set_data_values(accdata, None, -1)
     ## financial transaction data is delivered in a list of dictionaries from incident data \n
     # this routine splits into the different incident routines. \n
     # REMARK: as it is planned to hold the financial tarnsactions for all the different incidents central in this deck \n
@@ -751,9 +861,11 @@ class AfpFinanceTransactions(AfpSelectionList):
             accdata["Datum"] = today
             accdata["Bem"] = "Anzahlung " + listname
             accdata["Art"] = "Zahlung intern" 
-            accdata["Von"] = data.get_identifier()  
+            accdata["Tab"] = data.get_mainselection()  
+            accdata["TabNr"] = data.get_value()  
             accdata["Beleg"] = "Intern"  
             accdata["Eintrag"] = today
+            accdata["Period"] = self.period
             self.set_data_values(accdata, None, -1)
     ## Charter: deliver payment transaction data
     # @param paymentdata - payment data dictionary to be modified and returned
@@ -808,7 +920,8 @@ class AfpFinanceTransactions(AfpSelectionList):
         datum = data.get_value("Datum.RECHNG")
         preis =  data.get_value("RechBetrag.RECHNG")
         if Afp_isEps(preis):
-            von =  data.get_identifier()
+            tab =  data.get_maiselection()
+            tabnr =  data.get_value()
             bem = "Rechnung"
             if data.get_value("Fahrt.RECHNG"):
                 bem = "Charter"
@@ -831,13 +944,99 @@ class AfpFinanceTransactions(AfpSelectionList):
                 gkt2 = self.get_account_name(gkonto2)
                 preis2 = data.get_value("Betrag2.RECHNG")
                 preis -= preis2         
-            acc = {"Datum": datum,"Konto": konto, "Gegenkonto": gkonto,"Beleg": beleg,"Betrag": preis,"KtName": name,"GktName": gktname,"KundenNr": kdnr,"Bem":  bem,"Von": von}
+            acc = {"Datum": datum,"Konto": konto, "Gegenkonto": gkonto,"Beleg": beleg,"Betrag": preis,"KtName": name,"GktName": gktname,"KundenNr": kdnr,"Bem":  bem,"Tab": tab,"TabNr":tabnr}
             accdata.append(acc)
             if gkonto2:
-                acc = {"Datum": datum,"Konto": konto, "Gegenkonto ": gkonto2,"Beleg": beleg,"Betrag": preis,"KtName": name,"GktName": gkt2,"KundenNr": kdnr,"Bem":  bem,"Von": von}
+                acc = {"Datum": datum,"Konto": konto, "Gegenkonto ": gkonto2,"Beleg": beleg,"Betrag": preis,"KtName": name,"GktName": gkt2,"KundenNr": kdnr,"Bem":  bem,"Tab": tab,"TabNr":tabnr}
                 accdata.append(acc)
         return accdata
-     
+ 
+ ## class to handle finance depedencies, 
+class AfpFinance(AfpFinanceTransactions):
+    ## initialize class
+    # @param globals - global values including the mysql connection - this input is mandatory
+    # @param parlist - if given, list of parameter; 
+    # - Auszug: identifier of statement of account
+    # -   Datum: if Auzug; date of statement of account
+    # -   Saldo; if given, start balance of account for this statement of account
+    # @param period - if given, period marker for transactions
+    # @param mandant - if given, identifier of mandant where transactions are looked for
+    def  __init__(self, globals, parlist = None, period = None, mandant = None):
+        print "AfpFinance.__init__:", parlist, period, mandant
+        self.client_factory = None
+        self.auszug = None
+        self.bank = None
+        value = None
+        mainindex = "BuchungsNr"
+        if parlist:
+            if "BuchungsNr" in parlist:
+                value = parlist["BuchungsNr"]
+            elif "Auszug" in parlist:
+                self.auszug = parlist["Auszug"]
+                value = self.auszug
+                mainindex = "Reference"
+            elif "VorgangsNr" in parlist:
+                value= parlist["VorgangsNr"]
+                mainindex = "VorgangsNr"
+            elif "KundenNr" in parlist:
+                value= parlist["KundenNr"]
+                mainindex = "KundenNr"
+        if not mandant:
+             mandant = globals.get_value("actuel-transaction-mandat", "Finance")
+        if period and globals.get_value("multiple-transaction-mandats", "Finance"):
+            if not "-" in period:
+                period += "-" + Afp_toIntString(mandant, 8)
+        AfpFinanceTransactions.__init__(self, globals, value, mainindex, period)
+        self.selects["KTNR"] = [ "KTNR","NOT Typ = \"Debitor\" AND NOT Typ = \"Kreditor\""] 
+        self.selects["Mandant"] = [ "ADRESSE"," KundenNr = " + Afp_toString(mandant)] 
+        #if value: self.set_main_selects_entry()
+        if self.auszug:
+            ausdat = None
+            aussald = None
+            if "Datum" in parlist:
+                ausdat = parlist["Datum"]
+            if "Saldo" in parlist:
+                aussald = parlist["Saldo"]
+            print "AfpFinance.__init__ set_auszug:", self.auszug, ausdat, aussald
+            self.set_auszug(self.auszug, ausdat, aussald, True)
+            self.bank = self.get_value("KtNr.AUSZUG")
+        if self.debug: print "AfpFinance Konstruktor:", self.mainindex, self.mainvalue 
+    ## destructor
+    def __del__(self):    
+        if self.debug: print "AfpFinance Destruktor" 
+        
+    ## add client factory to genertae client onbjects
+    def add_client_factory(self, factory):
+        self.client_factory = factory
+    ## return client object if possible
+    #@param ident - identifier of created client onject
+    def get_client(self, ident):
+        client = None
+        if self.client_factory:
+            client = self.client_factory.get_client(ident)
+        return client
+    ## return period for transactions
+    def get_period(self):
+        return self.period
+    ## return identierfier of statement of account, if available
+    def get_auszug(self):
+        return self.auszug
+    ## return accounting number of involved bank account
+    def get_bank(self):
+        return self.bank
+    ## generate bankk-account sum
+    def gen_bank_sum(self):
+        sum = 0.0
+        if self.auszug:
+            sum = self.get_value("StartSaldo.Auszug")
+        rows = self.get_value_rows("BUCHUNG","Konto,Gegenkonto,Betrag")   
+        for row in rows:
+            if row[0] == self.bank: sum += row[2]
+            elif row[1] == self.bank: sum -= row[2] 
+        if self.auszug:
+            self.set_value("EndSaldo.Auszug", sum)
+        return sum
+                 
 ## class to export financial transactions
 class AfpFinanceExport(AfpSelectionList):
     ## initialize class
@@ -934,12 +1133,3 @@ class AfpFinanceExport(AfpSelectionList):
         if not self.information:
             self.information = self.get_globals().get_value(vname + ".info", "Finance")
         Export.write_to_file(fieldlist, self.information)
-
-# database tables
-
-## get dictionary with required database tables and mysql generation code
-# @param flavour - if given flavour of modul
-def AfpFinance_getSqlTables(flavour = None):
-    required = {}
-    return required
-        

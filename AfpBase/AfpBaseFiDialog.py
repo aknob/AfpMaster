@@ -41,6 +41,39 @@ import AfpBaseFiRoutines
 from AfpBaseFiRoutines import *
 
 
+
+## deliver one ZahlSelector 
+# @param globals - global variables inclusive database access
+# @param field - if given field for value selection
+# @param value - if given value of field for selection
+def AfpFinance_getZahlVorgang(globals, field = None, value = None):
+    selectors = AfpFinance_get_ZahlSelectors(globals)
+    liste = []
+    names = []
+    for sel in selectors:
+        names.append(sel)
+        liste.append(selectors[sel].get_label())
+    result = AfpReq_MultiLine("Übernahme der Daten aus einem Vorgang,".decode("UTF-8"), "die folgenden Vorgänge stehen zur Auswahl:".decode("UTF-8"), "Button", liste, "Vorgangsauswahl", 250)
+    #print "AfpFinance_getZahlVorgang:", result
+    selname = None
+    for i in range(len(result)):
+        if result[i]: selname = names[i]
+    selector = selectors[selname]
+    rows = selector.get_rows(field, value)
+    liste = []
+    ident = []
+    for row in rows:
+        liste.append(Afp_ArraytoLine(row, " ", 5))
+        ident.append(row[-1])
+    text = selector.get_text()
+    value,ok = AfpReq_Selection("Bitte " + text + " für Zahlung auswählen!","",liste, text + " für Zahlung", ident)
+    client = None 
+    #print "AfpFinance_getZahlVorgang:", ok, value
+    if ok and value:
+        client = selector.get_client(globals, value)
+    return client
+
+
 ## deliver all ZahlSelectors for the actuel installed moduls
 # @param globals - global variables inclusive database access
 def AfpFinance_get_ZahlSelectors(globals = None):
@@ -50,27 +83,32 @@ def AfpFinance_get_ZahlSelectors(globals = None):
     finmods = []
     #print "AfpFinance_get_ZahlSelectors:", globals.get_value("only-direct-payment")
     if not globals.get_value("only-direct-payment"):
-        modules = Afp_ModulNames(globals)
+        modules = Afp_ModulNames(globals, True)
         finmods = modules[1:]
     #print "AfpFinance_get_ZahlSelectors:", finmods
     for mod in finmods:
         select = []
         if mod == "Charter":
             select.append(AfpFinance_CharterSelector(mysql, debug))
-            select.append(AfpFinance_RechSelector(mysql, debug))
-            select.append(AfpFinance_VerbindSelector(mysql, debug))
-        elif "Tourist" in mod or "Event" in mod:
+        elif "Tourist" in mod or "Event" in mod or "Verein" in mod:
             select.append(AfpFinance_EventStornoSelector(mysql, debug))
             if "Tourist" in mod:   select.append(AfpFinance_TouristSelector(mysql, debug))
+            elif "Verein" in mod:   select.append(AfpFinance_MemberSelector(mysql, debug))
             else:   select.append(AfpFinance_EventSelector(mysql, debug))
-            select.append(AfpFinance_RechSelector(mysql, debug))
-            select.append(AfpFinance_VerbindSelector(mysql, debug))
         elif mod == "Faktura":
             select.append(AfpFinance_OrderSelector(mysql, debug))
             #select.append(AfpFinance_OfferSelector(mysql, debug))
             select.append(AfpFinance_InvoiceSelector(mysql, debug))
         for sel in select:
             selectors[sel.get_name()] = sel
+    tables = globals.get_mysql().get_tables()
+    if "VERBIND" in tables:
+        sel = AfpFinance_VerbindSelector(mysql, debug)
+        selectors[sel.get_name()] = sel
+    if "RECHNG" in tables and not "Rechnung" in selectors:
+        sel = AfpFinance_RechSelector(mysql, debug)
+        selectors[sel.get_name()] = sel
+    #print "AfpFinance_get_ZahlSelectors:", selectors
     return selectors
         
 ## generate ZahlSelector for 'Charter' Modul
@@ -81,10 +119,11 @@ def AfpFinance_CharterSelector(mysql, debug = False):
     label = "&Mietfahrt"
     tablename = "FAHRTEN"
     felder = "Abfahrt,Preis,Zahlung,Zielort,Zustand,FahrtNr"
-    filter_feld = "Zustand"
-    filter =  ["Angebot","Rechnung","Storno Rechnung"]
+    filter =  "Zustand = \"Angebot\" OR Zustand = \"Rechnung\" OR Zustand = \"Storno Rechnung\""
     text = "Mietfahrt"
-    return AfpZahlSelector(mysql, name, label, tablename, felder, filter_feld, filter, text, debug)
+    modul = None
+    object = "AfpCharter"
+    return AfpZahlSelector(mysql, name, label, tablename, felder, filter, text, modul, object, debug)
 ## generate ZahlSelector for invoice part of the 'Charter'  and  'Tourist' Modul
 # @param mysql -  object for dadabase access
 # @param debug - debug flag
@@ -93,10 +132,11 @@ def AfpFinance_RechSelector(mysql, debug = False):
     label = "&Rechnung"
     tablename = "RECHNG"
     felder = "Datum,Zahlbetrag,Zahlung,Wofuer,Zustand,RechBetrag,RechNr"
-    filter_feld = "Zustand"
-    filter = ["offen"]
-    text = "Rechnung"            
-    return AfpZahlSelector(mysql, name, label, tablename, felder, filter_feld, filter, text, debug)
+    filter =  "Zustand = \"offen\""
+    text = "Rechnung" 
+    modul = None
+    object = "AfpRech"
+    return AfpZahlSelector(mysql, name, label, tablename, felder, filter, text, modul, object, debug)
 ## generate ZahlSelector for incomimg invoice part of the 'Charter'  and  'Tourist' Modul
 # @param mysql -  object for dadabase access
 # @param debug - debug flag
@@ -105,10 +145,11 @@ def AfpFinance_VerbindSelector(mysql, debug = False):
     label = "&Verbindl."
     tablename = "Verbind"
     felder = "Datum,Zahlbetrag,Zahlung,Wofuer,Zustand,RechBetrag,RechNr"
-    filter_feld = "Zustand"
-    filter = ["offen"]
-    text = "Verbindlichkeit"            
-    return AfpZahlSelector(mysql, name, label, tablename, felder, filter_feld, filter, text, debug, True)
+    filter =  "Zustand = \"offen\""
+    text = "Verbindlichkeit" 
+    modul = None    
+    object = "AfpVerb"          
+    return AfpZahlSelector(mysql, name, label, tablename, felder, filter, text, modul, object, debug, True)
 ## generate ZahlSelector for invoice part of the  'Event' Modul, flavour 'Tourist'
 # @param mysql -  object for dadabase access
 # @param debug - debug flag
@@ -116,11 +157,25 @@ def AfpFinance_TouristSelector(mysql, debug = False):
     name = "Anmeldung"
     label = "&Anmeldung"
     tablename = "ANMELD"
-    felder = "Abfahrt,Preis,Zahlung,Bez,Zustand,EventNr"
-    filter_feld = "Zustand"
-    filter =  ["Angebot","Rechnung","Storno Rechnung"]
+    felder = "Beginn,Preis,Zahlung,Bez,Zustand,EventNr"
+    filter =  "Zustand = \"Anmeldung\""
     text = "Reiseanmeldung"
-    return AfpZahlSelector(mysql, name, label, tablename, felder, filter_feld, filter, text, debug)
+    modul = "AfpEvent/AfpEvScreenTourist/"
+    object = "AfpEvTourist"
+    return AfpZahlSelector(mysql, name, label, tablename, felder, filter, text, modul, object, debug)
+## generate ZahlSelector for invoice part of the  'Event' Modul
+# @param mysql -  object for dadabase access
+# @param debug - debug flag
+def AfpFinance_MemberSelector(mysql, debug = False):
+    name = "Anmeldung"
+    label = "&Beitrag"
+    tablename = "ANMELD"
+    felder = "RechNr,Preis,ZahlDat,Zahlung,KundenNr,AnmeldNr"
+    filter =  "Zustand = \"Anmeldung\" AND Preis > 0"
+    text = "Anmeldung"
+    modul = "AfpEvent/AfpEvScreen_Verein"
+    object = "AfpEvMember"
+    return AfpZahlSelector(mysql, name, label, tablename, felder, filter, text, modul, object, debug)
 ## generate ZahlSelector for invoice part of the  'Event' Modul
 # @param mysql -  object for dadabase access
 # @param debug - debug flag
@@ -128,11 +183,12 @@ def AfpFinance_EventSelector(mysql, debug = False):
     name = "Anmeldung"
     label = "&Anmeldung"
     tablename = "ANMELD"
-    felder = "Abfahrt,Preis,Zahlung,Bez,Zustand,EventNr"
-    filter_feld = "Zustand"
-    filter =  ["Angebot","Rechnung","Storno Rechnung"]
-    text = "Veranstalungsanmeldung"
-    return AfpZahlSelector(mysql, name, label, tablename, felder, filter_feld, filter, text, debug)
+    felder = "Beginn,Preis,Zahlung,Bez,Zustand,EventNr"
+    filter =  "Zustand = \"Anmeldung\""
+    text = "Anmeldung"
+    modul = "AfpEvent/AfpEvRoutines/"
+    object = "AfpEvClient"
+    return AfpZahlSelector(mysql, name, label, tablename, felder, filter, text, modul, object, debug)
 ## generate ZahlSelector for cancellation part of the  'Event' Modul, includong all flavours
 # @param mysql -  object for dadabase access
 # @param debug - debug flag
@@ -141,10 +197,11 @@ def AfpFinance_EventStornoSelector(mysql, debug = False):
     label = "&Stornierung"
     tablename = "ANMELD"
     felder = "Abfahrt,Preis,Zahlung,Bez,Zustand,EventNr"
-    filter_feld = "Zustand"
-    filter =  ["Angebot","Rechnung","Storno Rechnung"]
+    filter =  "Zustand = \"Storno\""
     text = "Stornierung"
-    return AfpZahlSelector(mysql, name, label, tablename, felder, filter_feld, filter, text, debug, True)
+    modul = "AfpEvent/AfpEvRoutines/"
+    object = "AfpEvClient"
+    return AfpZahlSelector(mysql, name, label, tablename, felder, filter, text, modul, object, debug, True)
 ## generate ZahlSelector for invoice part of the  'Faktura' Modul
 # @param mysql -  object for dadabase access
 # @param debug - debug flag
@@ -156,7 +213,9 @@ def AfpFinance_InvoiceSelector(mysql, debug = False):
     #filter_feld = "Zustand"
     #filter =  ["offen","Mahnung","bezahlt"]
     text = "Rechnung"
-    return AfpZahlSelector(mysql, name, label, tablename, felder, None, None, text, debug)
+    modul = "AfpFaktura/AfpFaRoutines"
+    object = "AfpInvoice"
+    return AfpZahlSelector(mysql, name, label, tablename, felder, None, text, modul, object, debug)
 ## generate ZahlSelector for offer part of the  'Faktura' Modul
 # @param mysql -  object for dadabase access
 # @param debug - debug flag
@@ -165,10 +224,11 @@ def AfpFinance_OfferSelector(mysql, debug = False):
     label = "&Auftrag"
     tablename = "KVA"
     felder = "RechNr,Datum,Pos,Betrag,Bem"
-    filter_feld = "Zustand"
-    filter =  ["Auftrag"]
+    filter =  "Zustand = \"Auftrag\""
     text = "Auftrag"
-    return AfpZahlSelector(mysql, name, label, tablename, felder, filter_feld, filter, text, debug)
+    modul = "AfpFaktura/AfpFaRoutines"
+    object = "AfpOffer"
+    return AfpZahlSelector(mysql, name, label, tablename, felder, filter, text, modul, object, debug)
 ## generate ZahlSelector for order part of the  'Faktura' Modul
 # @param mysql -  object for dadabase access
 # @param debug - debug flag
@@ -177,10 +237,11 @@ def AfpFinance_OrderSelector(mysql, debug = False):
     label = "&Bestellung"
     tablename = "BESTELL"
     felder = "RechNr,Datum, Pos,Betrag,ZahlBetrag,Bem"
-    filter_feld = "Zustand"
-    filter =  ["beglichen","erhalten","offen"]
+    filter =  "Zustand = \"beglichen\" OR Zustand = \"erhalten\" OR Zustand = \"offen\""
     text = "Bestellung"
-    return AfpZahlSelector(mysql, name, label, tablename, felder, filter_feld, filter, text, debug, True)
+    modul = "AfpFaktura/AfpFaRoutines"
+    object = "AfpOrder"
+    return AfpZahlSelector(mysql, name, label, tablename, felder, filter, text, modul, object, debug, True)
     
 ## class to select additional payment entries
 class AfpZahlSelector(object):
@@ -191,20 +252,21 @@ class AfpZahlSelector(object):
     # @param label - label of button
     # @param tablename - name of database table
     # @param felder - name if columns given in the list
-    # @param filter_feld - name of colums where a filter is involved
-    # @param filter - filter value of the above column
+    # @param filter - filter for selection
     # @param text - text to be displayed in dialog
+    # @param object - name of object to be created from selection
     # @param debug - debug flag
     # @param outgoing - flag if payment direction is outgoing
-    def  __init__(self, mysql, name, label, tablename , felder, filter_feld, filter, text, debug = False, outgoing = False):
+    def  __init__(self, mysql, name, label, tablename , felder, filter, text, modul, object, debug = False, outgoing = False):
         self.mysql = mysql
         self.name = name
         self.label = label
         self.tablename = tablename
         self.felder = felder
-        self.filter_feld = filter_feld
         self.filter = filter
         self.text = text
+        self.modul = modul
+        self.object = object
         self.outgoing = outgoing
         self.debug = debug
     ## get name
@@ -213,23 +275,61 @@ class AfpZahlSelector(object):
     ## get button label
     def get_label(self):
         return self.label
+    ## get table name
+    def get_tablename(self):
+        return self.tablename
+    ## get dialog text
+    def get_text(self):
+        return self.text
+    ## get modul
+    def get_modul(self):
+        return self.modul
     ## get flag if button should be enabled \n
     # if used without parameter returnvalue indicates if payment is incoming
     # @param out - input, if dialog is for incoming or outgoing payments
     def get_enable(self, out=False):
         if out == self.outgoing: return True
         return  False
+    ## method to retrieve client object
+    # @param globals- globals variables
+    # @param value- identifier for generated client object
+    def get_client(self, globals, value):
+        client = None
+        modulname = self.get_modul()
+        befehl = None 
+        #print "AfpZahlSelector.get_client:",  modulname, globals
+        if modulname:
+            modul = Afp_importPyModul(modulname, globals)
+            if modul:
+                befehl = "client = modul."
+        else:
+            befehl = "client = "
+        if befehl:
+            befehl +=  self.object + "(globals," + Afp_toString(value) +")"
+            exec befehl
+        return client
     ## method to retrieve rows from database
-    # @param KundenNr - address identifier for which entries should be found
-    def get_rows(self, KundenNr):
-         return Afp_selectSameKundenNr(self.mysql, self.tablename, KundenNr, self.debug, self.felder, self.filter_feld, self.filter)
-
+    # @param field - database field holding common value in rows
+    # @param value - value looked for in field
+    def get_rows(self, field, value):
+        if field and value:
+            #print "AfpZahlSelector.get_rows:", self.tablename, field, value, self.debug, self.felder, self.filter
+            rows = Afp_selectSameValue(self.mysql, self.tablename, field, value, self.debug, self.felder, self.filter)
+            if "KundenNr" in self.felder:
+                ind = self.felder.split(",").index("KundenNr")
+                for i in range(len(rows)):
+                    rows[i][ind] = AfpFinance_getNameFromKNr(self.mysql, rows[i][ind], True)
+            return rows
+        else:
+            return None
+ 
 ## display and manipulation of payments
 class AfpDialog_DiFiZahl(AfpDialog):
     ## initialise dialog
     def __init__(self, globals):
         self.globals = globals        
         self.selector_buttons= []
+        self.selectors = None
         self.is_full = False
         AfpDialog.__init__(self,None, -1, "")
         self.do_store = True
@@ -443,6 +543,7 @@ class AfpDialog_DiFiZahl(AfpDialog):
                     self.Bind(wx.EVT_BUTTON, self.On_Zahlung_Select, self.selector_buttons[ind])
                     self.selector_buttons[ind].Enable(selector.get_enable(out))
         if self.selector_buttons:
+            self.selectors = selectors
             self.is_full = True
         #print "AfpZahlung.gen_sel_buttons:", selectors, self.is_full
     ## attaches data to this dialog, invokes population of widgets \n
@@ -557,24 +658,26 @@ class AfpDialog_DiFiZahl(AfpDialog):
             self.data.add_selection(tablename, value)
             self.Pop_Zahlungen()
             
-    ## invoke selection of another participent of this payment, triggerd by lanlename
-    # @param tablename - name of database table, where selection should be made
-    def select_selection_by_name(self, tablename):
-        if tablename in self.selectors:
-            selector = self.selectors[tablename]
+    ## invoke selection of another participent of this payment, triggerd by selectorname
+    # @param selectorname - name of selector with which the selection should be made
+    def select_selection_by_name(self, selectorname):
+        if selectorname in self.selectors:
+            selector = self.selectors[selectorname]
             liste = []
             ident = []
             KundenNr = self.data.get_value("KundenNr")
-            rows = selector.get_rows(self.data.get_mysql(), KundenNr, self.debug)
+            rows = selector.get_rows("KundenNr", KundenNr)
             for row in rows:
-                if row[1] is None and tablename == "RECHNG": row[1] = row[5]
+                if row[1] is None and selectorname == "Rechnung": row[1] = row[5]
                 if row[1]:
                     if row[2]: row[2] = row[1] - row[2]
                     else: row[2] = row[1]
                 liste.append(Afp_ArraytoLine(row, " ", 5))
                 ident.append(row[-1])
+            text = selector.get_text()
             value,ok = AfpReq_Selection("Bitte " + text + " für Zahlung auswählen!","",liste, text + " für Zahlung", ident)
             if ok and value:
+                print "AfpDialog_DiFiZahl.select_selection_by_name:", ok, value
                 self.data.add_selection(selector.get_tablename(), value)
                 self.Pop_Zahlungen()
 
@@ -609,8 +712,9 @@ class AfpDialog_DiFiZahl(AfpDialog):
         if self.data.finance:
             liste = {}
             for data in self.data.selected_list:
-                ident = data.get_identifier()
-                select = "Von = \"" + ident + "\" AND (Art = \"Zahlung\" OR Art = \"Zahlung in\")"
+                tab = data.get_mainselection()
+                tabnr = data.get_value()
+                select = "Tab = \"" + tab + "\" AND TabNr = " + Afp_toString(tabnr) + " AND (Art = \"Zahlung\" OR Art = \"Zahlung in\")"
                 felder = "Datum,GktName,Betrag,Beleg,Bem"
                 rows = self.data.mysql.select(felder, select, "BUCHUNG")
                 zahlungen = []

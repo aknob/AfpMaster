@@ -40,9 +40,9 @@ from AfpBase.AfpUtilities.AfpBaseUtilities import Afp_existsFile
 from AfpBase.AfpDatabase import *
 from AfpBase.AfpDatabase.AfpSQL import AfpSQL
 from AfpBase.AfpDatabase.AfpSuperbase import AfpSuperbase
-from AfpBase.AfpBaseRoutines import Afp_archivName, Afp_startFile
+from AfpBase.AfpBaseRoutines import Afp_archivName, Afp_startFile, Afp_startExtraProgram
 from AfpBase.AfpBaseDialog import AfpReq_Info, AfpReq_Selection, AfpReq_Question, AfpReq_Text, AfpReq_MultiLine
-from AfpBase.AfpBaseDialogCommon import AfpLoad_DiReport
+from AfpBase.AfpBaseDialogCommon import AfpLoad_DiReport, AfpReq_extraProgram
 from AfpBase.AfpBaseScreen import AfpScreen
 from AfpBase.AfpBaseAdRoutines import AfpAdresse
 from AfpBase.AfpBaseAdDialog import AfpLoad_AdAusw, AfpLoad_DiAdEin_fromSb
@@ -389,7 +389,7 @@ class AfpEvScreen(AfpScreen):
             else:
                 self.sb_an_filter = an_filter
                 self.sb.select_where(self.sb_an_filter, None, "ANMELD")   
-        print "AfpEvScreen.set_client_filter EVENT:", self.sb_re_filter,"ANMELD:", self.sb_an_filter, "CURRENT RECORD:", self.sb.get_value()
+        #print "AfpEvScreen.set_client_filter EVENT:", self.sb_re_filter,"ANMELD:", self.sb_an_filter, "CURRENT RECORD:", self.sb.get_value()
     ## return "ANMELD" filter clause from date filter
     def get_minor_date_filter(self):
         return self.sb_date_filter.replace("Beginn","Anmeldung")
@@ -634,6 +634,16 @@ class AfpEvScreen(AfpScreen):
             self.grid_row_selected = False
             self.grid_custs.ClearSelection()
         super(AfpEvScreen, self).On_KeyDown(event)
+   
+   ## Eventhandler Menu - select and start additional programs
+   # overwritten from AfpScreen to handle flavours
+    def On_ScreenZusatz(self, event):
+        if self.debug: print "AfpScreen Event handler `On_ScreenZusatz'!"
+        typ = self.typ
+        if self.flavour: typ = self.flavour
+        fname, ok = AfpReq_extraProgram(self.globals.get_value("extradir"), typ)
+        if ok and fname:
+            Afp_startExtraProgram(fname, self.globals, self.data, self.debug)
 
     ## set database to show indicated tour
     # @param ENr - number of event 
@@ -775,6 +785,21 @@ class AfpEvScreen(AfpScreen):
                     if self.data.has_route() and tmp[5]:
                         print "WARNING: AfpEvScreen.get_grid_rows data has route not implemented!"
                     rows.append([adresse.get_string_value("Vorname"), adresse.get_string_value("Name"), Afp_toString(tmp[0]), ab, Afp_toString(tmp[1]), Afp_toString(tmp[2]), Afp_toString(tmp[3]), tmp[4]])
+        if self.debug: print "AfpEvScreen.get_grid_rows rows:", rows 
+        return rows
+    ## get grid rows to populate grids \n
+    # (overwritten from AfpScreen) 
+    # @param typ - name of grid to be populated
+    def get_grid_rows_clients(self, typ):
+        rows = []
+        if self.debug: print "AfpEvScreen.get_grid_rows typ:", typ
+        if self.no_data_shown: return  rows
+        if typ == "Customers" and self.data:
+            id_col = 5      
+            clients = self.data.get_clients(False)
+            if clients:			
+                for client in clients:
+                    rows.append([client.get_string_value("Vorname.ADRESSE"), client.get_string_value("Name.ADRESSE"), client.get_string_value("RechNr"),  client.get_string_value("Name.TNAME"), client.get_string_value("Zahlung"),  client.get_string_value("Preis"),  client.get_string_value("Info"),  client.get_value("AnmeldNr")])
         if self.debug: print "AfpEvScreen.get_grid_rows rows:", rows 
         return rows
 # end of class AfpEvScreen

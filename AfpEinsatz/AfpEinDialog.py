@@ -796,7 +796,7 @@ class AfpDialog_DiFahrer(AfpDialog):
         for entry in self.localtextmap:
             TextBox = self.FindWindowByName(entry)
             value =self.selection.get_value(self.localtextmap[entry]) 
-            string = Afp_toFloatString(value, "5.1f")
+            string = Afp_toFloatString(value, False, "5.1f")
             #print self.localtextmap[entry], "=", value, "=",string
             TextBox.SetValue(string)
         #print "Populate selection:",self.selection.data
@@ -842,8 +842,8 @@ class AfpDialog_DiFahrer(AfpDialog):
         tage += plus
         #print "set_gesamt_zeit",tage, type(tage), abrest, type(abrest), bisrest, type(bisrest)
         plus, rest = self.data.get_einsatztage(abrest +bisrest)
-        self.label_GTage.SetLabel(Afp_toFloatString(tage+plus, "5.1f"))
-        self.label_GStd.SetLabel(Afp_toFloatString(rest, "5.1f"))
+        self.label_GTage.SetLabel(Afp_toFloatString(tage+plus, False, "5.1f"))
+        self.label_GStd.SetLabel(Afp_toFloatString(rest, False, "5.1f"))
 
     # Event Handlers 
     ##  Eventhandler BUTTON  allow entry of working dates and times

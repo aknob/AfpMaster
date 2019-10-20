@@ -42,7 +42,7 @@ from AfpBase.AfpDatabase import *
 from AfpBase.AfpDatabase.AfpSQL import AfpSQL
 from AfpBase.AfpDatabase.AfpSuperbase import AfpSuperbase
 from AfpBase.AfpBaseRoutines import Afp_archivName, Afp_startFile
-from AfpBase.AfpBaseDialog import AfpReq_Info, AfpReq_Selection, AfpReq_Question, AfpReq_Text, AfpDialog
+from AfpBase.AfpBaseDialog import AfpReq_Info, AfpReq_Selection, AfpReq_Question, AfpReq_Text, AfpReq_Date, AfpDialog
 from AfpBase.AfpBaseScreen import AfpScreen
 from AfpBase.AfpBaseAdRoutines import AfpAdresse
 from AfpBase.AfpBaseAdDialog import AfpLoad_AdAusw, AfpLoad_DiAdEin_fromSb, AfpAdresse_addAttributToAdresse
@@ -54,6 +54,19 @@ from AfpEvent.AfpEvScreen import AfpEvScreen
 from AfpEvent.AfpEvRoutines import *
 from AfpEvent.AfpEvDialog import AfpLoad_EvAusw, AfpDialog_EventEdit, AfpDialog_EvClientEdit, AfpLoad_EvClientEdit
 
+## routine to execute prepared cancellations
+# @param verein - AfpEvVerein object to be worked on
+def AfpEvVerein_exeStorno(verein):
+    leftover = verein.execute_cancel()
+    if leftover is None:
+        AfpReq_Info("Keine Kündigungen vorgemerkt,".decode("UTF-8"),"keine Kündignungen durchgeführt!".decode("UTF-8"),"Kündigungen umsetzen".decode("UTF-8"))
+    elif not leftover:
+        AfpReq_Info("Kündigungen umgesetzt!".decode("UTF-8"),"Keine Nacharbeiten nötig!".decode("UTF-8"),"Kündigungen umsetzen".decode("UTF-8"))
+    else:
+        for left in leftover:
+            client = AfpEvMember(verein.get_globals(), left)
+            ok = AfpLoad_EvMemberEdit(client, True, True)
+
 ## baseclass for club handling         
 class AfpEvVerein(AfpEvent):
     ## initialize AfpEvent class
@@ -61,7 +74,7 @@ class AfpEvVerein(AfpEvent):
     # @param EventNr - if given and sb == None, data will be retrieved this database entry
     # @param sb - if given data will  be retrieved from the actuel AfpSuperbase data
     # @param debug - flag for debug information
-    # @param complete - flag if data from all tables should be retrieved durin initialisation \n
+    # @param complete - flag if data from all tables should be retrieved during initialisation \n
     # \n
     # either EventNr or sb (superbase) has to be given for initialisation, otherwise a new, clean object is created
     def  __init__(self, globals, EventNr = None, sb = None, debug = None, complete = False):
@@ -70,13 +83,29 @@ class AfpEvVerein(AfpEvent):
         if not self.get_value("AgentNr") and sb:
             KNr = sb.get_value("KundenNr.ADRESSE")
             Name = sb.get_value("Name.ADRESSE")
+            print "AfpEvVerein Konstruktor, Agent:", Name, KNr
             self.set_value("AgentNr.EVENT", KNr)
             self.set_value("AgentName.EVENT", Name)
+        self.selects["PreStorno"] = [ "ANMELD","EventNr = EventNr.EVENT AND Zustand = \"PreStorno\"","AnmeldNr"] 
         self.selects["Verein"] = [ "ADRESATT","KundenNr = AgentNr.EVENT AND Attribut = \"Verein\""] 
         if complete: self.create_selections()
         if self.debug: print "AfpEvVerein Konstruktor, EventNr:", self.mainvalue
 
-    ## return specific identification string to be used in dialogs \n
+    ## execute canel action for all prepared member
+    def execute_cancel(self):
+        leftover = None
+        rows = self.get_value_rows("PreStorno", "AnmeldNr")
+        if rows:
+            leftover = []
+            leftrenr = []
+            for row in rows:
+                client = self.get_client(row[0])
+                ReNr, AnNr= client.execute_cancel()
+                if ReNr and not ReNr in leftrenr:
+                    leftrenr.append(ReNr)
+                    leftover.append(AnNr)
+        return leftover
+
     ## decide whether this event may holds a route insted of the location
     # - overwritten from AfpEvent
     def has_route(self):
@@ -91,7 +120,6 @@ class AfpEvVerein(AfpEvent):
     def get_client(self, ANr = None):
         return AfpEvMember(self.globals, ANr)
 
-
 ## baseclass for member handling         
 class AfpEvMember(AfpEvClient):
     ## initialize AfpEvMember class, derivate from AfpEvClient
@@ -99,7 +127,7 @@ class AfpEvMember(AfpEvClient):
     # @param AnmeldNr - if given and sb == None, data will be retrieved this database entry
     # @param sb - if given data will  be retrieved from the actuel AfpSuperbase data
     # @param debug - flag for debug information
-    # @param complete - flag if data from all tables should be retrieved durin initialisation \n
+    # @param complete - flag if data from all tables should be retrieved during initialisation \n
     # \n
     # either AnmeldNr or sb (superbase) has to be given for initialisation,otherwise a new, clean object is created
     def  __init__(self, globals, AnmeldNr = None, sb = None, debug = None, complete = False):
@@ -110,7 +138,48 @@ class AfpEvMember(AfpEvClient):
         self.selects["ANMELDATT"] = [ "ANMELDATT","AnmeldNr = AnmeldNr.ANMELD"] 
         if complete: self.create_selections()
         if self.debug: print "AfpEvMember Konstruktor, AnmeldNr:", self.mainvalue
-
+    
+    ## execute cancel procedures if flagged \n
+    # if more clients are involved, the appropriate RechNr is returned
+    def execute_cancel(self):
+        ReNr = None
+        AnNr = None
+        print "!AfpEvMember.execute_cancel:", self.get_value("Zustand"), self.get_Value("InfoDat")
+        if self.get_value("Zustand") == "PreStorno" and self.get_globals.today() > self.get_Value("InfoDat"):
+            self.set_value("Zustand","Storno")
+            lgh = self.get_value_length("RechNr")
+            if lgh > 1: 
+                rows = self.get_value_rows("RechNr","Zustand")
+                Nr = self.get_value("RechNr")
+                for row in rows:
+                    if row[0] == "Anmeldung":  
+                        ReNr = Nr
+                        AnNr = self.get_value()
+            self.store()
+            self.delete_from_event()
+        return ReNr, AnNr
+    ## get attributs for a year
+    # @param attribut - name of attribut to be extracted
+    # @param year - if given, year for which the attributes have to be extracted, default: actuel year
+    def get_attributs(self, attribut, year=None):
+        if not year:
+            year = self.globals.today().year
+        jahr = Afp_toString(year)
+        fromdat = Afp_fromString("1.1." + jahr)
+        todat = Afp_fromString("31.12." + jahr)
+        return self.get_attribut_values(attribut, fromdat, todat)
+    ## generate selection sum
+    # @param attribut - name of attribut to be extracted
+    # @param year - if given, year for which the attributes have to be extracted, default: actuel year
+    def get_attribut_sum(self, attribut, year):
+        rows = self.get_attributs(attribut, year)
+        #print "AfpEvMember.get_selection_sum:", attribut, year, rows
+        sum = 0.0
+        if rows:
+            for row in rows:
+                if row and row[0]:
+                    sum += row[0][1]
+        return sum
    ## generate identification number (membership number for "Verein")  
     def generate_IdNr(self):
         IdNr = None
@@ -132,7 +201,6 @@ class AfpEvMember(AfpEvClient):
     # - overwritten from AfpSelectionList
     def get_identification_string(self):
         return "Anmeldung für den Verein".decode("UTF-8")  +  self.get_string_value("Vorname.Veranstalter") + " " +   self.get_string_value("Name.Veranstalter") 
-
 # end of class AfpMember        
         
 ## Class AfpEvScreen_Verein shows 'Event' screen and handles interactions
@@ -223,16 +291,16 @@ class AfpEvScreen_Verein(AfpEvScreen):
         self.button_sizer.AddSpacer(20)
      
         # COMBOBOX
-        self.combo_Filter = wx.ComboBox(panel, -1, value="Mitglieder", size=(164,20), choices=["Mitglieder","Austritte","Kandidaten"], style=wx.CB_DROPDOWN, name="Filter")
+        self.combo_Filter = wx.ComboBox(panel, -1, value="Mitglieder", size=(164,20), choices=["Mitglieder","Kandidaten","Abgemeldet","Ausgetreten"], style=wx.CB_DROPDOWN, name="Filter")
         self.Bind(wx.EVT_COMBOBOX, self.On_Filter, self.combo_Filter)
-        self.filtermap = {"Mitglieder":"Verein-Anmeldung","Austritte":"Verein-Storno","Kandidaten":"Verein-Reserv"}
+        self.filtermap = {"Mitglieder":"Verein-Anmeldung-PreStorno","Kandidaten":"Verein-Reserv","Abgemeldet":"Verein-PreStorno","Ausgetreten":"Verein-Storno"}
         self.top_mid_sizer.AddStretchSpacer(1)
         self.top_mid_sizer.Add(self.combo_Filter,0,wx.EXPAND)
         self.top_mid_sizer.AddSpacer(10)
       
         # Event
         self.label_Event = wx.StaticText(panel, -1, label="", name="Verein")
-        self.labelmap["Verein"] = "Name.Agent"
+        self.labelmap["Verein"] = "AgentName.EVENT"
         self.label_Sparte = wx.StaticText(panel, -1, label="", name="Sparte")
         self.labelmap["Sparte"] = "Bez.EVENT"
         self.label_Kennung = wx.StaticText(panel, -1, label="", name="Kennung")
@@ -256,7 +324,7 @@ class AfpEvScreen_Verein(AfpEvScreen):
         # Client
         self.label_Typ = wx.StaticText(panel, -1, label="", name="Typ")
         self.labelmap["Typ"] = "Zustand.ANMELD"
-        self.label_Typ_map = {"Anmeldung":"Mitglied","Storno":"Austritt","Reservierung":"Kandidat"}
+        self.label_Typ_map = {"Anmeldung":"Mitglied","PreStorno":"Mitglied abgemeldet","Storno":"Austritt","Reservierung":"Kandidat"}
         self.label_RechNr = wx.StaticText(panel, -1, label="", name="RechNr")
         self.labelmap["RechNr"] = "RechNr.ANMELD"
         self.label_LNr = wx.StaticText(panel, -1, label="Nr:", name="LNr")
@@ -388,6 +456,7 @@ class AfpEvScreen_Verein(AfpEvScreen):
         self.grid_minrows["Customers"] = self.grid_custs.GetNumberRows()
         self.Bind(wx.grid.EVT_GRID_CMD_CELL_LEFT_DCLICK, self.On_DClick_Custs, self.grid_custs)
         self.Bind(wx.grid.EVT_GRID_CMD_CELL_LEFT_CLICK, self.On_Click_Custs, self.grid_custs)
+        self.grid_custs.Bind(wx.grid.EVT_GRID_LABEL_LEFT_CLICK, self.On_GridSort)
         
         self.grid_panel_sizer.AddSpacer(20)
         self.grid_panel_sizer.Add(self.grid_custs,1,wx.EXPAND)
@@ -501,10 +570,13 @@ class AfpEvScreen_Verein(AfpEvScreen):
             grid_id = self.grid_id["Customers"]
             if  self.grid_row_selected:
                 ANr = self.slave_data.get_value("AnmeldNr")
-                index = grid_id.index(ANr) + next
-                if index < 0: index = 0
-                if index >= len(grid_id): index = len(grid_id) - 1
-            else:
+                if ANr in grid_id:
+                    index = grid_id.index(ANr) + next
+                    if index < 0: index = 0
+                    if index >= len(grid_id): index = len(grid_id) - 1
+                else:
+                    self.grid_row_selected = False
+            if not self.grid_row_selected:
                 self.grid_row_selected = True
                 if next < 0:
                     index = len(grid_id) - 1
@@ -519,8 +591,6 @@ class AfpEvScreen_Verein(AfpEvScreen):
             self.Reload()
             #print "AfpEvScreen_Verein.On_KeyDown reload:", ANr, self.sb.get_value("AnmeldNr.ANMELD")
         super(AfpEvScreen_Verein, self).On_KeyDown(event)
-
-        
 
     ## generate the dedicated event
     # (overwritten from AfpEvScreen) 
@@ -647,10 +717,14 @@ class AfpEvScreen_Verein(AfpEvScreen):
             tmps = self.data.get_value_rows("ANMELD","IdNr,Zahlung,Preis,Info,Anmeldung,KundenNr,Zustand,AnmeldNr")
             if tmps:			
                 for tmp in tmps:
-                    if tmp[6] == filter[1]:
+                    add = False
+                    for i in range(1, len(filter)):
+                        if tmp[6] == filter[i]:
+                            add = True
+                    if add:
                         adresse = AfpAdresse(self.globals, tmp[5])
                         rows.append([Afp_toString(tmp[0]), adresse.get_string_value("Vorname"), adresse.get_string_value("Name"),  Afp_toString(tmp[4]), Afp_toString(tmp[2]), Afp_toString(tmp[1]), Afp_toString(tmp[3]), tmp[7]])
-        if self.debug: print "AfpEvScreen.get_grid_rows rows:", rows 
+        if self.debug: print "AfpEvScreen_Verein.get_grid_rows rows:", rows 
         return rows
 
  # end of class AfpEvScreen_Verein
@@ -755,9 +829,10 @@ def AfpLoad_EvVereinEdit(data, flavour = None, edit = False):
 ## allows the display and manipulation of a EvClient data, flavour 'Verein' 
 class AfpDialog_EvMemberEdit(AfpDialog_EvClientEdit):
     ## initialise dialog
-    def __init__(self, *args, **kw):   
+    def __init__(self, *args, **kw): 
         super(AfpDialog_EvMemberEdit, self).__init__(self, *args, **kw)
         self.modifyWx()
+        self.storno = None
         
     ##  modify Wx objects defined in parent class
     def modifyWx(self):
@@ -783,6 +858,17 @@ class AfpDialog_EvMemberEdit(AfpDialog_EvClientEdit):
         self.route = AfpEvRoute(data.get_globals(), routenr, None, self.debug, True)
         super(AfpDialog_EvMemberEdit, self).attach_data(data, new, editable)
 
+    ## read values from dialog and invoke writing into data         
+    def store_data(self):
+        if self.storno:
+            # only set the cancel stamp here
+            self.zustand = "PreStorno"
+            self.data.set_value("InfoDat", self.storno)
+            self.data.set_value("Info",  Afp_toString(self.storno) + "  Abmeldung")
+        super(AfpDialog_EvMemberEdit, self).store_data()
+        #if self.storno:
+            #self.data.delete_from_event()
+        
     ## complete data before storing
     # @param data - data to be completed
     def complete_data(self, data):
@@ -808,6 +894,22 @@ class AfpDialog_EvMemberEdit(AfpDialog_EvClientEdit):
     # @param event - event which initiated this action   
     def On_Set_Datum(self,event = None):
         return
+    
+    ##Eventhandler BUTTON - delete client \n
+    # @param event - event which initiated this action   
+    def On_Storno(self, event):
+        if self.debug: print "AfpDialog_EvMemberEdit Event handler `On_Storno'"
+        dat = "31.12." + Afp_toString(self.data.get_globals().today().year)
+        text1 = self.data.get_name() +  " von '" + self.data.get_value("Bez.EVENT") + "' der " + self.data.get_value("Name.Veranstalter") + " abmelden?"
+        text2 = "Die Kündigung wird wirksam zum:".decode("UTF-8")
+        dat, Ok = AfpReq_Date(text1, text2, dat, "Abmeldung")
+        if Ok and dat:
+            self.storno = Afp_fromString(dat)
+        else:
+            self.storno = None
+        self.Set_Editable(True)
+        event.Skip()
+ 
     
     ##Eventhandler BUTTON - add new client \n
     # @param event - event which initiated this action   

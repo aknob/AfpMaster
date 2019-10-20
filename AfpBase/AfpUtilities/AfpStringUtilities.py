@@ -156,11 +156,13 @@ def Afp_toIntString(data, lgh = 3):
     return string.strip()
 ## direct conversion of float data to string
 # @param data - data to be converted
+# @param no_strip - flag if not stripped string should be returned
 # @param format - format of data in string
-def Afp_toFloatString(data, format = "8.2f"):
+def Afp_toFloatString(data, no_strip = False, format = "8.2f"):
     if data is None: return ""
     string = ("%" + format)%(data)
-    return string.strip()
+    if no_strip: return string
+    else: return string.strip()
 ## analyse string and extract data from it
 # @param string - string to be converted
 # - "xx.xx" or "xx,xx" -> float (x - digit)
@@ -184,10 +186,14 @@ def Afp_fromString(string):
             if split[0].isdigit(): day = int(split[0])
             month = 0
             if split[1].isdigit(): month = int(split[1])
-            year = 0
+            year = -1
             if split[2].isdigit(): year = int(split[2])
-            if day > 0 and month > 0 and year > 0:
-                if year < 1000: year += 100* int(datetime.date.today().year/100) 
+            if day > 0 and month > 0 and year > -1:
+                if year < 100: 
+                    thisyear = datetime.date.today().year
+                    year += 100* int(thisyear/100) 
+                    if year > thisyear + 10:
+                        year -= 100
                 data = datetime.date(year, month, day)
         elif len(split) > 1:
             left = 0
@@ -514,6 +520,10 @@ def Afp_maskiere(value):
     if Afp_isString(value):
         return value.replace('"','\\"')
     return  value
+## strip inner spaces from string
+# @param string - string to be stripped
+def Afp_stripSpaces(string):
+    return " ".join(string.split())
 ## combine values to one string, if only one value is indicated each value type is possible
 # @param indices - indices of values to be extracted from array and combined
 # @param array- list of values
@@ -817,14 +827,15 @@ def Afp_leftSpCnt(string):
 ## check if string holds a date, \n
 # possibly complete date with current day, month or year.
 # @param string - string to be analysed
-# @param only_past - flag if date is assumed to lie in the past,  \n
+# @param usepast - flag if date is assumed to lie in the past,  \n
 # short years will be completed with the last century, if the normal completation would set them to ly in the future.
-def Afp_ChDatum(string, only_past = False):
+def Afp_ChDatum(string, usepast = None, refdat = None):
     if string is None: return string
-    today = datetime.date.today()
-    day = str(today.day)
-    month = str(today.month)
-    year = str(today.year)[2:]
+    alldigits = False
+    if not refdat:  refdat = datetime.date.today()
+    day = refdat.day
+    month = refdat.month
+    year = refdat.year
     nodigits = []   
     chars = ""
     for char in string:
@@ -837,6 +848,10 @@ def Afp_ChDatum(string, only_past = False):
     if chars and not chars in nodigits: 
         nodigits.append(chars)
     zahlen = Afp_split(string, nodigits)
+    lgh = len(zahlen)
+    if lgh > 2 and len(zahlen[2]) > 2: alldigits = True
+    for i in range(lgh):
+        zahlen[i] = Afp_fromString(zahlen[i])
     # complete date-string
     lgh = len(zahlen)
     for i in range(lgh-1,-1,-1):
@@ -844,32 +859,55 @@ def Afp_ChDatum(string, only_past = False):
     lgh = len(zahlen)
     if lgh < 3:
         if lgh == 0: zahlen.append(day)
-        if lgh <= 1: zahlen.append(month)
-        if lgh <= 2: zahlen.append(year)
+        if lgh <= 1: 
+            if usepast is None or (usepast and zahlen[-1] <= day) or (not usepast and zahlen[-1] >= day):
+                zahlen.append(month)
+            elif usepast and zahlen[-1] > day:
+                if month < 2:
+                    zahlen.append(12)
+                else:
+                    zahlen.append(month - 1)
+            elif not usepast and zahlen[-1] < day:
+                if month > 11:
+                    zahlen.append(1)
+                else:
+                    zahlen.append(month + 1)
+        if lgh <= 2: 
+            if usepast is None or (usepast and zahlen[-1] <= month) or (not usepast and zahlen[-1] >= month):
+                zahlen.append(year)
+            elif usepast and zahlen[-1] > month:
+                zahlen.append(year - 1)
+            elif not usepast and zahlen[-1] < month:
+                zahlen.append(year + 1)
     # check if year is in future
-    if only_past and int(zahlen[2]) > int(year):
-        zahlen[2] = str(today.year - 100)[:2] + zahlen[2]
+    if usepast and zahlen[2] < 100 and zahlen[2] > year - int(year/100) * 100:
+        zahlen[2] =(int(year/100) - 1) * 100 + zahlen[2]
+        alldigits = True
     # check date values
-    monat = int(zahlen[1])
-    if monat < 1: zahlen[1] = '1'   
-    if monat > 12: zahlen[1] = '12'   
-    tag = int(zahlen[0])
-    if tag < 1: zahlen[0] = '1'   
+    monat = zahlen[1]
+    if monat < 1: zahlen[1] = 1   
+    if monat > 12: zahlen[1] = 12   
+    tag = zahlen[0]
+    if tag < 1: zahlen[0] = 1   
     if tag > 28: 
         if monat == 2:
-            jahr = int(zahlen[2])
-            if jahr%4 == 0: zahlen[0] = '29'
-            else: zahlen[0] = '28'
+            jahr = zahlen[2]
+            if jahr%4 == 0: zahlen[0] = 29
+            else: zahlen[0] = 28
         elif tag > 30:
             if monat%2:
-                if monat > 7:  zahlen[0] = '30'
-                else:  zahlen[0] = '31'
+                if monat > 7:  zahlen[0] = 30
+                else:  zahlen[0] = 31
             else:
-                if monat > 7:  zahlen[0] = '31'
-                else:  zahlen[0] = '30'
-    if len(zahlen[1]) == 1:
-        zahlen[1] = '0' + zahlen[1]
-    string = zahlen[0] + "." + zahlen[1] + "." + zahlen[2]
+                if monat > 7:  zahlen[0] = 31
+                else:  zahlen[0] = 30
+    zahlstr = Afp_ArraytoString(zahlen)
+    if len(zahlstr[1]) == 1:
+        zahlstr[1] = '0' + zahlstr[1]
+    if alldigits or len(zahlstr[2]) < 3:
+        string = zahlstr[0] + "." + zahlstr[1] + "." + zahlstr[2]
+    else:
+        string = zahlstr[0] + "." + zahlstr[1] + "." + zahlstr[2][2:]
     return string
 ## check if string holds a time value, \n
 # return the cleaned time string and the number of days extracted from this string

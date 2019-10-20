@@ -82,7 +82,7 @@ def AfpReq_Version(globals):
     versions = globals.get_modul_infos()
     AfpReq_Info(version, versions, "Versions Information")
 ## select extra programs from directory
-# @param path - direcory where to look
+# @param path - directory where to look
 # @param modulname - name of modul program is designed for
 def AfpReq_extraProgram(path, modulname):
     fname = None
@@ -97,7 +97,7 @@ def AfpReq_extraProgram(path, modulname):
         if modul is None or modul == modulname:
             liste.append(text)
             fnames.append(name)
-    #print "AfpReq_extraProgram:", liste
+    #print "AfpReq_extraProgram:", names, liste, fnames
     if liste:
         fname, ok = AfpReq_Selection("Bitte Zusatzprogramm auswählen, dass gestartet werden soll.".decode("UTF-8"), "", liste, "Zusatzprogramme", fnames)
     else:

@@ -39,12 +39,15 @@ def AfpFinance_getSqlTables(flavour = None):
   `GktName` char(20) DEFAULT NULL,
   `Beleg` char(10) NOT NULL,
   `Betrag` float(6,2) NOT NULL,
-  `KundenNr` mediumint(8) unsigned zerofill NOT NULL,
+  `KundenNr` mediumint(8) unsigned zerofill DEFAULT NULL,
   `Bem` tinytext NOT NULL,
   `Art` char(10) NOT NULL,
-  `Von` tinytext NOT NULL,
+  `BelegDatum` date DEFAULT NULL,
+  `Tab` varchar(10) DEFAULT NULL,
+  `TabNr` mediumint(9) DEFAULT NULL,
   `VorgangsNr` mediumint(8) unsigned zerofill DEFAULT NULL,
   `Reference` char(20) DEFAULT NULL,
+  `Period` char(12) DEFAULT NULL,
   `Eintrag` date NOT NULL,
   `Expo` date DEFAULT NULL,
   PRIMARY KEY (`BuchungsNr`),
@@ -53,44 +56,10 @@ def AfpFinance_getSqlTables(flavour = None):
   KEY `Konto` (`Konto`),
   KEY `Gegenkonto` (`Gegenkonto`),
   KEY `KundenNr` (`KundenNr`),
-  KEY `Von` (`Von`),
   KEY `VorgangsNr` (`VorgangsNr`),
-  KEY `Eintrag` (`Eintrag`)
-) ENGINE=InnoDB AUTO_INCREMENT=0 DEFAULT CHARSET=latin1;"""
-
-
-CREATE TABLE `BUCHUNG` (
-  `BuchungsNr` mediumint(8) unsigned zerofill NOT NULL AUTO_INCREMENT,
-  `Datum` date NOT NULL,
-  `Konto` mediumint(8) unsigned zerofill NOT NULL,
-  `Gegenkonto` mediumint(8) unsigned zerofill NOT NULL,
-  `Beleg` char(10) NOT NULL,
-  `Betrag` float(6,2) NOT NULL,
-  `KtName` char(20) DEFAULT NULL,
-  `GktName` char(20) DEFAULT NULL,
-  `KundenNr` mediumint(8) unsigned zerofill NOT NULL,
-  `KtDat` char(15) DEFAULT NULL,
-  `GktDat` char(15) DEFAULT NULL,
-  `Bem` tinytext NOT NULL,
-  `Art` char(10) NOT NULL,
-  `Von` char(20) NOT NULL,
-  `VorgangsNr` mediumint(8) unsigned zerofill DEFAULT NULL,
-  `Expo` date DEFAULT NULL,
-  `Eintrag` date NOT NULL,
-  PRIMARY KEY (`BuchungsNr`),
-  KEY `BuchungsNr` (`BuchungsNr`),
-  KEY `Datum` (`Datum`),
-  KEY `KtName` (`KtName`),
-  KEY `GktName` (`GktName`),
-  KEY `KundenNr` (`KundenNr`),
-  KEY `KtDat` (`KtDat`),
-  KEY `GktDat` (`GktDat`),
-  KEY `Von` (`Von`),
-  KEY `VorgangsNr` (`VorgangsNr`),
-  KEY `Eintrag` (`Eintrag`)
-) ENGINE=InnoDB AUTO_INCREMENT=54 DEFAULT CHARSET=latin1;
-
-
+  KEY `Eintrag` (`Eintrag`),
+  KEY `Period` (`Period`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;"""
     required["KTNR"] = """CREATE TABLE `KTNR` (
   `KtName` char(5) CHARACTER SET latin1 NOT NULL,
   `KtNr` mediumint(8) unsigned zerofill NOT NULL,
@@ -105,12 +74,12 @@ CREATE TABLE `BUCHUNG` (
         required["KTNR"] += """INSERT INTO `KTNR` VALUES 
     ('BAR',00001600,'Barkasse',0,'Kasse'),
     ('VB',00001803,'Volksbank',0,'Bank'),
-    ('ERL',00004000,'Erlöse',0,'System'),('ERL01',00004001,'Erlöse Januar',0,'Erlös'),('ERL02',00004002,'Erlöse Februar',0,'Erlös'),
-    ('ERL03',00004003,'Erlöse März',0,'Erlös'),('ERL04',00004004,'Erlöse April',0,'Erlös'),('ERL05',00004005,'Erlöse Main',0,'Erlös'),
-    ('ERL06',00004006,'Erlöse Juni',0,'Erlös'),('ERL07',00004007,'Erlöse Juli',0,'Erlös'),('ERL08',00004008,'Erlöse August',0,'Erlös'),
-    ('ERL09',00004009,'Erlöse September',0,'Erlös'),('ERL10',00004010,'Erlöse Oktober',0,'Erlös'),('ERL11',00004011,'Erlöse November',0,'Erlös'),('ERL12',00004012,'Erlöse Dezember,0,'Erlös'),
-    ('EMF',00004151,'Erlös Inland.',0,'System'),('EMFA',00004150,'Erlös Ausland',0,'System'),
-    ('SKTO',00004731,'SkontoAufw',0,'System'),
+    ('ERL',00004000,'Erlöse',0,'Ertrag'),('ERL01',00004001,'Erlöse Januar',0,'Ertrag'),('ERL02',00004002,'Erlöse Februar',0,'Ertrag'),
+    ('ERL03',00004003,'Erlöse März',0,'Ertrag'),('ERL04',00004004,'Erlöse April',0,'Ertrag'),('ERL05',00004005,'Erlöse Main',0,'Ertrag'),
+    ('ERL06',00004006,'Erlöse Juni',0,'Ertrag'),('ERL07',00004007,'Erlöse Juli',0,'Ertrag'),('ERL08',00004008,'Erlöse August',0,'Ertrag'),
+    ('ERL09',00004009,'Erlöse September',0,'Ertrag'),('ERL10',00004010,'Erlöse Oktober',0,'Ertrag'),('ERL11',00004011,'Erlöse November',0,'Ertrag'),('ERL12',00004012,'Erlöse Dezember,0,'Ertrag'),
+    ('EMF',00004151,'Erlös Inland.',0,'Ertrag'),('EMFA',00004150,'Erlös Ausland',0,'Ertrag'),
+    ('SKTO',00004731,'SkontoAufw',0,'Kosten'),
     ('DIV.A',00010001,'Debitor',0,'Debitor'),('DIV.B',00010500,'Debitor',0,'Debitor'),('DIV.C',00011000,'Debitor',0,'Debitor'),
     ('DIV.D',00011500,'Debitor',0,'Debitor'),('DIV.E',00011800,'Debitor',0,'Debitor'),('DIV.F',00012000,'Debitor',0,'Debitor'),
     ('DIV.G',00012400,'Debitor',0,'Debitor'),('DIV.H',00013000,'Debitor',0,'Debitor'),('DIV.I',00013900,'Debitor',0,'Debitor'),
@@ -121,28 +90,55 @@ CREATE TABLE `BUCHUNG` (
     ('DIV.V',00019200,'Debitor',0,'Debitor'),('DIV.W',00019400,'Debitor',0,'Debitor'),('DIV.X',00019500,'Debitor',0,'Debitor'),
     ('DIV.Y',00019500,'Debitor',0,'Debitor'),('DIV.Z',00019500,'Debitor',0,'Debitor'),('DIVER',00019999,'Debitor',0,'System'),
     ('DIVER',00070000,'Kreditor',0,'Kreditor');""".decode("UTF-8")
+    elif flavour == "Verein":
+        required["KTNR"] += """INSERT INTO `KTNR` VALUES 
+    ('BAR',00001600,'Barkasse',0,'Kasse'),
+    ('BLS',00001610,'Bank Girokonto',0,'Bank'),
+    ('ZTF',00001690,'Geldtransit',0,'System'),
+    ('AB',00004200,'Ausgaben laufender Betrieb',0,'Kosten'),
+    ('SKTO',00004201,'Skonto Aufwand',0,'Kosten'),
+    ('VS',00004205,'Versicherungen',0,'Kosten'),
+    ('BG',00004209,'Bankgebühren',0,'Kosten'),
+    ('AB',00004210,'Abgaben, Steuern',0,'Kosten'),
+    ('REP',00004300,'Reparaturen, Unterhalt',0,'Kosten'),
+    ('EN',00004310,'Unterhalt - Energiekosten',0,'Kosten'),
+    ('UM',00004320,'Neu-  und Umbauprojekte',0,'Kosten'),
+    ('BO',00004350,'Boote, Zubehör',0,'Kosten'),
+    ('VA',00004400,'Veranstaltungen',0,'Kosten'),
+    ('SP',00004410,'Sportbetrieb',0,'Kosten'),
+    ('VE',00004810,'Verbände',0,'Kosten'),
+    ('EBT',00008100,'Mitgliedsbeiträge',0,'Ertrag'),
+    ('EBF',00008109,'Mitgliedsbeiträge Folgejahr',0,'Ertrag'),
+    ('ESP',00008200,'Spenden natürliche Person',0,'Ertrag'),
+    ('ESA',00008210,'Spenden anonym',0,'Ertrag'),
+    ('GAU',00008300,'Aufnahmegebühr',0,'Ertrag'),
+    ('GBP',00008410,'Gebühr Bootsliegeplatz',0,'Ertrag'),
+    ('GNA',00008420,'Gebühr nicht geleistete Arbeitsstunden',0,'Ertrag'),
+    ('GA',00008430,'Gebühr Nutzung Sportanalage, Dusche, WC',0,'Ertrag'),
+    ('GE',00008440,'Gebühr Einlagerung',0,'Ertrag'),
+    ('ZU',00008800,'Zuschüsse allgemein',0,'Ertrag'),
+    ('DIVER',00010000,'Debitor',0,'Debitor'),
+    ('DIVER',00070000,'Kreditor',0,'Kreditor');""".decode("UTF-8")
     else:
         required["KTNR"] += """INSERT INTO `KTNR` VALUES 
     ('BAR',00001600,'Barkasse',0,'Kasse'),
     ('BK',00001610,'Bank',0,'Bank'),
-    ('ERL',00008100,'Erlöse',0,'System'),
-    ('SKTO',00004201,'SkontoAufw',0,'System'),
+    ('ZTF',00001690,'Geldtransit',0,'System'),
+    ('AW',00004200,'Aufwände',0,'Kosten'),
+    ('SKTO',00004201,'SkontoAufw',0,'Kosten'),
+    ('ERL',00008100,'Erlöse',0,'Ertrag'),
     ('DIVER',00010000,'Debitor',0,'Debitor'),
     ('DIVER',00070000,'Kreditor',0,'Kreditor');""".decode("UTF-8")
-    # table for bank accunt reference
+    # table for bank account reference
     required["AUSZUG"] = """ CREATE TABLE `AUSZUG` (
   `Auszug` char(11) CHARACTER SET latin1 NOT NULL,
   `BuchDat` date NOT NULL,
   `Datum` date NOT NULL,
-  `AnfSaldo` float(7,2) DEFAULT NULL,
+  `StartSaldo` float(7,2) DEFAULT NULL,
   `EndSaldo` float(7,2) DEFAULT NULL,
-  `Auszug2` char(17) CHARACTER SET latin1 DEFAULT NULL,
-  `Beleg` char(12) CHARACTER SET latin1 DEFAULT NULL,
+  `Period` varchar(12) NOT NULL,
   `KtNr` mediumint(8) unsigned zerofill NOT NULL,
-  `KtDat` char(12) CHARACTER SET latin1 DEFAULT NULL,
-  KEY `Auszug` (`Auszug`),
-  KEY `Auszug2` (`Auszug2`),
-  KEY `KtDat` (`KtDat`)
+  KEY `Auszug` (`Auszug`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_german2_ci;"""
     required["ADRESATT"] = """INSERT INTO `ADRESATT` VALUES 
     (0,NULL,'SEPA Kreditor ID',NULL,NULL,NULL,'Kreditor ID (anzeigen)'),

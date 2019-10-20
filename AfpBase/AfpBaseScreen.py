@@ -7,6 +7,7 @@
 # - AfpScreen - screen base class
 #
 #   History: \n
+#        20 Okt. 2019 - enable grid sort mechnismn - Andreas.Knoblauch@afptech.de \n
 #        31 Jan. 2018 - enable tagged value evaluation for textfields - Andreas.Knoblauch@afptech.de \n
 #        05 Mar. 2015 - move screen base class to separate file - Andreas.Knoblauch@afptech.de \n
 #
@@ -76,6 +77,7 @@ class AfpScreen(wx.Frame):
         # sorting grids
         self.grid_sort_col = {}
         self.grid_sort_desc = {}
+        self.grid_sort_rows = {}
         # dynamic grid handling during resizing
         self.dynamic_grid_name= None
         self.dynamic_grid_col_percents = None
@@ -289,7 +291,7 @@ class AfpScreen(wx.Frame):
     # @param name - name of grid
     # @param index - index of column to be marked
     def mark_grid_column(self, name, index):
-        if name in self.grid_sort_col and self.grid_sort_co[name] == index: return
+        if name in self.grid_sort_col and self.grid_sort_col[name] == index: return
         grid = self.FindWindowByName(name)
         if name in self.grid_sort_col:
             for row in range(grid.GetNumberRows()):            
@@ -300,6 +302,19 @@ class AfpScreen(wx.Frame):
             attr =  wx.grid.GridCellAttr()
             attr.SetBackgroundColour(self.buttoncolor)
             grid.SetAttr(row, index, attr)
+    ## sort grid rows due to one column
+    # @param name - name of grid
+    # @param index - index of column to trigger sort
+    # @param desc - if given , flag if order should be descending
+    def sort_grid_rows(self, name, index, desc=None):
+        rows = self.grid_sort_rows[name]
+        col = Afp_extractColumns(index, rows)
+        for i in range(len(col)):
+            col[i] = Afp_fromString(col[i]) 
+        col, rows = Afp_sortSimultan(col, rows)
+        if desc: rows.reverse()
+        self.grid_sort_rows[name]= rows
+        self.Pop_grid(name)
 
     ## Eventhandler Menu - show version information
     def On_ScreenVersion(self, event):
@@ -343,14 +358,14 @@ class AfpScreen(wx.Frame):
     ## handle grid sort even (pressed on column header)
     def On_GridSort(self, event):
         index = event.GetCol()
-        name = event.GetName()
+        name = event.GetEventObject().GetName()
         desc = None
-        if name in self.grid_sort_col and index == self.grid_sort_co[name]:
-            if name in self.grid_sort_cdesc: desc = not self.grid_sort_desc[name]
+        if name in self.grid_sort_col and index == self.grid_sort_col[name]:
+            if name in self.grid_sort_desc: desc = not self.grid_sort_desc[name]
         self.mark_grid_column(name, index)
         self.grid_sort_col[name] = index
         self.grid_sort_desc[name] = desc
-        self.sort_grid_rows(index, desc)
+        self.sort_grid_rows(name, index, desc)
 
     ## Enventhandler BUTTON - switch modules
     def On_ScreenButton(self,event):
@@ -455,7 +470,10 @@ class AfpScreen(wx.Frame):
     def Pop_grid(self, name = None):
         for typ in self.gridmap:
             if not name or typ == name:
-                rows = self.get_grid_rows(typ)
+                if typ == name and typ in self.grid_sort_rows:
+                    rows = self.grid_sort_rows[typ]
+                else:
+                    rows = self.get_grid_rows(typ)
                 row_lgh = len(rows)
                 grid = self.FindWindowByName(typ)
                 self.grid_resize(typ, grid, row_lgh)
@@ -476,6 +494,7 @@ class AfpScreen(wx.Frame):
                         for col in range(0,max_col_lgh):
                             if self.font: grid.SetCellFont(row, col, self.font)
                             grid.SetCellValue(row, col,"")
+                self.grid_sort_rows[typ]= rows
     ## population routine for special treatment - to be overwritten in derived class
     def Pop_special(self):
         return
@@ -543,7 +562,7 @@ class AfpScreen(wx.Frame):
     # default - empty, to be overwritten if grids are to be displayed on screen
     # @param typ - name of grid to be sorted
     # @param index - index of grid column to master sort
-    def sort_grid_rows(self, typ, index):
+    def sort_grid_data(self, typ, index):
         return   
 # End of class AfpScreen
 

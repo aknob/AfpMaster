@@ -1013,7 +1013,7 @@ class AfpDialog_EvClientEdit(AfpDialog):
         self.button_Neu = wx.Button(panel, -1, label="&Neu", pos=(390,204), size=(100,30), name="Neu")
         self.Bind(wx.EVT_BUTTON, self.On_Anmeld_Neu, self.button_Neu)
         self.button_Storno = wx.Button(panel, -1, label="&Stornierung", pos=(390,256), size=(100,30), name="Storno")
-        self.Bind(wx.EVT_BUTTON, self.On_Anmeld_Storno, self.button_Storno)
+        self.Bind(wx.EVT_BUTTON, self.On_Storno, self.button_Storno)
         self.button_Zahl = wx.Button(panel, -1, label="&Zahlung", pos=(390,292), size=(100,30), name="Zahl")
         self.Bind(wx.EVT_BUTTON, self.On_Zahlung, self.button_Zahl)
 
@@ -1403,8 +1403,8 @@ class AfpDialog_EvClientEdit(AfpDialog):
 
     ##Eventhandler BUTTON - delete client \n
     # @param event - event which initiated this action   
-    def On_Anmeld_Storno(self,event):
-        if self.debug: print "AfpDialog_EvClientEdit Event handler `On_Anmeld_Storno'"
+    def On_Storno(self,event):
+        if self.debug: print "AfpDialog_EvClientEdit Event handler `On_Storno'"
         Ok = AfpLoad_EvClientCancel(self.data)
         event.Skip()
         if Ok: self.EndModal(wx.ID_OK)

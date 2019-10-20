@@ -379,7 +379,7 @@ def Afp_importFileLines(fname):
              lines.append(line)
          fin.close()
     return lines
-  
+
 ## generate and initialize 2 dimensional nxm array 
 # @param n - lentgh of first dimension
 # @param m - lentgh of second dimension

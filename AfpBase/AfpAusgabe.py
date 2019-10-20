@@ -35,8 +35,11 @@
 #                                                    works the same with &lt; (<),  == and != \n
 # {ELSE IF} in line following a line with IF : this line will be added to outout if previous IF evaluates to False and phrase following IF evaluates to 'True' \n
 # {ELSE} in line following a line with  IF or ELSE IF : this line will be added to outout if previous IFs all evaluate to 'False' \n
-#                                           
-
+#
+# {WHILE [AnmeldNr.Anmeld] = AnmeldNr.AnmeldEx}: while condition for following lines - use for direct database access
+# {WHILE  ROWS IN Content AS C}: while condition for following lines - use for loop over rows in a given SelectionList using C as an alias
+#
+# {WHILE END}: end of lines for while condition
 #
 # This file is part of the  'Open Source' project "BusAfp" by 
 #  AfpTechnologies (afptech.de)
@@ -96,6 +99,7 @@ class AfpAusgabe(object):
             self.data = data
             self.serial_data = None
             self.serial_index = None
+        self.datas_variables = None
         self.filecontent = None
         self.debug = debug
         self.tempfile = StringIO.StringIO()
@@ -122,7 +126,20 @@ class AfpAusgabe(object):
         if self.data is None: 
             fin = open(filename, 'r') 
             self.filecontent = fin.readlines()
-    ## set variables diretcly
+    ## set list of variables diretcly, if list of datas is given
+    # @param vars - list of dictionary holding variable values,
+    # - should have same length as datas list
+    def set_datas_variables(self, vars):
+        self.datas_variables = vars
+        for var in vars[0]:
+            self.values[var] = vars[0][var]
+    ## set list of variables diretcly, if list of datas is given
+    def load_next_datas_variables(self):
+        if len(self.datas_variables) > self.serial_index:
+            vars = self.datas_variables[self.serial_index]
+            for var in vars:
+                self.values[var] = vars[var]
+     ## set variables diretcly
     # @param vars - dictionary holding variable values
     def set_variables(self, vars):
         for var in vars:
@@ -169,7 +186,7 @@ class AfpAusgabe(object):
                         if self.serial_tag_start_skips:
                             self.serial_tag_start_skips -= 1
                         else:
-                            # start sampling of serialised text, either with or without thi actuel line
+                            # start sampling of serialised text, either with or without the actuel line
                             if self.serial_tag_include: self.serial_text = [line]
                             else: self.serial_text = []
                 elif self.serial_tag_include and self.serial_tag_end in line: 
@@ -186,6 +203,8 @@ class AfpAusgabe(object):
                 if var in self.values:
                     self.variables[var] = self.values[var]
             self.values = {}
+            if self.datas_variables:
+                self.load_next_datas_variables()
             for line in self.serial_text:
                 self.handle_line(line)
     ## main method handeling a line

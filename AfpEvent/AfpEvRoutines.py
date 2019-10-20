@@ -31,6 +31,7 @@ import AfpBase
 from AfpBase import *
 from AfpBase.AfpDatabase import AfpSQL
 from AfpBase.AfpDatabase.AfpSQL import AfpSQLTableSelection
+from AfpBase.AfpUtilities.AfpBaseUtilities import Afp_sortSimultan
 from AfpBase.AfpBaseRoutines import *
 from AfpBase.AfpBaseAdRoutines import AfpAdresse, AfpAdresse_getListOfTable
 
@@ -65,7 +66,7 @@ def AfpEvent_getZustandList():
 def AfpEvent_getTransactionList():
     return ["Anmeldung"]
     
-## extract all available client entries for given address indenifier
+## extract all available client entries for given address indentifier
 # @param globals - global values to be used
 # @param knr - address identifier to be used
 def AfpEvClient_getAnmeldListOfAdresse(globals, knr):
@@ -82,35 +83,6 @@ def AfpEvClient_getAnmeldListOfAdresse(globals, knr):
             rows.append(row)
     #print "AfpEvClient_getAnmeldListOfAdresse rows:", rows, name
     return rows, name  
-
-## check sums of all attribut values of all clients of a event
-def AfpEvent_checkAttributSums(mysql, attribut, year, target, threshold=0, debug=False):
-    jahr = Afp_toString(year)
-    fromdat = Afp_fromString("1.1." + jahr)
-    todat = Afp_fromString("31.12." + jahr)
-    dum, sums = AfpEvent_getAttributSums(mysql, attribut, fromdat, todat, debug)
-    open = {}
-    for sum in sums:
-        if sums[sum] < target - threshold:
-            open[sum] = sums[sum]
-    return open
-    
-## get sums of all attribut values of all clients of a event
-def AfpEvent_getAttributSums(mysql, attribut, fromdat=None, todat=None, debug=False):
-    attributes = AfpSQLTableSelection(mysql, "ANMELDATT", debug)
-    select = "Attribut = \"" + attribut + "\""
-    if fromdat:
-        select += " AND Datum >= \"" + Afp_toInternDateString(fromdat) + "\""
-    if todat:
-        select += " AND Datum <= \"" + Afp_toInternDateString(todat) + "\""
-    #print "AfpEvent_getAttributSums:", select
-    attributes.load_data(select)
-    rows = attributes.get_values("AnmeldNr,Datum,Menge")
-    sums = {}
-    for row in rows:
-        if row[0] in sums: sums[row[0]] += row[2]
-        else: sums[row[0]] = row[2]
-    return rows, sums
 
 ## read all route names from table
 # @param mysql - sql object to access datatable
@@ -174,7 +146,7 @@ class AfpEvent(AfpSelectionList):
     # @param EventNr - if given and sb == None, data will be retrieved this database entry
     # @param sb - if given data will  be retrieved from the actuel AfpSuperbase data
     # @param debug - flag for debug information
-    # @param complete - flag if data from all tables should be retrieved durin initialisation \n
+    # @param complete - flag if data from all tables should be retrieved during initialisation \n
     # \n
     # either EventNr or sb (superbase) has to be given for initialisation, otherwise a new, clean object is created
     def  __init__(self, globals, EventNr = None, sb = None, debug = None, complete = False):
@@ -318,15 +290,30 @@ class AfpEvent(AfpSelectionList):
             if ENr and not sel.get_values("EventNr", i)[0][0]: # if EventNr is not yet set
                 sel.set_value("EventNr", ENr, i)
     ## get all clients
-    def get_clients(self):
+    # @param check_preis - flag if only paying clients should be collected, default: True
+    # @param is_cancel - flag which clients should be collected, default: False
+    # - None: all clients are collected
+    # - True: cancelled clients are collected
+    # - False: active clienst are collected
+    def get_clients(self, check_preis = True, is_cancel = False, sorttyp = None):
         clients = []
         rows = self.get_value_rows("ANMELD","AnmeldNr")
         for row in rows:
             client = self.get_client(row[0])
-            clients.append(client)
+            #print "AfpEvent.get_clients:", client.get_name(), client.is_cancelled(), is_cancel, client.get_value("Zustand") 
+            if (not check_preis or client.get_value("Preis")) and (is_cancel is None or is_cancel == client.is_cancelled()): 
+                #print "AfpEvent.get_clients:", client.get_name(), client.is_cancelled(), is_cancel, client.get_value("Zustand"), client.get_value("Preis") 
+                clients.append(client)
+            if sorttyp:
+                sortlist = []
+                for client in clients:
+                    if sorttyp == "Namen":
+                        sortlist.append(client.get_name(True))
+                    else:
+                        sortlist.append(client.get_value(sorttyp))
+                sortlist, clients = Afp_sortSimultan(sortlist, clients)
         return clients
             
-
     ## return specific identification string to be used in dialogs \n
     # - overwritten from AfpSelectionList
     def get_identification_string(self):
@@ -347,7 +334,7 @@ class AfpEvClient(AfpSelectionList):
     # @param AnmeldNr - if given and sb == None, data will be retrieved this database entry
     # @param sb - if given data will  be retrieved from the actuel AfpSuperbase data
     # @param debug - flag for debug information
-    # @param complete - flag if data from all tables should be retrieved durin initialisation \n
+    # @param complete - flag if data from all tables should be retrieved during initialisation \n
     # \n
     # either AnmeldNr or sb (superbase) has to be given for initialisation,otherwise a new, clean object is created
     def  __init__(self, globals, AnmeldNr = None, sb = None, debug = None, complete = False):
@@ -560,16 +547,20 @@ class AfpEvClient(AfpSelectionList):
             #RechNr will be set automatically after storing and has not to be returned here 
         return RechNr
     ## extract attribut values
-    # @param attribut - atrtribut to be extracted
-    # @param start - if given startdate fpor attribut extraction
-    # @param end  - if given enddate fpor attribut extraction
+    # @param attribut - attribut to be extracted
+    # @param start - if given startdate for attribut extraction
+    # @param end  - if given enddate for attribut extraction
     def get_attribut_values(self, attribut, start=None, end=None):
         rows = self.get_selection("ANMELDATT").get_values()
         values = []
+        indices = []
+        #print "AfpEvClient.get_attribut_values rows:", rows
         for row in rows:
-            if row[1] == attribut and (start in None or row[2] >= start)  and (end in None or row[2] <= end) :
+            #print "AfpEvClient.get_attribut_values row:", row, attribut, start, end
+            if row[1] == attribut and (start is None or row[2] >= start)  and (end is None or row[2] <= end) :
                 values.append([row[2],row[3], row[4]])
-        return values
+                indices.append(rows.index(row))
+        return values, indices
     ## count tour entry up or down
     # @param plus - number to be added to event, default: 1
     def add_to_event(self, plus = 1):
@@ -692,7 +683,7 @@ class AfpEvRoute(AfpSelectionList):
     # @param RouteNr - if given and sb == None, data will be retrieved this database entry
     # @param sb - if given data will  be retrieved from the actuel AfpSuperbase data
     # @param debug - flag for debug information
-    # @param complete - flag if data from all tables should be retrieved durin initialisation \n
+    # @param complete - flag if data from all tables should be retrieved during initialisation \n
     # \n
     # either RouteNr or sb (superbase) has to be given for initialisation, otherwise a new, clean object is created
     def  __init__(self, globals, RouteNr = None, sb = None, debug = None, complete = False):

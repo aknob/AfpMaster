@@ -31,7 +31,21 @@
 import AfpBase
 from AfpBase.AfpBaseRoutines import *
 
-
+## get name from address with given identifier, when only sql connetion is given
+# @param mysql - mysql connection to database
+# @param KNr - KundenNr, identifier of address
+# @param rev - rerverse flag, if true, lastname, firstname is retuned
+def AfpFinance_getNameFromKNr(mysql, KNr, rev=False):
+    rows = mysql.select("Vorname,Name", "KundenNr = " + Afp_toString(KNr), "ADRESSE")
+    if rows and len(rows[0]) > 1:
+        row = rows[0]
+        if rev:
+            return row[1] + " " + row[0]
+        else:
+            return row[0] + " " + row[1]
+    else:
+        return "Kein Adresseintrag für KundenNr ".decode("UTF-8") + Afp_toString(KNr)
+    
 ##class for payment in afp-modules
 class AfpZahlung(object):
     ## initialize payment class, \n
@@ -77,7 +91,8 @@ class AfpZahlung(object):
         if not self.globals.skip_accounting():
             self.finance_modul = Afp_importAfpModul("Finance", self.globals)[0]
             if self.finance_modul:
-                self.finance = self.finance_modul.AfpFinanceTransactions(self.globals)
+                #self.finance = self.finance_modul.AfpFinanceTransactions(self.globals)
+                self.finance = self.finance_modul.AfpFinance(self.globals)
         #print "AfpZahlung.finance:", self.finance
         if self.debug: print "AfpZahlung Konstruktor:", multi
     ## destructor
@@ -197,6 +212,7 @@ class AfpZahlung(object):
                 self.append_payment_data(sellist)
                 self.distribution = None
                 added = True
+        print "AfpZahlung.add_selection:", tablename, nr, sellist, added
         return added
     ## invoke financial transaction for a payment. if desired
     # @param payment - amount of payment to be recorded
@@ -275,7 +291,8 @@ class AfpZahlung(object):
         if anz < 0: return Afp_toString(- anz)
         return ""
     ## return list to be displayed for the selections of this payment
-    def get_display_list(self):
+    def get_display_list(self): 
+        print "AfpZahlung.get_display_list:", self.selected_list
         liste = []
         for entry in self.selected_list:
             liste.append(entry.get_listname()[:2] + ": " + entry.line())
@@ -344,7 +361,7 @@ class AfpRechnung(AfpSelectionList):
     # @param globals - global values including the mysql connection - this input is mandatory
     # @param RechNr - if given, data will be retrieved this database entry
     # @param debug - flag for debug information
-    # @param complete - flag if data from all tables should be retrieved durin initialisation \n
+    # @param complete - flag if data from all tables should be retrieved during initialisation \n
     # RechNr has to be supplied,  otherwise a new, clean object is created
     def  __init__(self, globals, RechNr = None, debug = False, complete = False):
         AfpSelectionList.__init__(self, globals, "Rechnung", debug)

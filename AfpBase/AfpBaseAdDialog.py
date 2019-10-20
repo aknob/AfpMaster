@@ -173,7 +173,7 @@ def AfpAdresse_selectAttributRow(Adresse, direct=True):
         AttText = row[index[1]]      
         Tag =  row[index[2]] 
         Aktion =  row[index[3]] 
-        ok, AttText, Tag = AfpAdresse_spezialAttribut(name, attribut, AttText, Tag, Aktion, True)
+        ok, AttText, Tag = AfpAdresse_spezialAttribut(name, attribut, AttText, Tag, Aktion, None)
         #print "AfpAdresse_selectAttributRow Tag:", ok, AttText, Tag
         if ok:  
             row[index[1]] = AttText
@@ -193,8 +193,8 @@ def AfpAdresse_selectAttributRow(Adresse, direct=True):
 # @param text - additional text string for this attribut
 # @param tag - individual data string holding all values for this special attribut
 # @param action - individual string holding names of values for this special attribut
-# @param no_delete - flag if 'delete' button should be hidden
-def AfpAdresse_spezialAttribut(name, attribut, text, tag, action, no_delete = False):
+# @param delete_button - flag if 'delete' button should be hidden; None - Hide, "" - Show , Text - Label
+def AfpAdresse_spezialAttribut(name, attribut, text, tag, action, delete_button = None):
     Ok = None
     taglist= None
     liste = []
@@ -227,8 +227,8 @@ def AfpAdresse_spezialAttribut(name, attribut, text, tag, action, no_delete = Fa
     if not text: text = ""
     if ind_text < 0: liste = [["(optional) Merkmaltext:", text]] + liste
     else: liste = [[taglist[ind_text] + ":", text]] + liste
-    #print "AfpAdresse_spezialAttribut MultiLine:", name, attribut, liste
-    result = AfpReq_MultiLine("Für '".decode("UTF-8") + name + "' werden die folgenden " + attribut +"-Daten benötigt:".decode("UTF-8"), "", "Text", liste, attribut, 400 , no_delete)
+    #print "AfpAdresse_spezialAttribut MultiLine:", name, attribut, liste, no_delete
+    result = AfpReq_MultiLine("Für '".decode("UTF-8") + name + "' werden die folgenden " + attribut +"-Daten benötigt:".decode("UTF-8"), "", "Text", liste, attribut, 400 , delete_button)
     if not result is None:
         if type(result) == list: Ok = True
         else: Ok = False

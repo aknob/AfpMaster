@@ -386,9 +386,8 @@ class AfpSQLTableSelection(object):
     # @param unique_feldname - name of identifying column, if primary key exsists, otherwise None
     # @param feldnamen - names of columns, if not given they will be retrieved from database
     def  __init__(self, mysql, tablename, debug = False, unique_feldname = None, feldnamen = None):
-        #self.dbg = True # hardcode switch for storage logging
         self.dbg = False # hardcode switch for storage logging
-        #if tablename == "ARCHIV": debug = True
+        if tablename == "BUCHUNG": debug = True
         if debug: 
             print "AfpSQLTableSelection Konstruktor dbg On", tablename
             self.dbg = True # hardcoded switch for storage logging, for debug purpose during programming
@@ -734,6 +733,9 @@ class AfpSQLTableSelection(object):
     ## return length of data list
     def get_data_length(self):
         return len(self.data)
+    ## convinient methog for export
+    def get_listname(self):
+        return self.get_tablename()
     ## return name of responsible table
     def get_tablename(self):
         return self.tablename
@@ -836,7 +838,7 @@ class AfpSQLTableSelection(object):
     # @param changed_data - dictionary holding appropriate value in entry [column name]
     # @param row -  index of row where values have to be inserted 
     def set_data_values(self, changed_data, row = 0):
-        #print "AfpSQLTableSelection.set_data_value:", changed_data
+        if self.dbg: print "AfpSQLTableSelection.set_data_value:", changed_data
         for data in changed_data:
             self.set_value(data, changed_data[data], row)
     ## add a row with data values from given dictionary
@@ -853,9 +855,9 @@ class AfpSQLTableSelection(object):
             if mani[0] == "replace" and mani[1] == row:
                 mani[3][feldname] = value
                 break
-        else:
-            original = self.get_values(feldname, row)
-            self.manipulation.append(["replace", row, {feldname: original[0][0]}, {feldname: value}])
+            else:
+                original = self.get_values(feldname, row) 
+                self.manipulation.append(["replace", row, {feldname: original[0][0]}, {feldname: value}])
     ## set a lock on database table according to actuel select clause
     def lock_data(self):
         self.mysql.lock(self.tablename,  self.select)

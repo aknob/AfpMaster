@@ -8,6 +8,7 @@
 # - AfpSelectionList
 #
 #   History: \n
+#        22 Aug 2019 - Enhence export and add import- Andreas.Knoblauch@afptech.de \n 
 #        31 Jan. 2018 - AfpSelectionList: allow tagged value evaluation - Andreas.Knoblauch@afptech.de \n
 #        28 Mar. 2016 - AfpSelectionList: add afterburner to be used in second save step - Andreas.Knoblauch@afptech.de \n
 #        04 Feb. 2015 - add data export to dbf - Andreas.Knoblauch@afptech.de \n
@@ -83,7 +84,7 @@ def Afp_ModulNames(globals = None, flavour = None):
     #print "Afp_ModulNames input:", mods, flavour
     modules = []
     # check if appropriate python files exists, if global variables are given
-    if globals and not globals.is_strict()and mods:
+    if globals and not globals.is_strict() and mods:
         modi = []
         path = globals.get_programpath()
         deli = globals.get_value("path-delimiter") 
@@ -513,7 +514,23 @@ def Afp_getPyModTables(globals, required, modul, flavour):
             required = Afp_addDict(required, local)
     return required
 
-##   retrieve a list of database entries with same "KundenNr" from table
+##  retrieve a list of database entries with same field values from table
+# @param mysql - database where values are retrieved from
+# @param table  - name of database table where values are retrieved from
+# @param field   - name of field for which data with a giben value is to be retrieved
+# @param value  - value of field for which data is to be retrieved
+# @param debug  - flag for debug messages
+# @param felder  - names of tablecolumns from which values are catched
+# @param filter  - additional filter to be used
+def Afp_selectSameValue(mysql, table, field, value, debug = False, felder = None, filter = None):
+    selection = AfpSQLTableSelection(mysql, table, debug, False)
+    if filter:
+        filter =  " AND " + filter
+    else:
+        filter = ""
+    selection.load_data(field + " = " + Afp_toString(value) + filter)
+    return selection.get_values(felder)
+##  retrieve a list of database entries with same "KundenNr" from table
 # @param mysql - database where values are retrieved from
 # @param table  - name of database table where values are retrieved from
 # @param KNr      - value of "KundenNr" for values to be retrieved
@@ -522,17 +539,14 @@ def Afp_getPyModTables(globals, required, modul, flavour):
 # @param filter_feld  - name tablecolumn where additional filter is used
 # @param wanted_values  - values which are accepted in the tablecolumn 'filter_feld'
 def Afp_selectSameKundenNr(mysql, table, KNr, debug = False, felder = None, filter_feld = None, wanted_values = None):
-    selection = AfpSQLTableSelection(mysql, table, debug, False)
-    selection.load_data("KundenNr = " + Afp_toString(KNr))
     if filter_feld and wanted_values:
-        values = selection.get_values(filter_feld)
-        lgh = len(values)
-        for i in range(lgh-1,-1,-1):
-            delete = True
-            for want in wanted_values:
-                 if  values[i][0] == want: delete = False
-            if delete: selection.delete_row(i)
-    return selection.get_values(felder)
+        filter = ""
+        for want in wanted_values:
+            filter += " AND " + filter_feld + " = " + Afp_toString(want)
+        filter = filter[5:]
+    else:
+        filter = None
+    return  Afp_selectSameValue(mysql, table, "KundenNr", KNr, debug, felder, filter)
 ##  get special account from 'KtNr' table
 #     return the accountnumber
 # @param mysql - database where values are retrieved from
@@ -1383,6 +1397,205 @@ class AfpExternNr(AfpSQLTableSelection):
             ExtNr = self.prefix + self.separator + Afp_toString(Nr)
         return ExtNr
           
+##  class to import files into Afp-objects
+class AfpImport(object):
+    ## initialize AfpImport class
+    # @param globals - global values including the mysql connection - this input is mandatory
+    # @param filename - name of file to be imported, \n
+    #  at the moment the following formats are supported \n
+    #  - .xml - XML file according to namespace http://www.afptech.de/XML/AfpDocument \n
+    # @param debug - flag for debug information
+    def  __init__(self, globals, filename, debug = False):
+        self.globals = globals
+        self.filename = filename
+        self.debug = debug
+        self.value_tags =  ["AfpValue"]
+        self.value_end_tags =  ["/AfpValue"]
+        self.valid_tags =  ["AfpDocument"]
+        self.valid_end_tags =  ["/AfpDocument"]
+        self.tag_interpreter = None
+        self.tag_parameter = None
+        self.import_available = False
+        split = filename.split(".")
+        self.type = split[-1].lower()
+        if self.type == "xml":
+            self.import_available = True
+        if self.debug: print "AfpImport Konstruktor",filename
+        if not self.import_available:
+            print "WARNING Import-modul for file of type \"." +self.type + "\" not available!"
+    ## destructor
+    def __del__(self):   
+        if self.debug: print "AfpImport Destruktor"  
+        
+    ## set tags and routine to customise import
+    # @param valid_tags - list of tags to enclose valid parts
+    # @param value_tags - list of tags to directly enclose values
+    # @param interpreter - if given, name of routine to interprete tags
+    # @param parameter - if given, additional parameterstring for interpreter routine
+    def customise(self, valid_tags, value_tags, interpreter = None, parameter = None):
+        if self.debug: print "AfpImport.customise:", valid_tags, value_tags, interpreter, parameter
+        if valid_tags:
+            self.valid_tags = valid_tags
+            self.valid_end_tags = []
+            for tag in valid_tags:
+                self.valid_end_tags.append("/"+tag)
+        if value_tags:
+            self.value_tags = value_tags
+            self.value_end_tags = []
+            for tag in value_tags:
+                self.value_end_tags.append("/"+tag)
+        if interpreter:
+            split = interpreter.split(".")
+            routine = split.pop()
+            modulname =".".join(split)
+            modulpath = self.globals.get_value("path-delimiter").join(split) + ".py"  
+            self.modul = AfpPy_Import(modulname, modulpath)
+            self.tag_interpreter = routine
+            self.tag_parameter = parameter
+            
+    ## create object from given type
+    # @param type - modul of object (taken from python class definition)
+    def create_object(self, type):
+        data = None
+        split = type.split(".")
+        objname = split.pop()
+        modulname =".".join(split)
+        modulpath = self.globals.get_value("path-delimiter").join(split) + ".py"  
+        self.modul = AfpPy_Import(modulname, modulpath)
+        #print "AfpImport.create_object:", modulname, self.modul
+        if self.modul:
+            befehl = "data = self.modul." + objname + "(self.globals)"
+            exec befehl
+        return data
+    ## extract xml tags from file
+    def extract_xml_tags(self):
+        tags = None
+        fdata = Afp_importFileLines(self.filename)
+        if fdata:
+            tags = []
+            is_valid = False
+            for line in fdata:
+                inval, outval= Afp_between(line, "<",">") 
+                #print "Afp_extractXMLTags:", line, inval, outval
+                if len(outval) > len(inval):
+                    outval.pop(0) # first value outside brackets is not relevant
+                for i in range(len(inval)):
+                    typ = None
+                    if not is_valid:
+                        for entry in self.valid_tags:
+                            if entry == inval[i].split(" ")[0]: is_valid = True
+                    if is_valid:
+                        for entry in self.valid_end_tags:
+                            if entry == inval[i]: is_valid = False
+                        if inval[i] in self.value_end_tags:
+                            typ, attrib = self.get_xml_attribs(inval[i-1])
+                            name = None
+                            if attrib and "name" in attrib: name = attrib["name"]
+                            value = outval[i-1]
+                        else:
+                            active = True
+                            for entry in self.value_tags:
+                                if entry == inval[i].split(" ")[0]: active = False
+                            if active: 
+                                typ, attrib = self.get_xml_attribs(inval[i])
+                                name = None
+                                if attrib and "name" in attrib: name = attrib["name"]
+                                value = None
+                        if typ:
+                            tags.append([typ, name, value, attrib])
+        return tags        
+    ## extract xml attributes from tag
+    # @param tag - tag to be analysed
+    def get_xml_attribs(self, tag):
+        #print "AfpImport.get_xml_attribs:", tag
+        split = tag.split()
+        typ = split.pop(0)
+        attribs = None
+        if len(split) > 0:
+            attribs = {}
+            for att in split:
+                sp = att.split("=")
+                if len(sp) > 1:
+                    attribs[sp[0]] = Afp_fromString(sp[1][1:-1])
+        return typ, attribs
+
+    ## default execution routine to interprete Afp-xml files
+    # @param tage - list of tags read from file to be used for object geneation
+    def interprete_xml_tags(self, tags):
+        datalist = []        
+        is_doc = False
+        data = None
+        sel = None
+        sel_index = None
+        for tag in tags:
+            #print "AfpImport.read_from_xml_file tag:", tag
+            typ = tag[0]
+            if is_doc:
+                if data:
+                    if sel:
+                        if typ == "AfpTableRow":
+                            atts = tag[3]
+                            if atts and "count" in atts:
+                                sel_index = atts["count"]
+                            else: 
+                                sel_index = sel.get_data_length()
+                        elif typ == "AfpValue":
+                            if tag[1] and tag[2] and not sel_index is None:
+                                sel.set_value(tag[1], tag[2], sel_index)
+                                #print "AfpImport.read_from_xml_file set_value:", tag[1], tag[2], sel_index,"\n", sel.data
+                        elif typ == "/AfpTableRow":
+                            sel_index = None
+                        elif typ == "/AfpSelection":
+                            sel = None
+                    elif  typ == "AfpSelection":
+                        sel = data.get_selection(tag[1])
+                        #print "AfpImport.read_from_xml_file get_selection:", tag[1],"\n", sel.data
+                    elif  typ == "/AfpSelectionList":
+                        datalist.append(data)
+                        data = None
+                elif typ == "AfpSelectionList":
+                    atts = tag[3]
+                    if atts and "type" in atts:
+                        data = self.create_object(atts["type"])
+                elif typ == "/AfpDocument":
+                    is_doc = False
+            else:
+                if typ == "AfpDocument":
+                    is_doc = True
+        return datalist
+        
+    ## get file header
+    # @param nlines - number of lines to be read
+    def get_file_header(self, nlines = 3):
+        lines = []
+        fin  = open(self.filename, 'r')
+        for i, line in enumerate(fin):
+            lines.append(line)
+            if i >= nlines-1: break
+        fin.close()
+        return lines
+        
+    ## read Afp-xml file
+    def read_from_xml_file(self):
+        tags = self.extract_xml_tags()
+        #if self.debug: print "AfpImport.read_from_xml_file:", tags
+        if self.modul and self.tag_interpreter:
+            befehl = "datalist = self.modul." + self.tag_interpreter + "(self.globals, tags)"
+            if self.tag_parameter: befehl = befehl[:-1] + ", " + self.tag_parameter + ")"
+            if self.debug: print "AfpImport.read_from_xml_file Befehl:", befehl
+            exec befehl
+        else:
+            if self.debug: print "AfpImport.read_from_xml_file type: AfpDocument"
+            datalist = self.interprete_xml_tags(tags)
+        return datalist
+            
+    ## read file
+    def read_from_file(self):
+        res = None
+        if self.type == "xml":
+            res = self.read_from_xml_file()
+        return res
+        
 ##  class to export Afp-database entries to other formats 
 class AfpExport(object):
     ## initialize AfpExport class
@@ -1392,6 +1605,7 @@ class AfpExport(object):
     #  at the moment the following formats are supported \n
     #  - .asc - ASCII file, static length \n
     #  - .csv - ASCII file, comma separated values \n
+    #  - .xml - XML file according to namespace http://www.afptech.de/XML/AfpDocument \n
     #  - .dbf - DBF database file \n
     # @param debug - flag for debug information
     def  __init__(self, globals, data, filename, debug = False):
@@ -1400,13 +1614,14 @@ class AfpExport(object):
         self.data = data
         self.filename = filename
         self.fieldlist = None
+        self.xml_embedded_data = None
         self.information = None
         self.export_available = False
         self.module = None
         self.debug = debug
         split = filename.split(".")
         self.type = split[-1].lower()
-        if self.type == "asc" or self.type == "csv":
+        if self.type == "asc" or self.type == "csv" or self.type == "xml":
             self.export_available = True
         elif self.type == "dbf":
             if AfpPy_checkModule('dbfpy'):
@@ -1419,6 +1634,12 @@ class AfpExport(object):
     ## destructor
     def __del__(self):   
         if self.debug: print "AfpExport Destruktor" 
+    ## add embedded data to
+    # @param propname - name of self.data property holding the data to be embbeded into output
+    def add_embedded_data(self, propname):
+        self.xml_embedded_propname = propname
+        befehl = "self.xml_embedded_data = self.data." + propname
+        exec befehl
     ## append data to each accounting row
     # @param liste - dicionary of names of appendend columns, holding the fieldnames of addressdata to be appended (["Name,Vorname","Strasse"]) 
     # @param table - name of table where additional data should be extracted from (default: "ADRESSE")
@@ -1453,6 +1674,18 @@ class AfpExport(object):
                     else:
                         select.data[i][indices[j]] = data
             self.data = select
+    ## fill all fields availabe in data into fieldlist
+    # @param data - datat where fieldnames are read from
+    def complete_fieldlist(self, data):
+        fieldlist = []
+        if type(data) == "AfpSQLTableSelection":
+            fieldlist = data.get_feldnamen()
+        else:
+            for sel in data.selections:
+                select = data.selections[sel]
+                for feld in select.get_feldnamen():
+                    fieldlist.append(feld + "." + sel)
+        return fieldlist
     ## writes data to fixed lenght ascii file
     # @param data - array with names of values read from data 
     # @param fixed - length of each fields, if not given the following parameters are used
@@ -1476,7 +1709,7 @@ class AfpExport(object):
                 string = paranthesis + string + paranthesis
             string += separator
         return string
-   ## writes data to fixed lenght ascii file
+    ## writes data to fixed lenght ascii file or to comma separated  file
     # @param fieldlist - array with names of values read from data 
     # @param info - linfo for ascii output, as follows
     # - .asc - length of each fields (default: 50)
@@ -1513,19 +1746,86 @@ class AfpExport(object):
                 #print "exportline:",line
                 fout.write(line + '\n')
             fout.close()
+    ## writes field data to xml file
+    # @param fields - array with names of values 
+    # @param values - array with values 
+    # @param preind - global prefix of spaces    
+    # @param indent - prefix of spaces for inner loops
+    # @param fout - filehandler for output file
+    # @param count - number of row
+    def write_xml_fields(self, fields, values, preind, indent, fout, count = -1): 
+        if count >= 0:
+            fout.write(preind + "<AfpTableRow count=\""+ Afp_toString(count) + "\"> \n")
+        else:
+            fout.write(preind + "<AfpTableRow> \n")
+        if len(values) < len(fields): 
+            lgh = len(values)
+        else:
+            lgh = len(fields)
+        for i in range(lgh):
+            fout.write(preind + indent + "<AfpValue name=\"" + fields[i] + "\">" + Afp_toString(values[i]).encode("UTF-8") + "</AfpValue> \n")
+        fout.write(preind + "</AfpTableRow> \n")
+    ## writes field data to xml file
+    # @param selection - given table selection
+    # @param selname - name of table selection
+    # @param preind - global prefix of spaces    
+    # @param indent - prefix of spaces for inner loops    
+    # @param fout - filehandler for output file
+    # @param fieldlist - array with names of values
+    def write_xml_selection(self, selection, selname, preind, indent, fout): 
+        fout.write(preind + "<AfpSelection name=\"" + selname +"\"> \n") 
+        daten = selection.get_values(None)
+        count = 0
+        for values in daten:
+            self.write_xml_fields(selection.get_feldnamen(), values, preind + indent, indent, fout, count)
+            count += 1
+        fout.write(preind + "</AfpSelection> \n")
+    ## writes field data to xml file
+    # @param data - data where values are read from
+    # @param preind - global prefix of spaces
+    # @param indent - prefix of spaces for inner loops
+    # @param fout - filehandler for output file
+    # @param complete -flag if closing 'AfpSelectionList' tag should be written also
+    def write_xml_selection_list(self, data, preind, indent, fout, complete=True):
+            fout.write(preind + "<AfpSelectionList name=\"" + self.data.get_listname() + "\" type=\"" + str(type(self.data))[8:-2] + "\"> \n")
+            for sel in data.selections:
+                self.write_xml_selection(data.selections[sel], sel, preind + indent, indent, fout)
+            if complete: fout.write(preind + "</AfpSelectionList> \n")
+    ## writes data to xml  file
+    # @param fieldlist - array with names of values read from data 
+    # @param ilgh - info for xml output, length of indent
+    def write_to_xml_file(self, fieldlist, ilgh=4):
+        indent = ilgh*" "
+        if self.type == "xml":
+            fout = open(self.filename, 'w')
+            fout.write("<?xml version=\"1.0\" encoding=\"UTF-8\" ?>" + "\n")
+            fout.write("<AfpDocument xmlns=\"http://www.afptech.de/XML/AfpDocument\">" + "\n")
+            self.write_xml_selection_list(self.data, indent, indent, fout, not self.xml_embedded_data)
+            if self.xml_embedded_data:
+                fout.write(2*indent + "<AfpEmbeddedList property=\"" + self.xml_embedded_propname + "\"> \n")
+                for data in self.xml_embedded_data:
+                    self.write_xml_selection_list(data, 3*indent, indent, fout)
+                fout.write(2*indent + "</AfpEmbeddedList> \n")
+                fout.write(indent + "</AfpSelectionList> \n")
+            fout.write("</AfpDocument> \n")
+            fout.close()
     ## writes data to different fileformats
     # @param fieldlist - is used as follows: \n
-    # - .asc,csv - array with names of values read from data \n
+    # - .asc,csv,xml - array with names of values read from data \n
     # - .dbf - dictionary how data is mapped into output file (output[entry] = value(parameter[entry])), \n 
+    # - == None - complete availabel data will be exported
     # @param info - if given, is used as follows:
     # - .asc - length of each fields (default: 50)
     # - .csv - field delimiter, text bracket, separated by spaces (default: delimiter - ",", no brackets)
+    # - .xml - number of spaces used for Indent
     # - .dbf - template file which is used to create output, 
     #            if type is list, description for generation of dbf-file fields: [name, typ, parameter]
     def write_to_file(self, fieldlist, info):
         if self.debug: print "AfpExport.write_to_file:",fieldlist, info
         if self.type == "asc" or self.type == "csv" :
             self.write_to_ascii_file(fieldlist, info)
+        elif self.type == "xml":
+            self.write_to_xml_file(fieldlist, info)
         elif self.type == "dbf":
             if self.module:
                 self.module.Afp_writeToDBFFile(self.data, self.filename, info, fieldlist, self.debug)
@@ -1680,5 +1980,35 @@ def AfpBase_getSqlTables(flavours = None):
   `TypPre` tinytext NOT NULL,
   KEY `TypPre` (`Typ`,`Pre`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_german2_ci;"""
+    required["RECHNG"] = """CREATE TABLE `RECHNG` (
+  `RechNr` mediumint(8) unsigned zerofill NOT NULL AUTO_INCREMENT,
+  `KundenNr` mediumint(8) unsigned zerofill NOT NULL,
+  `AttNr` smallint(5) unsigned zerofill DEFAULT NULL,
+  `Datum` date NOT NULL,
+  `Bem` text,
+  `Pos` smallint(6) DEFAULT NULL,
+  `Ust` char(1) DEFAULT NULL,
+  `Netto` float(7,2) NOT NULL,
+  `Betrag` float(7,2) NOT NULL,
+  `Skonto` float(7,2) DEFAULT NULL,
+  `ZahlBetrag` float(7,2) DEFAULT NULL,
+  `ZahlZiel` date DEFAULT NULL,
+  `Zahlung` float(7,2) DEFAULT NULL,
+  `ZahlDat` date DEFAULT NULL,
+  `Kontierung` mediumint(8) unsigned zerofill NOT NULL,
+  `Debitor` mediumint(8) unsigned zerofill NOT NULL,
+  `Betrag2` float(7,2) DEFAULT NULL,
+  `Konto2` mediumint(8) unsigned zerofill DEFAULT NULL,
+  `Zustand` char(7) NOT NULL,
+  `Gewinn` float(7,2) DEFAULT NULL,
+  `Typ` char(7) DEFAULT NULL,
+  `TypNr` mediumint(8) unsigned zerofill DEFAULT NULL,
+  PRIMARY KEY (`RechNr`),
+  KEY `RechNr` (`RechNr`),
+  KEY `KundenNr` (`KundenNr`),
+  KEY `Datum` (`Datum`),
+  KEY `Zustand` (`Zustand`),
+  KEY `TypNr` (`TypNr`)
+) ENGINE=InnoDB AUTO_INCREMENT=21985 DEFAULT CHARSET=latin1;"""
     # return data
     return required

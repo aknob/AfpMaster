@@ -375,6 +375,8 @@ class AfpDialog_MultiLines(wx.Dialog):
         self.label = []
         self.texts = []
         self.check = []
+        self.buttons = []
+        self.button_pushed = None
         self.sizers = []
         self.statictext = wx.StaticText(self, -1, label="", name="Text")
  
@@ -409,8 +411,11 @@ class AfpDialog_MultiLines(wx.Dialog):
         self.texts = [None]*self.lines
         self.sizers = [None]*self.lines
         self.check = [None]*self.lines
+        self.buttons = [None]*self.lines
         if extra_button is None: self.button_Extra.Hide()
         elif extra_button: self.button_Extra.SetLabel(extra_button)
+        if len(self.types) == 1 and self.types[0] == "Button":
+            self.button_Ok.Hide()
         if len(self.types) < self.lines: 
             while len(self.types) < self.lines:
                 self.types.append(self.types[-1])
@@ -418,8 +423,8 @@ class AfpDialog_MultiLines(wx.Dialog):
         for i in range(self.lines):
             data = datas[i]
             if self.types[i] == "Text":
-                self.label.append(wx.StaticText(self, -1, label=data[0], name=data[0]))
-                self.texts[i] = wx.TextCtrl(self, -1, value=data[1], name=data[1])
+                self.label.append(wx.StaticText(self, -1, label=data[0], name="L" + data[0]))
+                self.texts[i] = wx.TextCtrl(self, -1, value=data[1], name="T" + data[0])
                 self.sizers[i] = wx.BoxSizer(wx.HORIZONTAL)
                 self.sizers[i].AddStretchSpacer(1)
                 self.sizers[i].Add(self.label[-1],5,wx.EXPAND)
@@ -429,17 +434,26 @@ class AfpDialog_MultiLines(wx.Dialog):
             elif self.types[i] == "Check":
                 check = True
                 name = data
-                if len(data) > 1:
+                if type(data) == list and len(data) > 1:
                     name = data[0]
                     check = data[1]
                 if name[-1] == ":":
-                    self.check[i] = wx.CheckBox(self, -1, label=name, style=wx.ALIGN_RIGHT, name=name)
+                    self.check[i] = wx.CheckBox(self, -1, label=name, style=wx.ALIGN_RIGHT, name="C" + name)
                 else:
-                    self.check[i] = wx.CheckBox(self, -1, label=name, name=name)
+                    self.check[i] = wx.CheckBox(self, -1, label=name, name="C" + name)
                 self.check[i].SetValue(check)
                 self.sizers[i] = wx.BoxSizer(wx.HORIZONTAL)
                 self.sizers[i].AddStretchSpacer(1)
                 self.sizers[i].Add(self.check[i], 14, wx.EXPAND)
+                self.sizers[i].AddStretchSpacer(1)
+                height += 20
+            elif self.types[i] == "Button":
+                name = data
+                self.buttons[i] = wx.Button(self, -1, label=name, name="B" + name)
+                self.Bind(wx.EVT_BUTTON, self.On_Button_Ok, self.buttons[i])
+                self.sizers[i] = wx.BoxSizer(wx.HORIZONTAL)
+                self.sizers[i].AddStretchSpacer(1)
+                self.sizers[i].Add(self.buttons[i], 14, wx.EXPAND)
                 self.sizers[i].AddStretchSpacer(1)
                 height += 20
         self.sizer=wx.BoxSizer(wx.VERTICAL)
@@ -460,16 +474,15 @@ class AfpDialog_MultiLines(wx.Dialog):
     # the user is in charge to distribute it to the right lines
     def set_values(self):
         values = [None]*self.lines
-        ind_t = 0
-        ind_c = 0
         for i in range(self.lines):
             data = None
             if self.types[i] == "Text":
                 if not self.texts[i] is None: values[i] = self.texts[i].GetValue()
-                ind_t += 1
             elif self.types[i] == "Check":
                 if not self.check[i] is None: values[i] = self.check[i].GetValue()
-                ind_c += 1
+            elif self.types[i] == "Button":
+                if not self.buttons[i] is None and self.button_pushed and  self.button_pushed == self.buttons[i].GetLabel():
+                    values[i] = self.button_pushed
         self.result = values
     ## return results, to be called from calling routine
     # - returns a list of entries, if Ok is hit - list may be empty
@@ -492,6 +505,8 @@ class AfpDialog_MultiLines(wx.Dialog):
     ## Eventhandler BUTTON - Ok button pushed
     # @param event - event which initiated this action
     def On_Button_Ok(self,event):
+        if not event.GetEventObject().GetName() == "Ok":
+            self.button_pushed =  event.GetEventObject().GetLabel()
         self.set_values()
         event.Skip()
         self.EndModal(wx.ID_OK)
@@ -727,6 +742,9 @@ class AfpDialog(wx.Dialog):
     ## execution in case the OK button ist hit - to be overwritten in derived class
     def execute_Ok(self):
         self.Ok = True
+    ## execution in case the Quit button ist hit - to be overwritten in derived class
+    def execute_Quit(self):
+        self.Ok = False
    
     ## attaches data to this dialog, invokes population of widgets
     # @param data - AfpSelectionList which holds data to be filled into dialog wodgets 
@@ -960,6 +978,7 @@ class AfpDialog(wx.Dialog):
             #if self.lock_data and not self.new: self.data.unlock_data() 
             if self.debug: print "Event handler `On_Button_Ok' save, neu:", self.new,"Ok:",self.Ok 
         else: 
+            self.execute_Quit()
             if self.debug: print "Event handler `On_Button_Ok' quit!"
         event.Skip()
         self.EndModal(wx.ID_OK)
