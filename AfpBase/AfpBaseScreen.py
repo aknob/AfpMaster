@@ -287,21 +287,28 @@ class AfpScreen(wx.Frame):
                         grid.SetColLabelValue(col, self.dynamic_grid_col_labels[col])
                     if percents and col < len(percents):
                         grid.SetColSize(col, percents[col]*width/100)
-    ## change color of a grid column
+    ## change color of a grid column or reset marked color
     # @param name - name of grid
-    # @param index - index of column to be marked
-    def mark_grid_column(self, name, index):
-        if name in self.grid_sort_col and self.grid_sort_col[name] == index: return
+    # @param index - if given, index of column to be marked
+    def mark_grid_column(self, name, index=None):
+        #if name in self.grid_sort_col and self.grid_sort_col[name] == index: return
         grid = self.FindWindowByName(name)
+        print "AfpScreen.mark_grid_column gridrows:", grid.GetNumberRows()
         if name in self.grid_sort_col:
             for row in range(grid.GetNumberRows()):            
                 attr =  wx.grid.GridCellAttr()
                 attr.SetBackgroundColour(self.actuelbuttoncolor)
+                #print "AfpScreen.mark_grid_column normal attr:", attr, attr.GetFont()
                 grid.SetAttr(row, self.grid_sort_col[name], attr)
-        for row in range(grid.GetNumberRows()):
-            attr =  wx.grid.GridCellAttr()
-            attr.SetBackgroundColour(self.buttoncolor)
-            grid.SetAttr(row, index, attr)
+            if index is None: self.grid_sort_col.pop(name)
+        if index:
+            for row in range(grid.GetNumberRows()):
+                attr =  wx.grid.GridCellAttr()
+                attr.SetBackgroundColour(self.buttoncolor)
+                #print "AfpScreen.mark_grid_column attr:", attr, attr.GetFont()
+                grid.SetAttr(row, index, attr)
+            self.grid_sort_col[name] = index
+
     ## sort grid rows due to one column
     # @param name - name of grid
     # @param index - index of column to trigger sort
@@ -363,7 +370,6 @@ class AfpScreen(wx.Frame):
         if name in self.grid_sort_col and index == self.grid_sort_col[name]:
             if name in self.grid_sort_desc: desc = not self.grid_sort_desc[name]
         self.mark_grid_column(name, index)
-        self.grid_sort_col[name] = index
         self.grid_sort_desc[name] = desc
         self.sort_grid_rows(name, index, desc)
 
@@ -473,7 +479,12 @@ class AfpScreen(wx.Frame):
                 if typ == name and typ in self.grid_sort_rows:
                     rows = self.grid_sort_rows[typ]
                 else:
+                    #self.mark_grid_column(typ)                    
                     rows = self.get_grid_rows(typ)
+                    if rows and typ in self.grid_sort_col:
+                        self.grid_sort_rows[typ] = rows
+                        self.sort_grid_rows(typ, self.grid_sort_col[typ], self.grid_sort_desc[typ])
+                        rows = self.grid_sort_rows[typ]
                 row_lgh = len(rows)
                 grid = self.FindWindowByName(typ)
                 self.grid_resize(typ, grid, row_lgh)

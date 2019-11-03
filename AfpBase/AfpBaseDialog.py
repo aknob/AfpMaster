@@ -386,6 +386,7 @@ class AfpDialog_MultiLines(wx.Dialog):
         self.Bind(wx.EVT_BUTTON, self.On_Button_Extra, self.button_Extra)
         self.button_Ok = wx.Button(self, -1, label="&Ok", name="Ok")
         self.Bind(wx.EVT_BUTTON, self.On_Button_Ok, self.button_Ok)
+        self.SetAffirmativeId(self.button_Ok.GetId())
         self.lower_sizer = wx.BoxSizer(wx.HORIZONTAL)
         self.lower_sizer.AddStretchSpacer(1)
         self.lower_sizer.Add(self.button_Cancel,3,wx.EXPAND)

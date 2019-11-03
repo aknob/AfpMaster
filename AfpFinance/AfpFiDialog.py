@@ -81,8 +81,6 @@ class AfpDialog_FiBuchung(AfpDialog):
         self.TabNr = None
 
         self.grid_row_selected = None
-        self.client = None
-        self.clients = []
         self.fixed_width = 80
         self.fixed_height = 80
         self.SetSize((574,410))
@@ -282,6 +280,9 @@ class AfpDialog_FiBuchung(AfpDialog):
         super(AfpDialog_FiBuchung, self).attach_data( data, new, editable)
         self.set_accounts()
         self.reset_first_line()
+        BNr = data.gen_next_rcptnr()
+        if BNr:
+            self.text_Beleg.SetValue(Afp_toString(BNr))
 
     ## reset first line dependent from the data
     def reset_first_line(self):
@@ -395,24 +396,32 @@ class AfpDialog_FiBuchung(AfpDialog):
     
     ## execution in case the OK button ist hit - overwritten ifrom AfpDialog
     def execute_Ok(self):
-        print "AfpDialog_FiBuchung.execute_Ok:", self.data.has_changed()
+        #print "AfpDialog_FiBuchung.execute_Ok:", self.data.has_changed()
         if self.data.has_changed():
+            clients = []
             rows = self.data.get_value_rows("BUCHUNG", "BuchungsNr,Datum,Konto,Gegenkonto,Betrag,Tab,TabNr")
+            #print "AfpDialog_FiBuchung.execute_Ok rows:", rows
             for row in rows:
-                if row[0]: continue
-                client = self.get_row_client(row[5], row[6])
+                if row[0] or not row[5] or not row[6]: continue
+                client = self.data.get_client(row[6])
+                if client.get_mainselection().lower() != row[5].lower():
+                    client = None
                 if client:
                     zahl = client.get_payment_values()[1]
                     betrag = None
                     if row[2] in self.bank_accounts or row[2] == self.transfer:
-                        betrag = row[5]
+                        betrag = Afp_fromString(row[4])
                     elif row[3] in self.bank_accounts or row[3] == self.transfer:
-                        betrag = -row[5]
+                        betrag = -Afp_fromString(row[4])
                     if betrag:
+                        #print "AfpDialog_FiBuchung.execute_Ok client.set_payment:", zahl, type(zahl), betrag, type(betrag), row[1], client.get_name()
                         client.set_payment_values(zahl + betrag, row[1])
+                    clients.append(client)
             self.data.store()
-            for client in self.clients:
-                client.store()
+            #print "AfpDialog_FiBuchung.execute_Ok clients:", len(clients) 
+            if clients: 
+                for client in clients:
+                    client.store()
 
     ## execution in case the Quit button ist hit - overwritten ifrom AfpDialog
     def execute_Quit(self):
@@ -487,28 +496,6 @@ class AfpDialog_FiBuchung(AfpDialog):
                 selected = None
         return selected
         
-    ## get client from row beloning to row
-    #@param tab - mainselection of client
-    #@param tabnr - identifier in mainselection of client
-    def get_row_client(self, tab, tabnr):
-        client = None
-        if tab and tabnr:
-             for cl in self.clients:
-                if cl.get_mainselection() == tab and cl.cl.get_value() == tabnr: 
-                    client = cl
-                    break
-        return client
-    ## generate all clients
-    def gen_clients(self):
-        rows = self.data.get_value_rows("BUCHUNG", "Tab,TabNr")
-        if row and rows:
-             if row[0] and row[1]:
-                client = self.get_row_client(row[0], row[1])
-                if not client:
-                    client = self.data.get_client(row[1])
-                    if client.get_mainselection() == row[0]:
-                        self.clients.append(client)
-          
     ## generate storno transaction
     #@param index - index of selected row
     def gen_storno_transaction(self, index):
@@ -557,7 +544,10 @@ class AfpDialog_FiBuchung(AfpDialog):
         object = event.GetEventObject()
         dat = object.GetValue()
         if object.GetName() == "Datum":
-            datum = Afp_ChDatum(dat, False, Afp_fromString(self.last_date))
+            if self.last_date:
+                datum = Afp_ChDatum(dat, False, Afp_fromString(self.last_date))
+            else:
+                datum = Afp_ChDatum(dat)
             self.last_date = datum
         else:
             datum = Afp_ChDatum(dat)
@@ -607,9 +597,6 @@ class AfpDialog_FiBuchung(AfpDialog):
             else:
                 Change = AfpReq_Question("Es ist eine Buchung ausgewählt".decode("UTF-8"), "Soll diese überschrieben werden?".decode("UTF-8"), "Buchung überschreiben?".decode("UTF-8"))
         if accdata["Datum"]  and accdata["Konto"]  and accdata["Gegenkonto"]  and accdata["Betrag"]:
-            if self.client:
-                self.clients.append(self.client)
-                self.client = None
             if Storno: 
                 self.gen_storno_transaction(selected)
             if Change:
@@ -661,12 +648,12 @@ class AfpDialog_FiBuchung(AfpDialog):
             data["Text"] = row[9]
             data["Vorgang"] = row[10]
             data["BDatum"] = row[11]
-            if row[12]:
+            if row[12] and row[13]:
                 data["Tab"] = row[12]
                 data["TabNr"] = row[13]
-                self.client = self.data.get_client(row[13])
-                if self.client:
-                    data["LVortext"] = Afp_stripSpaces(self.client.line())
+                client = self.data.get_client(row[13])
+                if client:
+                    data["LVortext"] = Afp_stripSpaces(client.line())
             elif row[8]:
                 adresse = AfpAdresse(self.data.get_globals(), row[8])
                 data["LVortext"] = adresse.get_name(True)
@@ -742,39 +729,40 @@ class AfpDialog_FiBuchung(AfpDialog):
             data["Text"] = "Zahlung: " + client.get_name(selection)
             data["Tab"] = client.get_mainselection()
             data["TabNr"] = client.get_value()
-            self.client = client
             self.Pop_entries(data)
         if event: event.Skip()
         
    ## Event handler to load data from file
     def On_Load(self, event=None):
         if self.debug: print "AfpDialog_FiBuchung Event handler `On_Load'"
-        globals = self.data.get_globals()
-        dir = globals.get_value("archivdir")
-        fname, ok = AfpReq_FileName(dir , "Bitte XML Importfile auswählen!".decode("UTF-8"), "*.xml", True)
-        if ok and fname:
-            imp = AfpImport(globals,fname, self.debug)
-            header = imp.get_file_header()
-            ident = self.identify_file_header(header)
-            if ident == "SEPA":
-                valid_tags, value_tags, interpreter = self.generate_sepa_tags()
-                datum = self.text_Datum.GetValue()
-                beleg = self.text_Beleg.GetValue()
-                auszug = self.text_Auszug.GetValue()
-                if not (datum and beleg and auszug):
-                    AfpReq_Info("Bitte Buchungsdatum, Belegnummer und Auzug angeben!","Lesevorgang wird abgebrochen.", "Info")
-                    ok = False
-                else:
-                    para = "\"" + datum + "\", " + Afp_toString(self.bank) + ", " + Afp_toString(self.transfer) + ", " + Afp_toString(self.revenue) + ", " + beleg + ", \"" + auszug + "\", \"Verein\"" 
+        ok = False
+        datum = self.text_Datum.GetValue()
+        beleg = self.text_Beleg.GetValue()
+        auszug = self.text_Auszug.GetValue() 
+        if not (datum and beleg and auszug):
+            AfpReq_Info("Bitte Buchungsdatum, Belegnummer und Auzug angeben!","Lesevorgang wird abgebrochen.", "Info")
+        else: 
+            globals = self.data.get_globals()
+            dir = globals.get_value("archivdir")
+            fname, ok = AfpReq_FileName(dir , "Bitte XML Importfile auswählen!".decode("UTF-8"), "*.xml", True)
+            if ok and fname:
+                imp = AfpImport(globals,fname, self.debug)
+                header = imp.get_file_header()
+                ident = self.identify_file_header(header)
+                if ident == "SEPA":
+                    valid_tags, value_tags, interpreter = self.generate_sepa_tags()
+                    para = "\"" + datum + "\", " + Afp_toString(self.bank) + ", " + Afp_toString(self.transfer) + ", " + Afp_toString(self.revenue_accounts[0]) + ", " + beleg + ", \"" + auszug + "\", \"Verein\"" 
                     imp.customise(valid_tags, value_tags, interpreter, para)
         if ok:
             datas = imp.read_from_file()   
-            self.data = datas[0] 
-            self.gen_clients()
+            self.data.data_absorber("BUCHUNG", datas[0] )
             self.Pop_Buchung()
             self.Pop_Auszug()
+            beleg = Afp_fromString(self.text_Beleg.GetValue())
+            if beleg:
+                self.text_Beleg.SetValue(Afp_toString(beleg + 1))
             self.Set_Editable(True)
-        print "AfpDialog_FiBuchung.On_Load data:", self.data.view()
+        #print "AfpDialog_FiBuchung.On_Load data:", self.data.view()
         if event: event.Skip()
         
    ## Event handler to get address for transaction

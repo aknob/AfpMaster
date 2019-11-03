@@ -254,11 +254,11 @@ class AfpSQL(object):
     ## selects entries from the database \n
     # returns the selected value rows.
     # @param feldnamen -  "*" for all fields or "field.table[.alias][, ...]" alias - of the concatination of fields
-    # @param select         -  "field.table (>,<,>=,<=,==) value"
+    # @param select         -  "field.table (>,<,>=,<=,=) value"
     # @param dateinamen  - "table[,...]" 
     # @param order          - "[column]" name of column
     # @param limit           - "[offset,number]" offset to select root, maximal number of rows extracted
-    # @param  where         -  "[field1.table1 (>,<,>=,<=,==) (field2.table2,value)[(and,or) ...]]"
+    # @param  where         -  "[field1.table1 (>,<,>=,<=,=) (field2.table2,value)[(and,or) ...]]"
     # @param link            - "[field1.table1 == field2.table2 [and ...]]"
     def select(self, feldnamen, select, dateinamen, order = None, limit = None, where=None, link=None):      
         #if self.debug: print "AfpSQL.select:", feldnamen, select, dateinamen, order, limit, where, link
@@ -268,7 +268,6 @@ class AfpSQL(object):
         if not clauses[3] == "": Befehl += " ORDER BY "+ clauses[3] # order_clause 
         if not clauses[4] == "": Befehl += " LIMIT "+ clauses[4] # limit_clause 
         if self.debug: print "AfpSQL.select:",Befehl
-        self.db_cursor.execute (Befehl)     
         self.db_cursor.execute (Befehl)     
         rows = self.db_cursor.fetchall ()
         if self.debug: print "AfpSQL.select result:",rows
@@ -372,9 +371,11 @@ class AfpSQL(object):
             for befehl in befehle:
                 if befehl:
                     if self.debug: print "AfpSQL.execute:", befehl + ";"
-                    retval = self.db_cursor.execute(befehl + ";")
-            if not befehle is None:
-                self.db_cursor.execute("COMMIT;")
+                    retval = self.db_cursor.execute(befehl + ";") 
+                    if retval: retval = self.db_cursor.fetchall ()
+                    print "AfpSQL.execute:", befehl, retval
+            #if not befehle is None:
+                #self.db_cursor.execute("COMMIT;")
         return retval
         
 ## handles SQL-selections for one table
@@ -387,7 +388,7 @@ class AfpSQLTableSelection(object):
     # @param feldnamen - names of columns, if not given they will be retrieved from database
     def  __init__(self, mysql, tablename, debug = False, unique_feldname = None, feldnamen = None):
         self.dbg = False # hardcode switch for storage logging
-        if tablename == "BUCHUNG": debug = True
+        #if tablename == "BUCHUNG": debug = True
         if debug: 
             print "AfpSQLTableSelection Konstruktor dbg On", tablename
             self.dbg = True # hardcoded switch for storage logging, for debug purpose during programming
@@ -593,7 +594,7 @@ class AfpSQLTableSelection(object):
     # - insert: rowindex  < 0 and  values = [value1, value2, ...] , len == len(self.feldnamen), rowindexrow will be mapped to index = -1 - rowindex
     def manipulate_data(self, changes):
         for entry in changes:
-            if self.dbg: print "AfpSQLTableSelection manipulate_data:", entry
+            if self.dbg: print "AfpSQLTableSelectio.manipulate_data:", entry
             index = entry[0]
             values = entry[1]
             originals = None
@@ -838,7 +839,7 @@ class AfpSQLTableSelection(object):
     # @param changed_data - dictionary holding appropriate value in entry [column name]
     # @param row -  index of row where values have to be inserted 
     def set_data_values(self, changed_data, row = 0):
-        if self.dbg: print "AfpSQLTableSelection.set_data_value:", changed_data
+        if self.dbg: print "AfpSQLTableSelection.set_data_value:", changed_data, row
         for data in changed_data:
             self.set_value(data, changed_data[data], row)
     ## add a row with data values from given dictionary
@@ -851,13 +852,15 @@ class AfpSQLTableSelection(object):
     # @param row - index of row
     # @param value - value to be set
     def set_manipulation(self, feldname, row, value):
+        add = True
         for mani in self.manipulation:
             if mani[0] == "replace" and mani[1] == row:
                 mani[3][feldname] = value
+                add = False
                 break
-            else:
-                original = self.get_values(feldname, row) 
-                self.manipulation.append(["replace", row, {feldname: original[0][0]}, {feldname: value}])
+        if add:
+            original = self.get_values(feldname, row) 
+            self.manipulation.append(["replace", row, {feldname: original[0][0]}, {feldname: value}])
     ## set a lock on database table according to actuel select clause
     def lock_data(self):
         self.mysql.lock(self.tablename,  self.select)

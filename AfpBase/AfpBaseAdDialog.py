@@ -342,7 +342,29 @@ class AfpDialog_AdAttAusw(AfpDialog_Auswahl):
         text = "Bitte neue Adresse als '" + attribut + "' auswählen!".decode("UTF-8")
         name, Ok = AfpAdresse_addAttributToAdresse(globals, attribut, search, text)
         return Ok
-
+        
+## dialog for indirect adress selection \n 
+# selects an entry of the adress table by choosing from the attribut (AdresAtt) table   
+class AfpDialog_AdIndiAusw(AfpDialog_Auswahl):
+    ## initialise class
+    def __init__(self, datei):
+        self.grid_datei = datei       
+        AfpDialog_Auswahl.__init__(self,None, -1, "", style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER)
+        self.typ = "Adressenauswahl"
+        self.datei = datei
+        self.modul = "Adresse"
+        # remove 'Neu'-button from panel
+        self.button_Neu.Destroy()
+    ## get the definition of the selection grid content \n
+    # overwritten for indirect "Adressen" use
+    def get_grid_felder(self):  
+        Felder = [["Name.Adresse.Name",30], 
+                            ["Vorname.Adresse.Name", 20], 
+                            ["Strasse.Adresse",30], 
+                            ["Ort.Adresse",20], 
+                            ["KundenNr." + self.grid_datei  + " = KundenNr.Adresse", None]] 
+        return Felder
+    
 ## loader routine for adress selection dialog
 # @param globals - global data holding mysql connection to database
 # @param Datei - table name where data should be selected from
@@ -358,10 +380,11 @@ def AfpLoad_AdAusw(globals, Datei, index, value = "", where = None, attribut_tex
         sort_list = AfpAdresse_getOrderlistOfTable(globals.get_mysql(), index, Datei)
         value, index, Ok = Afp_autoEingabe(value, index, sort_list, "Adressen","Bitte Namen eingeben:")
     if Ok:
-        if Datei == "ADRESATT":
-            DiAusw = AfpDialog_AdAttAusw()
-        else:
+        if Datei == "ADRESSE":
             DiAusw = AfpDialog_AdAusw()
+        else:
+            #DiAusw = AfpDialog_AdAttAusw()
+            DiAusw = AfpDialog_AdIndiAusw(Datei)
         #print "AfpLoad_AdAusw:", Datei, Index, value, where
         if attribut_text:
             if len(attribut_text) > 4 and attribut_text[:5] == "Bitte":
@@ -379,12 +402,42 @@ def AfpLoad_AdAusw(globals, Datei, index, value = "", where = None, attribut_tex
         result = Afp_selectGetValue(globals.get_mysql(), Datei, "KundenNr", index, value)
     return result
 ## loader routine to select adress data from attribut table
+# @param globals - global data holding mysql connection to database
+# @param Datei - table name where data should be selected from
+# @param attribut - attribut looked for in ADRESATT
+# @param value - initial name to be looked for
 def AfpLoad_AdAttAusw(globals, attribut, value = ""):     
         Datei = "ADRESATT"
         Index = "Name"
         where = "Attribut.ADRESATT = \"" + attribut.decode("UTF-8") + "\" and KundenNr.ADRESATT > 0"
         if not value: value = "a"
         result = AfpLoad_AdAusw(globals, Datei, Index, value, where, attribut)
+        return result
+        
+## loader routine to select adress data indirectly from given table
+# @param globals - global variables, includinmg database connection
+# @param dateifeld - table.field name of connection field
+# @param value - value of connection field, resp. values of connection field
+# @param where - additional filter for selection
+# @param name - initial name for search
+# @param attribut - name for dialog display, or complete Question started by "Bitte"
+def AfpLoad_AdIndiAusw(globals, dateifeld, value, name="", where=None, attribut = None):
+        feld, datei = dateifeld.split(".")
+        index = "Name.ADRESSE"
+        if where: where += " and " 
+        else: where = ""
+        if type(value) == list:
+            where += "("
+            for val in value:
+                where +=  dateifeld + " = " + Afp_toQuotedString(val) + " or "
+            where = where[:-4] + ")"
+        else:
+            where += dateifeld + " = " + Afp_toQuotedString(value) 
+        if not attribut: attribut = " individuelle "
+        if not name: ask = True
+        else: ask = False
+        #print "AfpLoad_AdIndiAusw:", datei, index, name, where, attribut, ask
+        result = AfpLoad_AdAusw(globals, datei, index, name, where, attribut, ask)
         return result
 
 ## Class AfpDialog_DiAdEin display dialog to show and manipulate address-data (Adresse) and handles interactions \n

@@ -320,6 +320,7 @@ class AfpEvScreen(AfpScreen):
     def set_jahr_filter(self,event = None): 
         Jahr= Afp_fromString(self.combo_Jahr.GetValue())
         if self.debug: print "AfpEvScreen.set_jahr_filter Combo-String:", Jahr
+        print "AfpEvScreen.set_jahr_filter Combo-String:", Jahr
         self.set_sb_date_filter(Jahr)
         self.set_client_filter()
     ## set date filter phrase for given input
@@ -389,7 +390,7 @@ class AfpEvScreen(AfpScreen):
             else:
                 self.sb_an_filter = an_filter
                 self.sb.select_where(self.sb_an_filter, None, "ANMELD")   
-        #print "AfpEvScreen.set_client_filter EVENT:", self.sb_re_filter,"ANMELD:", self.sb_an_filter, "CURRENT RECORD:", self.sb.get_value()
+        print "AfpEvScreen.set_client_filter EVENT:", self.sb_re_filter,"ANMELD:", self.sb_an_filter, "CURRENT RECORD:", self.sb.get_value()
     ## return "ANMELD" filter clause from date filter
     def get_minor_date_filter(self):
         return self.sb_date_filter.replace("Beginn","Anmeldung")
@@ -633,6 +634,9 @@ class AfpEvScreen(AfpScreen):
         if keycode == wx.WXK_ESCAPE or keycode == wx.WXK_DELETE:
             self.grid_row_selected = False
             self.grid_custs.ClearSelection()
+            if "Customers" in self.grid_sort_col:
+                self.mark_grid_column("Customers")
+                self.Pop_grid()
         super(AfpEvScreen, self).On_KeyDown(event)
    
    ## Eventhandler Menu - select and start additional programs

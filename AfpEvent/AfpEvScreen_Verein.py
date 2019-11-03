@@ -45,7 +45,7 @@ from AfpBase.AfpBaseRoutines import Afp_archivName, Afp_startFile
 from AfpBase.AfpBaseDialog import AfpReq_Info, AfpReq_Selection, AfpReq_Question, AfpReq_Text, AfpReq_Date, AfpDialog
 from AfpBase.AfpBaseScreen import AfpScreen
 from AfpBase.AfpBaseAdRoutines import AfpAdresse
-from AfpBase.AfpBaseAdDialog import AfpLoad_AdAusw, AfpLoad_DiAdEin_fromSb, AfpAdresse_addAttributToAdresse
+from AfpBase.AfpBaseAdDialog import AfpLoad_AdAusw, AfpLoad_AdIndiAusw, AfpLoad_DiAdEin_fromSb, AfpAdresse_addAttributToAdresse
 from AfpBase.AfpBaseFiDialog import AfpLoad_DiFiZahl
 
 import AfpEvent
@@ -241,6 +241,7 @@ class AfpEvScreen_Verein(AfpEvScreen):
         self.grid_panel_sizer =wx.BoxSizer(wx.HORIZONTAL)
         
         # right BUTTON sizer
+        #self.combo_Sortierung = wx.ComboBox(panel, -1, value="Mitglieder", choices=[], size=(100,30), style=wx.CB_DROPDOWN, name="Sortierung")
         self.combo_Sortierung = wx.ComboBox(panel, -1, value="Mitglieder", choices=["Mitglieder","Sparte"], size=(100,30), style=wx.CB_DROPDOWN, name="Sortierung")
         self.Bind(wx.EVT_COMBOBOX, self.On_Index, self.combo_Sortierung)
         self.indexmap = {"Mitglieder":"RechNr","Sparte":"Bez"}
@@ -484,6 +485,28 @@ class AfpEvScreen_Verein(AfpEvScreen):
    # dummy only needed to use the AfpEvScreen-routines
     def set_jahr_filter(self,event = None): 
         return
+        
+    ## reverse selection from filtermap
+    # @param word - word to be looked for
+    def re_filtermap(self, word):
+        remap = None
+        for map in self.filtermap:
+            if "-" + word in self.filtermap[map]:
+                remap = map
+        return remap
+        
+   ## Eventhandler COMBOBOX - filter
+   # overwritten from AfpEvScreen
+    def On_Filter(self,event=None):
+        s_key = self.sb.get_value()        
+        #self.set_client_filter()
+        self.sb.select_key(s_key)
+        self.grid_row_selected = False
+        self.grid_custs.ClearSelection()
+        self.CurrentData()
+        if "Customers" in self.grid_sort_col:
+            self.mark_grid_column("Customers", self.grid_sort_col["Customers"])
+        if event: event.Skip()    
 
     ## compose event specific menu parts
     # overwritten from AfpEvScreen
@@ -502,6 +525,7 @@ class AfpEvScreen_Verein(AfpEvScreen):
     ## populate label widgets
     def Pop_label(self):
         no_slave =  not self.slave_exists()
+        #print "AfpEvScreen_Verein.Pop_label:", no_slave
         for entry in self.labelmap:
             Label = self.FindWindowByName(entry)
             is_slave = self.is_slave(self.labelmap[entry])
@@ -528,13 +552,46 @@ class AfpEvScreen_Verein(AfpEvScreen):
     ## Eventhandler BUTTON - selection
     def On_Ausw(self,event=None):
         if self.debug: print "AfpEvScreen_Verein Event handler `On_Ausw'"
-        name = self.data.get_name(True, "Agent")
-        filter = "Attribut = \"Verein\""
-        auswahl = AfpLoad_AdAusw(self.globals, "ADRESATT", "AttName", name, filter, "Bitte Verein auswählen, der bearbeitet werden soll.".decode("UTF-8"))
-        if not auswahl is None:
-            self.clubnr = int(auswahl)
-            self.set_current_record()
-            self.Populate()
+        if self.combo_Sortierung.GetValue() == "Mitglieder":
+            value = self.data.get_value("EventNr") # all events of this agent are needed
+            name = ""
+            filter = None
+            if self.slave_exists():
+                name = self.slave_data.get_value("Name.ADRESSE")
+                ok = True
+            else:
+                name, ok = AfpReq_Text("Mitglied wird gesucht,","bitte Namen eingeben!", name, "Mitgliedssuche")
+            knr = None
+            if ok:
+                knr = AfpLoad_AdIndiAusw(self.globals, "EventNr.ANMELD", value, name, filter, "Bitte Mitglied auswählen, das abgezeigt werden soll.".decode("UTF-8"))
+            if knr:
+                adresse = AfpAdresse(self.globals, knr)
+                select = "KundenNr = " + Afp_toString(knr) + " AND EventNr = " + Afp_toString(value) # enhance for possible list
+                adresse.get_selection("ANMELD").load_data(select)
+                rows = adresse.get_value_rows("ANMELD", "AnmeldNr,EventNr,RechNr,Zustand")
+                ANr = rows[0][0]
+                filter = self.re_filtermap(rows[0][3])
+                self.grid_row_selected = False
+                #print "AfpEvScreen_Verein.On_Ausw:", rows[0][3], filter
+                if not filter ==  self.combo_Filter.GetValue():
+                    self.combo_Filter.SetValue(filter)
+                    self.On_Filter()
+                grid_id = self.grid_id["Customers"]
+                if grid_id and ANr in grid_id:
+                    self.grid_row_selected = True
+                    index = grid_id.index(ANr)
+                    self.grid_custs.SelectRow(index)
+                    self.grid_custs.MakeCellVisible(index, 0)
+                self.load_direct(None, ANr)
+                self.Pop_label()
+        else:
+            name = self.data.get_name(True, "Agent")
+            filter = "Attribut = \"Verein\""
+            auswahl = AfpLoad_AdAusw(self.globals, "ADRESATT", "AttName", name, filter, "Bitte Verein auswählen, der bearbeitet werden soll.".decode("UTF-8"))
+            if not auswahl is None:
+                self.clubnr = int(auswahl)
+                self.set_current_record()
+                self.Populate()
         if event: event.Skip()
             
     ## Eventhandler BUTTON , MENU - modify event
@@ -559,38 +616,39 @@ class AfpEvScreen_Verein(AfpEvScreen):
             self.slave_data = self.get_client(ANr)
         else:
             self.slave_data = None
+        #print "AfpEvScreen_Verein.load_direct:", ENr, ANr, self.slave_data
     
     ## Eventhandler Keyboard - handle key-down events - overwritten from AfpScreen
     def On_KeyDown(self, event):
         keycode = event.GetKeyCode()        
         if self.debug: print "AfpEvScreen_Verein Event handler `On_KeyDown'", keycode
-        if keycode == wx.WXK_UP or keycode == wx.WXK_DOWN:
-            if keycode == wx.WXK_UP: next = -1
-            elif keycode == wx.WXK_DOWN: next = 1
-            grid_id = self.grid_id["Customers"]
-            if  self.grid_row_selected:
-                ANr = self.slave_data.get_value("AnmeldNr")
-                if ANr in grid_id:
-                    index = grid_id.index(ANr) + next
-                    if index < 0: index = 0
-                    if index >= len(grid_id): index = len(grid_id) - 1
-                else:
-                    self.grid_row_selected = False
-            if not self.grid_row_selected:
-                self.grid_row_selected = True
-                if next < 0:
-                    index = len(grid_id) - 1
-                else:
-                    index = 0
-            ANr = grid_id[index]
-            #print "AfpEvScreen_Verein.On_KeyDown:", index, ANr
-            self.grid_custs.SelectRow(index)
-            self.grid_custs.MakeCellVisible(index, 0)
-            self.load_direct(0, ANr)
-            #print "AfpEvScreen_Verein.On_KeyDown direct:", ANr, self.sb.get_value("AnmeldNr.ANMELD")
-            self.Reload()
-            #print "AfpEvScreen_Verein.On_KeyDown reload:", ANr, self.sb.get_value("AnmeldNr.ANMELD")
-        super(AfpEvScreen_Verein, self).On_KeyDown(event)
+        if self.combo_Sortierung.GetValue() == "Mitglieder":
+            if keycode == wx.WXK_UP or keycode == wx.WXK_DOWN or keycode == wx.WXK_LEFT or keycode == wx.WXK_RIGHT:
+                if keycode == wx.WXK_UP or keycode == wx.WXK_LEFT: next = -1
+                elif keycode == wx.WXK_DOWN or keycode == wx.WXK_RIGHT: next = 1
+                grid_id = self.grid_id["Customers"]
+                if grid_id:
+                    if  self.grid_row_selected:
+                        ANr = self.slave_data.get_value("AnmeldNr")
+                        if ANr in grid_id:
+                            index = grid_id.index(ANr) + next
+                            if index < 0: index = 0
+                            if index >= len(grid_id): index = len(grid_id) - 1
+                        else:
+                            self.grid_row_selected = False
+                    if not self.grid_row_selected:
+                        self.grid_row_selected = True
+                        if next < 0:
+                            index = len(grid_id) - 1
+                        else:
+                            index = 0
+                    ANr = grid_id[index]
+                    self.grid_custs.SelectRow(index)
+                    self.grid_custs.MakeCellVisible(index, 0)
+                    self.load_direct(0, ANr)
+                    self.Reload()
+        else:
+            super(AfpEvScreen_Verein, self).On_KeyDown(event)
 
     ## generate the dedicated event
     # (overwritten from AfpEvScreen) 
@@ -679,6 +737,7 @@ class AfpEvScreen_Verein(AfpEvScreen):
         return
     ## check if slave exists
     def slave_exists(self):
+        #print "AfpEvScreen_Verein.slave_exists:", self.slave_data,  not self.slave_data is None
         return not self.slave_data is None
     ## get rows to populate lists \n
     # default - empty, to be overwritten if grids are to be displayed on screen \n

@@ -74,6 +74,7 @@ def AfpFinance_SEPATagInterpreter(globals, tags, datstring, konto, transfer, gko
             elif typ == "/DrctDbtTxInf":
                 is_transaction = False
                 if accdata and "Datum" in accdata  and "Konto" in accdata and "Gegenkonto" in accdata  and "Betrag" in accdata:
+                    print "AfpFinance_SEPATagInterpreter add_direct_transaction /DrctDbtTxIn:", accdata
                     data.add_direct_transaction(accdata)
         elif is_header:
             if typ  == "NbOfTxs":
@@ -83,6 +84,7 @@ def AfpFinance_SEPATagInterpreter(globals, tags, datstring, konto, transfer, gko
             elif typ == "/GrpHdr":
                 is_header = False
                 if accdata and "Datum" in accdata  and "Konto" in accdata and "Gegenkonto" in accdata  and "Betrag" in accdata:
+                    print "AfpFinance_SEPATagInterpreter add_direct_transaction /GrpHdr:", accdata
                     data.add_direct_transaction(accdata)
         else:
             if typ == "DrctDbtTxInf":
@@ -666,6 +668,15 @@ class AfpFinanceTransactions(AfpSelectionList):
         data["Gegenkonto"] = Konto
         data["Bem"] = data["Bem"] + " " + bem
         return data
+    ## retrieve last used receipt number
+    def get_last_rcptnr(self):
+        nr = 0
+        rows = self.get_value_rows("Beleg")
+        if rows:
+            for row in rows:
+                if row[0] > nr: nr = row[0]
+        print "AfpFinanceTransactions.get_last_rcptnr:", nr
+        return nr
     ## retrieve individual account from database
     # @param KNr - address identifier
     # @param Typ - typ of account, default: Debitor
@@ -1005,7 +1016,7 @@ class AfpFinance(AfpFinanceTransactions):
     def __del__(self):    
         if self.debug: print "AfpFinance Destruktor" 
         
-    ## add client factory to genertae client onbjects
+    ## add client factory to genertae client objects
     def add_client_factory(self, factory):
         self.client_factory = factory
     ## return client object if possible
@@ -1024,6 +1035,18 @@ class AfpFinance(AfpFinanceTransactions):
     ## return accounting number of involved bank account
     def get_bank(self):
         return self.bank
+    ## generate next receipt number
+    def gen_next_rcptnr(self):
+        nr = self.get_last_rcptnr()
+        if not nr:
+            select = "SELECT MAX(Beleg) FROM BUCHUNG WHERE Period = \"" + self.period + "\""
+            res = self.get_globals().get_mysql().execute(select)
+            nr = Afp_fromString(res[0][0])
+            print "AfpFinance.gen_next_rcptnr select:", select, nr, res
+        if Afp_isNumeric(nr):
+            nr += 1
+        print "AfpFinance.gen_next_rcptnr:", nr
+        return nr
     ## generate bankk-account sum
     def gen_bank_sum(self):
         sum = 0.0
@@ -1031,11 +1054,19 @@ class AfpFinance(AfpFinanceTransactions):
             sum = self.get_value("StartSaldo.Auszug")
         rows = self.get_value_rows("BUCHUNG","Konto,Gegenkonto,Betrag")   
         for row in rows:
-            if row[0] == self.bank: sum += row[2]
-            elif row[1] == self.bank: sum -= row[2] 
+            betrag = Afp_fromString(row[2])
+            if row[0] == self.bank: sum += betrag
+            elif row[1] == self.bank: sum -= betrag
         if self.auszug:
-            self.set_value("EndSaldo.Auszug", sum)
+            self.set_value("EndSaldo.Auszug", sum) 
+        #print "AfpFinance.gen_bank_sum:", sum
         return sum
+    ## absorb data from another AfpFinance object
+    def data_absorber(self, selname, object):
+        if type(self) == type(object) and object.get_value_length(selname):
+            self.get_selection(selname).data += object.get_selection(selname).data
+        
+        
                  
 ## class to export financial transactions
 class AfpFinanceExport(AfpSelectionList):

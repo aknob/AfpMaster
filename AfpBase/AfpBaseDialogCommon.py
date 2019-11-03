@@ -199,7 +199,7 @@ def Afp_editMail(mail):
 #  @param text - if given, text to be displayed for this selection
 def Afp_autoEingabe(value, index, sort_list, name, text = None):
     name = name.decode("UTF-8")
-    if text is None: text = "Bitte Auswahlkriteium für die ".decode("UTF-8") + name + "auswahl eingeben:"
+    if text is None: text = "Bitte Auswahlkriterium für die ".decode("UTF-8") + name + "auswahl eingeben:"
     value, format, Ok = AfpReq_Eingabe(text, "", value, name +"auswahl")
     #print "Afp_autoEingabe:", Ok, value, format, sort_list
     if Ok:
@@ -214,7 +214,7 @@ def Afp_autoEingabe(value, index, sort_list, name, text = None):
             for entry in sort_list:
                 if sort_list[entry] and sort_list[entry] == format:
                     index = entry
-        #print "Afp_autoEingabe index:", index, value
+        print "Afp_autoEingabe index:", index, value, sort_list
         if sort_list[index] is None:
             Ok = None
     return value, index, Ok
