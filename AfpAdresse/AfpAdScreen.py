@@ -16,7 +16,7 @@
 #  AfpTechnologies (afptech.de)
 #
 #    BusAfp is a software to manage coach and travel acivities
-#    Copyright© 1989 - 2019 afptech.de (Andreas Knoblauch)
+#    Copyright© 1989 - 2020 afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -36,12 +36,12 @@ import wx.grid
 
 import AfpBase
 from AfpBase.AfpUtilities import *
-from AfpBase.AfpUtilities.AfpStringUtilities import Afp_MatrixSplitCol, AfpSelectEnrich_dbname, Afp_ArraytoString, Afp_toString
-from AfpBase.AfpUtilities.AfpBaseUtilities import Afp_existsFile
+from AfpBase.AfpUtilities.AfpStringUtilities import Afp_MatrixSplitCol, AfpSelectEnrich_dbname, Afp_ArraytoString, Afp_toString, Afp_fromString, Afp_addRootpath
+from AfpBase.AfpUtilities.AfpBaseUtilities import Afp_existsFile, Afp_isInteger
 from AfpBase.AfpDatabase import *
 from AfpBase.AfpDatabase.AfpSQL import AfpSQL
 from AfpBase.AfpDatabase.AfpSuperbase import AfpSuperbase
-from AfpBase.AfpBaseRoutines import AfpMailSender, Afp_ModulNames
+from AfpBase.AfpBaseRoutines import AfpMailSender, Afp_ModulNames, Afp_startFile, Afp_importPyModul
 from AfpBase.AfpBaseDialog import AfpReq_Info, AfpReq_Question
 from AfpBase.AfpBaseDialogCommon import  AfpReq_Information, Afp_editMail
 from AfpBase.AfpBaseScreen import AfpScreen
@@ -57,6 +57,7 @@ class AfpAdScreen(AfpScreen):
         self.typ = "Adresse"
         self.sb_master = "ADRESSE"
         self.sb_filter = ""
+        self.data_objects = {}
         self.archiv_rows = 10
         self.archiv_colnames = [["Datum","Art","Ablage","Fach","Bem."],["AnmeldNr","Datum","Veranstaltung","Preis","Zahlung"],["Zustand","Datum","Zielort","Art","Preis"],["RechNr","Datum","Text","Preis","Zahlung"],["RechNr","Datum","Text","Preis","Zahlung"],["Merkmal","Text","-","-","-"],["Name","Vorname","Strasse","Ort","Telefon"]]
         self.archiv_colname = self.archiv_colnames[0]
@@ -171,6 +172,7 @@ class AfpAdScreen(AfpScreen):
                 self.grid_archiv.SetReadOnly(row, col)
         self.gridmap.append("Archiv")
         self.grid_minrows["Archiv"] = self.grid_archiv.GetNumberRows()
+        self.Bind(wx.grid.EVT_GRID_CMD_CELL_LEFT_DCLICK, self.On_DClick_Archiv, self.grid_archiv)
 
     ## compose address specific menu parts
     def create_specific_menu(self):
@@ -205,11 +207,23 @@ class AfpAdScreen(AfpScreen):
     def add_grid_choices(self):
         choices = []
         tables = self.mysql.get_tables()
-        mods = Afp_ModulNames(self.globals, False)
-        if "Event" in mods and "ANMELD" in tables and "EVENT" in tables:
+        mods = Afp_ModulNames(self.globals, True)
+        #print "AfpAdScreen.add_grid_choices:", mods
+        if "ANMELD" in tables and "EVENT" in tables:
             choices.append("Anmeldungen")
+            if "Verein" in mods:
+                modul = Afp_importPyModul("AfpEvent.AfpEvScreen_Verein", self.globals)
+                self.data_objects["Anmeldungen"] = modul.AfpLoad_EvMemberEdit_fromANr
+            elif "Tourist" in mods:
+                modul = Afp_importPyModul("AfpEvent.AfpEvScreen_Tourist", self.globals)
+                self.data_objects["Anmeldungen"] = modul.AfpLoad_EvTouristEdit_fromANr
+            elif "Event" in mods:
+                modul = Afp_importPyModul("AfpEvent.AfpEvDialog", self.globals)
+                self.data_objects["Anmeldungen"] = modul.AfpLoad_EvClientEdit_fromANr
         if "Charter" in mods and "FAHRTEN" in tables:
             choices.append("Mietfahrten")
+            modul = Afp_importPyModul("AfpCharter.AfpChDialog", self.globals)
+            self.data_objects["Mietfahrten"] = modul.AfpLoad_DiChEin_fromFNr
         if "RECHNG" in tables:
             choices.append("Rechnungs-Ausgang")
         if "VERBIND" in tables:
@@ -218,6 +232,31 @@ class AfpAdScreen(AfpScreen):
             for choice in choices:
                 self.combo_Archiv.Append(choice)
 
+    ## Eventhandler double click on grid
+    def On_DClick_Archiv(self,event):
+        if self.debug: print "Event handler `On_DClick_Archiv'!"
+        index = event.GetRow()
+        typ= self.combo_Archiv.GetValue()
+        print "AfpAdScreen.On_DClick_Archiv:", index, typ
+        if len(self.grid_id["Archiv"]) > index:
+            value = Afp_fromString(self.grid_id["Archiv"][index])
+            if typ == "Dokumente":
+                fpath = Afp_addRootpath(self.globals.get_value("archivdir"), value)
+                if not Afp_existsFile(fpath):
+                     fpath = Afp_addRootpath(self.globals.get_value("antiquedir"), value)
+                if Afp_existsFile(fpath):
+                    Afp_startFile(fpath,self.globals, self.debug)
+                else:
+                    print "WARNING: File not found in archiv:", fpath
+            elif typ == "Merkmale":
+                print "AfpAdScreen.On_DClick_Archiv: Merkmal clicked"
+            elif typ == "Beziehungen":
+                self.select_from_KNr(value)
+            elif typ in self.data_objects:
+                self.data_objects[typ](self.globals, value)
+                
+        event.Skip()
+        
     ## Eventhandler MENU; BUTTON - select other address, either direkt or via attribut
     def On_Adresse_AuswErw(self,event):
         if self.debug: print "Event handler `On_Adresse_AuswErw'!"
@@ -237,15 +276,20 @@ class AfpAdScreen(AfpScreen):
         auswahl = AfpLoad_AdAusw(self.globals, self.sb_master, index, value, where, attrib, True)
         if not auswahl is None:
             KNr = int(auswahl)
-            if self.sb_filter: self.sb.select_where(self.sb_filter, "KundenNr", self.sb_master)
-            self.sb.select_key(KNr, "KundenNr", self.sb_master)
-            if self.sb_filter: self.sb.select_where("", "KundenNr", self.sb_master)
-            self.sb.set_index(index, self.sb_master, "KundenNr")   
-            if self.sb_master == "ADRESATT":
-                self.sb.select_key(KNr,"KundenNr","ADRESSE")
-            self.Populate()
-        #self.sb.unset_debug()
-        event.Skip()
+            self.select_from_KNr(KNr)
+        event.Skip() 
+    ## select screen from adress-identifier (KNr)
+    # @param KNr - address identifier
+    def select_from_KNr(self, KNr):
+        index = self.sb.identify_index().get_name()
+        if self.sb_filter: self.sb.select_where(self.sb_filter, "KundenNr", self.sb_master)
+        self.sb.select_key(KNr, "KundenNr", self.sb_master)
+        if self.sb_filter: self.sb.select_where("", "KundenNr", self.sb_master)
+        self.sb.set_index(index, self.sb_master, "KundenNr")   
+        if self.sb_master == "ADRESATT":
+            self.sb.select_key(KNr,"KundenNr","ADRESSE")
+        self.Populate()
+
     ## Eventhandler BUTTON - resolve duplicate addresses - not implemented yet!
     def On_Adresse_Doppelt(self,event):
         print "Event handler `On_Adresse_Doppelt' not implemented!"
@@ -327,7 +371,7 @@ class AfpAdScreen(AfpScreen):
     ## Eventhandler COMBOBOX - fill grid 'Archiv' due to the new setting
     def On_Filter_Archiv(self,event):
         self.Pop_grid("Archiv")        
-        if self.debug: print "AfpAdScreen Event handler `On_Filter_Archiv'"
+        if self.debug: print "AfpAdScreen Event handler `On_Filter_Archiv'" 
         event.Skip()
     ## Eventhandler RADIOBOX - only implemented to reset selection due to databas entry
     def On_CStatus(self, event):
@@ -377,16 +421,18 @@ class AfpAdScreen(AfpScreen):
     def set_current_record(self):
         KNr = self.sb.get_value("KundenNr")
         if self.sb_master == "ADRESATT":
-            KNr = self.sb.get_value("KundenNr")
             self.sb.select_key(KNr,"KundenNr","ADRESSE")
         #print "set_current_record",self.sb_master, KNr
         self.Pop_choice_status()
         return  
     ## set initial record to be shown, when screen opens the first time
     #overwritten from AfpScreen) 
-    # @param origin - string where to find initial data
+    # @param origin -  initial data, if Integer, KNr is assumed else, string where to find the data
     def set_initial_record(self, origin = None):
-        KNr = 0
+        if Afp_isInteger(origin):
+            KNr = origin
+        else:
+            KNr = 0
         if origin == "Charter":
             KNr = self.sb.get_value("KundenNr.FAHRTEN")
             #KNr = self.globals.get_value("KundenNr", origin)
@@ -427,8 +473,8 @@ class AfpAdScreen(AfpScreen):
                 rows = self.mysql.select_strings("Datum,Art,Typ,Gruppe,Bem,Extern",select,"ARCHIV")
             elif typ == "Anmeldungen":
                 self.archiv_colname = self.archiv_colnames[1]
- #               select += " and FahrtNr.REISEN = FahrtNr.ANMELD"
- #               rows = self.mysql.select_strings("RechNr.ANMELD,Anmeldung,Zielort.REISEN,Preis.ANMELD,Zahlung.ANMELD,AnmeldNr",select,"ANMELD REISEN")
+                # select += " and FahrtNr.REISEN = FahrtNr.ANMELD"
+                # rows = self.mysql.select_strings("RechNr.ANMELD,Anmeldung,Zielort.REISEN,Preis.ANMELD,Zahlung.ANMELD,AnmeldNr",select,"ANMELD REISEN")
                 select += " and EventNr.EVENT = EventNr.ANMELD"
                 rows = self.mysql.select_strings("RechNr.ANMELD,Anmeldung,Bez.EVENT,Preis.ANMELD,Zahlung.ANMELD,AnmeldNr",select,"ANMELD EVENT")
             elif typ == "Mietfahrten":

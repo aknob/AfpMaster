@@ -148,7 +148,7 @@ def AfpEvent_getSqlTables(flavour = None):
   KEY `AnmeldNr` (`AnmeldNr`),
   KEY `Kennung` (`Kennung`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_german2_ci;"""
-    if flavour == "Tourist" of flavour == "Verein":
+    if flavour == "Tourist" or flavour == "Verein":
         # transfer route name table
         required["TNAME"] = """CREATE TABLE `TNAME` (
   `TourNr` smallint(6) NOT NULL AUTO_INCREMENT,
@@ -176,7 +176,7 @@ def AfpEvent_getSqlTables(flavour = None):
   KEY `KennNr` (`KennNr`),
   KEY `Zeit` (`Zeit`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_german2_ci;"""
-    if flavour == "Tourist" 
+    if flavour == "Tourist":
         # insert output possibillities for 'Tourist' flavour into 'AUSGABE' table
         required["AUSGABE"] = """INSERT INTO `AUSGABE` VALUES 
     (0,'Tourist','EigenReise','Anmeldung','Anbest','Anmeldebestätigung',''),

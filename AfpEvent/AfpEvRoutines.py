@@ -245,6 +245,20 @@ class AfpEvent(AfpSelectionList):
     def line(self):
         zeile =  self.get_string_value("Kennung").rjust(8) + "  "  + self.get_string_value("Art") + " " +  self.get_string_value("AgentName") + " " + self.get_string_value("Beginn") + " " + self.get_string_value("Ort")  
         return zeile
+    ## internal routine to set the  filter on ANMELD selection
+    # @param values - list of filter values to be applied on selection
+    def set_anmeld_filter(self, values = None):
+        filter = "EventNr = EventNr.EVENT"
+        if values:
+            inner = ""
+            for val in values:
+                if "=" in val or">" in val or "<" in val:
+                    filter += " AND " + val
+                else:
+                    inner += " OR Zustand = \"" + val + "\""
+            filter += " AND (" + inner[4:] + ")"
+        #print "AfpEvent.set_anmeld_filter:", filter
+        self.selects["ANMELD"] = [ "ANMELD",filter,"AnmeldNr"] 
     ## internal routine to set the appropriate agency name
     def set_agent_name(self):
         #name = self.get_name(False,"Kontakt") + " " + self.get_string_value("KontaktNr")
@@ -371,7 +385,7 @@ class AfpEvClient(AfpSelectionList):
         self.selects["ANMELDER"] = [ "ANMELDER","AnmeldNr = AnmeldNr.ANMELD"] 
         self.selects["ANMELDEX"] = [ "ANMELDEX","AnmeldNr = AnmeldNr.ANMELD"] 
         self.selects["RECHNG"] = [ "RECHNG","RechNr = RechNr.ANMELD","RechNr"]
-        self.selects["AUSGABE"] = [ "AUSGABE","Modul = \"" + self.get_listname() + "\" AND Art = Art.EVENT AND Typ = Zustand.ANMELD"] 
+        self.selects["AUSGABE"] = [ "AUSGABE","Modul = \"Event\" AND Art = Art.EVENT AND Typ = Zustand.ANMELD"] 
         #self.selects["AUSGABE"] = [ "AUSGABE","Typ = Art.EVENT + Zustand.ANMELD"] 
         #self.selects["AUSGABE"] = [ "AUSGABE","Typ = \"EigenAnmeldung\""] 
         self.selects["RechNr"] = [ "ANMELD","RechNr = RechNr.ANMELD"] 
@@ -382,7 +396,8 @@ class AfpEvClient(AfpSelectionList):
         self.selects["Umbuchung"] = [ "EVENT","EventNr = UmbAuf.ANMELD"] 
         self.selects["Ort"] = [ "ADRESSE","KundenNr = Route.ANMELD"] 
         self.selects["ARCHIV"] = [ "ARCHIV","TabNr = AnmeldNr.ANMELD AND Tab = \"ANMELD\""] 
-        #self.selects["SEPA"] = [ "ARCHIV","TabNr = AnmeldNr.ANMELD AND Tab = \"ANMELD\" AND Art = \"SEPA-DD\" AND Typ = \"Aktiv\""] 
+        # allow SEPA direct debit for the clients
+        self.selects["SEPA"] = [ "ARCHIV","TabNr = AnmeldNr.ANMELD AND Tab = \"ANMELD\" AND Art = \"SEPA-DD\" AND Typ = \"Aktiv\""] 
         #self.selects["ERTRAG"] = [ "ERTRAG","EventNr = EventNr.ANMELD"] 
         if complete: self.create_selections()
         if not self.globals.skip_accounting():
@@ -424,7 +439,7 @@ class AfpEvClient(AfpSelectionList):
         return self.event_is_tour() or self.event_is_Verein()
     ## clear current SelectionList to behave as a newly created List 
     # @param EventNr - identifier of event, == None if event is kept
-    # @param KundenNr - KundenNr of newly selected adress, == None if adress is kept
+    # @param KundenNr - KundenNr of newly selected adress, == None if address is kept
     # @param keep_flag -  flags which data should be kept while creation this copy
     # - [0] == True: same invoice number used 
     # - [1] == True: agent should be kept 
@@ -670,6 +685,14 @@ class AfpEvClient(AfpSelectionList):
         if self.is_invoice_connected():
             self.set_value("Zahlung.RECHNG", payment)
             self.set_value("ZahlDat.RECHNG", datum)
+    ## extract payment relevant data from SelectionList for 'Finance' modul, overwritten from AfpSelectionList
+    # has to return the account number this payment has to be charged ("Gegenkonto")
+    # @param paymentdata - payment data dictionary to be modified and returned
+    def add_payment_data(self, paymentdata):
+        paymentdata["Gegenkonto"] = self.get_value("ErloesKt.EVENT") 
+        paymentdata["GktName"] = self.get_value("AgentName.EVENT")
+        #print "AfpEvent.add_payment_data:", paymentdata
+        return paymentdata
     ## return specific identification string to be used in dialogs \n
     # - overwritten from AfpSelectionList
     def get_identification_string(self):

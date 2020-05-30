@@ -3,9 +3,10 @@
 
 ## @package BusAfp
 # BusAfp is a software to manage coach and travel acivities \n
-#    Copyright© 1989 - 2019  afptech.de (Andreas Knoblauch) \n
+#    Copyright© 1989 - 2020  afptech.de (Andreas Knoblauch) \n
 # \n
 #   History: \n
+#        05 Mar. 2020 - allow individual database config files additionally- Andreas.Knoblauch@afptech.de \n
 #        15 Nov. 2018 - set initial database name to product name - Andreas.Knoblauch@afptech.de \n
 #        16 Jan. 2017 - separate software specific code from parameter extraction - Andreas.Knoblauch@afptech.de \n
 #        26 Aug. 2015 - change direct execution parameter to normal input, to be used via os - Andreas.Knoblauch@afptech.de \n
@@ -19,7 +20,7 @@
 #  AfpTechnologies (afptech.de)
 #
 #    BusAfp is a software to manage coach and travel acivities
-#    Copyright© 1989 - 2019 afptech.de (Andreas Knoblauch)
+#    Copyright© 1989 - 2020 afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -96,7 +97,7 @@ class AfpMainApp(wx.App):
         website = "http://www.afptech.de"
         baseversion = "6.1.1 beta"       
         version = baseversion    
-        copyright = 'Copyright (C) 1989 - 2019  AfpTech.de'
+        copyright = 'Copyright (C) 1989 - 2020  AfpTech.de'
         moduls = ["Adresse"]
         if info:
             name = info.get_name()
@@ -114,7 +115,7 @@ class AfpMainApp(wx.App):
         rechtssichere englische Version:
         
         """.decode("UTF-8") + name + """ is a software to manage coach and travel acivities
-         Copyright© 1989 - 2019  afptech.de (Andreas Knoblauch)
+         Copyright© 1989 - 2020  afptech.de (Andreas Knoblauch)
 
          This program is free software: you can redistribute it and/or modify
          it under the terms of the GNU General Public License as published by
@@ -137,7 +138,8 @@ class AfpMainApp(wx.App):
         if "startpath" in pars: set.set("start-path", pars["startpath"])
         if "dbhost" in pars: set.set("database-host", pars["dbhost"]) 
         if not set.get("database") and not "dbname" in pars: pars["dbname"] = name
-        if "dbname" in pars: set.set("database", pars["dbname"])      
+        if "dbname" in pars: set.set("database", pars["dbname"])    
+        set.read_db_config()
         if "dbuser" in pars: 
             set.set("database-user", pars["dbuser"])      
             set.set("database-word", "")      

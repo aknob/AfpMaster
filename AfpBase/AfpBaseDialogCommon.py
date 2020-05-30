@@ -15,7 +15,7 @@
 #  AfpTechnologies (afptech.de)
 #
 #    BusAfp is a software to manage coach and travel acivities
-#    Copyright© 1989 - 2019 afptech.de (Andreas Knoblauch)
+#    Copyright© 1989 - 2020 afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -93,8 +93,10 @@ def AfpReq_extraProgram(path, modulname):
     for name in names:
         modul, text = Afp_readExtraInfo(name)
         text = Afp_toString(text)
-        if modul: text += " (" + modul +")"
-        if modul is None or modul == modulname:
+        if modul: 
+            text += " (" + modul +")"
+            modul = modul.split(",")
+        if modul is None or modulname in modul:
             liste.append(text)
             fnames.append(name)
     #print "AfpReq_extraProgram:", names, liste, fnames
@@ -214,7 +216,7 @@ def Afp_autoEingabe(value, index, sort_list, name, text = None):
             for entry in sort_list:
                 if sort_list[entry] and sort_list[entry] == format:
                     index = entry
-        print "Afp_autoEingabe index:", index, value, sort_list
+        #print "Afp_autoEingabe index:", index, value, sort_list
         if sort_list[index] is None:
             Ok = None
     return value, index, Ok
@@ -230,11 +232,14 @@ class AfpDialog_DiReport(wx.Dialog):
         self.datas = None   # in case more then one output has to be created, datas are attached here and sucessively assigned to data
         self.datasindex = None # current index in datas of actuel assigned data
         self.variables = None # given variables used globally in output
+        self.serial_tags = None # if given tags needed for serial output
         self.globals = None
         self.major_type = None
         self.mail = None
         self.prefix = ""
         self.postfix = ""
+        self.archivname = None
+        self.archivdata = None
         self.textmap = {}
         self.labelmap = {}
         self.choicevalues = {}
@@ -251,25 +256,53 @@ class AfpDialog_DiReport(wx.Dialog):
         self.SetSize((428,200))
         self.SetTitle("Dokumentenausgabe")
 
-    ## set up dialog widgets
+    ## set up dialog widgets    
     def InitWx(self):
-        panel = wx.Panel(self, -1)
-        self.list_Report = wx.ListBox(panel, -1, pos=(10,10), size=(310,120), name="Report")
+        self.sizer = wx.BoxSizer( wx.HORIZONTAL)
+        self.left_sizer = wx.BoxSizer( wx.VERTICAL)
+        self.right_sizer = wx.BoxSizer( wx.VERTICAL)
+        self.list_Report = wx.ListBox(self, -1, name="Report")
         #self.Bind(wx.EVT_LISTBOX_SCLICK, self.On_Rep_Click, self.list_Report)
         self.Bind(wx.EVT_LISTBOX_DCLICK, self.On_Rep_DClick, self.list_Report)
-        self.choice_Bearbeiten = wx.Choice(panel, -1,  pos=(325,10), size=(93,30),  choices=["Vorlage ...", "Ändern".decode("UTF-8"),"Kopie","Info", "Löschen".decode("UTF-8")], name="CBearbeiten")      
+        self.check_Archiv = wx.CheckBox(self, -1, label="Archiv:", name="Archiv")
+        self.label_Ablage= wx.StaticText(self, -1, label="", name="Ablage")  
+        self.text_Bem= wx.TextCtrl(self, -1, value="", style=0, name="Bem")    
+        self.left_lower_sizer = wx.BoxSizer( wx.HORIZONTAL)
+        self.left_lower_sizer.Add(self.check_Archiv,0,wx.EXPAND)
+        self.left_lower_sizer.AddStretchSpacer(1)
+        self.left_lower_sizer.Add(self.label_Ablage,0,wx.EXPAND)
+        self.left_lower_sizer.Add(self.text_Bem,0,wx.EXPAND)
+        self.left_sizer.AddSpacer(10)
+        self.left_sizer.Add(self.list_Report,1,wx.EXPAND)
+        self.left_sizer.AddSpacer(10)
+        self.left_sizer.Add(self.left_lower_sizer,0,wx.EXPAND)
+        self.left_sizer.AddSpacer(10)
+        self.choice_Bearbeiten = wx.Choice(self, -1,  choices=["Vorlage ...", "Ändern".decode("UTF-8"),"Kopie","Info", "Löschen".decode("UTF-8")], name="CBearbeiten")      
         self.choice_Bearbeiten.SetSelection(0)
         self.Bind(wx.EVT_CHOICE, self.On_Rep_Bearbeiten, self.choice_Bearbeiten)
         #self.button_Info = wx.Button(panel, -1, label="&Info", pos=(340,46), size=(78,30), name="Info")
         #self.Bind(wx.EVT_BUTTON, self.On_Rep_Info, self.button_Info)
-        self.check_Archiv = wx.CheckBox(panel, -1, label="Archiv:", pos=(10,141), size=(70,20), name="Archiv")
-        self.label_Ablage= wx.StaticText(panel, -1, label="", pos=(80,144), size=(70,18), name="Ablage")  
-        self.text_Bem= wx.TextCtrl(panel, -1, value="", pos=(150,141), size=(170,20), style=0, name="Bem")        
-        self.check_EMail = wx.CheckBox(panel, -1, label="per EMail", pos=(325,74), size=(93,20), name="check_EMail")
-        self.button_Abbr = wx.Button(panel, -1, label="&Abbruch", pos=(325,100), size=(93,30), name="Abbruch")
+        self.check_EMail = wx.CheckBox(self, -1, label="per EMail", name="check_EMail")
+        self.button_Abbr = wx.Button(self, -1, label="&Abbruch", name="Abbruch")
         self.Bind(wx.EVT_BUTTON, self.On_Rep_Abbr, self.button_Abbr)
-        self.button_Okay = wx.Button(panel, -1, label="&Ok", pos=(325,136), size=(93,30), name="Okay")
+        self.button_Okay = wx.Button(self, -1, label="&Ok", name="Okay")
         self.Bind(wx.EVT_BUTTON, self.On_Rep_Ok, self.button_Okay)
+        self.right_sizer.AddSpacer(10)
+        self.right_sizer.Add(self.choice_Bearbeiten,0,wx.EXPAND)
+        self.right_sizer.AddStretchSpacer(1)
+        self.right_sizer.Add(self.check_EMail,0,wx.EXPAND)
+        self.right_sizer.Add(self.button_Abbr,0,wx.EXPAND)
+        self.right_sizer.AddSpacer(10)
+        self.right_sizer.Add(self.button_Okay,0,wx.EXPAND)
+        self.right_sizer.AddSpacer(10)
+        self.sizer.AddSpacer(10)
+        self.sizer.Add(self.left_sizer,1,wx.EXPAND)
+        self.sizer.AddSpacer(10)
+        self.sizer.Add(self.right_sizer,0,wx.EXPAND)
+        self.sizer.AddSpacer(10)
+        self.SetSizerAndFit(self.sizer)
+        self.SetAutoLayout(1)
+        self.sizer.Fit(self)
 
     ## attach to database and populate widgets
     # @param selectionlist - SelectionList or list of SelectionLists to be used for output
@@ -282,7 +315,7 @@ class AfpDialog_DiReport(wx.Dialog):
             self.SetTitle(self.GetTitle() + ": " + header)
             self.label_Ablage.SetLabel(header)      
         if type(data) == list:
-            self.data = data.pop()
+            self.data = data[0]
             self.datas = data
         else:
             self.data = data
@@ -357,10 +390,14 @@ class AfpDialog_DiReport(wx.Dialog):
         if self.reportname:
             self.list_Report.InsertItems(self.reportname, 0)
         return None
-    ## fille preset value into archiv description
+    ## fill preset value into archiv description
     # @param text - text to be displayed
     def preset_text_bem(self, text):
         self.text_Bem.SetValue(text)
+    ## assign different data fpr archiv
+    # @param data - selectionlist to be used for archiv
+    def add_archivdata(self, data):
+        self.archivdata = data
     ## common Eventhandler TEXTBOX - when leaving the textbox
     # @param event - event which initiated this action
     def On_KillFocus(self,event):
@@ -378,13 +415,22 @@ class AfpDialog_DiReport(wx.Dialog):
         fname, fresult = self.generate_names()
         #print "AfpDialog_DiReport.generate_Ausgabe:", fname, fresult
         if fresult:
-            out = AfpAusgabe(self.debug, self.data)
+            if self.datas:
+                out = AfpAusgabe(self.debug, self.datas, self.serial_tags)
+            else:
+                out = AfpAusgabe(self.debug, self.data)
             if self.variables:
                 out.set_variables(self.variables)
+                if not self.globals.get_value("dont-ask-for-variables"):
+                    needed =  out.check_variables(fname)
+                    if needed:
+                        self.ask_for_variables(needed)
+                        out.set_variables(self.variables)
             out.inflate(fname)
             out.write_resultfile(fresult, empty)
         else:
             fresult = fname
+        #print "AfpDialog_DiReport.generate_Ausgabe:", fresult
         if fresult:
             self.execute_Ausgabe(fresult)
             self.add_to_archiv()
@@ -408,14 +454,16 @@ class AfpDialog_DiReport(wx.Dialog):
         index = self.get_list_Report_index()
         if index >= 0:
             template = self.reportlist[index] 
-            if not "." in template:
+            if not "." in template: 
+                if "Liste" in template: 
+                    self.serial_tags = ["<table:table-row>",  "</table:table-row>", 1]
                 template = self.major_type + "_template_" + template + ".fodt"
                 template = Afp_addRootpath(self.globals.get_value("templatedir"), template)
             else:
                 if template[:6] == "Archiv":
                     template = template[7:]
                     template = Afp_addRootpath(self.globals.get_value("antiquedir"), template)
-                else:
+                else: 
                     template = Afp_addRootpath(self.globals.get_value("archivdir"), template)
             #print "AfpDialog_DiReport.get_template_name:", template, self.major_type, self.reportlist[index]
         return template
@@ -475,8 +523,33 @@ class AfpDialog_DiReport(wx.Dialog):
         new_data["Gruppe"] = self.get_list_Report_name()
         new_data["Bem"] = self.text_Bem.GetValue()
         new_data["Extern"] = self.archivname
-        self.data.add_to_Archiv(new_data)
-   
+        if self.archivdata:
+            self.archivdata.add_to_Archiv(new_data)
+        else:
+            self.data.add_to_Archiv(new_data)
+        #print "AfpDialog_DiReport.add_to_archiv:", self.archivdata, new_data
+    ## display dialogs for variables
+    # @param varnames - list holding variable names to be asked for
+    def ask_for_variables(self, varnames):
+        add_text = False
+        if "Text" in varnames:
+            varnames.pop(varnames.index("Text"))
+            add_text = True
+        liste = []
+        for var in varnames:
+            liste.append([var, ""])
+        if liste: 
+            result = AfpReq_MultiLine("Die folgende Variablen sind nicht gegeben,", "bitte Werte jetzt eingeben:", "Text", liste, "Variablen Eingabe")
+            if result:
+                for i in range(len(result)):
+                    res = result[i]
+                    if res:
+                        self.variables[varnames[i]] = res
+        if add_text:
+             text, ok = AfpReq_EditText("","Texteingabe","Bitte Text des Anscheibens eingeben:")
+             if ok and text:
+                 self.variables["Text"] = text
+
     # Event Handlers 
     ## Eventhandler left mouse click in list selection
     # @param event - event which initiated this action
@@ -557,14 +630,16 @@ class AfpDialog_DiReport(wx.Dialog):
         if self.debug: print "AfpDialog_DiReport Event handler `On_Rep_Ok'"
         self.archivname = None
         self.generate_Ausgabe()
-        if self.datas:
-            for data in self.datas:
-                self.datasindex = self.datas.index(data)
-                self.data = data
-                self.generate_Ausgabe()
+        #print "AfpDialog_DiReport.On_Rep_Ok:", self.archivname
         if self.archivname:
-            select = self.data.get_selection("ARCHIV")
-            if select: select.store()
+            if self.archivdata:
+                sel = self.archivdata.get_selection("ARCHIV")
+            else:
+                sel = self.data.get_selection("ARCHIV")
+            #print "AfpDialog_DiReport.On_Rep_Ok:",  self.archivdata, sel
+            #sel.debug = True
+            #sel.dbg = True
+            if sel: sel.store()
         if event: event.Skip()
         self.EndModal(wx.ID_OK)
 
@@ -575,12 +650,12 @@ class AfpDialog_DiReport(wx.Dialog):
 # @param variables - dictionary of possible variable values used for output
 # @param header - if given, text displayed in header of dialog
 # @param prefix - if given, prefix for output name creation and archiv entry
-# @param archivtext - if given, preset text for archiv entry
-# @param datalist - if given, list of SelectionLists, entries are filled consecutively into  'selectionlist' for multiple output
-def AfpLoad_DiReport(selectionlist, globals, variables = None, header = "", prefix = "", archivtext = None):
+# @param archivtext - if given, different data for archiv
+def AfpLoad_DiReport(selectionlist, globals, variables = None, header = "", prefix = "", archivtext = None, archivdata = None):
     DiReport = AfpDialog_DiReport(None)
     DiReport.attach_data(selectionlist, globals, variables, header, prefix)
     if archivtext: DiReport.preset_text_bem(archivtext)
+    if archivdata: DiReport.add_archivdata(archivdata)
     DiReport.ShowModal()
     DiReport.Destroy()
  
@@ -607,6 +682,7 @@ class AfpDialog_editArchiv(AfpDialog):
         self.label_lower = wx.StaticText(self, 2, name="label_lower")
         self.list_Archiv = wx.ListBox(self, -1, name="Archiv")      
         self.listmap.append("Archiv")
+        self.keepeditable.append("Archiv")
         self.Bind(wx.EVT_LISTBOX_DCLICK, self.On_Archiv_edit, self.list_Archiv)
         self.button_Add = wx.Button(self, -1, label="&Hinzufügen".decode("UTF-8"), name="Add")
         self.Bind(wx.EVT_BUTTON, self.On_Button_Add, self.button_Add)
@@ -710,31 +786,36 @@ class AfpDialog_editArchiv(AfpDialog):
     def On_Archiv_edit(self, event):
         if self.debug: print "AfpDialog_editArchiv Event handler `On_Archiv_edit'"
         index = self.list_Archiv.GetSelections()[0] 
-        row = self.data.get_value_rows("ARCHIV","Art,Typ,Gruppe,Bem", index)[0]
-        row = Afp_ArraytoString(row)
-        if row[0] == self.major_type or row[0] =="SEPA-DD":
-            #liste = [["Art:", row[0]], ["Ablage:", row[1]], ["Fach:", row[2]], ["Bemerkung:", row[3]]]
-            liste = [["Fach:", row[2]], ["Bemerkung:", row[3]]]
-            text2 = "Art: " + row[0] + ", Ablage: " + row[1]
-        else:
-            liste = [["Ablage:", row[1]], ["Fach:", row[2]], ["Bemerkung:", row[3]]]
-            text2 = "Art: " + row[0] 
-        result = AfpReq_MultiLine("Bitte Archiveintrag ändern:".decode("UTF-8"), text2, "Text", liste, "Archiveintrag", 300, "")
-        if result:
-            for i in range(len(result)):
-                if result[i] != liste[i][1]:
-                    changed = True
-            if changed:
+        if self.is_editable():
+            row = self.data.get_value_rows("ARCHIV","Art,Typ,Gruppe,Bem", index)[0]
+            row = Afp_ArraytoString(row)
+            if row[0] == self.major_type or row[0] =="SEPA-DD":
+                #liste = [["Art:", row[0]], ["Ablage:", row[1]], ["Fach:", row[2]], ["Bemerkung:", row[3]]]
+                liste = [["Fach:", row[2]], ["Bemerkung:", row[3]]]
+                text2 = "Art: " + row[0] + ", Ablage: " + row[1]
+            else:
+                liste = [["Ablage:", row[1]], ["Fach:", row[2]], ["Bemerkung:", row[3]]]
+                text2 = "Art: " + row[0] 
+            result = AfpReq_MultiLine("Bitte Archiveintrag ändern:".decode("UTF-8"), text2, "Text", liste, "Archiveintrag", 300, "")
+            if result:
+                for i in range(len(result)):
+                    if result[i] != liste[i][1]:
+                        changed = True
+                if changed:
+                    self.changed = True
+                    values = {}
+                    value_types = ["Typ", "Gruppe","Bem"]
+                    for res in reversed(result):
+                        values[value_types.pop()] = res
+                    self.data.set_data_values(values, "ARCHIV", index)
+            elif result is None:
                 self.changed = True
-                values = {}
-                value_types = ["Typ", "Gruppe","Bem"]
-                for res in reversed(result):
-                    values[value_types.pop()] = res
-                self.data.set_data_values(values, "ARCHIV", index)
-        elif result is None:
-            self.changed = True
-            self.data.delete_row("ARCHIV", index)
-        if self.changed: self.Populate()
+                self.data.delete_row("ARCHIV", index)
+            if self.changed: self.Populate()
+        else:
+            fname = self.data.get_value_rows("ARCHIV","Extern", index)[0][0]
+            fpath = Afp_addRootpath(self.data.get_globals().get_value("archivdir"), fname)
+            Afp_startFile(fpath,self.data.get_globals(), self.debug)
         event.Skip()
     ## Eventhandler BUTTON - Add button pushed
     # @param event - event which initiated this action

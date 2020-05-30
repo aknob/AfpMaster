@@ -15,7 +15,7 @@
 #  AfpTechnologies (afptech.de)
 #
 #    BusAfp is a software to manage coach and travel acivities
-#    Copyright© 1989 - 2019 afptech.de (Andreas Knoblauch)
+#    Copyright© 1989 - 2020 afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -77,7 +77,8 @@ class AfpScreen(wx.Frame):
         # sorting grids
         self.grid_sort_col = {}
         self.grid_sort_desc = {}
-        self.grid_sort_rows = {}
+        self.grid_sort_rows = None # sorting turned off by default
+        #self.grid_sort_rows = {}  # use this line in devired screen to turm it on
         # dynamic grid handling during resizing
         self.dynamic_grid_name= None
         self.dynamic_grid_col_percents = None
@@ -291,16 +292,15 @@ class AfpScreen(wx.Frame):
     # @param name - name of grid
     # @param index - if given, index of column to be marked
     def mark_grid_column(self, name, index=None):
-        #if name in self.grid_sort_col and self.grid_sort_col[name] == index: return
+        #print  "AfpScreen.mark_grid_column attr:", name, index, self.grid_sort_col
         grid = self.FindWindowByName(name)
-        print "AfpScreen.mark_grid_column gridrows:", grid.GetNumberRows()
         if name in self.grid_sort_col:
             for row in range(grid.GetNumberRows()):            
                 attr =  wx.grid.GridCellAttr()
                 attr.SetBackgroundColour(self.actuelbuttoncolor)
                 #print "AfpScreen.mark_grid_column normal attr:", attr, attr.GetFont()
                 grid.SetAttr(row, self.grid_sort_col[name], attr)
-            if index is None: self.grid_sort_col.pop(name)
+            if not index: self.grid_sort_col.pop(name)
         if index:
             for row in range(grid.GetNumberRows()):
                 attr =  wx.grid.GridCellAttr()
@@ -337,12 +337,16 @@ class AfpScreen(wx.Frame):
         data = self.get_data()
         ok = AfpLoad_editArchiv(data,  "Archiv von " + data.get_name() , data.get_identification_string())
         if ok: self.Reload()
-   ## Eventhandler Menu - select and start additional programs
-    def On_ScreenZusatz(self, event):
+    ## Eventhandler Menu - select and start additional programs
+    # @param data - optional input of data for indirect use
+    def On_ScreenZusatz(self, event, data = None):
         if self.debug: print "AfpScreen Event handler `On_ScreenZusatz'!"
-        fname, ok = AfpReq_extraProgram(self.globals.get_value("extradir"), self.typ)
+        typ = self.typ
+        if self.flavour: typ = self.flavour
+        if not data: data = self.data
+        fname, ok = AfpReq_extraProgram(self.globals.get_value("extradir"), typ)
         if ok and fname:
-            Afp_startExtraProgram(fname, self.globals, self.data, self.debug)
+            Afp_startExtraProgram(fname, self.globals, data, self.debug)
       
     ## Eventhandler Menu - switch between screen
     def On_Screenitem(self, event):
@@ -350,29 +354,13 @@ class AfpScreen(wx.Frame):
         id = event.GetId()
         item = self.menu_items[id]
         text = item.GetText() 
-        #print id, text
         if text == self.typ:
             item.Check(True)
         elif text == "Beenden":
             self.On_Ende(event)
         else:
-            # Afp_writeTarget(self.globals, text, self.typ)
-            pos = self.GetPosition().Get()
-            Afp_loadScreen(self.globals, text, self.sb, self.typ, pos)
-            self.Close()
+            self.SwitchModulScreen(text)
         #event.Skip() #invokes eventhandler twice on windows
-
-    ## handle grid sort even (pressed on column header)
-    def On_GridSort(self, event):
-        index = event.GetCol()
-        name = event.GetEventObject().GetName()
-        desc = None
-        if name in self.grid_sort_col and index == self.grid_sort_col[name]:
-            if name in self.grid_sort_desc: desc = not self.grid_sort_desc[name]
-        self.mark_grid_column(name, index)
-        self.grid_sort_desc[name] = desc
-        self.sort_grid_rows(name, index, desc)
-
     ## Enventhandler BUTTON - switch modules
     def On_ScreenButton(self,event):
         if self.debug: print "AfpScreen Event handler `On_ScreenButton'!"
@@ -380,10 +368,14 @@ class AfpScreen(wx.Frame):
         name = object.GetName()
         text = name[1:]
         if not text == self.typ:
-            pos = self.GetPosition().Get()
-            Afp_loadScreen(self.globals, text, self.sb, self.typ, pos)
-            self.Close()
+            self.SwitchModulScreen(text)
         #event.Skip() #invokes eventhandler twice on windows
+    ## switch to other modul screen
+    # @param modul - name of modul to switch to
+    def SwitchModulScreen(self, modul):
+        pos = self.GetPosition().Get()
+        Afp_loadScreen(self.globals, modul, self.sb, self.typ, pos)
+        self.Close()
       
     ## Eventhandler BUTTON - quit
     def On_Ende(self,event):
@@ -401,7 +393,20 @@ class AfpScreen(wx.Frame):
         if keycode == wx.WXK_RIGHT: next = 1
         self.CurrentData(next)
         #event.Skip()) #invokes eventhandler twice on windows
-        
+    
+    ## handle grid sort event (pressed on column header)
+    def On_GridSort(self, event):
+        if not self.grid_sort_rows is None:
+            index = event.GetCol()
+            name = event.GetEventObject().GetName()
+            desc = None
+            if name in self.grid_sort_col and index == self.grid_sort_col[name]:
+                if name in self.grid_sort_desc: desc = not self.grid_sort_desc[name]
+            self.mark_grid_column(name, index)
+            self.grid_sort_desc[name] = desc
+            self.sort_grid_rows(name, index, desc)
+
+    
     ## Eventhandler resize event
     def On_ReSize(self, event):
         if self.dynamic_grid_name:
@@ -476,12 +481,12 @@ class AfpScreen(wx.Frame):
     def Pop_grid(self, name = None):
         for typ in self.gridmap:
             if not name or typ == name:
-                if typ == name and typ in self.grid_sort_rows:
+                if not self.grid_sort_rows is None and typ == name and typ in self.grid_sort_rows:
                     rows = self.grid_sort_rows[typ]
                 else:
                     #self.mark_grid_column(typ)                    
                     rows = self.get_grid_rows(typ)
-                    if rows and typ in self.grid_sort_col:
+                    if not self.grid_sort_rows is None and rows and typ in self.grid_sort_col:
                         self.grid_sort_rows[typ] = rows
                         self.sort_grid_rows(typ, self.grid_sort_col[typ], self.grid_sort_desc[typ])
                         rows = self.grid_sort_rows[typ]
@@ -505,7 +510,8 @@ class AfpScreen(wx.Frame):
                         for col in range(0,max_col_lgh):
                             if self.font: grid.SetCellFont(row, col, self.font)
                             grid.SetCellValue(row, col,"")
-                self.grid_sort_rows[typ]= rows
+                if not self.grid_sort_rows is None: 
+                    self.grid_sort_rows[typ]= rows
     ## population routine for special treatment - to be overwritten in derived class
     def Pop_special(self):
         return
@@ -518,14 +524,14 @@ class AfpScreen(wx.Frame):
     ## set current screen data
     # @param plus - indicator to step forwards, backwards or stay
     def CurrentData(self, plus = 0):
-        if self.debug: print "AfpScreen.CurrentData", plus
+        if self.debug: print "AfpScreen.CurrentData:", plus
         #self.sb.set_debug()
         if plus == 1:
             self.sb.select_next()
         elif plus == -1:
             self.sb.select_previous()
-        self.no_data_shown = self.sb.eof()
-        #print "AfpScreen.CurrentData", self.sb.eof()
+        self.no_data_shown = self.sb.eof() 
+        #print "AfpScreen.CurrentData:", plus, self.sb.eof()
         self.set_current_record()
         #self.sb.unset_debug()
         self.Populate()

@@ -6,6 +6,7 @@
 # no display and user interaction in this modul.
 #
 #   History: \n
+#        23 Dez. 2019 - move financial routines into selection list- Andreas.Knoblauch@afptech.de \n
 #        15 Jan. 2015 - add order list- Andreas.Knoblauch@afptech.de \n
 #        19 Okt. 2014 - adapt package hierarchy - Andreas.Knoblauch@afptech.de \n
 #        30 Nov. 2012 - inital code generated - Andreas.Knoblauch@afptech.de
@@ -15,7 +16,7 @@
 #  AfpTechnologies (afptech.de)
 #
 #    BusAfp is a software to manage coach and travel acivities
-#    Copyright© 1989 - 2019 afptech.de (Andreas Knoblauch)
+#    Copyright© 1989 - 2020 afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -202,7 +203,7 @@ class AfpCharter(AfpSelectionList):
         zustand = self.get_value("Zustand.FAHRTEN")
         return AfpCharter_needsTransaction(zustand)
     ## clear current SelectionList to behave as a newly created List 
-    # @param KundenNr - KundenNr of newly seelected adress, == None if adress is kept
+    # @param KundenNr - KundenNr of newly seelected adress, == None if address is kept
     # @param keep_flag -  flags which data should be kept while creation this copy
     # - [0] == True: address should be kept (should coincident with KundenNr == None)
     # - [1] == True: contact should be kept 
@@ -363,6 +364,22 @@ class AfpCharter(AfpSelectionList):
         if self.get_value("RechNr"):
             self.set_value("Zahlung.RECHNG", payment)
             self.set_value("ZahlDat.RECHNG", datum)
+    ## extract payment relevant data from SelectionList for 'Finance' modul, overwritten from AfpSelectionList
+    # has to return the account number this payment has to be charged ("Gegenkonto")
+    # @param paymentdata - payment data dictionary to be modified and returned
+    def add_payment_data(self, paymentdata):
+        if self.get_value("RechNr.Fahrten"):
+            paymentdata["Gegenkonto"] = self.get_value("Debitor.RECHNG") 
+            paymentdata["GktName"] = self.get_name(True, "RechAdresse") 
+            print "AfpCharter.add_payment_data:",paymentdata
+            if not paymentdata["Gegenkonto"]:
+                paymentdata["Gegenkonto"]  = Afp_getIndividualAccount(self.get_mysql(), self.get_value("KundenNr"))
+                paymentdata["GktName"] = self.get_name(True) 
+                print "AfpCharter.add_payment_data fallback:", paymentdata
+        else:
+            paymentdata["Gegenkonto"] = Afp_getSpecialAccount(self.get_mysql(), "MFA")
+            paymentdata["GktName"] = "MFA"
+        return paymentdata
     ## return specific identification string to be used in dialogs \n
     # - overwritten from AfpSelectionList
     def get_identification_string(self):

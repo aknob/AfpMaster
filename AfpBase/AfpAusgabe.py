@@ -28,6 +28,7 @@
 #                                            works the same with '-=' \n
 # [Summe] : the variable 'Summe' will be set at this position \n
 # [(Summe-Anzahlung)] : the evaluated value of the variable 'Summe' and the variable 'Anzahlung' will be set at this position \n
+# [Afp_Function(Summe,Anz.Anmeld,1)] : the return value of the function 'Afp_Function' with the variable 'Summe', the datafield 'Anz.Anmeld' and the value '1'  as input will be set at this position \n
 #
 # {}: \n
 # {IF Transfer.Anmeld} : this  line will be added to output if 'Transfer.Anmeld'  evaluates to 'True' (holds a value either  != 0.0 or != "") \n
@@ -45,7 +46,7 @@
 #  AfpTechnologies (afptech.de)
 #
 #    BusAfp is a software to manage coach and travel acivities
-#    Copyright© 1989 - 2019 afptech.de (Andreas Knoblauch)
+#    Copyright© 1989 - 2020 afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -113,6 +114,7 @@ class AfpAusgabe(object):
         self.index_stack = [0]
         self.serialized_variables = []
         self.variables = {}
+        self.dummies = []
         self.values = {}
         if self.debug: print "AfpAusgabe Konstruktor" 
     ## Destruktor      
@@ -139,7 +141,7 @@ class AfpAusgabe(object):
             vars = self.datas_variables[self.serial_index]
             for var in vars:
                 self.values[var] = vars[var]
-     ## set variables diretcly
+    ## set variables directly
     # @param vars - dictionary holding variable values
     def set_variables(self, vars):
         for var in vars:
@@ -159,6 +161,19 @@ class AfpAusgabe(object):
         #else:
             #print "is_while:",action, netto
         return while_flag
+    ## check if all variables have been deliverd for a file
+    # @param vars - dictionary holding variable values
+    def check_variables(self, filename):
+        needed = []
+        fin = open(filename, 'r') 
+        for line in fin:
+            need = self.check_line(line)
+            if need:
+                for me in need:
+                    if not me in needed: needed.append(me)
+        fin.close()
+        return needed
+            
     ## main method for reading an analysing flavoured file,
     # inflate the given file with data \n
     # - the file is read here, WHILEs are handeled here 
@@ -199,6 +214,7 @@ class AfpAusgabe(object):
         while len(self.serial_data) > self.serial_index+1:
             self.serial_index += 1
             self.data = self.serial_data[self.serial_index]
+            #print "AfpAusgabe.loop_serial_text serialized:", self.serialized_variables, self.variables, self.values
             for var in self.serialized_variables:
                 if var in self.values:
                     self.variables[var] = self.values[var]
@@ -241,6 +257,27 @@ class AfpAusgabe(object):
             else:
                 # outside whiles, direct execution
                 self.execute_line(line)
+    ## check if all variabel used inb line are present in self.variables
+    # @param line - line to be checked
+    def check_line(self, line):
+        needed = []
+        # hier weiter -> auch in die FUNCTION gucken und ggf. in dummies schreiben
+        if "[" in line:
+            ain, aout = Afp_between(line, "[", "]")
+            for an in ain:
+                bin, bout = Afp_between(an, "<", ">")
+                var = ""
+                for b in bout:
+                    var += b
+                #print "AfpAusgabe.check_line:", line, "AN:", an, "BOUT:", bout, "VAR:", var, var in self.variables
+                if "=" in var:
+                    var,dum = Afp_getFuncVar(var)
+                    if not var in self.dummies: self.dummies.append(var)
+                    #print "AfpAusgabe.check_line dummy:", var
+                if not "." in var and not var in self.variables and not var in self.dummies and not(var[0] == "(" and var[-1] == ")"):
+                    needed.append(var)
+                    #print "AfpAusgabe.check_line needed:", var
+        return needed
     ## correct line, no '<>' brackets in execution brackets '[]', '{}'
     # @paream line - line to be corrected
     def correct_line(self, line):
@@ -349,8 +386,10 @@ class AfpAusgabe(object):
             value = Afp_toString(self.gen_function(fields))
         elif "(" in fields and ")" in fields:
             form, netto = Afp_between(fields,"(",")")
-            #print form
-            value = Afp_toString(self.evaluate_formula(form[0]))
+            if netto and Afp_holdsValue(netto):
+                value = Afp_toString(self.execute_function(fields))
+            else:
+                value = Afp_toString(self.evaluate_formula(form[0]))
         else:
             split = fields.split(",")
             value = ""
@@ -363,7 +402,7 @@ class AfpAusgabe(object):
                     else:
                         self.values[field] = self.retrieve_value(field)
                 value += " " + Afp_toString(self.values[field])
-        #print "AfpAusgabe.gen_value value:", fields, value,
+        #print "AfpAusgabe.gen_value value:", fields, value
         return value.strip()
     ## handles different function evaluations \n
     # assignments (= , +=, -=) are handled here \n
@@ -377,26 +416,45 @@ class AfpAusgabe(object):
         var = split[0]
         form, field = Afp_between(split[1],"(",")")
         #print "AfpAusgabe.gen_function:", form, field
-        if len(form) > 0: value = self.evaluate_formula(form[0])
-        else: value = self.get_value(field[0])
+        direct = False
+        int = False
+        if len(form) > 0: 
+            if field and Afp_holdsValue(field):
+                value = self.execute_function(split[1])
+            else:
+                value = self.evaluate_formula(form[0])
+        elif Afp_isNumeric(Afp_fromString(field[0])):
+            value = Afp_fromString(field[0])
+            int = Afp_isInteger(value)
+            direct = True
+        else: 
+            value = self.get_value(field[0])
         value = Afp_toString(value)
         if not var in self.values:
             if var in self.variables:
                 self.values[var] = self.variables[var]
-                if not var in self.serialized_variables: self.serialized_variables.append(var)
             else:
-                self.values[var] = 0.0
-        pyBefehl = "self.values[var]" + sign + value
-        #print "AfpAusgabe.gen_function Befehl:", pyBefehl, var, self.values
-        exec pyBefehl      
+                if direct and int:
+                    self.values[var] = 0
+                else:
+                    self.values[var] = 0.0
+            if not var in self.serialized_variables: self.serialized_variables.append(var)
+        if value:
+            pyBefehl = "self.values[var]" + sign + value
+            #print "AfpAusgabe.gen_function Befehl:", pyBefehl, var, self.values
+            exec pyBefehl 
+            if direct: value = self.values[var]
         return value
     ## evaluates a written condtion and returns the appropriate boolean value
-    # @param phrase - phrase which holds condition to be evaluated
-    def evaluate_condition(self, phrase):
+    # @param inphrase - phrase which holds condition to be evaluated
+    def evaluate_condition(self, inphrase):
+        splitphrase = inphrase.split("FUNCTION")
+        phrase = splitphrase[0]
         condition = False
         phrase = phrase.replace("&gt;",">")
         phrase = phrase.replace("&lt;","<")
         phrase = phrase.replace("&apos;","\"")
+        phrase = phrase.replace("&quot;","\"")
         sign = ""
         if ">" in phrase: sign = ">"
         elif "<" in phrase: sign = "<"
@@ -406,20 +464,38 @@ class AfpAusgabe(object):
             else: sign += "="
         if sign: 
             split = phrase.split(sign)
+            #print "AfpAusgabe.evaluate_condition split:", split, sign
             split[0] = split[0].strip()
-            if self.in_values(split[0] ): phrase = Afp_toQuotedString(self.values[split[0]], True)
-            else: phrase = split[0].decode("UTF-8")
+            if "(" in split[0] and ")" in split[0]: 
+                phrase = Afp_toQuotedString(self.execute_function(split[0]))
+            elif self.in_values(split[0] ): 
+                phrase = Afp_toQuotedString(self.values[split[0]], True)
+            else: 
+                phrase = split[0].decode("UTF-8")
             phrase += sign
             split[1] = split[1].strip() 
-            if self.in_values(split[1] ): phrase += Afp_toQuotedString(self.values[split[1]], True)
-            else: phrase += split[1].decode("UTF-8")
+            #print "AfpAusgabe.evaluate_condition split1:", split[1][0] == "\"" and split[1][-1] == "\"", self.in_values(split[1]), "(" in split[1] and ")" in split[1]
+            if (split[1][0] == "\"" and split[1][-1] == "\"") or Afp_isNumeric(Afp_fromString(split[1])):
+                phrase += split[1].decode("UTF-8")
+            elif "(" in split[1] and ")" in split[1]: 
+                phrase = Afp_toQuotedString(self.execute_function(split[1]))
+            elif self.in_values(split[1] ): 
+                phrase += Afp_toQuotedString(self.values[split[1]], True)
+            else: 
+                phrase += split[1].decode("UTF-8")
         else: 
-            if self.in_values(phrase): phrase = Afp_toQuotedString(self.values[phrase], True)
-            else: phrase = "None"
+            if "(" in phrase and ")" in phrase: 
+                phrase = Afp_toQuotedString(self.execute_function(phrase))
+            elif self.in_values(phrase): 
+                phrase = Afp_toQuotedString(self.values[phrase], True)
+            else: 
+                phrase = "None"
         pyBefehl = "condition = bool(" + phrase + ")"
         #print "AfpAusgabe.evaluate_condition pyBefehl:", pyBefehl
         exec pyBefehl
         if self.debug: print "AfpAusgabe.evaluate_condition:", pyBefehl, condition
+        if condition and len(splitphrase) > 1:
+            self.gen_function(splitphrase[1].strip())
         return condition
     ## evaluate formulas in ()-prantheses \n
     # all python evaluations are allowed, 
@@ -449,6 +525,27 @@ class AfpAusgabe(object):
             exec pyBefehl
             if self.debug: print "AfpAusgabe.evaluate_formula:", form, pyBefehl, value
         return value
+    ## execute python function
+    # @param func - funtion call to be executed
+    def execute_function(self, func):
+        parms, netto = Afp_between(func, "(",")") 
+        #print "AfpAusgabe.execute_function parms:", func, parms, netto
+        vars = parms[0].split(",")
+        pyBefehl = "value = " + netto[0] + "("
+        for i in range(len(vars)):
+            vars[i] = vars[i].strip()
+            if Afp_isNumeric(Afp_fromString(vars[i])) or (vars[i][0] == "\"" and vars[i][-1] == "\""):
+                var = vars[i]
+            else:
+                var = Afp_toQuotedString(self.get_value(vars[i]))
+            if not var: var = "0"
+            pyBefehl += var + ","
+        pyBefehl = pyBefehl[:-1] + ")"
+        #print "AfpAusgabe.execute_function Befehl:", pyBefehl, vars, self.values
+        exec pyBefehl
+        if self.debug: print "AfpAusgabe.execute_function:", pyBefehl, "Result:", value
+        return value
+       
     ## executes a while loop, may be called recursive for nested loops \n
     # @param while_line - holds the while conditions
     # @param stack_index - index of the lines in this while loop in self.line_stack
@@ -459,11 +556,11 @@ class AfpAusgabe(object):
         if self.data is None:
             rows, indices = self.extract_rows_from_file(feldnamen, while_clause, file_index)
         else:
+            #print "AfpAusgabe.execute_while select:", self.data, feldnamen, while_clause, dsnamen
             if while_clause:
                 rows = self.data.mysql.select(feldnamen, while_clause, dsnamen) 
             else:
                 rows = self.extract_rows_from_data(dsnamen, feldnamen)            
-            #print "AfpAusgabe.execute_while rows:", len(rows), self.data, while_clause
             #print "AfpAusgabe.execute_while rows:", len(rows), "\n", rows
         felder = feldnamen.split(",")
         local_lines = self.line_stack[stack_index]
@@ -511,10 +608,9 @@ class AfpAusgabe(object):
             split_func = action[0].split("FUNCTION")
             if len(split_func) == 2:
                 # extract function
-                funct, netto =  Afp_between(split_func[1],"(",")")
-                #print split_func
-                #print funct, netto
-                function = funct[0]
+                function = split_func[1].strip()
+                #funct, netto =  Afp_between(split_func[1],"(",")")
+                #function = funct[0]
             # extract where clause for database access
             clause = split_func[0][6:]
             if clause[:7] == "ROWS IN":
@@ -694,7 +790,7 @@ class AfpAusgabe(object):
                     valuestring = split[1].strip()
                 value = Afp_fromString(valuestring)
         return name,valuestring
-    ## check if given variables represent a formual where dates are involved
+    ## check if given variables represent a formula where dates are involved
     # @param vars - variables for formula
     def is_date_formula(self, vars):
         wert = self.get_value(vars[0])
@@ -736,7 +832,7 @@ class AfpAusgabe(object):
                 # get zip_info from original "content.xml" entry to write and compress tempfile data
                 list = odt_file.infolist()
                 for entry in list:
-                    if entry.filename == 'content.xml':   zip_info = entry
+                    if entry.filename == 'content.xml':  zip_info = entry
                 odt_file.writestr(zip_info, self.tempfile.getvalue())              
                 odt_file.close()  
 

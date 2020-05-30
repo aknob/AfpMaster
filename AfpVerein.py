@@ -45,7 +45,7 @@ description = """AfpVerein ist eine Verwaltungsprogramm für Vereine.
 Es enthält die Mitgliederverwaltung, sowie eine mitgeführte Buchhaltung, Zahlungsverfolgung
 und diverse weiter nützliche Hilfsmittel für verschiedene Vereine.""".decode("UTF-8")
 picture = "AfpVerein_relief.png"
-moduls = ["Adresse","Event:Verein"]
+moduls = ["Adresse","Event:Verein","Finance"]
 AfpEvent = AfpBase.AfpStart.AfpSoftwareInformation(name, moduls, description, picture, website, version)
 AfpBase.AfpStart.AfpStart(AfpEvent)
       

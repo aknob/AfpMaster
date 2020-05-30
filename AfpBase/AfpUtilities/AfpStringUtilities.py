@@ -15,7 +15,7 @@
 #  AfpTechnologies (afptech.de)
 #
 #    BusAfp is a software to manage coach and travel acivities
-#    Copyright© 1989 - 2019 afptech.de (Andreas Knoblauch)
+#    Copyright© 1989 - 2020 afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -523,7 +523,7 @@ def Afp_maskiere(value):
 ## strip inner spaces from string
 # @param string - string to be stripped
 def Afp_stripSpaces(string):
-    return " ".join(string.split())
+    return "".join(string.split())
 ## combine values to one string, if only one value is indicated each value type is possible
 # @param indices - indices of values to be extracted from array and combined
 # @param array- list of values
@@ -673,8 +673,38 @@ def Afp_getStartLetters(string):
             if s.isdigit(): test = False
             else: letters += s
     return letters
- 
+## get number behind letters
+# @param  string - string where number has to be extracted
+# @param  start - flag if number should be extracted at the beginning of the string
+def Afp_getEndNumber(string, start=False):
+    #print "Afp_getEndNumber:", string, type(string)
+    number = ""
+    test = True
+    if not start: string = reversed(string)
+    for s in string:
+        if test:
+            if s.isdigit(): number += s
+            else: test = False
+    return Afp_fromString(number)
+## get sequence of word inthe order they occur in the string
+# @param string - string to be analysed
+# @param words - list of words to be looked for
+def Afp_getSequence(string, words):
+    seq = []
+    length = {}
+    for word in words:
+        length[word] = len(word)
+    lgh = len(string)
+    for i in range(lgh):
+        for word in words:
+            lend = i + length[word] 
+            if lgh >= lend and string[i:lend] == word:
+                seq.append(word)
+    #print "Afp_getSequence:", string, words, seq
+    return seq
+        
 ## devide string into phrases inside and outside the start/end brackets
+# nested brackets not possible 
 # @param  string - string to be analysed
 # @param  start - opening bracket
 # @param  end  - closing bracket \n

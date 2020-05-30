@@ -2,12 +2,13 @@
 # -*- coding: utf-8 -*-
 
 ## @package AfpBase.AfpBaseAdDialog
-# AfpBaseAdDialog module provides the dialogs and appropriate loader routines needed for adress handling
+# AfpBaseAdDialog module provides the dialogs and appropriate loader routines needed for address handling
 # it holds the calsses
 # - AfpDialog_AdAusw
 # - AfpDialog_AdAttAusw
 #
 #   History: \n
+#        06 Mai 2020 - add file to archiv dialog - Andreas.Knoblauch@afptech.de \n
 #        24 Jan. 2015 - add auto selection - Andreas.Knoblauch@afptech.de \n
 #        19 Okt. 2014 - adapt package hierarchy - Andreas.Knoblauch@afptech.de \n
 #        30 Nov. 2012 - inital code generated - Andreas.Knoblauch@afptech.de
@@ -17,7 +18,7 @@
 #  AfpTechnologies (afptech.de)
 #
 #    BusAfp is a software to manage coach and travel acivities
-#    Copyright© 1989 - 2019 afptech.de (Andreas Knoblauch)
+#    Copyright© 1989 - 2020 afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -44,7 +45,55 @@ from AfpBase.AfpBaseDialog import *
 from AfpBase.AfpBaseDialogCommon import *
 from AfpBase.AfpBaseAdRoutines import *
 
-## select address attribut of given adress identifier or enter new \n
+## Routine to select a file and add it into the archiv
+# @param client - SelectionList where file should be added to archive
+# @param text - text to be displayed in header and default for 'Gruppe' in archive 
+# @param fixed - dictionary for fixed entries in archive 
+# @param changeable - dictionary for changeable entries for arvhive
+# - will be written from the back: last to 'Bem', second last to 'Gruppe', ..'Typ', .. 'Art';
+# - if 'datum' is found in a entry, this one is written to 'Datum'
+def AfpAdresse_addFileToArchiv(client, text = "Archiveintrag", fixed = None, changeable = None):
+    dir = client.get_globals().get_value("homedir")
+    fname, ok = AfpReq_FileName(dir, text + " für ".decode("UTF-8") + client.get_name() ,"", True)
+    #print "AfpAdresse_addFileToArchiv:", fname, ok
+    result = None
+    if ok and changeable:
+        Afp_startFile(fname, client.get_globals(), client.is_debug(), True)
+        if "Datum" in changeable:
+            if changeable["Datum"]:
+                datum = changeable["Datum"]
+            else:
+                datum = client.get_globals().today_string()
+            liste = [["Datum", datum]]
+        else:
+            liste = []
+        for chg in changeable:
+            if not chg == "Datum":
+                liste.append([chg, changeable[chg]])
+        result = AfpReq_MultiLine(text + " mit der folgenden Datei erzeugen:".decode("UTF-8"), fname.decode("UTF-8"), "Text", liste, text, 500)
+        print "AfpAdresse_addFileToArchiv:", liste, result
+    if ok and not result == False:
+        entry = {}
+        if fixed:
+            for fix in fixed:
+                entry[fix] = fixed[fix]
+        if result:
+            lgh = len(result)
+            if "Datum" in liste[0][0] or "datum" in liste[0][0] :
+                entry["Datum"] = Afp_fromString(result.pop(0))
+                lgh -= 1
+            entry["Bem"] = result[-1]
+            if lgh > 1: entry["Gruppe"] = result[-2]
+            if lgh > 2: entry["Typ"] = result[-3]
+            if lgh > 3: entry["Art"] = result[-4]
+        if not "Gruppe" in entry: entry["Gruppe"] = text
+        entry["Extern"] = fname
+        print "AfpAdresse_addFileToArchiv entry:", entry
+        client.add_to_Archiv(entry, True)
+        return client
+    return None
+
+## select address attribut of given address identifier or enter new \n
 # return indirect attribut identifier or 'None' in case nothing is selected
 # @param globals - global values holding mysql connection
 # @param KNr - address identifier
@@ -59,9 +108,9 @@ def AfpAdresse_indirectAttributFromKNr(globals, KNr, text = "Adressenmerkmal"):
         if not index is None: GNr = row[index]
     return GNr
     
-## select address attribut of given adress identifier or enter new \n
+## select address attribut of given address identifier or enter new \n
 # return row or 'None' in case nothing is selected
-# @param Adresse - AfpSelectionList holding adress data
+# @param Adresse - AfpSelectionList holding address data
 # @param text - text for dialog
 # @param direct - flag which kind of attributs should be selected
 # - True: select only direct attributs 
@@ -103,9 +152,9 @@ def AfpAdresse_selectAttribut(Adresse, text = "Adressenmerkmal", direct = True):
     else:
         return None
         
-## select adress attribut or enter new \n
+## select address attribut or enter new \n
 # return row or 'None' in case nothing is selected
-# @param Adresse - AfpSelectionList holding adress data
+# @param Adresse - AfpSelectionList holding address data
 # @param direct - flag which kind of attributs should be selected
 # - True: select only direct attributs 
 # - False: select only indirect attributs (with unique identifier)
@@ -285,8 +334,8 @@ def AfpAdresse_addAttributToAdresse(globals, attribut, sname, text):
             AfpReq_Info("Das Merkmal '" + attribut + "'ist der Adresse", adresse.get_name() +"schon zugeordnet".decode("UTF-8"), "Info")
     return name, Ok
     
-## dialog for selection of adress data \n
-# selects an entry from the adress table
+## dialog for selection of address data \n
+# selects an entry from the address table
 class AfpDialog_AdAusw(AfpDialog_Auswahl):
 #class AfpDialog_AdAusw(AfpDialog_DiAusw):
     ## initialise class
@@ -314,8 +363,8 @@ class AfpDialog_AdAusw(AfpDialog_Auswahl):
         Adresse = AfpAdresse(globals, None, None, globals.is_debug(), False)
         Ok = AfpLoad_DiAdEin(Adresse, search)
         return Ok
-## dialog for adress selection from attribut \n 
-# selects an entry of the adress table by choosing from the attribut (AdresAtt) table   
+## dialog for address selection from attribut \n 
+# selects an entry of the address table by choosing from the attribut (AdresAtt) table   
 class AfpDialog_AdAttAusw(AfpDialog_Auswahl):
     ## initialise class
     def __init__(self):
@@ -343,8 +392,8 @@ class AfpDialog_AdAttAusw(AfpDialog_Auswahl):
         name, Ok = AfpAdresse_addAttributToAdresse(globals, attribut, search, text)
         return Ok
         
-## dialog for indirect adress selection \n 
-# selects an entry of the adress table by choosing from the attribut (AdresAtt) table   
+## dialog for indirect address selection \n 
+# selects an entry of the address table by choosing from the attribut (AdresAtt) table   
 class AfpDialog_AdIndiAusw(AfpDialog_Auswahl):
     ## initialise class
     def __init__(self, datei):
@@ -365,7 +414,7 @@ class AfpDialog_AdIndiAusw(AfpDialog_Auswahl):
                             ["KundenNr." + self.grid_datei  + " = KundenNr.Adresse", None]] 
         return Felder
     
-## loader routine for adress selection dialog
+## loader routine for address selection dialog
 # @param globals - global data holding mysql connection to database
 # @param Datei - table name where data should be selected from
 # @param index - name of index column in table
@@ -401,7 +450,7 @@ def AfpLoad_AdAusw(globals, Datei, index, value = "", where = None, attribut_tex
         # flag for direct selection
         result = Afp_selectGetValue(globals.get_mysql(), Datei, "KundenNr", index, value)
     return result
-## loader routine to select adress data from attribut table
+## loader routine to select address data from attribut table
 # @param globals - global data holding mysql connection to database
 # @param Datei - table name where data should be selected from
 # @param attribut - attribut looked for in ADRESATT
@@ -414,7 +463,7 @@ def AfpLoad_AdAttAusw(globals, attribut, value = ""):
         result = AfpLoad_AdAusw(globals, Datei, Index, value, where, attribut)
         return result
         
-## loader routine to select adress data indirectly from given table
+## loader routine to select address data indirectly from given table
 # @param globals - global variables, includinmg database connection
 # @param dateifeld - table.field name of connection field
 # @param value - value of connection field, resp. values of connection field
@@ -508,7 +557,7 @@ class AfpDialog_DiAdEin(AfpDialog):
         self.choicemap["CAnrede"] = "Anrede.ADRESSE"
         self.Bind(wx.EVT_CHOICE, self.On_CAnrede, self.choice_Anrede)      
         self.label_Geschlecht = wx.StaticText(panel, -1, label="&Geschlecht:", pos=(200,6), size=(80,18), name="Geschlecht")      
-        self.choice_Geschlecht = wx.Choice(panel, -1,  pos=(290,5), size=(50,20),  choices=["W","N","M"],  name="CGeschlecht")
+        self.choice_Geschlecht = wx.Choice(panel, -1,  pos=(290,5), size=(50,20),  choices=["w","n","m"],  name="CGeschlecht")
         self.choice_Geschlecht.SetSelection(1)
         self.choicemap["CGeschlecht"] = "Geschlecht.ADRESSE"
         self.Bind(wx.EVT_CHOICE, self.On_CGeschlecht, self.choice_Geschlecht)
@@ -674,8 +723,8 @@ class AfpDialog_DiAdEin_SubMrk(AfpDialog):
         rows = self.data.get_value_rows("Bez", "Vorname,Name")
         liste = []
         for row in rows:
-            liste.append(row[0] + " " + row[1])
-        #print liste
+            liste.append(Afp_toString(row[0] + " " + row[1]))
+        #print "AfpDialog_DiAdEin_SubMrk.Pop_Verbindung:",  liste
         self.list_verbindung.Clear()
         if liste:
             self.list_verbindung.InsertItems(liste, 0)
@@ -710,7 +759,7 @@ class AfpDialog_DiAdEin_SubMrk(AfpDialog):
             action = Afp_toString(row[3])
 
             Ok, text, tag = AfpAdresse_spezialAttribut(name, attribut, text, tag, action)
-            print "AfpDialog_DiAdEin_SubMrk.On_DClick_Attribut action:",Ok, text, tag
+            #print "AfpDialog_DiAdEin_SubMrk.On_DClick_Attribut action:",Ok, text, tag
             if Ok is None:
                 Ok = AfpReq_Question("Soll das Merkmal '" + attribut + "'", "für diese Adresse gelöscht werden?".decode("UTF-8"), "Löschen?".decode("UTF-8"))
                 if Ok:
@@ -722,7 +771,7 @@ class AfpDialog_DiAdEin_SubMrk(AfpDialog):
                 selection.set_value("Tag", tag, index)
                 selection.set_value("AttText", text, index)
                 self.changes = True
-            print "AfpDialog_DiAdEin_SubMrk.On_DClick_Attribut selection:",selection.data
+            #print "AfpDialog_DiAdEin_SubMrk.On_DClick_Attribut selection:",selection.data
             self.Pop_Attribut()
         event.Skip()  
     ## Eventhandler LIST - double click in connected addresses list
@@ -755,8 +804,8 @@ class AfpDialog_DiAdEin_SubMrk(AfpDialog):
     def On_Ad_Verbindung(self,event):
         if self.debug: print "AfpDialog_DiAdEin_SubMrk Event  handler `On_Ad_Verbindung'"
         name = self.data.get_value("Name")
-        text = "Bitte Adresse auswählen die mit der aktuellen in verbunden werden soll."
-        auswahl = AfpLoad_AdAusw(self.data.get_mysql(), "ADRESSE", "NamSort", text, name[0])
+        #text = "Bitte Adresse auswählen die mit der aktuellen in verbunden werden soll."
+        auswahl = AfpLoad_AdAusw(self.data.get_globals(), "ADRESSE", "NamSort", name)
         if not auswahl is None:
             KNr = int(auswahl)
             rows = self.data.get_mysql().select("*","KundenNr = " + Afp_toString(KNr), "ADRESSE") 

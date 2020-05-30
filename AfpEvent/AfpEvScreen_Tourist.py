@@ -151,7 +151,7 @@ class AfpEvScreen_Tourist(AfpEvScreen):
         self.button_Zahlung = wx.Button(panel, -1, label="&Zahlung", pos=(692,290), size=(77,50), name="BZahlung")
         self.Bind(wx.EVT_BUTTON, self.On_Zahlung, self.button_Zahlung)
         self.button_Dokumente = wx.Button(panel, -1, label="&Dokumente", pos=(692,350), size=(77,50), name="BDokumente")
-        self.Bind(wx.EVT_BUTTON, self.On_Listen_Ausgabe, self.button_Dokumente)
+        self.Bind(wx.EVT_BUTTON, self.On_Documents, self.button_Dokumente)
         self.button_Einsatz = wx.Button(panel, -1, label="Ein&satz", pos=(692,410), size=(77,50), name="BEinsatz")
         self.Bind(wx.EVT_BUTTON, self.On_VehicleOperation, self.button_Einsatz)               
         self.button_Ende = wx.Button(panel, -1, label="Be&enden", pos=(692,470), size=(77,50), name="BEnde")
@@ -673,3 +673,12 @@ def AfpLoad_EvTouristEdit(data, edit = False, onlyOk = None):
         DiEvTourist.Destroy()
         return Ok
     else: return False
+    
+## load tourist edit dialog only by given id (needed for address screen)
+# @param globals - global variabloes given, including mysql connection
+# @param ANr - identifiers of this member
+def AfpLoad_EvTouristEdit_fromANr(globals, ANr):
+    data = AfpEvTourist(globals, ANr)
+    Ok = AfpLoad_EvTouristEdit(data)
+    return Ok
+

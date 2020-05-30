@@ -14,7 +14,7 @@
 #  AfpTechnologies (afptech.de)
 #
 #    BusAfp is a software to manage coach and travel acivities
-#    Copyright© 1989 - 2019 afptech.de (Andreas Knoblauch)
+#    Copyright© 1989 - 2020 afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -76,7 +76,7 @@ def AfpFinance_getZahlVorgang(globals, field = None, value = None):
 
 ## deliver all ZahlSelectors for the actuel installed moduls
 # @param globals - global variables inclusive database access
-def AfpFinance_get_ZahlSelectors(globals = None):
+def AfpFinance_get_ZahlSelectors(globals = None, in_filter=None):
     selectors = {}    
     mysql = globals.get_mysql()
     debug = globals.is_debug()
@@ -86,28 +86,27 @@ def AfpFinance_get_ZahlSelectors(globals = None):
         modules = Afp_ModulNames(globals, True)
         finmods = modules[1:]
     #print "AfpFinance_get_ZahlSelectors:", finmods
+    selects = []
     for mod in finmods:
-        select = []
         if mod == "Charter":
-            select.append(AfpFinance_CharterSelector(mysql, debug))
+            selects.append(AfpFinance_CharterSelector(mysql, debug))
         elif "Tourist" in mod or "Event" in mod or "Verein" in mod:
-            select.append(AfpFinance_EventStornoSelector(mysql, debug))
-            if "Tourist" in mod:   select.append(AfpFinance_TouristSelector(mysql, debug))
-            elif "Verein" in mod:   select.append(AfpFinance_MemberSelector(mysql, debug))
-            else:   select.append(AfpFinance_EventSelector(mysql, debug))
+            selects.append(AfpFinance_EventStornoSelector(mysql, debug))
+            if "Tourist" in mod:   selects.append(AfpFinance_TouristSelector(mysql, debug))
+            elif "Verein" in mod:   selects.append(AfpFinance_MemberSelector(mysql, debug))
+            else:   selects.append(AfpFinance_EventSelector(mysql, debug))
         elif mod == "Faktura":
-            select.append(AfpFinance_OrderSelector(mysql, debug))
-            #select.append(AfpFinance_OfferSelector(mysql, debug))
-            select.append(AfpFinance_InvoiceSelector(mysql, debug))
-        for sel in select:
-            selectors[sel.get_name()] = sel
+            selects.append(AfpFinance_OrderSelector(mysql, debug))
+            #selects.append(AfpFinance_OfferSelector(mysql, debug))
+            selects.append(AfpFinance_InvoiceSelector(mysql, debug))
     tables = globals.get_mysql().get_tables()
     if "VERBIND" in tables:
-        sel = AfpFinance_VerbindSelector(mysql, debug)
-        selectors[sel.get_name()] = sel
+        selects.append(AfpFinance_VerbindSelector(mysql, debug))
     if "RECHNG" in tables and not "Rechnung" in selectors:
-        sel = AfpFinance_RechSelector(mysql, debug)
-        selectors[sel.get_name()] = sel
+        selects.append(AfpFinance_RechSelector(mysql, debug))
+    for sel in selects:
+        if in_filter is None or (in_filter and sel.is_incoming()) or (not in_filter and not sel.is_incoming()):
+            selectors[sel.get_name()] = sel
     #print "AfpFinance_get_ZahlSelectors:", selectors
     return selectors
         
@@ -171,7 +170,7 @@ def AfpFinance_MemberSelector(mysql, debug = False):
     label = "&Beitrag"
     tablename = "ANMELD"
     felder = "RechNr,Preis,ZahlDat,Zahlung,KundenNr,AnmeldNr"
-    filter =  "Zustand = \"Anmeldung\" AND Preis > 0"
+    filter =  "(Zustand = \"Anmeldung\" OR Zustand = \"PreStorno\") AND Preis > 0"
     text = "Anmeldung"
     modul = "AfpEvent/AfpEvScreen_Verein"
     object = "AfpEvMember"
@@ -269,6 +268,9 @@ class AfpZahlSelector(object):
         self.object = object
         self.outgoing = outgoing
         self.debug = debug
+    ## get flag if payment is incoming \n
+    def is_incoming(self):
+        return not self.outgoing
     ## get name
     def get_name(self):
         return self.name
@@ -284,12 +286,6 @@ class AfpZahlSelector(object):
     ## get modul
     def get_modul(self):
         return self.modul
-    ## get flag if button should be enabled \n
-    # if used without parameter returnvalue indicates if payment is incoming
-    # @param out - input, if dialog is for incoming or outgoing payments
-    def get_enable(self, out=False):
-        if out == self.outgoing: return True
-        return  False
     ## method to retrieve client object
     # @param globals- globals variables
     # @param value- identifier for generated client object
@@ -322,7 +318,30 @@ class AfpZahlSelector(object):
             return rows
         else:
             return None
- 
+    ## select appropriate incident
+    # @param KNr - address identifier for which incident has to be selected
+    def select_incident_by_KNr(self, KNr):
+        liste = []
+        ident = []
+        rows = self.get_rows("KundenNr", KNr)
+        for row in rows:
+            if row[1] is None and self.name == "Rechnung": row[1] = row[5]
+            if row[1]:
+                if row[2]: row[2] = row[1] - row[2]
+                else: row[2] = row[1]
+            liste.append(Afp_ArraytoLine(row, " ", 5))
+            ident.append(row[-1])
+        value,ok = AfpReq_Selection("Bitte " + self.text + " für Zahlung auswählen!","",liste, self.text + " für Zahlung", ident)
+        if ok and value:
+            return self.tablename, value
+        else:
+            return None, None 
+    ## select appropriate incident
+    # @param KNr - address identifier for which incident has to be selected
+    def select_client_by_KNr(self, KNr):
+        table, tabNr = self.select_incident_by_KNr(KNr)
+        return self.get_client(tabNr)
+  
 ## display and manipulation of payments
 class AfpDialog_DiFiZahl(AfpDialog):
     ## initialise dialog
@@ -403,12 +422,12 @@ class AfpDialog_DiFiZahl(AfpDialog):
         self.label_Anzahlung = wx.StaticText(self, -1, label="Anz_Zahlung$",  name="Anzahlung")
         self.label_TGut = wx.StaticText(self, -1, label="Gutschrift:", name="TGut")
         self.label_Gut = wx.StaticText(self, -1, label="", name="Gut")
-        self.label_T_Zahl_Zahlung = wx.StaticText(self, -1, label="&Betrag:", name="T_Zahl_Zahlung")
-        self.text_Zahlung = wx.TextCtrl(self, -1, value="", style=0, name="Zahlung")
-        self.text_Zahlung.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
         self.label_T_Aus_Zahlung = wx.StaticText(self, -1, label="Aus&zug:", name="T_Aus_Zahlung")
         self.text_Auszug = wx.TextCtrl(self, -1, value="", style=0, name="Auszug")
         self.text_Auszug.Bind(wx.EVT_KILL_FOCUS, self.On_Zahlung_Auszug)
+        self.label_T_Zahl_Zahlung = wx.StaticText(self, -1, label="&Betrag:", name="T_Zahl_Zahlung")
+        self.text_Zahlung = wx.TextCtrl(self, -1, value="", style=0, name="Zahlung")
+        self.text_Zahlung.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
         
         self.top_sizer = wx.BoxSizer(wx.HORIZONTAL)
         self.topleft_sizer = wx.BoxSizer(wx.VERTICAL)
@@ -523,32 +542,32 @@ class AfpDialog_DiFiZahl(AfpDialog):
     # @param panel - object where buttons should be placed (panel, self)
     def gen_sel_buttons(self, panel):
         selectors = AfpFinance_get_ZahlSelectors(self.globals)
-        out = False
+        incoming = True
         if selectors:
             ind = -1
             for sel in selectors:
                 selector = selectors[sel]
-                if not selector.get_enable():
+                if not selector.is_incoming():
                     ind += 1                
                     button = wx.Button(panel, -1, label=selector.get_label(), pos=(20 + ind*100,160), size=(92,34), name=selector.get_name())
                     self.selector_buttons.append(button)
                     self.Bind(wx.EVT_BUTTON, self.On_Zahlung_Select, self.selector_buttons[ind])
-                    self.selector_buttons[ind].Enable(selector.get_enable(out))
+                    self.selector_buttons[ind].Enable(selector.is_incoming()==incoming)
             for sel in selectors: 
                 selector = selectors[sel]
-                if selector.get_enable():
+                if selector.is_incoming():
                     ind += 1                
                     button = wx.Button(panel, -1, label=selector.get_label(), pos=(20 + ind*100,160), size=(92,34), name=selector.get_name())
                     self.selector_buttons.append(button)
                     self.Bind(wx.EVT_BUTTON, self.On_Zahlung_Select, self.selector_buttons[ind])
-                    self.selector_buttons[ind].Enable(selector.get_enable(out))
+                    self.selector_buttons[ind].Enable(selector.is_incoming()==incoming)
         if self.selector_buttons:
             self.selectors = selectors
             self.is_full = True
         #print "AfpZahlung.gen_sel_buttons:", selectors, self.is_full
     ## attaches data to this dialog, invokes population of widgets \n
     # overwritten from AfpDialog
-    # @param data - AfpSelectionList which holds data to be filled into dialog wodgets 
+    # @param data - AfpSelectionList which holds data to be filled into dialog widgets 
     # @param new - flag if new database entry has to be created 
     # @param editable - flag if dialogentries are editable when dialog pops up
     def attach_data(self, data, new = False, editable = False):
@@ -628,64 +647,25 @@ class AfpDialog_DiFiZahl(AfpDialog):
     def set_auszug(self, auszug, datum):
         if auszug:
             self.data.set_auszug(auszug, datum)
-    ## invoke selection of another participent of this payment
-    # @param tablename - name of database taable, where selection should be made
-    def select_selection(self, tablename):
-        liste = []
-        ident = []
-        KundenNr = self.data.get_value("KundenNr")
-        if tablename == "FAHRTEN":
-            felder = "Abfahrt,Preis,Zahlung,Zielort,Zustand,FahrtNr"
-            filter_feld = "Zustand"
-            filter =  ["Angebot","Rechnung","Storno Rechnung"]
-            text = "Mietfahrt"
-        elif tablename == "RECHNG":
-            felder = "Datum,Zahlbetrag,Zahlung,Wofuer,Zustand,RechBetrag,RechNr"
-            filter_feld = "Zustand"
-            #filter_feld = None
-            filter = ["offen"]
-            text = "Rechnung"
-        rows = Afp_selectSameKundenNr(self.data.get_mysql(), tablename, KundenNr, self.debug, felder, filter_feld, filter)
-        for row in rows:
-            if row[1] is None and tablename == "RECHNG": row[1] = row[5]
-            if row[1]:
-                if row[2]: row[2] = row[1] - row[2]
-                else: row[2] = row[1]
-            liste.append(Afp_ArraytoLine(row, " ", 5))
-            ident.append(row[-1])
-        value,ok = AfpReq_Selection("Bitte " + text + " für Zahlung auswählen!","",liste, text + " für Zahlung", ident)
-        if ok and value:
-            self.data.add_selection(tablename, value)
-            self.Pop_Zahlungen()
             
     ## invoke selection of another participent of this payment, triggerd by selectorname
     # @param selectorname - name of selector with which the selection should be made
     def select_selection_by_name(self, selectorname):
         if selectorname in self.selectors:
             selector = self.selectors[selectorname]
-            liste = []
-            ident = []
             KundenNr = self.data.get_value("KundenNr")
-            rows = selector.get_rows("KundenNr", KundenNr)
-            for row in rows:
-                if row[1] is None and selectorname == "Rechnung": row[1] = row[5]
-                if row[1]:
-                    if row[2]: row[2] = row[1] - row[2]
-                    else: row[2] = row[1]
-                liste.append(Afp_ArraytoLine(row, " ", 5))
-                ident.append(row[-1])
-            text = selector.get_text()
-            value,ok = AfpReq_Selection("Bitte " + text + " für Zahlung auswählen!","",liste, text + " für Zahlung", ident)
-            if ok and value:
-                print "AfpDialog_DiFiZahl.select_selection_by_name:", ok, value
-                self.data.add_selection(selector.get_tablename(), value)
+            table, number = selector.select_incident_by_KNr(KundenNr)
+            if table and number:
+                print "AfpDialog_DiFiZahl.select_selection_by_name:", table, number
+                self.data.add_selection(table, number)
                 self.Pop_Zahlungen()
 
     # Event Handlers 
     ## event handler when cursor leaves the 'statement of account' (Auszug) textbox
     def On_Zahlung_Auszug(self,event):
         if self.debug: print "AfpDialog_DiFiZahl Event handler `On_Zahlung_Auszug'"
-        Auszug = self.text_Auszug.GetValue()
+        A
+        uszug = self.text_Auszug.GetValue()
         self.check_auszug(Auszug)
         event.Skip()
 

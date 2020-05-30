@@ -51,7 +51,7 @@ from AfpBase.AfpBaseFiDialog import AfpLoad_DiFiZahl
 import AfpEvent
 from AfpEvent import AfpEvRoutines, AfpEvDialog
 from AfpEvent.AfpEvRoutines import *
-from AfpEvent.AfpEvDialog import AfpLoad_EvAusw, AfpLoad_EvClientEdit, AfpLoad_EventEdit
+from AfpEvent.AfpEvDialog import AfpLoad_EvAusw, AfpLoad_EvClientEdit, AfpLoad_EventEdit, AfpEv_addRegToArchiv
 
 ## Class AfpEvScreen shows 'Event' screen and handles interactions
 class AfpEvScreen(AfpScreen):
@@ -122,7 +122,7 @@ class AfpEvScreen(AfpScreen):
         self.button_Zahlung = wx.Button(panel, -1, label="&Zahlung",size=(77,50), name="BZahlung")
         self.Bind(wx.EVT_BUTTON, self.On_Zahlung, self.button_Zahlung)
         self.button_Dokumente = wx.Button(panel, -1, label="&Dokumente",size=(77,50), name="BDokumente")
-        self.Bind(wx.EVT_BUTTON, self.On_Listen_Ausgabe, self.button_Dokumente)
+        self.Bind(wx.EVT_BUTTON, self.On_Documents, self.button_Dokumente)
         self.button_Einsatz = wx.Button(panel, -1, label="Ein&satz",size=(77,50), name="BEinsatz")
         self.Bind(wx.EVT_BUTTON, self.On_VehicleOperation, self.button_Einsatz)               
         self.button_Einsatz.Enable(False)
@@ -159,7 +159,7 @@ class AfpEvScreen(AfpScreen):
         #self.combo_Filter = wx.ComboBox(panel, -1, value="Veranstaltung-Anmeldungen", size=(164,20), choices=["Veranstaltung-Anmeldungen","Veranstaltung-Stornierungen","Veranstaltung-Reservierungen","Reisen-Anmeldungen","Reisen-Stornierungen"], style=wx.CB_DROPDOWN, name="Filter")
         self.combo_Filter = wx.ComboBox(panel, -1, value="Anmeldungen", size=(164,20), choices=["Anmeldungen","Stornierungen","Reservierungen","Reisen-Anmeldungen","Reisen-Stornierungen"], style=wx.CB_DROPDOWN, name="Filter")
         self.Bind(wx.EVT_COMBOBOX, self.On_Filter, self.combo_Filter)
-        self.filtermap = {"Anmeldungen":"Event-Anmeldung","Stornierungen":"Event-Storno","Reservierungen":"Event-Reserv","Reisen-Anmeldungen":"Reise-Anmeldung","Reisen-Stornierungen":"Reise-Storno"}
+        self.filtermap = {"Anmeldungen":"Event-Anmeldung","Stornierungen":"Event-Storno","Reservierungen":"Event-Reserv","Reisen-Anmeldungen":"Reisen-Anmeldung","Reisen-Stornierungen":"Reisen-Storno"}
         self.combo_Jahr = wx.ComboBox(panel, -1, value="Aktuell", size=(84,20), style=wx.CB_DROPDOWN, name="Jahr")
         self.Bind(wx.EVT_COMBOBOX, self.On_Jahr_Filter, self.combo_Jahr)
         self.Bind(wx.EVT_TEXT_ENTER, self.On_Jahr_Filter, self.combo_Jahr)
@@ -280,7 +280,7 @@ class AfpEvScreen(AfpScreen):
         self.Bind(wx.EVT_MENU, self.On_Zahlung, mmenu)
         tmp_menu.AppendItem(mmenu)
         mmenu =  wx.MenuItem(tmp_menu, wx.NewId(), "&Dokumente", "")
-        self.Bind(wx.EVT_MENU, self.On_Listen_Ausgabe, mmenu)
+        self.Bind(wx.EVT_MENU, self.On_Documents, mmenu)
         tmp_menu.AppendItem(mmenu)
         mmenu =  wx.MenuItem(tmp_menu, wx.NewId(), "&Einsatz", "")
         self.Bind(wx.EVT_MENU, self.On_VehicleOperation, mmenu)
@@ -439,7 +439,7 @@ class AfpEvScreen(AfpScreen):
         if not Client.is_new():
             Ok, data = AfpLoad_DiFiZahl(Client,["RechNr","EventNr"])
             if Ok: 
-                data.view() # for debug
+                #data.view() # for debug
                 data.store()
                 self.Reload()
         event.Skip()
@@ -473,8 +473,8 @@ class AfpEvScreen(AfpScreen):
         event.Skip()
 
     ## Eventhandler BUTTON, MENU - document generation
-    def On_Listen_Ausgabe(self,event):
-        if self.debug and event: print "AfpEvScreen Event handler `On_Listen_Ausgabe'"
+    def On_Documents(self, event=None):
+        if self.debug and event: print "AfpEvScreen Event handler `On_Documents'"
         Client = self.get_client()
         if not Client.is_new():
             prefix = "Event " + Client.get_string_value("Zustand").strip()
@@ -495,9 +495,9 @@ class AfpEvScreen(AfpScreen):
                 art = "Eigen"
             select = "Modul = \"Event\" AND Art = \"" + art + Client.get_string_value("Art.EVENT")+ "\" and Typ = \""  + Client.get_string_value("Zustand") + agent + "\""
             Client.get_selection("AUSGABE").load_data(select)
-            #print "AfpEvScreen.On_Listen_Ausgabe:", header, prefix, archiv
             #Client.view()
             variables = self.get_output_variables(Client)
+            #print "AfpEvScreen.On_Documents:", header, prefix, archiv, select, variables
             AfpLoad_DiReport(Client, self.globals, variables, header, prefix, archiv)
         if event:
             self.Reload()
@@ -521,15 +521,28 @@ class AfpEvScreen(AfpScreen):
             else:
                 data = self.get_client(True)
                 ENr = self.sb.get_value("EventNr.EVENT")
-                text = "Bitte Kunden für neue Anmeldung auswählen:".decode("UTF-8")
+                text = "Bitte Person für neue Anmeldung auswählen:".decode("UTF-8")
                 KNr = AfpLoad_AdAusw(self.globals,"ADRESSE","NamSort","", None, text, True)
-                if KNr: data.set_new(ENr, KNr) 
-                else: data = None
-            changed = self.load_client_edit(data)
-            #print"AfpEvSreen.On_Anmeldung", changed
-            if changed: 
-                self.Reload()
-            #self.sb.unset_debug()
+                if KNr: 
+                    data.set_new(ENr, KNr) 
+                    #  ---> hier weiter, evtl. Scan in Archiv einfügen
+                    add = self.globals.get_value("add-registration-to-archive","Event")
+                    if add:
+                        client = AfpEv_addRegToArchiv(data, True)
+                        if client is None:
+                            if add == "mandatory": 
+                                data = None
+                        else:
+                            if not client == True:
+                                data = client
+                else: 
+                    data = None
+            if data:
+                changed = self.load_client_edit(data)
+                #print"AfpEvSreen.On_Anmeldung", changed
+                if changed: 
+                    self.Reload()
+                #self.sb.unset_debug()
         event.Skip()  
         
     ## Eventhandler BUTTON , MENU - modify event
@@ -638,16 +651,6 @@ class AfpEvScreen(AfpScreen):
                 self.mark_grid_column("Customers")
                 self.Pop_grid()
         super(AfpEvScreen, self).On_KeyDown(event)
-   
-   ## Eventhandler Menu - select and start additional programs
-   # overwritten from AfpScreen to handle flavours
-    def On_ScreenZusatz(self, event):
-        if self.debug: print "AfpScreen Event handler `On_ScreenZusatz'!"
-        typ = self.typ
-        if self.flavour: typ = self.flavour
-        fname, ok = AfpReq_extraProgram(self.globals.get_value("extradir"), typ)
-        if ok and fname:
-            Afp_startExtraProgram(fname, self.globals, self.data, self.debug)
 
     ## set database to show indicated tour
     # @param ENr - number of event 

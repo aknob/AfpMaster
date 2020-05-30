@@ -36,13 +36,41 @@ from AfpBase.AfpDatabase.AfpSuperbase import AfpSuperbase
 from AfpBase.AfpBaseRoutines import *
 from AfpBase.AfpBaseDialog import *
 from AfpBase.AfpBaseDialogCommon import *
-from AfpBase.AfpBaseAdDialog import AfpLoad_AdAusw, AfpLoad_DiAdEin_fromKNr, AfpAdresse_addAttributToAdresse
+from AfpBase.AfpBaseAdDialog import AfpLoad_AdAusw, AfpLoad_DiAdEin_fromKNr, AfpAdresse_addFileToArchiv
 from AfpBase.AfpBaseAdRoutines import AfpAdresse_getAddresslistOfAttribut
 from AfpBase.AfpBaseFiDialog import AfpLoad_DiFiZahl
 
 import AfpEvent
 from AfpEvent import AfpEvRoutines
 from AfpEvent.AfpEvRoutines import *
+
+## Routine to select teh registration scan and add it into the archiv
+# @param client - SelectionList where file should be added to archive
+# @param check - flag if archiv should be checked for entry
+def AfpEv_addRegToArchiv(client, check=False):
+    needed = True
+    wanted = True
+    art = client.get_globals().get_value("name")
+    if art[:3] == "Afp": art = art[3:]
+    listname = client.get_listname()
+    if check:
+        rows = client.get_value_rows("ARCHIV","Art,Typ,Gruppe")
+        #print "AfpEv_addRegToArchiv:", rows
+        if rows:
+            for row in rows:
+                if row[0] == art and row[1] == listname and row[2] == "Anmeldung":
+                    needed = False
+    if needed:
+        wanted = AfpReq_Question("Bitte die Anmeldung einscannen und die gescannte Datei auswählen!".decode("UTF-8"),"")
+    if needed:
+        if wanted:
+            fixed = {"Art": art, "Typ": listname, "Gruppe":"Anmeldung"}
+            change = {"Eintrittsdatum": client.get_globals().today_string(), "Bemerkung":""}
+            return AfpAdresse_addFileToArchiv(client, "Anmeldung", fixed, change)
+        else:
+            return None
+    else:
+        return True
 
 ## select a location as departure point and modify route \n
 # return the row of location data selected
@@ -1101,6 +1129,7 @@ class AfpDialog_EvClientEdit(AfpDialog):
     ## execution in case the OK button ist hit - overwritten from AfpDialog
     def execute_Ok(self):
         self.store_data()
+         
     ## get created invoicenumber from data \n
     # only used in 'only Ok' mode
     def get_RechNr(self):
@@ -1389,6 +1418,16 @@ class AfpDialog_EvClientEdit(AfpDialog):
         if self.debug: print "AfpDialog_EvClientEdit Event handler `On_Anmeld_Neu'"
         mehr = self.check_Mehrfach.GetValue()
         self.Anmeld_neu(mehr)
+        add = self.globals.get_value("add-registration-to-archive","Event")
+        if self.new and add:
+            client = AfpEv_addRegToArchiv(self.data, True)
+            if client is None:
+                if add == "mandatory": 
+                    print "AfpDialog_EvClientEdit.On_Anmeld_Neu: skip new dialog"
+                    self.EndModal(wx.ID_CANCEL)
+            else:
+                if not client == True:
+                    self.data = client
         event.Skip()  
     ## execute new client generation
     # @param mehr - flag(s) for copying internal data    

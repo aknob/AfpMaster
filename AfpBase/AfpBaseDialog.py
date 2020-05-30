@@ -26,7 +26,7 @@
 #  AfpTechnologies (afptech.de)
 #
 #    BusAfp is a software to manage coach and travel acivities
-#    Copyright© 1989 - 2019 afptech.de (Andreas Knoblauch)
+#    Copyright© 1989 - 2020 afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -66,6 +66,30 @@ def Afp_wxToPyDate(wxdate):
      else:
           return None
    
+# Clipboard handling
+#
+## copy data into the clipboard
+# @param data -data to be copied
+def Afp_toClipboard(data):
+    clip = wx.Clipboard.Get()
+    if clip.Open():
+        clip.SetData(wx.TextDataObject(Afp_toString(data)))
+        clip.Close()
+        return True
+    return False
+## get data from the clipboard
+# @param data -data to be copied
+def Afp_fromClipboard():
+    data = None
+    clip = wx.Clipboard.Get()
+    text_data = wx.TextDataObject()
+    Ok =  clip.Open()
+    if Ok:
+        Ok = clip.GetData(text_data)
+        clip.Close()
+    if Ok:
+        data = Afp_fromString(text_data.GetText())
+    return data
 # Simple dialogs often used (requester in superbase)
 #
 ## Information display (only OK to close window)
@@ -145,7 +169,7 @@ def AfpReq_Eingabe(text1, text2, text = "", header = ""):
     if not header: header = "Eingabe"
     text, Ok = AfpReq_Text(text1, text2, text, header)
     if Ok:
-        if text[0] == "!":
+        if text and text[0] == "!":
             text = text[1:]
             frm_name = "!"
         value = Afp_fromString(text)
@@ -189,7 +213,7 @@ def AfpReq_Eingabe(text1, text2, text = "", header = ""):
 def AfpReq_EditText(oldtext = "", header = "TextEditor", label1 = None, label2 = None, label_low = None, direct = False, size = (500, 300)):
     dialog =  AfpDialog_TextEditor(None, style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER)
     dialog.attach_text(header, oldtext, label1, label2, label_low, size)
-    if direct: dialog.set_direct_editing()
+    if direct or oldtext == "" : dialog.set_direct_editing()
     dialog.ShowModal()
     newtext = None
     if dialog.get_Ok():
@@ -204,9 +228,9 @@ def AfpReq_EditText(oldtext = "", header = "TextEditor", label1 = None, label2 =
 # - return an empty list, if Cancel is hit
 # - return None, if Delete is hit
 # @param text1, text2 - two lines of text to be displayed (used for historical reasons)
-# @param typ - typ of dialog entries, "Text" and "Check" are possible, or a list of those values
+# @param typ - typ of dialog entries, "Text", "Check" and "Button" are possible, or a list of those values
 # @param liste - list with data for dialog entries; 
-# in case "Text" - [label, text], in case "Check" - checked text
+# in case "Text" - [label, text], in case "Check" - checked text, in case "Button" - label of button
 # @param header - header to be displayed on top ribbon of dialog
 # @param width - width of dialog
 # @param extra_button - if given, text to be displayed on extra button, None = hide button, "" = delete
@@ -431,7 +455,7 @@ class AfpDialog_MultiLines(wx.Dialog):
                 self.sizers[i].Add(self.label[-1],5,wx.EXPAND)
                 self.sizers[i].Add(self.texts[i],9,wx.EXPAND) 
                 self.sizers[i].AddStretchSpacer(1)
-                height += 30
+                height += 35  #30+5
             elif self.types[i] == "Check":
                 check = True
                 name = data
@@ -447,7 +471,7 @@ class AfpDialog_MultiLines(wx.Dialog):
                 self.sizers[i].AddStretchSpacer(1)
                 self.sizers[i].Add(self.check[i], 14, wx.EXPAND)
                 self.sizers[i].AddStretchSpacer(1)
-                height += 20
+                height += 25 #20+5
             elif self.types[i] == "Button":
                 name = data
                 self.buttons[i] = wx.Button(self, -1, label=name, name="B" + name)
@@ -456,11 +480,14 @@ class AfpDialog_MultiLines(wx.Dialog):
                 self.sizers[i].AddStretchSpacer(1)
                 self.sizers[i].Add(self.buttons[i], 14, wx.EXPAND)
                 self.sizers[i].AddStretchSpacer(1)
-                height += 20
+                height += 25 #20+5
         self.sizer=wx.BoxSizer(wx.VERTICAL)
         self.sizer.AddSpacer(10)
         self.sizer.Add(self.statictext, 1, wx.EXPAND)
+        self.sizer.AddSpacer(5)
+        #print "AfpDialog_MultiLines.attach_data:", self.lines, self.sizer
         for i in range(self.lines):
+            self.sizer.AddSpacer(5)
             self.sizer.Add(self.sizers[i], 1, wx.EXPAND)
         self.sizer.AddSpacer(10)
         self.sizer.Add(self.lower_sizer, 0, wx.EXPAND)

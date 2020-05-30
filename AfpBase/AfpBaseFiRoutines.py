@@ -6,6 +6,7 @@
 # no display and user interaction in this modul.
 #
 #   History: \n
+#        23 Dez. 2019 - move financial routines into selection list- Andreas.Knoblauch@afptech.de \n
 #        19 Okt. 2014 - adapt package hierarchy - Andreas.Knoblauch@afptech.de \n
 #        14 Feb. 2014 - inital code generated - Andreas.Knoblauch@afptech.de
 
@@ -14,7 +15,7 @@
 #  AfpTechnologies (afptech.de)
 #
 #    BusAfp is a software to manage coach and travel acivities
-#    Copyright© 1989 - 2019 afptech.de (Andreas Knoblauch)
+#    Copyright© 1989 - 2020 afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -81,8 +82,8 @@ class AfpZahlung(object):
             if select:
                 feld = data.get_mainindex()
                 table = data.get_selection().get_tablename()
-                #print "AfpZahlung mysql:", feld, select, table
                 rows = self.mysql.select(feld, select, table)
+                #print "AfpZahlung mysql:", table, feld, select, rows
                 if len(rows) > 1:
                     ident = Afp_fromString(data.get_value())
                     for row in rows:
@@ -127,8 +128,8 @@ class AfpZahlung(object):
                 datum = self.get_date_from_cash(auszug)
                 if datum: check = True
         else:
-            check =  True
             datum = self.get_date_from_cash(auszug)
+            if datum: check =  True
         if check:   
             self.set_auszug(auszug, datum)
         return check
@@ -140,19 +141,20 @@ class AfpZahlung(object):
     # @param auszug - statement of account identifier to be analysed
     def get_date_from_cash(self, auszug):
         date = None
-        dat = auszug[4:]
-        split = dat.split("-")
-        if split and split[0]:
-            month = int(split[0])
-            if len(split) > 1:
-                if "/" in split[1]:
-                    ssplit = split.split("/")
-                    year = int(ssplit[1])
-                    day = int(ssplit[0])
-                else:
-                    day = int(split[1])
-                    year = self.globals.today().year
-                date = Afp_genDate(year, month, day)
+        if "-" in auszug:
+            dat = auszug[4:]
+            split = dat.split("-")
+            if split and split[0]:
+                month = int(split[0])
+                if len(split) > 1:
+                    if "/" in split[1]:
+                        ssplit = split.split("/")
+                        year = int(ssplit[1])
+                        day = int(ssplit[0])
+                    else:
+                        day = int(split[1])
+                        year = self.globals.today().year
+                    date = Afp_genDate(year, month, day)
         return date
     ## check if statement of account (Auszug) exists, if not create one
     # @param auszug - identifier of statemen of account
@@ -206,13 +208,14 @@ class AfpZahlung(object):
                 modul = self.get_modul("AfpEvent.AfpEvRoutines")
                 if modul:
                     sellist = modul.AfpEvClient(self.globals, nr, None, self.debug)
-            if sellist:
+            # look if payment is needed
+            if sellist and sellist.get_payment_values()[0]:
                 sellist.lock_data()
                 self.selected_list.append(sellist)
                 self.append_payment_data(sellist)
                 self.distribution = None
                 added = True
-        print "AfpZahlung.add_selection:", tablename, nr, sellist, added
+        #print "AfpZahlung.add_selection:", tablename, nr, sellist, added
         return added
     ## invoke financial transaction for a payment. if desired
     # @param payment - amount of payment to be recorded
@@ -292,7 +295,7 @@ class AfpZahlung(object):
         return ""
     ## return list to be displayed for the selections of this payment
     def get_display_list(self): 
-        print "AfpZahlung.get_display_list:", self.selected_list
+        #print "AfpZahlung.get_display_list:", self.selected_list
         liste = []
         for entry in self.selected_list:
             liste.append(entry.get_listname()[:2] + ": " + entry.line())
@@ -388,7 +391,7 @@ class AfpRechnung(AfpSelectionList):
         if self.debug: print "AfpRechnung Destruktor"
         #AfpSelectionList.__del__(self) 
     ## clear current SelectionList to behave as a newly created List 
-    # @param KundenNr - KundenNr of newly seelected adress, == None if adress is kept   
+    # @param KundenNr - KundenNr of newly seelected adress, == None if address is kept   
     def set_new(self, KundenNr):
         self.new = True
         data = {}
@@ -425,3 +428,13 @@ class AfpRechnung(AfpSelectionList):
         if self.get_value("MietNr"):
             self.set_value("Zahlung.FAHRTEN", payment)
             self.set_value("ZahlDat.FAHRTEN", datum)
+    ## extract payment relevant data from SelectionList for 'Finance' modul, overwritten from AfpSelectionList
+    # has to return the account number this payment has to be charged ("Gegenkonto")
+    # @param paymentdata - payment data dictionary to be modified and returned
+    def add_payment_data(self, paymentdata):
+        paymentdata["Gegenkonto"] = self.get_value("Debitor.RECHNG") 
+        if not paymentdata["Gegenkonto"]:
+            paymentdata["Gegenkonto"]  = Afp_getIndividualAccount(self.get_mysql(), self.get_value("KundenNr"))
+        paymentdata["GktName"] = self.get_name(True) 
+        print "AfpRechnung.add_payment_data:",paymentdata
+        return paymentdata

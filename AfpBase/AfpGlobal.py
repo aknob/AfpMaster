@@ -18,7 +18,7 @@
 #  AfpTechnologies (afptech.de)
 #
 #    BusAfp is a software to manage coach and travel acivities
-#    Copyright© 1989 - 2019 afptech.de (Andreas Knoblauch)
+#    Copyright© 1989 - 2020 afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -127,9 +127,8 @@ class AfpSettings(object):
                 self.config = Afp_addPath(homedir, "Afp" + self.modul + ".cfg")
         if not Afp_existsFile(self.config):
             Afp_genEmptyFile(self.config)
-        #print self.config
         # read variables from configuratioin file
-        self.read(self.config)
+        self.read_config(self.config)
         self.set_pathdelimiter()       
         self.settings = Afp_iniGlobalVars(self.settings, self.modul)
         if self.modul:
@@ -150,11 +149,17 @@ class AfpSettings(object):
         for entry in self.settings:
             if entry[-3:] == "dir":
                 self.settings[entry] = Afp_pathname(self.settings[entry], delimiter)
+    ## load individual config-file for database
+    def read_db_config(self):
+        if self.modul is None:
+            fname = Afp_addPath(self.settings["homedir"], self.settings["database"] + ".cfg")
+            if Afp_existsFile(fname):
+                self.read_config(fname)
     ## read data from file and set appropriate variables
-    # @param path - filename including path of file to be read
-    def read(self, path):
-        if self.debug: print "AfpSettings.read:", path
-        fin = open(path , 'r') 
+    # @param fname - path of file to be read
+    def read_config(self, fname):
+        if self.debug: print "AfpSettings.read_config:", fname
+        fin = open(fname , 'r') 
         for line in fin:
             cline = line.split("#")
             sline = cline[0].split("=",1)
@@ -166,6 +171,34 @@ class AfpSettings(object):
                 self.set(name, value)
         fin.close()
     #def load(self, modul):
+    ## modifiy configuration file
+    # @param vars - names of global variables to be set to the current values
+    def modify_config(self, vars):
+        lines = Afp_importFileLines(self.config)
+        fout = open(self.config , 'w')   
+        for line in lines:
+            cline = line.split("#")
+            sline = cline[0].split("=",1)
+            if len(sline) > 1:
+                name = sline[0].strip()
+                if name in vars:
+                    value = Afp_toString(self.get(name))
+                    line = name + "=" + value
+                    if len(cline) > 1 and cline[1].strip():
+                        line += " #" + cline[1].strip()
+                    line += "\n"
+                    for var in vars:
+                        if var == name:
+                            vars[vars.index(var)] = None
+                            break
+            fout.write(line)
+        for name in vars:
+            if name:
+                value = Afp_toString(self.get(name))
+                if value:
+                    fout.write("# automated insert of " + name)
+                    fout.write(name + "=" + value)
+        fout.close
     ## extract value from string, take care of special setting possibillities before conversion:
     # - evaluation of string
     # - special formats
@@ -267,6 +300,13 @@ class AfpGlobal(object):
             self.add_setting(module, set)
         if set and name:
             set.set(name, value)
+    ## modify configuration file of setting
+    # @param module - name of afp-module for which the configuration file is changed
+    # @param varnames - name of variables, which have to be changed
+    def modify_config(self, module, varnames):
+        set = self.get_setting(module)
+        if set:
+            set.modify_config(varnames)
     ## set values according to direct configuration string
     # @param conf - configuration string to be evaluated
     def set_configuration(self, conf):

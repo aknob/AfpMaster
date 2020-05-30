@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 ## @package AfpBase.AfpBaseAdRoutines
-# AfpBaseAdRoutines module provides classes and routines needed for adress handling,\n
+# AfpBaseAdRoutines module provides classes and routines needed for address handling,\n
 # no display and user interaction in this modul.
 #
 #   History: \n
@@ -15,7 +15,7 @@
 #  AfpTechnologies (afptech.de)
 #
 #    BusAfp is a software to manage coach and travel acivities
-#    Copyright© 1989 - 2019 afptech.de (Andreas Knoblauch)
+#    Copyright© 1989 - 2020 afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -71,6 +71,18 @@ def AfpAdresse_getOrderlistOfTable(mysql, index, datei = "ADRESSE"):
         indirect = ["Name","Plz","Ort"]
     liste = Afp_getOrderlistOfTable(mysql, datei, keep, indirect)
     return liste
+
+## try to retrieve uniqu address from name
+# @param mysql - connection to database
+# @param name - name given in the format 'firstname' + " " + 'lastname'
+def AfpAdresse_getKNrFromSingleName(mysql, name):
+    KNr = None
+    rows = mysql.execute("SELECT KundenNr FROM ADRESSE WHERE CONCAT(Vorname,\" \",Name) = \"" + name + "\";")
+    print "AfpAdresse_getKNrFromSingleName:", name, rows
+    if rows and len(rows) == 1:
+        KNr = rows[0][0]
+    return KNr
+        
  
 ## get values of fields in given selection for an address with given identifier \n
 # additionally the name is given, as it is commonly needed in following dialogs
@@ -201,7 +213,8 @@ class AfpAdresse(AfpSelectionList):
                     if KundenNr in self.spezial_bez: 
                         index = self.spezial_bez.index(KundenNr)
                         self.spezial_bez[index] = None
-                    KNr = int(selection.get_values("KundenNr", i))
+                    #print "AfpAdresse.spezial_save KNr:", selection.get_values("KundenNr", i)
+                    KNr = int(selection.get_values("KundenNr", i)[0][0])
                     self.mysql.write_update("ADRESSE", ["Bez"], [KNr], "KundenNr = " + Afp_toString(KundenNr), True)
                 if KNr in self.spezial_bez: 
                     index = self.spezial_bez.index(KNr)

@@ -15,7 +15,7 @@
 #  AfpTechnologies (afptech.de)
 #
 #    BusAfp is a software to manage coach and travel acivities
-#    Copyright© 1989 - 2019  afptech.de (Andreas Knoblauch)
+#    Copyright© 1989 - 2020  afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -102,6 +102,22 @@ def Afp_isEps(value, eps = 0.01):
         return (value >= eps or value <= -eps)
     else:
         return False
+        
+## check rekursiv if iterables hold values
+# @param iter - iterable to be checked
+def Afp_holdsValue(iter):
+    #print "Afp_holdsValue:", iter
+    res = False
+    if iter:
+        typ = type(iter)
+        if typ == list or typ == tuple:
+            for it in iter:
+                res = Afp_holdsValue(it)
+                if res: break
+        else:
+            res = True
+    #print "Afp_holdsValue result:", res
+    return res
       
 ## extract values from array (list)
 # @param indices - indices of values to be extracted from array, None all entries are extracted
@@ -320,7 +336,7 @@ def Afp_daysFromTime(timedelta, day = None, hday = None):
     if hday and hours >= hday: 
         hours = 0.0
         days += 0.5
-    return days, hours
+    return days, hours    
 
 ## check if standard python modul has been installed
 # @param modul - name of standard modul to be checked

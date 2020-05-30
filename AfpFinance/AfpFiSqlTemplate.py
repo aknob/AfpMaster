@@ -34,14 +34,14 @@ def AfpFinance_getSqlTables(flavour = None):
   `BuchungsNr` mediumint(8) unsigned zerofill NOT NULL AUTO_INCREMENT,
   `Datum` date NOT NULL,
   `Konto` mediumint(8) unsigned zerofill NOT NULL,
-  `KtName` char(20) DEFAULT NULL,
+  `KtName` tinytext DEFAULT NULL,
   `Gegenkonto` mediumint(8) unsigned zerofill NOT NULL,
-  `GktName` char(20) DEFAULT NULL,
+  `GktName` tinytext DEFAULT NULL,
   `Beleg` char(10) NOT NULL,
   `Betrag` float(6,2) NOT NULL,
   `KundenNr` mediumint(8) unsigned zerofill DEFAULT NULL,
   `Bem` tinytext NOT NULL,
-  `Art` char(10) NOT NULL,
+  `Art` char(20) NOT NULL,
   `BelegDatum` date DEFAULT NULL,
   `Tab` varchar(10) DEFAULT NULL,
   `TabNr` mediumint(9) DEFAULT NULL,
@@ -72,14 +72,17 @@ def AfpFinance_getSqlTables(flavour = None):
     # fill initial table data
     if flavour == "Tourist":
         required["KTNR"] += """INSERT INTO `KTNR` VALUES 
+    ('SALDO',00001000,'Finanzfluss',0,'Kasse,Bank'),
     ('BAR',00001600,'Barkasse',0,'Kasse'),
-    ('VB',00001803,'Volksbank',0,'Bank'),
-    ('ERL',00004000,'Erlöse',0,'Ertrag'),('ERL01',00004001,'Erlöse Januar',0,'Ertrag'),('ERL02',00004002,'Erlöse Februar',0,'Ertrag'),
+    ('VB',00001803,'Volksbank',0,'Bank'),    
+    ('SALDO',00004000,'Einnahmen',0,'Ertrag'),
+    ('ERL',00004100,'Erlöse',0,'Ertrag'),('ERL01',00004001,'Erlöse Januar',0,'Ertrag'),('ERL02',00004002,'Erlöse Februar',0,'Ertrag'),
     ('ERL03',00004003,'Erlöse März',0,'Ertrag'),('ERL04',00004004,'Erlöse April',0,'Ertrag'),('ERL05',00004005,'Erlöse Main',0,'Ertrag'),
     ('ERL06',00004006,'Erlöse Juni',0,'Ertrag'),('ERL07',00004007,'Erlöse Juli',0,'Ertrag'),('ERL08',00004008,'Erlöse August',0,'Ertrag'),
     ('ERL09',00004009,'Erlöse September',0,'Ertrag'),('ERL10',00004010,'Erlöse Oktober',0,'Ertrag'),('ERL11',00004011,'Erlöse November',0,'Ertrag'),('ERL12',00004012,'Erlöse Dezember,0,'Ertrag'),
-    ('EMF',00004151,'Erlös Inland.',0,'Ertrag'),('EMFA',00004150,'Erlös Ausland',0,'Ertrag'),
-    ('SKTO',00004731,'SkontoAufw',0,'Kosten'),
+    ('EMF',00004151,'Erlös Inland.',0,'Ertrag'),('EMFA',00004150,'Erlös Ausland',0,'Ertrag'),   
+    ('SALDO',00008000,'Ausgaben,0,'kosten'),
+    ('SKTO',00008731,'SkontoAufw',0,'Kosten'), 
     ('DIV.A',00010001,'Debitor',0,'Debitor'),('DIV.B',00010500,'Debitor',0,'Debitor'),('DIV.C',00011000,'Debitor',0,'Debitor'),
     ('DIV.D',00011500,'Debitor',0,'Debitor'),('DIV.E',00011800,'Debitor',0,'Debitor'),('DIV.F',00012000,'Debitor',0,'Debitor'),
     ('DIV.G',00012400,'Debitor',0,'Debitor'),('DIV.H',00013000,'Debitor',0,'Debitor'),('DIV.I',00013900,'Debitor',0,'Debitor'),
@@ -92,9 +95,11 @@ def AfpFinance_getSqlTables(flavour = None):
     ('DIVER',00070000,'Kreditor',0,'Kreditor');""".decode("UTF-8")
     elif flavour == "Verein":
         required["KTNR"] += """INSERT INTO `KTNR` VALUES 
+    ('SALDO',00001000,'Finanzfluss',0,'Kasse,Bank'),
     ('BAR',00001600,'Barkasse',0,'Kasse'),
     ('BLS',00001610,'Bank Girokonto',0,'Bank'),
     ('ZTF',00001690,'Geldtransit',0,'System'),
+    ('SALDO',00004000,'Ausgaben',0,'Kosten'),
     ('AB',00004200,'Ausgaben laufender Betrieb',0,'Kosten'),
     ('SKTO',00004201,'Skonto Aufwand',0,'Kosten'),
     ('VS',00004205,'Versicherungen',0,'Kosten'),
@@ -107,6 +112,7 @@ def AfpFinance_getSqlTables(flavour = None):
     ('VA',00004400,'Veranstaltungen',0,'Kosten'),
     ('SP',00004410,'Sportbetrieb',0,'Kosten'),
     ('VE',00004810,'Verbände',0,'Kosten'),
+    ('SALDO',00008000,'Einnahmen,0,'Ertrag'),
     ('EBT',00008100,'Mitgliedsbeiträge',0,'Ertrag'),
     ('EBF',00008109,'Mitgliedsbeiträge Folgejahr',0,'Ertrag'),
     ('ESP',00008200,'Spenden natürliche Person',0,'Ertrag'),
@@ -121,11 +127,14 @@ def AfpFinance_getSqlTables(flavour = None):
     ('DIVER',00070000,'Kreditor',0,'Kreditor');""".decode("UTF-8")
     else:
         required["KTNR"] += """INSERT INTO `KTNR` VALUES 
+    ('SALDO',00001000,'Finanzfluss',0,'Kasse,Bank'), 
     ('BAR',00001600,'Barkasse',0,'Kasse'),
     ('BK',00001610,'Bank',0,'Bank'),
-    ('ZTF',00001690,'Geldtransit',0,'System'),
+    ('ZTF',00001690,'Geldtransit',0,'System'),   
+    ('SALDO',00004000,'Ausgaben',0,'Kosten'),
     ('AW',00004200,'Aufwände',0,'Kosten'),
-    ('SKTO',00004201,'SkontoAufw',0,'Kosten'),
+    ('SKTO',00004201,'SkontoAufw',0,'Kosten'),    
+    ('SALDO',00008000,'Einnahmen,0,'Ertrag'),
     ('ERL',00008100,'Erlöse',0,'Ertrag'),
     ('DIVER',00010000,'Debitor',0,'Debitor'),
     ('DIVER',00070000,'Kreditor',0,'Kreditor');""".decode("UTF-8")

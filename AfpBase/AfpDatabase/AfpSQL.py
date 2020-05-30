@@ -19,7 +19,7 @@
 #  AfpTechnologies (afptech.de)
 #
 #    BusAfp is a software to manage coach and travel acivities
-#    Copyright© 1989 - 2019 afptech.de (Andreas Knoblauch)
+#    Copyright© 1989 - 2020 afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -320,7 +320,7 @@ class AfpSQL(object):
         if len(split_clause) == 2:
           # delete data from database
             Befehl = "DELETE FROM " + split_clause[1]
-            if self.debug: print Befehl
+            if self.debug:  print "AfpSQL.write_delete Command:", Befehl
             res = self.db_cursor.execute (Befehl)     
             self.db_cursor.execute("COMMIT;")
             if self.debug: print "AfpSQL.write_delete Deleted Rows:",res
@@ -594,13 +594,13 @@ class AfpSQLTableSelection(object):
     # - insert: rowindex  < 0 and  values = [value1, value2, ...] , len == len(self.feldnamen), rowindexrow will be mapped to index = -1 - rowindex
     def manipulate_data(self, changes):
         for entry in changes:
-            if self.dbg: print "AfpSQLTableSelectio.manipulate_data:", entry
+            if self.dbg: print "AfpSQLTableSelectio.manipulate_data:", entry, type(entry[1])
             index = entry[0]
             values = entry[1]
             originals = None
             typ = ""
             if type(values) == dict: typ = "dict"
-            elif type(values) == list: typ = "list"
+            elif type(values) == list or  type(values) == tuple: typ = "list"
             action = "replace"
             if index is None:
                 action = "append"
@@ -916,6 +916,7 @@ class AfpSQLTableSelection(object):
                 unique_value = self.get_values(self.unique_feldname, row)[0][0]
                 if not unique_value:
                     if self.dbg: print "AfpSQLTableSelection.store unique new value:", self.last_inserted_id, self.get_values(None, row)[0]
+                    #print "AfpSQLTableSelection.store unique new value:", self.last_inserted_id, self.get_values(None, row)[0]
                     self.mysql.write_insert( self.tablename, self.feldnamen, self.get_values(None, row))
                     self.last_inserted_id = self.mysql.get_last_inserted_id() 
                     if self.dbg: print "AfpSQLTableSelection.store unique last_inserted_id:",  self.last_inserted_id

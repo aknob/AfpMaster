@@ -8,6 +8,7 @@
 # - AfpSelectionList
 #
 #   History: \n
+#        15 Jan 2020 - add mainfilter in AfpSelectionList- Andreas.Knoblauch@afptech.de \n 
 #        22 Aug 2019 - Enhence export and add import- Andreas.Knoblauch@afptech.de \n 
 #        31 Jan. 2018 - AfpSelectionList: allow tagged value evaluation - Andreas.Knoblauch@afptech.de \n
 #        28 Mar. 2016 - AfpSelectionList: add afterburner to be used in second save step - Andreas.Knoblauch@afptech.de \n
@@ -21,7 +22,7 @@
 #  AfpTechnologies (afptech.de)
 #
 #    BusAfp is a software to manage coach and travel acivities
-#    Copyright© 1989 - 2019 afptech.de (Andreas Knoblauch)
+#    Copyright© 1989 - 2020 afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -49,7 +50,7 @@ from AfpUtilities.AfpBaseUtilities import *
 # if globals are given, only modules available for this program are returned
 # @param globals - if given, global variables holding graphic modulnames
 def Afp_graphicModulNames(globals = None):
-    modules = ["Adresse","Charter","Event:Tourist","Event:Verein","Event","Faktura"]
+    modules = ["Adresse","Charter","Event:Tourist","Event:Verein","Event","Faktura","Finance"]
     if globals:
         mods = globals.get_value("graphic-moduls")
         if mods: modules = mods
@@ -58,7 +59,8 @@ def Afp_graphicModulNames(globals = None):
 # if globals are given, only modules available for this program are returned
 # @param globals - if given, global variables holding  graphic modulnames
 def Afp_internalModulNames(globals = None):
-    modules = ["Finance","Einsatz","Calendar"]
+    #modules = ["Finance","Einsatz","Calendar"]
+    modules = ["Einsatz","Calendar"]
     if globals:
         modules = ["Finance"]
         mods = globals.get_value("graphic-moduls")
@@ -403,6 +405,20 @@ def Afp_toDatetime(date, time, hightime = None):
         time = Afp_fromString(Afp_ChZeit(time)) 
     time = Afp_toTime(time, hightime)
     return Afp_genDatetime(date.year, date.month, date.day, time.hour, time.minute, time.second)
+## get age of input date
+# @param datum - string of birthdate for which age has to be determined
+# @param daysharp - flag if age has to be determinded day sharp or year sharp, default: False
+def Afp_getAge(datum, daysharp = False):
+    age = 0
+    date = Afp_fromString(datum)
+    if date:
+        today = Afp_getToday()
+        age = today.year - date.year
+        if daysharp and (date.month > today.month or (date.month == today.month and date.day >= today.day)):
+            age -= 1
+    #print "Afp_getAge:", datum, age
+    return age
+
 ##  provide a list from a SQLTableSelection object - \n
 #    mostly to allow additional selection
 # @param table_sel - input AfpSQLTableSelection object for which an additional selection has to be made
@@ -682,6 +698,7 @@ class AfpSelectionList(object):
         self.mainindex = None
         self.mainvalue = None
         self.mainselection = None
+        self.mainfilter = None
         self.selects = {}
         self.selections = {}
         self._tmp = None
@@ -690,6 +707,7 @@ class AfpSelectionList(object):
         self.new = False
         self.international_output= False
         self.tables = self.mysql.get_tables()
+        self.archiv_copy_needed = []
         if self.debug: print "AfpSelectionList Konstruktor",listname
     ## destructor
     def __del__(self):   
@@ -802,23 +820,40 @@ class AfpSelectionList(object):
                             order_clause = ord[1]
                             select = ord[0]
                     select_clause = ""
-                    clauses = select.split("AND")
+                    #clauses = select.split("AND")
+                    clauses = Afp_split(select, ["AND", "OR"])
+                    #print "AfpSelectionList.evaluate_selects:", clauses
+                    seq = None
+                    if len(clauses) > 1:
+                        seq = Afp_getSequence(select,  ["AND", "OR"])
                     for clause in clauses:
                         sels = clause.split("=")
                         feld = sels[1].strip()
-                        if "." in feld: value = self.get_string_value(feld, True)
-                        else: value = feld
+                        if "." in feld and not Afp_isNumeric(Afp_fromString(feld)): 
+                            value = self.get_string_value(feld, True)
+                        else: 
+                            value = feld
                         if value:
-                            if select_clause: select_clause += " AND "
+                            if select_clause: 
+                                if seq:
+                                    select_clause += " " + seq.pop(0) + " "
+                                else:
+                                    select_clause += " AND "
                             # <=, >= work also, as < and > are kept on the left (not evaluated) side
-                            select_clause += sels[0].strip() + " = " + value
+                            if sels[0][-1] == ">" or sels[0][-1] == "<":
+                                select_clause += sels[0].strip() + "= " + value
+                            else:
+                                select_clause += sels[0].strip() + " = " + value
             #print "AfpSelectionList.evaluate_selects:", selname, self.selects[selname], "CLAUSE:", select_clause, order_clause
         return select_clause, order_clause
     ## set the customised select_clause for the main selection
     def set_main_selects_entry(self):  
         if self.mainselection and self.mainindex and self.mainvalue:         
             selname = self.mainselection
-            self.selects[selname] = [selname, self.mainindex + " = " + self.mainvalue, self.mainindex]
+            if self.mainfilter:
+                self.selects[selname] = [selname, self.mainindex + " = " + self.mainvalue + " AND " + self.mainfilter, self.mainindex]
+            else:
+                self.selects[selname] = [selname, self.mainindex + " = " + self.mainvalue, self.mainindex]
     ## overwrite customised selects with new self.mainvalue
     def reset_selects(self):
         self.set_main_selects_entry()
@@ -863,13 +898,13 @@ class AfpSelectionList(object):
         else: new = False
         selection = self.constitute_selection(name)
         select_clause, order_clause = self.evaluate_selects(name)
-        #if name == "ANMELDEX": print "AfpSelectionList.create_selection:", "\"" + name + "\"", select_clause, new, selection
+        #print "AfpSelectionList.create_selection:", "\"" + name + "\"", select_clause, order_clause, new, selection
         if selection is None and select_clause == []:
             if new: selection = self.spezial_selection(name, True)
             else:   selection = self.spezial_selection(name)
         elif selection and select_clause:
             if new: selection.new_data()
-            else:   selection.load_data(select_clause, order_clause)
+            else: selection.load_data(select_clause, order_clause)
         elif selection is None and name == self.mainselection:
             selection = AfpSQLTableSelection(self.mysql, name, self.debug, self.mainindex)
         if not selection is None:
@@ -1237,6 +1272,8 @@ class AfpSelectionList(object):
     ## store complete SelectionList
     def store(self):
         self.store_preparation()
+        # look if filecopy is needed for archiv
+        if self.archiv_copy_needed: self.move_to_archiv()
         if self.mainselection:
             select = self.selections[self.mainselection]
             if self.debug: print "AfpTableSelectionList.store mainselection:", self.mainselection
@@ -1281,12 +1318,16 @@ class AfpSelectionList(object):
     # it will be completed by:
     # - Art: (kind) 1st level identification, will be set to program name
     # - Typ: (type) 2nd level identification, will be set to SelectionList listname
+    # @param initiate_copy -flag if copying of the extern file during storages should be initiated 
     # @param selname -name of TableSelection holding data from "ARCHIV" table 
-    def add_to_Archiv(self, new_data, selname = "ARCHIV"):
-        selection = self.get_selection(selname)
+    def add_to_Archiv(self, new_data, initiate_copy = False, selname = "ARCHIV"):
+        selection = self.get_selection(selname, False)
         if selection:
             row = selection.get_data_length()
             new_data = self.set_archiv_data(new_data)
+            if initiate_copy and self.globals.get_value("path-delimiter") in new_data["Extern"]:
+                self.archiv_copy_needed.append([selname, row])
+            print "AfpSelectionList.add_to_Archiv:", new_data, self.archiv_copy_needed
             selection.set_data_values(new_data, row)
         else:
             print "WARNING SelectionList.add_to_Archiv called but not implemented for", self.listname, "with selection",selname
@@ -1300,6 +1341,27 @@ class AfpSelectionList(object):
         if not data["KundenNr"]:  data["KundenNr"] = self.get_value("KundenNr.ADRESSE")
         data = self.set_archiv_table(data)
         return data
+    ## move files to archive, if needed
+    def move_to_archiv(self):
+        if self.archiv_copy_needed:
+            archivdir = self.globals.get_value("archivdir")
+            modul = self.globals.get_value("name")
+            if modul[:3] == "Afp": modul = modul[3:]
+            fname = modul + "_" + self.get_listname() + "_" + self.get_string_value()
+            print "AfpSelectionList.move_to_archiv:", archivdir, modul, fname
+            for entry in self.archiv_copy_needed:
+                row = self.get_value_rows(entry[0], "Gruppe,Bem,Extern",entry[1])[0]
+                print "AfpSelectionList.move_to_archiv row:", row
+                from_name = row[2]
+                ext = from_name.split(".")[-1]
+                to_name = fname + "_" + Afp_toString(row[0]) + "_" + Afp_stripSpaces(Afp_toString(row[1] )) + "_"
+                cnt = 1
+                while Afp_existsFile(archivdir + to_name + Afp_toIntString(cnt) + "." + ext):
+                    cnt += 1
+                to_name += Afp_toIntString(cnt) + "." + ext
+                print "AfpSelectionList.move_to_archiv copy:", from_name, to_name
+                Afp_copyFile(from_name, archivdir + to_name)
+                self.set_data_values({"Extern": to_name}, entry[0], entry[1])
     #
     # routines which may be overwritten in devired class, if necessary
     #
@@ -1333,7 +1395,14 @@ class AfpSelectionList(object):
     #    
     # routines to be overwritten in devired class
     #
-    ## return specific identification string to be used in dialogs \n
+    ## extract payment relevant data from SelectionList for 'Finance' modul (onlý needed if bookkeeping is considered)
+    # has to return the account number this payment has to be charged ("Gegenkonto")
+    # @param paymentdata - payment data dictionary to be modified and returned
+    def add_payment_data(self, paymentdata):
+        print "AfpSelecxtionList.add_payment_data not implemented for list:", self.listname
+        return paymentdata
+     
+   ## return specific identification string to be used in dialogs \n
     # - should be overwritten in devired class
     def get_identification_string(self):
         return ""
@@ -1413,6 +1482,7 @@ class AfpImport(object):
         self.value_end_tags =  ["/AfpValue"]
         self.valid_tags =  ["AfpDocument"]
         self.valid_end_tags =  ["/AfpDocument"]
+        self.modul = None
         self.tag_interpreter = None
         self.tag_parameter = None
         self.import_available = False
@@ -1462,10 +1532,11 @@ class AfpImport(object):
         modulname =".".join(split)
         modulpath = self.globals.get_value("path-delimiter").join(split) + ".py"  
         self.modul = AfpPy_Import(modulname, modulpath)
-        #print "AfpImport.create_object:", modulname, self.modul
+        print "AfpImport.create_object:", modulname, self.modul
         if self.modul:
             befehl = "data = self.modul." + objname + "(self.globals)"
             exec befehl
+        print "AfpImport.create_object:", data
         return data
     ## extract xml tags from file
     def extract_xml_tags(self):
@@ -1541,8 +1612,8 @@ class AfpImport(object):
                                 sel_index = sel.get_data_length()
                         elif typ == "AfpValue":
                             if tag[1] and tag[2] and not sel_index is None:
-                                sel.set_value(tag[1], tag[2], sel_index)
-                                #print "AfpImport.read_from_xml_file set_value:", tag[1], tag[2], sel_index,"\n", sel.data
+                                sel.set_value(tag[1], Afp_fromString(tag[2].decode("UTF-8")), sel_index)
+                                #print "AfpImport.read_from_xml_file set_value:", tag[1], tag[2], sel_index, type(tag[1]), type(tag[2])
                         elif typ == "/AfpTableRow":
                             sel_index = None
                         elif typ == "/AfpSelection":
@@ -1584,9 +1655,11 @@ class AfpImport(object):
             if self.tag_parameter: befehl = befehl[:-1] + ", " + self.tag_parameter + ")"
             if self.debug: print "AfpImport.read_from_xml_file Befehl:", befehl
             exec befehl
+            print "AfpImport.read_from_xml_file return:", datalist
         else:
             if self.debug: print "AfpImport.read_from_xml_file type: AfpDocument"
             datalist = self.interprete_xml_tags(tags)
+        if self.debug: print "AfpImport.read_from_xml_file datalist:", datalist[0]
         return datalist
             
     ## read file
