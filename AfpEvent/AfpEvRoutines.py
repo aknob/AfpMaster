@@ -307,25 +307,20 @@ class AfpEvent(AfpSelectionList):
     # @param check_preis - flag if only paying clients should be collected, default: True
     # @param is_cancel - flag which clients should be collected, default: False
     # - None: all clients are collected
-    # - True: cancelled clients are collected
+    # - True: canceled clients are collected
     # - False: active clienst are collected
+    # @param sorttyp - if given, field to sort output
     def get_clients(self, check_preis = True, is_cancel = False, sorttyp = None):
         clients = []
         rows = self.get_value_rows("ANMELD","AnmeldNr")
         for row in rows:
             client = self.get_client(row[0])
-            #print "AfpEvent.get_clients:", client.get_name(), client.is_cancelled(), is_cancel, client.get_value("Zustand") 
-            if (not check_preis or client.get_value("Preis")) and (is_cancel is None or is_cancel == client.is_cancelled()): 
-                #print "AfpEvent.get_clients:", client.get_name(), client.is_cancelled(), is_cancel, client.get_value("Zustand"), client.get_value("Preis") 
+            #print "AfpEvent.get_clients:", client.get_name(), client.is_canceled(), is_cancel, client.get_value("Zustand") 
+            if (not check_preis or client.get_value("Preis")) and (is_cancel is None or is_cancel == client.is_canceled()): 
+                #print "AfpEvent.get_clients:", client.get_name(), client.is_canceled(), is_cancel, client.get_value("Zustand"), client.get_value("Preis") 
                 clients.append(client)
             if sorttyp:
-                sortlist = []
-                for client in clients:
-                    if sorttyp == "Namen":
-                        sortlist.append(client.get_name(True))
-                    else:
-                        sortlist.append(client.get_value(sorttyp))
-                sortlist, clients = Afp_sortSimultan(sortlist, clients)
+                clients = Afp_orderSelectionLists(clients, sorttyp)
         return clients
             
     ## return specific identification string to be used in dialogs \n
@@ -411,7 +406,7 @@ class AfpEvClient(AfpSelectionList):
         if self.debug: print "AfpEvClient Destruktor"
         #AfpSelectionList.__del__(self) 
     ## decide whether this client entry has been cancelled
-    def is_cancelled(self):
+    def is_canceled(self):
         return "Storno" in self.get_value("Zustand")
     ## decide whether payment is possible or not
     def is_payable(self):
@@ -532,7 +527,20 @@ class AfpEvClient(AfpSelectionList):
             Nr = self.get_value("RechNr.EVENT") + 1
             self.set_value("RechNr.EVENT", Nr)
         return Nr
+    ## update internal price fields
+    def update_prices(self):
+        price = self.get_value("Preis.Preis")
+        extra = 0.0
+        noprv = 0.0
+        rows = self.get_value_rows("ANMELDEX","NoPrv,Preis")
+        for row in rows:
+            extra += row[1]
+            if row[0]: noprv += row[1]
+        self.set_value("Extra", extra)
+        self.set_value("Preis", extra + price)
+        self.set_value("ProvPreis", extra + price - noprv)
     ## generate invoice number
+    # @param Nr - if given, this counter will be used to generate RechNr-string
     def generate_RechNr(self, Nr=None):
         RechNr = None
         typ = self.get_RechNr_name()
@@ -561,21 +569,6 @@ class AfpEvClient(AfpSelectionList):
             self.add_invoice()
             #RechNr will be set automatically after storing and has not to be returned here 
         return RechNr
-    ## extract attribut values
-    # @param attribut - attribut to be extracted
-    # @param start - if given startdate for attribut extraction
-    # @param end  - if given enddate for attribut extraction
-    def get_attribut_values(self, attribut, start=None, end=None):
-        rows = self.get_selection("ANMELDATT").get_values()
-        values = []
-        indices = []
-        #print "AfpEvClient.get_attribut_values rows:", rows
-        for row in rows:
-            #print "AfpEvClient.get_attribut_values row:", row, attribut, start, end
-            if row[1] == attribut and (start is None or row[2] >= start)  and (end is None or row[2] <= end) :
-                values.append([row[2],row[3], row[4]])
-                indices.append(rows.index(row))
-        return values, indices
     ## count tour entry up or down
     # @param plus - number to be added to event, default: 1
     def add_to_event(self, plus = 1):
@@ -664,19 +657,46 @@ class AfpEvClient(AfpSelectionList):
     def get_sameRechNr(self):
         rows = self.get_value_rows("RechNr", "RechNr,Preis,Zahlung,KundenNr,AnmeldNr,EventNr")
         FNr = self.get_value("EventNr")
-        liste = []
-        sameRechNr = []
+        ANr = self.get_value("AnmeldNr")
+        liste = [None]
+        sameRechNr = [None]
         preis = 0.0
         zahlung = 0.0
         #print "AfpEvClient.get_sameRechNr:", rows
         for row in rows:
             if row[5] == FNr:
                 name = AfpAdresse(self.get_globals(), row[3]).get_name()
-                liste.append( Afp_toString(row[0]) + Afp_toFloatString(row[1]).rjust(10) + Afp_toFloatString(row[2]).rjust(10) + "  " + name)
-                sameRechNr.append(row[4])  
                 if row[1]: preis += row[1]
                 if row[2]: zahlung += row[2]
+                if row[4] == ANr:
+                    liste[0] = Afp_toString(row[0]) + Afp_toFloatString(row[1]).rjust(10) + Afp_toFloatString(row[2]).rjust(10) + "  " + name
+                    sameRechNr[0] = row[4]  
+                else:
+                    liste.append( Afp_toString(row[0]) + Afp_toFloatString(row[1]).rjust(10) + Afp_toFloatString(row[2]).rjust(10) + "  " + name)
+                    sameRechNr.append(row[4])  
         return [preis, zahlung], sameRechNr, liste
+    #
+    #  overritten from SelectionList
+    #
+    ## get splitting values for payment
+    def get_splitting_values(self):
+        splitting = None
+        if self.get_value("Extra"):
+            rows = self.get_value_rows("ANMELDEX", "Bezeichnung,Preis")
+            if rows:
+                splitting = [None]
+                sum = 0.0
+                for row in rows:
+                    KtNr = Afp_getSpecialAccount(self.get_mysql(), row[0], "Bezeichnung")
+                    if not KtNr: KtNr = Afp_getSpecialAccount(self.get_mysql(), "Gebühr ".decode("UTF-8") + row[0], "Bezeichnung")
+                    if KtNr:
+                        splitting.append([KtNr, row[1], row[0]])
+                        sum += row[1]
+                if len(splitting) > 1 and self.get_value("Extra") == sum:
+                    splitting[0] = [self.get_value("ErloesKt.EVENT"), self.get_value("Preis") - sum, ""]
+                else:
+                    splitting = None
+        return splitting
     ## set all necessary values to keep track of the payments
     # @param payment - amount that has been payed
     # @param datum - date when last payment has been made

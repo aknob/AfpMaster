@@ -86,7 +86,7 @@ def AfpFinance_SEPATagInterpreter(globals, tags, datstring, konto, transfer, gko
     name = None
     unidentified = []
     for tag in tags:
-        print "AfpImport.read_from_xml_file tag:", tag
+        #print "AfpFinance_SEPATagInterpreter tag:", tag
         typ = tag[0]
         if is_transaction:
             if typ == "InstdAmt":
@@ -879,10 +879,12 @@ class AfpSEPAdd(AfpSelectionList):
             
     ## get filepathes to created SEPA xml-files
     def get_filepathes(self):
+        #print "AfpSEPAdd.get_filepathes:", self.targetdir, self.clients_file, self.newclients_file 
         pathes = ""
         if self.newclients_file:
             pathes += self.targetdir + self.newclients_file + ".xml "
-        pathes += self.targetdir + self.clients_file + ".xml"
+        if self.clients_file:
+            pathes += self.targetdir + self.clients_file + ".xml"
         return pathes
             
     ## store all data
@@ -1249,7 +1251,7 @@ class AfpFinanceTransactions(AfpSelectionList):
                 accdata["GktName"] = self.get_account_name(accdata["Gegenkonto"])
             accdata["Eintrag"] = today
             accdata["Period"] = self.period
-            print "AfpFinanceTransactions.add_direct_transactions", accdata, self.get_value_length()
+            #print "AfpFinanceTransactions.add_direct_transactions", accdata, self.get_value_length()
             self.set_data_values(accdata, None, -1)
     ## financial transaction data is delivered in a list of dictionaries from incident data \n
     # this routine splits into the different incident routines. \n
@@ -1903,3 +1905,83 @@ class AfpFinanceExport(AfpSelectionList):
         if not self.information:
             self.information = self.get_globals().get_value(vname + ".info", "Finance")
         Export.write_to_file(fieldlist, self.information)
+
+## common invoice base class (incoming)
+class AfpVerbindlichkeit(AfpSelectionList):
+    ## initialise a invoice base class
+    # @param globals - global values including the mysql connection - this input is mandatory
+    # @param RechNr - if given, data will be retrieved this database entry
+    # @param debug - flag for debug information
+    # @param complete - flag if data from all tables should be retrieved during initialisation \n
+    # RechNr has to be supplied,  otherwise a new, clean object is created
+    def  __init__(self, globals, RechNr = None, debug = False, complete = False):
+        AfpSelectionList.__init__(self, globals, "Verbindlichkeit", debug)
+        self.debug = debug
+        self.new = False
+        self.mainindex = "RechNr"
+        self.mainvalue = ""
+        self.spezial_bez = []
+        if RechNr:
+            self.mainvalue = Afp_toString(RechNr)
+        else:
+            self.new = True
+        self.mainselection = "VERBIND"
+        self.set_main_selects_entry()
+        if not self.mainselection in self.selections:
+            self.create_selection(self.mainselection)   
+        #  self.selects[name of selection]  [tablename,, select criteria, optional: unique fieldname]
+        self.selects["ADRESSE"] = [ "ADRESSE","KundenNr = KundenNr.VERBIND"] 
+        if complete: self.create_selections()
+        if self.debug: print "AfpVerbindlichkeit Konstruktor, RechNr:", self.mainvalue
+    ## destructor
+    def __del__(self):    
+        if self.debug: print "AfpVerbindlichkeit Destruktor"
+        #AfpSelectionList.__del__(self) 
+    ## clear current SelectionList to behave as a newly created List 
+    # @param KundenNr - KundenNr of newly seelected adress, == None if address is kept   
+    def set_new(self, KundenNr):
+        self.new = True
+        data = {}
+        keep = []
+        if KundenNr:
+            data["KundenNr"] = KundenNr
+        else:
+            data["KundenNr"] = self.get_value("KundenNr")
+            keep.append("ADRESSE")
+        data["Zustand"] = "offen"
+        data["Datum"] = self.globals.today_string()
+        #print data
+        #print keep
+        self.clear_selections(keep)
+        self.set_data_values(data,"VERBIND")
+        if KundenNr:
+            self.create_selection("ADRESSE", False)
+            self.set_value("Name", self.get_name(True))
+    ## one line to hold all relevant values of this invoice to be displayed 
+    def line(self):
+        zeile = self.get_string_value("RechNr").rjust(8) + " " + self.get_string_value("Datum") + " " + self.get_string_value("Bem") + " " 
+        zeile += self.get_string_value("Zahlbetrag").rjust(10) + " " + self.get_string_value("Zahlung").rjust(10)
+        return zeile 
+    ## switch 'Zustand' from open (offen) to payed (bezahlt) if necessary
+    def set_zustand(self):
+        if self.get_value("Zustand") == "offen" and self.get_value("Zahlung") >= self.get_value("ZahlBetrag"):
+            self.set_value("Zustand","bezahlt")
+    ## set internal payment values
+    # @param payment - amount of payment
+    # @param datum - date when last payment has been done
+    def set_payment_values(self, payment, datum):
+        AfpSelectionList.set_payment_values(self, payment, datum)
+        self.set_zustand()
+        if self.get_value("Typ") and self.get_value("Typ")  == "FAHRTEN":
+            self.set_value("Zahlung.FAHRTEN", payment)
+            self.set_value("ZahlDat.FAHRTEN", datum)
+    ## extract payment relevant data from SelectionList for 'Finance' modul, overwritten from AfpSelectionList
+    # has to return the account number this payment has to be charged ("Gegenkonto")
+    # @param paymentdata - payment data dictionary to be modified and returned
+    def add_payment_data(self, paymentdata):
+        paymentdata["Gegenkonto"] = self.get_value("Creditor") 
+        if not paymentdata["Gegenkonto"]:
+            paymentdata["Gegenkonto"]  = Afp_getIndividualAccount(self.get_mysql(), self.get_value("KundenNr"))
+        paymentdata["GktName"] = self.get_name(True) 
+        print "AfpVerbindlichkeit.add_payment_data:",paymentdata
+        return paymentdata

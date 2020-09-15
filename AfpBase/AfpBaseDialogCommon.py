@@ -394,7 +394,7 @@ class AfpDialog_DiReport(wx.Dialog):
     # @param text - text to be displayed
     def preset_text_bem(self, text):
         self.text_Bem.SetValue(text)
-    ## assign different data fpr archiv
+    ## assign different data for archiv
     # @param data - selectionlist to be used for archiv
     def add_archivdata(self, data):
         self.archivdata = data

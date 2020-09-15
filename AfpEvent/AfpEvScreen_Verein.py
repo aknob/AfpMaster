@@ -41,7 +41,7 @@ from AfpBase.AfpUtilities.AfpBaseUtilities import Afp_existsFile
 from AfpBase.AfpDatabase import *
 from AfpBase.AfpDatabase.AfpSQL import AfpSQL
 from AfpBase.AfpDatabase.AfpSuperbase import AfpSuperbase
-from AfpBase.AfpBaseRoutines import Afp_archivName, Afp_startFile
+from AfpBase.AfpBaseRoutines import Afp_archivName, Afp_startFile, Afp_getBirthdayList, Afp_orderSelectionLists
 from AfpBase.AfpBaseDialog import AfpReq_Info, AfpReq_Selection, AfpReq_Question, AfpReq_Text, AfpReq_Date, AfpDialog
 from AfpBase.AfpBaseDialogCommon import AfpLoad_DiReport
 from AfpBase.AfpBaseScreen import AfpScreen, Afp_loadScreen
@@ -134,6 +134,26 @@ class AfpEvVerein(AfpEvent):
                 client = self.get_client(row[0])
                 client.reset_payment()
                 client.store()
+    
+    ## get all members in a given period
+    # @param period - year for which  members should be extracted
+    # @param sorttyp - if given, field to sort output
+    def get_members_of_period(self, period, sorttyp = None):
+        all_clients = self.get_clients(False, None)
+        year = Afp_toString(period)
+        ps = Afp_fromString("1.1." + year)
+        pe = Afp_fromString("31.12." + year)
+        clients = []
+        for client in all_clients:
+            zu= client.get_value("Zustand")
+            start = client.get_value("Anmeldung")
+            end = client.get_value("InfoDat")
+            #print "AfpEvVerein.get_members_of_period:", client.get_name(), start, zu, end, "Periode:", ps, pe, start < pe, (end is None or end > ps)
+            if start and start < pe and (zu == "Anmeldung" or zu == "PreStorno" or zu == "Storno") and  (end is None or end > ps):
+                clients.append(client)
+        if sorttyp:
+            clients = Afp_orderSelectionLists(clients, sorttyp)
+        return clients  
 
     ## decide whether this event may holds a route insted of the location
     # - overwritten from AfpEvent
@@ -203,7 +223,10 @@ class AfpEvMember(AfpEvClient):
             data = {"AnmeldNr": self.get_value(), "Bezeichnung": "Restbeitrag " + jahr, "Preis": diff, "NoPrv": 1}
             self.set_data_values(data, "ANMELDEX", -1)
         preis, extra = self.gen_price()
-        data = {"Preis": preis, "Extra": extra, "Zahlung": None, "ZahlDat":  None}
+        if zahlung is None or preis < 0.01:
+            data = {"Preis": preis, "Extra": extra, "Zahlung": None, "ZahlDat":  None}
+        else:
+            data = {"Preis": preis, "Extra": extra, "Zahlung": 0.0, "ZahlDat":  None}
         self.set_data_values(data)
     ## generate price for actuel selections   
     def gen_price(self):
@@ -216,26 +239,47 @@ class AfpEvMember(AfpEvClient):
         
     ## get attributs for a year
     # @param attribut - name of attribut to be extracted
-    # @param year - if given, year for which the attributes have to be extracted, default: actuel year
-    def get_attributs(self, attribut, year=None):
-        if not year:
-            year = self.globals.today().year
-        jahr = Afp_toString(year)
+    # @param period - if given, year for which the attributes have to be extracted, default: actuel year
+    def set_attribut_period(self, attribut, period=None):  
+        if not period:
+            period = self.globals.today().year
+        jahr = Afp_toString(period)
         fromdat = Afp_fromString("1.1." + jahr)
         todat = Afp_fromString("31.12." + jahr)
-        return self.get_attribut_values(attribut, fromdat, todat)
-    ## generate selection sum
+        self.selects["ANMELDATT"] =  [ "ANMELDATT","AnmeldNr = AnmeldNr.ANMELD AND Attribut = \"" + attribut + "\" AND Datum >= '" + Afp_toInternDateString(fromdat)  + "' AND Datum <= '" + Afp_toInternDateString(todat) + "'"]
+        #print "AfpEvMember.set_period:", self.selects["ANMELDATT"], self.get_selection("ANMELDATT").data
+        
+    ## get attribut row
     # @param attribut - name of attribut to be extracted
-    # @param year - if given, year for which the attributes have to be extracted, default: actuel year
-    def get_attribut_sum(self, attribut, year):
-        rows = self.get_attributs(attribut, year)
-        #print "AfpEvMember.get_selection_sum:", attribut, year, rows
+    # @param period - if given, year for which the attributes have to be extracted, default: actuel year
+    def get_attributs(self, attribut, period=None):
+        self.set_attribut_period(attribut, period)
+        rows = self.get_value_rows("ANMELDATT")
+        values = []
+        indices = []
+        for i in range(len(rows)):
+            row = rows[i]
+            indices.append(i)
+            values.append([row[2], row[4], row[3]])
+        return values, indices
+        
+    ## generate selection sum
+    def get_attribut_sum(self):
+        rows = self.get_value_rows("ANMELDATT")
         sum = 0.0
+        skip = False
         if rows:
             for row in rows:
-                if row and row[0]:
-                    sum += row[0][1]
-        return sum
+                if row and len(row) > 3 and row[2]:
+                    if row[3] is None:
+                        skip = True
+                    else:
+                        sum += row[3]
+       # print "AfpEvMember.get_attribut_sum:", self.get_name(), sum, skip, "\n", rows
+        if not sum and skip:
+            return None
+        else:
+            return sum
    ## generate identification number (membership number for "Verein")  
     def generate_IdNr(self):
         IdNr = None
@@ -280,7 +324,7 @@ class AfpEvScreen_Verein(AfpEvScreen):
         if self.debug: print "AfpEvScreen_Verein Konstruktor"
        
     ## initialize widgets
-    def initWx(self):
+    def InitWx(self):
        #panel = self.panel
         panel = self
         # set up sizer strukture
@@ -352,10 +396,11 @@ class AfpEvScreen_Verein(AfpEvScreen):
         self.button_sizer.AddSpacer(20)
      
         # COMBOBOX
-        self.combo_Filter = wx.ComboBox(panel, -1, value="Mitglieder", size=(164,20), choices=["Kandidaten","Mitglieder","Hauptmitglieder","Basismitglieder","Abgemeldet","Ausgetreten"], style=wx.CB_DROPDOWN, name="Filter")
+        self.combo_Filter = wx.ComboBox(panel, -1, value="Mitglieder", size=(164,20), choices=["Kandidaten","Mitglieder","Beitragszahler","Zahlung offen","Basismitglieder","Abgemeldet","Ausgetreten"], style=wx.CB_DROPDOWN, name="Filter")
         self.Bind(wx.EVT_COMBOBOX, self.On_Filter, self.combo_Filter)
         #self.filtermap = {"Mitglieder":"Verein-Anmeldung-PreStorno","Kandidaten":"Verein-Reserv","Abgemeldet":"Verein-PreStorno","Ausgetreten":"Verein-Storno"}
-        self.filtermap = {"Mitglieder":"Verein-Anmeldung-PreStorno","Hauptmitglieder":"Verein-Anmeldung-PreStorno-Preis >= 0.01","Basismitglieder":"Verein-Anmeldung","Kandidaten":"Verein-Reserv","Abgemeldet":"Verein-PreStorno","Ausgetreten":"Verein-Storno"}
+        #self.filtermap = {"Mitglieder":"Verein-Anmeldung-PreStorno","Hauptmitglieder":"Verein-Anmeldung-PreStorno-Preis >= 0.01","Hauptmitglieder offen":"Verein-Anmeldung-PreStorno-Preis >= 0.01-Preis - Zahlung > 0.0","Basismitglieder":"Verein-Anmeldung","Kandidaten":"Verein-Reserv","Abgemeldet":"Verein-PreStorno","Ausgetreten":"Verein-Storno"}
+        self.filtermap = {"Mitglieder":"Verein Anmeldung PreStorno","Beitragszahler":"Verein Anmeldung PreStorno Preis>=0.01","Zahlung offen":"Verein Anmeldung PreStorno Preis>Zahlung","Basismitglieder":"Verein Anmeldung","Kandidaten":"Verein Reservierung","Abgemeldet":"Verein PreStorno","Ausgetreten":"Verein Storno"}
         self.top_mid_sizer.AddStretchSpacer(1)
         self.top_mid_sizer.Add(self.combo_Filter,0,wx.EXPAND)
         self.top_mid_sizer.AddSpacer(10)
@@ -445,7 +490,7 @@ class AfpEvScreen_Verein(AfpEvScreen):
         self.label_Mail = wx.StaticText(panel, -1, label="", name="Mail")
         self.labelmap["Mail"] = "Mail.ADRESSE"
         self.label_Box = wx.StaticText(panel, -1, label="", name="Ab")
-        #self.labelmap["Ab"] = "Name.TOrt"
+        self.labelmap["Ab"] = "Name.TOrt"
         self.mail_sizer = wx.BoxSizer(wx.HORIZONTAL)
         self.mail_sizer.Add(self.label_Mail, 4, wx.EXPAND)
         self.mail_sizer.AddSpacer(10)
@@ -541,6 +586,7 @@ class AfpEvScreen_Verein(AfpEvScreen):
         self.sizer.Add(self.button_sizer,0,wx.EXPAND)   
         
         self.dynamic_grid_sizer = self.grid_panel_sizer
+        self.Bind(wx.EVT_ACTIVATE, self.On_Activate)
         
    ## execution routine- set date filter
    # dummy only needed to use the AfpEvScreen-routines
@@ -552,10 +598,30 @@ class AfpEvScreen_Verein(AfpEvScreen):
     def re_filtermap(self, word):
         remap = None
         for map in self.filtermap:
-            if "-" + word in self.filtermap[map]:
+            if " " + word in self.filtermap[map]:
                 remap = map
         return remap
         
+    ## show initial information dialog or screen
+    # @param typ - typ of information to be shown
+    def show_splash_screen(self, typ):
+        if typ == "birthday":
+            interval = self.globals.get_value("birthday-splash-screen-interval","Event")
+            rows = Afp_getBirthdayList(self.globals.get_mysql(), interval, "ANMELD", "b.Zustand = \"Anmeldung\" AND b.KundenNr = a.KundenNr")
+            #print "AfpEvScreen_Verein.show_spalsh_screen:", rows
+            text = ""
+            for row in rows:
+                text += Afp_ArraytoLine(row) + "\n"
+            dat = Afp_addDaysToDate(self.globals.today(), interval)
+            AfpReq_Info("Geburtstagsliste bis zum " + Afp_toString(dat) + "! \n", text[:-1], "Geburtstagsliste")
+        
+    ## event handler when window is activated
+    # @param event - event which initiated this action   
+    def On_Activate(self,event):
+        if self.globals.get_value("birthday-splash-screen-interval","Event") and not self.globals.get_value("splash-screen-shown"):
+            self.globals.set_value("splash-screen-shown", 1)
+            self.show_splash_screen("birthday")
+
    ## Eventhandler COMBOBOX - filter
    # overwritten from AfpEvScreen
     def On_Filter(self,event=None):
@@ -691,7 +757,7 @@ class AfpEvScreen_Verein(AfpEvScreen):
             self.On_Ausw()
         if self.clubnr:
             #super(AfpEvScreen_Verein, self).On_modify()
-            self.sb.select_key(self.clubnr, "KundeNr","ADRESSE")
+            self.sb.select_key(self.clubnr, "KundenNr","ADRESSE")
             AfpEvScreen.On_modify(self)
         event.Skip()
         
@@ -804,7 +870,7 @@ class AfpEvScreen_Verein(AfpEvScreen):
         if ENr == True: return AfpEvVerein(self.globals)
         elif ENr:  return  AfpEvVerein(self.globals, ENr)
         Verein =  AfpEvVerein(self.globals, None, self.sb)
-        filters = self.filtermap[self.combo_Filter.GetValue()].split("-")
+        filters = self.filtermap[self.combo_Filter.GetValue()].split()
         #print "AfpEvScreen_Verein.get_event filters:", filters
         Verein.set_anmeld_filter(filters[1:])
         return  Verein
@@ -903,13 +969,15 @@ class AfpEvScreen_Verein(AfpEvScreen):
             bez = self.slave_data.get_string_value("Bezeichnung.Preis")  
             preis = self.slave_data.get_string_value("Preis.Preis")   
             if not bez: bez = "Beitrag"
-            if not preis: preis = self.sb.get_string_value("ProvPreis.ANMELD")  
-            if not preis: preis = self.sb.get_string_value("Preis.ANMELD")  
+            if not preis: preis = self.slave_data.get_string_value("ProvPreis.ANMELD")  
+            if not preis: preis = self.slave_data.get_string_value("Preis.ANMELD")  
             # ToDo: anteiliger Beitrag, wenn Anmeldung im Jahr
             #rows.append(bez + "  " + preis)
             #print "AfpEvScreen_Verein.get_list_rows Preis:", preis, bez
             rows.append(preis + "  " + bez)
             if self.slave_data.get_value("Extra.ANMELD"):
+                if self.slave_data.get_value("Extra.ANMELD") == Afp_fromString(preis):
+                    rows[0] = Afp_toString(0.0) + " " + bez
                 ex_row = self.slave_data.get_selection("ANMELDEX").get_values("Bezeichnung,Preis")
                 #print "AfpEvScreen_Verein.get_list_rows Extra:", ex_row
                 for row in ex_row:
@@ -1049,17 +1117,21 @@ class AfpDialog_EvMemberEdit(AfpDialog_EvClientEdit):
         self.modifyWx()
         self.storno = None
         self.stornofile = None
+        self.initial_price = None
+        self.initial_price_factor = None
         
     ##  modify Wx objects defined in parent class
     def modifyWx(self):
         self.label_Datum.Enable(False)
-        self.text_Datum = wx.TextCtrl(self.panel, -1,  pos=(290,68), size=(95,18), name="Datum")
-        self.vtextmap["Datum"] = "Anmeldung.ANMELD"
-        self.text_Datum.Bind(wx.EVT_KILL_FOCUS, self.On_Check_Datum)
+        #self.text_Datum = wx.TextCtrl(self.panel, -1,  pos=(290,68), size=(95,18), name="Datum")
+        #self.vtextmap["Datum"] = "Anmeldung.ANMELD"
+        #self.text_Datum.Bind(wx.EVT_KILL_FOCUS, self.On_Check_Datum)
         self.combo_Ort.Show(True)
         self.combomap["Ort"] = "Ort.TORT"
         self.label_TAb.Show(True)
         self.label_TAb.SetLabel("&Liegeplatz:")
+        self.label_TGrund.SetLabel("&Beitrag:")
+        self.label_TPreis.SetLabel("&Gesamt:")
         self.button_Agent.SetLabel("&Entsender")
         self.button_Storno.SetLabel("A&bmeldung")
         self.check_Mehrfach.SetLabel("&Familie")
@@ -1095,17 +1167,71 @@ class AfpDialog_EvMemberEdit(AfpDialog_EvClientEdit):
     def complete_data(self, data):
         if not self.data.get_value("IdNr"):
             IdNr= self.data.generate_IdNr() 
-            data["IdNr"] = IdNr
+            data["IdNr"] = IdNr 
+        if self.data.get_value("Zahlung") is None and "Preis" in data and data["Preis"] > 0.0:
+            data["Zahlung"] = 0.0
         super(AfpDialog_EvMemberEdit, self).complete_data(data)
         return data
+        
+    ## actualise all price data according to input row
+    # (overwritten from AfpDialog_EvClientEdit)
+    # @param row - holding data of selected or manually created price
+    def actualise_preise(self, row):
+        if row[4] == "Grund":
+            ENr = self.data.get_string_value("EventNr")
+            if self.preisnr: preisnr = self.preisnr
+            else: preisnr = self.data.get_value("PreisNr") 
+            if not preisnr == row[3]:
+                self.preisnr = row[3]
+                if self.initial_price_factor is None:
+                    if not self.new:
+                        self.initial_price = self.data.get_value("Preis.Preis") 
+                    self.initial_price_factor = self.data.get_globals().today().month/12.0
+                select = "EventNr = " + ENr + " AND PreisNr = " + Afp_toString(self.preisnr)
+                self.data.get_selection("Preis").load_data(select)
+                preis = 0.0
+                if row[0]: preis = row[0]
+                self.add_partitial_price(preis)
+        else:
+            changed_data = {"AnmeldNr": self.data.get_value("AnmeldNr"), "Preis": row[0], "Bezeichnung":row[1], "NoPrv":row[2]}
+            self.data.get_selection("ANMELDEX").add_data_values(changed_data)
+        self.data.update_prices()
+        self.Pop_label()
 
+    ## add rabat if price-change is pro rata
+    # @param preis - new yearly price to be reached
+    def add_partitial_price(self, preis):
+        initial = 0.0
+        new = preis*(1.0 - self.initial_price_factor)
+        month = Afp_toString(self.data.get_globals().today().month)
+        text = "Beitragsfrei bis Monat " +  month 
+        if self.initial_price:
+            initial = self.initial_price*self.initial_price_factor
+            text = "Beitragsänderung in Monat ".decode("UTF-8") +  month
+        new += initial
+        print "AfpDialog_EvMemberEdit.add_partitial_price:", preis, month, new, text
+        sel = self.data.get_selection("ANMELDEX")
+        rows = sel.get_values()
+        index = None
+        for row in rows:
+            print "AfpDialog_EvMemberEdit.add_partitial_price row:",row[2], text, Afp_toString(row[2]) == text
+            if Afp_toString(row[2]) == text:
+                index = rows.index(row)
+                diff = row[3]
+        if index is None:
+            changed_data = {"AnmeldNr": self.data.get_value("AnmeldNr"), "Preis": new - preis, "Bezeichnung":text, "NoPrv":1}
+            sel.add_data_values(changed_data)
+        else:
+            changed_data = {"Preis": new - preis, "Bezeichnung":text}
+            sel.set_data_values(changed_data, index)
+            
     ## check if 'family' id allowed for 'verein'-member
     # @param data - if given, data to be checked, otherwise self.data is used
     def check_family(self, data = None):
         if not data:
             data = self.data
         if  data:
-            if data.pricename_holds("Familie") and not data.pricename_holds("Familien"):
+            if self.check_Mehrfach.GetValue() or (data.pricename_holds("Familie") and not data.pricename_holds("Familien")):
                 self.check_Mehrfach.Enable(True)
             else:
                 self.check_Mehrfach.Enable(False)
@@ -1174,15 +1300,21 @@ class AfpDialog_EvMemberEdit(AfpDialog_EvClientEdit):
     # @param event - event which initiated this action   
     def On_Anmeld_Neu(self,event):
         if self.debug: print "AfpDialog_EvMemberEdit Event handler `On_Anmeld_Neu'"
-        family = self.check_Mehrfach.GetValue()
-        if family:
-            family = [True, True, False, False]
-        self.Anmeld_Neu(family)
-        if self.new:
-            self.data.set_value("PreisNr", 0)
+        new = self.new
+        super(AfpDialog_EvMemberEdit, self).On_Anmeld_Neu()
+        if new:
+            self.data.set_value("PreisNr", 12)
             self.Pop_Preise()
             self.check_family()
         event.Skip()
+    ## get multiflags accorfing to multi checkbox
+    # overwritten from AfpEvDialog
+    def get_multiflags(self):
+        multi = self.check_Mehrfach.GetValue()
+        if multi:
+            return [True, True, False, False]
+        return multi
+
    
     ##  get a client object with given identnumber
     # overwritten from AfpDialog_EvEventEdit

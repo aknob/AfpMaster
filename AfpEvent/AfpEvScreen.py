@@ -79,7 +79,7 @@ class AfpEvScreen(AfpScreen):
         if debug: self.debug = debug
         # self properties
         self.SetTitle("Afp Event")
-        self.initWx()
+        self.InitWx()
         self.SetSize((800, 600))
         self.SetBackgroundColour(wx.Colour(192, 192, 192))
         self.SetForegroundColour(wx.Colour(20, 19, 18))
@@ -88,9 +88,7 @@ class AfpEvScreen(AfpScreen):
         if self.debug: print "AfpEvScreen Konstruktor"
     
     ## initialize widgets
-    def initWx(self):
-       #panel = self.panel
-        panel = self
+    def InitWx(self):
         # set up sizer strukture
         self.sizer =wx.BoxSizer(wx.HORIZONTAL)
         
@@ -107,26 +105,26 @@ class AfpEvScreen(AfpScreen):
         self.grid_panel_sizer =wx.BoxSizer(wx.HORIZONTAL)
         
         # right BUTTON sizer
-        self.combo_Sortierung = wx.ComboBox(panel, -1, value="Kennung", choices=["Kennung","Bezeichnung","Beginn"], size=(100,30), style=wx.CB_DROPDOWN, name="Sortierung")
+        self.combo_Sortierung = wx.ComboBox(self, -1, value="Kennung", choices=["Kennung","Bezeichnung","Beginn"], size=(100,30), style=wx.CB_DROPDOWN, name="Sortierung")
         self.Bind(wx.EVT_COMBOBOX, self.On_Index, self.combo_Sortierung)
         self.indexmap = {"Kennung":"Kennung","Bezeichnung":"Bez","Ort":"Bez","Beginn":"Beginn"}
         
-        self.button_Auswahl = wx.Button(panel, -1, label="Aus&wahl",size=(77,50), name="BAuswahl")
+        self.button_Auswahl = wx.Button(self, -1, label="Aus&wahl",size=(77,50), name="BAuswahl")
         self.Bind(wx.EVT_BUTTON, self.On_Ausw, self.button_Auswahl)
-        self.button_Anfrage = wx.Button(panel, -1, label="An&frage",size=(77,50), name="BAnfrage")
+        self.button_Anfrage = wx.Button(self, -1, label="An&frage",size=(77,50), name="BAnfrage")
         self.Bind(wx.EVT_BUTTON, self.On_Anfrage, self.button_Anfrage)      
-        self.button_Event = wx.Button(panel, -1, label="&Event",size=(77,50), name="Event")
+        self.button_Event = wx.Button(self, -1, label="&Event",size=(77,50), name="Event")
         self.Bind(wx.EVT_BUTTON, self.On_modify, self.button_Event)
-        self.button_Anmeldung = wx.Button(panel, -1, label="&Anmeldung", size=(77,50),name="BAnmeldung")
+        self.button_Anmeldung = wx.Button(self, -1, label="&Anmeldung", size=(77,50),name="BAnmeldung")
         self.Bind(wx.EVT_BUTTON, self.On_Anmeldung, self.button_Anmeldung)
-        self.button_Zahlung = wx.Button(panel, -1, label="&Zahlung",size=(77,50), name="BZahlung")
+        self.button_Zahlung = wx.Button(self, -1, label="&Zahlung",size=(77,50), name="BZahlung")
         self.Bind(wx.EVT_BUTTON, self.On_Zahlung, self.button_Zahlung)
-        self.button_Dokumente = wx.Button(panel, -1, label="&Dokumente",size=(77,50), name="BDokumente")
+        self.button_Dokumente = wx.Button(self, -1, label="&Dokumente",size=(77,50), name="BDokumente")
         self.Bind(wx.EVT_BUTTON, self.On_Documents, self.button_Dokumente)
-        self.button_Einsatz = wx.Button(panel, -1, label="Ein&satz",size=(77,50), name="BEinsatz")
+        self.button_Einsatz = wx.Button(self, -1, label="Ein&satz",size=(77,50), name="BEinsatz")
         self.Bind(wx.EVT_BUTTON, self.On_VehicleOperation, self.button_Einsatz)               
         self.button_Einsatz.Enable(False)
-        self.button_Ende = wx.Button(panel, -1, label="Be&enden",size=(77,50), name="BEnde")
+        self.button_Ende = wx.Button(self, -1, label="Be&enden",size=(77,50), name="BEnde")
         self.Bind(wx.EVT_BUTTON, self.On_Ende, self.button_Ende)
         
         self.button_mid_sizer.AddStretchSpacer(1)
@@ -153,14 +151,15 @@ class AfpEvScreen(AfpScreen):
         self.button_sizer.AddSpacer(10)
         self.button_sizer.Add(self.combo_Sortierung,0,wx.EXPAND)
         self.button_sizer.AddSpacer(10)
-        self.button_sizer.Add(self.button_low_sizer,0,wx.EXPAND)
+        self.button_sizer.Add(self.button_low_sizer,1,wx.EXPAND)
+        self.button_sizer.AddSpacer(20)
      
         # COMBOBOX
-        #self.combo_Filter = wx.ComboBox(panel, -1, value="Veranstaltung-Anmeldungen", size=(164,20), choices=["Veranstaltung-Anmeldungen","Veranstaltung-Stornierungen","Veranstaltung-Reservierungen","Reisen-Anmeldungen","Reisen-Stornierungen"], style=wx.CB_DROPDOWN, name="Filter")
-        self.combo_Filter = wx.ComboBox(panel, -1, value="Anmeldungen", size=(164,20), choices=["Anmeldungen","Stornierungen","Reservierungen","Reisen-Anmeldungen","Reisen-Stornierungen"], style=wx.CB_DROPDOWN, name="Filter")
+        #self.combo_Filter = wx.ComboBox(self, -1, value="Veranstaltung-Anmeldungen", size=(164,20), choices=["Veranstaltung-Anmeldungen","Veranstaltung-Stornierungen","Veranstaltung-Reservierungen","Reisen-Anmeldungen","Reisen-Stornierungen"], style=wx.CB_DROPDOWN, name="Filter")
+        self.combo_Filter = wx.ComboBox(self, -1, value="Anmeldungen", size=(164,20), choices=["Anmeldungen","Stornierungen","Reservierungen","Reisen-Anmeldungen","Reisen-Stornierungen"], style=wx.CB_DROPDOWN, name="Filter")
         self.Bind(wx.EVT_COMBOBOX, self.On_Filter, self.combo_Filter)
         self.filtermap = {"Anmeldungen":"Event-Anmeldung","Stornierungen":"Event-Storno","Reservierungen":"Event-Reserv","Reisen-Anmeldungen":"Reisen-Anmeldung","Reisen-Stornierungen":"Reisen-Storno"}
-        self.combo_Jahr = wx.ComboBox(panel, -1, value="Aktuell", size=(84,20), style=wx.CB_DROPDOWN, name="Jahr")
+        self.combo_Jahr = wx.ComboBox(self, -1, value="Aktuell", size=(84,20), style=wx.CB_DROPDOWN, name="Jahr")
         self.Bind(wx.EVT_COMBOBOX, self.On_Jahr_Filter, self.combo_Jahr)
         self.Bind(wx.EVT_TEXT_ENTER, self.On_Jahr_Filter, self.combo_Jahr)
         self.top_mid_sizer.AddStretchSpacer(1)
@@ -170,28 +169,28 @@ class AfpEvScreen(AfpScreen):
         self.top_mid_sizer.AddSpacer(10)
       
         # Event
-        self.label_Event = wx.StaticText(panel, -1, label="Veranstaltung:", name="LEvent")
-        self.text_Bez = wx.TextCtrl(panel, -1, value="", style=wx.TE_READONLY, name="Bez")
+        self.label_Event = wx.StaticText(self, -1, label="Veranstaltung:", name="LEvent")
+        self.text_Bez = wx.TextCtrl(self, -1, value="", style=wx.TE_READONLY, name="Bez")
         self.textmap["Bez"] = "Bez.EVENT"
-        self.text_Verst = wx.TextCtrl(panel, -1, value="", style=wx.TE_READONLY, name="Verst")
+        self.text_Verst = wx.TextCtrl(self, -1, value="", style=wx.TE_READONLY, name="Verst")
         self.textmap["Verst"] = "AgentName.EVENT"
-        self.text_Kennung = wx.TextCtrl(panel, -1, value="", style=wx.TE_READONLY, name="Kennung")
+        self.text_Kennung = wx.TextCtrl(self, -1, value="", style=wx.TE_READONLY, name="Kennung")
         self.textmap["Kennung"] = "Kennung.EVENT"
-        self.label_Beginn = wx.StaticText(panel, -1, label="Beginn:", name="LBeginn")
-        self.text_Beginn = wx.TextCtrl(panel, -1, value="", style=wx.TE_READONLY, name="Beginn")
+        self.label_Beginn = wx.StaticText(self, -1, label="Beginn:", name="LBeginn")
+        self.text_Beginn = wx.TextCtrl(self, -1, value="", style=wx.TE_READONLY, name="Beginn")
         self.textmap["Beginn"] = "Beginn.EVENT"
-        self.label_Ende = wx.StaticText(panel, -1, label="Zeit:", name="LEnde")
-        self.text_Ende = wx.TextCtrl(panel, -1, value="", style=wx.TE_READONLY, name="Ende")
+        self.label_Ende = wx.StaticText(self, -1, label="Zeit:", name="LEnde")
+        self.text_Ende = wx.TextCtrl(self, -1, value="", style=wx.TE_READONLY, name="Ende")
         self.textmap["Ende"] = "Uhrzeit.EVENT"
-        self.label_Teilnehmer = wx.StaticText(panel, -1,  label="Teilnehmer:", name="LTeilnehmer")
-        self.text_Personen = wx.TextCtrl(panel, -1, value="", style=wx.TE_READONLY, name="Personen")
+        self.label_Teilnehmer = wx.StaticText(self, -1,  label="Teilnehmer:", name="LTeilnehmer")
+        self.text_Personen = wx.TextCtrl(self, -1, value="", style=wx.TE_READONLY, name="Personen")
         self.textmap["Personen"] = "Personen.EVENT"
-        self.label_Anmeldungen = wx.StaticText(panel, -1,  label="Anmeldungen:", name="LAnmeldungen")
-        self.text_Anmeldungen = wx.TextCtrl(panel, -1, value="", style=wx.TE_READONLY, name="Anmeldungen")
+        self.label_Anmeldungen = wx.StaticText(self, -1,  label="Anmeldungen:", name="LAnmeldungen")
+        self.text_Anmeldungen = wx.TextCtrl(self, -1, value="", style=wx.TE_READONLY, name="Anmeldungen")
         self.textmap["Anmeldungen"] = "Anmeldungen.EVENT"
-        #self.text_Bem= wx.TextCtrl(panel, -1, value="", pos=(135,123), size=(370,35), style=wx.TE_MULTILINE|wx.TE_LINEWRAP, name="ReiseBem")
+        #self.text_Bem= wx.TextCtrl(self, -1, value="", pos=(135,123), size=(370,35), style=wx.TE_MULTILINE|wx.TE_LINEWRAP, name="ReiseBem")
         #self.textmap["ReiseBem"] = "Bem.EVENT"
-        #self.text_IntText = wx.TextCtrl(panel, -1, value="", pos=(509,50), size=(164,101), style=wx.TE_MULTILINE, name="IntText")
+        #self.text_IntText = wx.TextCtrl(self, -1, value="", pos=(509,50), size=(164,101), style=wx.TE_MULTILINE, name="IntText")
         #self.extmap["IntText"] = "IntText.EVENT"
         
         self.event_panel_sizer.Add( self.label_Event, pos=(0,0), span=(1,2), flag=wx.ALIGN_RIGHT|wx.LEFT|wx.EXPAND, border=10)
@@ -210,8 +209,8 @@ class AfpEvScreen(AfpScreen):
         self.event_panel_sizer.Add( self.text_Anmeldungen, pos=(2,5))
 
         # GRID
-        # self.grid_custs = wx.grid.Grid(panel, -1, pos=(23,256) , size=(653, 264), name="Customers")
-        self.grid_custs = wx.grid.Grid(panel, -1, name="Customers")
+        # self.grid_custs = wx.grid.Grid(self, -1, pos=(23,256) , size=(653, 264), name="Customers")
+        self.grid_custs = wx.grid.Grid(self, -1, name="Customers")
         self.grid_custs.CreateGrid(self.grid_rows["Customers"], self.grid_cols["Customers"])
         #self.grid_custs.SetDefaultCellFont(self.font)
         self.grid_custs.SetRowLabelSize(0)
@@ -477,7 +476,7 @@ class AfpEvScreen(AfpScreen):
         if self.debug and event: print "AfpEvScreen Event handler `On_Documents'"
         Client = self.get_client()
         if not Client.is_new():
-            prefix = "Event " + Client.get_string_value("Zustand").strip()
+            prefix = "Event_Client " + Client.get_string_value("Zustand").strip()
             header = "Anmeldung"
             archiv = "direkt"
             if Client.get_value("AgentNr"):

@@ -190,7 +190,7 @@ class AfpCharter(AfpSelectionList):
         if self.debug: print "AfpCharter Destruktor"
         #AfpSelectionList.__del__(self) 
     ## decide whether this incident has been cancelled
-    def is_cancelled(self):
+    def is_canceled(self):
         return "Storno" in self.get_value("Zustand")
     ## decide whether payment is possible or not
     def is_payable(self):

@@ -406,7 +406,6 @@ class AfpScreen(wx.Frame):
             self.grid_sort_desc[name] = desc
             self.sort_grid_rows(name, index, desc)
 
-    
     ## Eventhandler resize event
     def On_ReSize(self, event):
         if self.dynamic_grid_name:
@@ -430,7 +429,7 @@ class AfpScreen(wx.Frame):
                 value = self.data.get_tagged_value(self.labelmap[entry])
             else:
                 value = self.sb.get_string_value(self.labelmap[entry])
-            print "AfpScreen.Pop_label:", entry,"=", value
+            #print "AfpScreen.Pop_label:", entry,"=", value
             Label.SetLabel(value)
     ## populate text widgets
     def Pop_text(self):

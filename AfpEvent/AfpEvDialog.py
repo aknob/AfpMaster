@@ -958,14 +958,204 @@ class AfpDialog_EvClientEdit(AfpDialog):
         self.ort = None
         self.route = None  #may hold AfpEvRoute object if necessary
         self.zustand = None
+        self.sameRechLoad = True
         self.sameRechNr = None
+        self.sameRechIndex = None
+        self.sameRechData = None
         self.zahl_data = None
-        self.SetSize((500,430))
+        #self.SetSize((500,430))
+        self.SetSize((650,330))
         self.SetTitle("Anmeldung")
         self.Bind(wx.EVT_ACTIVATE, self.On_Activate)
     
     ## set up dialog widgets - overwritten from AfpDialog
-    def InitWx(self):
+    def InitWx(self):    
+        #self.InitWx_panel()
+        self.InitWx_sizer()
+        
+    ## set up dialog widgets - overwritten from AfpDialog
+    def InitWx_sizer(self):
+        self.sizer = wx.BoxSizer(wx.VERTICAL)
+        self.upper_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.list_Alle = wx.ListBox(self, -1, name="Alle")
+        self.Bind(wx.EVT_LISTBOX_DCLICK, self.On_Anmeld_Alle, self.list_Alle)
+        self.listmap.append("Alle")
+        self.keepeditable.append("Alle")       
+        self.upper_sizer.AddSpacer(10)
+        self.upper_sizer.Add(self.list_Alle,1,wx.EXPAND)
+        self.upper_sizer.AddSpacer(10)
+        
+        self.panel_sizer = wx.BoxSizer(wx.VERTICAL)
+        
+        # CLIENT DATA
+        self.label_Zustand = wx.StaticText(self, -1,  name="Zustand")
+        self.labelmap["Zustand"] = "Zustand.ANMELD"
+        self.label_RechNr = wx.StaticText(self, -1, name="RechNr")
+        self.labelmap["RechNr"] = "RechNr.ANMELD"
+        self.label_Datum = wx.StaticText(self, -1, name="LDatum")
+        self.labelmap["LDatum"] = "Anmeldung.ANMELD"
+        self.label_TFuer = wx.StaticText(self, -1, label="für".decode("UTF-8"), name="TFuer")
+        self.label_Bez = wx.StaticText(self, -1, name="Bez")
+        self.labelmap["Bez"] = "Bez.EVENT"
+        self.label_Buero = wx.StaticText(self, -1, style=wx.ST_NO_AUTORESIZE, name="Buero")
+        self.labelmap["Buero"] = "Name.Agent"
+        self.label_Vorname = wx.StaticText(self, -1, name="Vorname")
+        self.labelmap["Vorname"] = "Vorname.ADRESSE"
+        self.label_Nachname = wx.StaticText(self, -1, name="Nachname")
+        self.labelmap["Nachname"] = "Name.ADRESSE"
+        self.label_Info = wx.StaticText(self, -1, name="Info")
+        self.labelmap["Info"] = "Info.ANFRAGE"
+        self.label_TBem = wx.StaticText(self, -1, label="&Bem:", name="TBem")
+        self.text_Bem = wx.TextCtrl(self, -1, value="", style=0, name="Bem")
+        self.textmap["Bem"] = "Bem.ANMELD"
+        self.text_Bem.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
+        self.text_ExtText = wx.TextCtrl(self, -1, value="", style=wx.TE_MULTILINE|wx.TE_LINEWRAP, name="ExtText")
+        self.textmap["ExtText"] = "ExtText.ANMELD"
+        self.text_ExtText.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)  
+        self.line1_sizer =  wx.BoxSizer(wx.HORIZONTAL)
+        self.line1_sizer.Add(self.label_Zustand,0,wx.EXPAND)
+        self.line1_sizer.AddSpacer(5)        
+        self.line1_sizer.Add(self.label_RechNr,1,wx.EXPAND)
+        self.line1_sizer.AddSpacer(5)        
+        self.line1_sizer.Add(self.label_Datum,0,wx.EXPAND)
+        self.line2_sizer =  wx.BoxSizer(wx.HORIZONTAL)
+        self.line2_sizer.Add(self.label_TFuer,0,wx.EXPAND)
+        self.line2_sizer.AddSpacer(5)        
+        self.line2_sizer.Add(self.label_Bez,0,wx.EXPAND)
+        self.line2_sizer.AddStretchSpacer(1)        
+        self.line2_sizer.Add(self.label_Buero,0,wx.EXPAND)
+        self.line3_sizer =  wx.BoxSizer(wx.HORIZONTAL)
+        self.line3_sizer.Add(self.label_Vorname,0,wx.EXPAND)
+        self.line3_sizer.AddStretchSpacer(1)        
+        self.line3_sizer.Add(self.label_Info,0,wx.EXPAND)
+        self.line4_sizer =  wx.BoxSizer(wx.HORIZONTAL)      
+        self.line4_sizer.Add(self.label_TBem,0,wx.EXPAND)
+        self.line4_sizer.AddSpacer(5)        
+        self.line4_sizer.Add(self.text_Bem,1,wx.EXPAND)
+     
+        self.panel_sizer.Add(self.line1_sizer,0,wx.EXPAND)
+        self.panel_sizer.AddSpacer(5)          
+        self.panel_sizer.Add(self.line2_sizer,0,wx.EXPAND)
+        self.panel_sizer.AddSpacer(5)  
+        self.panel_sizer.Add(self.line3_sizer,0,wx.EXPAND)
+        self.panel_sizer.AddSpacer(5)  
+        self.panel_sizer.Add(self.label_Nachname,0,wx.EXPAND)
+        self.panel_sizer.AddSpacer(5)  
+        self.panel_sizer.Add(self.line4_sizer,0,wx.EXPAND)
+        self.panel_sizer.AddSpacer(5)  
+        self.panel_sizer.Add(self.text_ExtText,0,wx.EXPAND)
+        self.panel_sizer.AddSpacer(10)  
+        
+        # PRICEs
+        self.price_panel_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.left_price_panel_sizer = wx.BoxSizer(wx.VERTICAL)
+        self.list_Preise = wx.ListBox(self, -1, name="Preise")
+        self.Bind(wx.EVT_LISTBOX_DCLICK, self.On_Anmeld_Preise, self.list_Preise)
+        self.listmap.append("Preise")
+        self.label_TAb = wx.StaticText(self, -1, label="&Örtlichkeit:".decode("UTF-8"), name="TAb")
+        self.label_TAb.Show(False)
+        self.combo_Ort = wx.ComboBox(self, -1, value="", style=wx.CB_DROPDOWN|wx.CB_SORT, name="Ort")
+        self.Bind(wx.EVT_COMBOBOX, self.On_CBOrt, self.combo_Ort)
+        self.combo_Ort.Show(False)
+        self.left_price_panel_sizer.Add(self.list_Preise,1,wx.EXPAND)
+        self.left_price_panel_sizer.AddSpacer(5)
+        self.left_price_panel_sizer.Add(self.label_TAb,0,wx.EXPAND)
+        self.left_price_panel_sizer.Add(self.combo_Ort,0,wx.EXPAND)
+        
+        #self.right_price_panel_sizer = wx.FlexGridSizer(6,2,5,5) #(rows,cols,vgap,hgap)
+        self.right_price_panel_sizer = wx.GridSizer(6,2) #(rows,cols,vgap,hgap)
+        self.label_TGrund = wx.StaticText(self, -1, label="Preis:", name="TGrund")
+        self.label_Grund = wx.StaticText(self, -1, name="Grund")
+        self.labelmap["Grund"] = "Preis.Preis"
+        self.label_TExtra = wx.StaticText(self, -1, label="Extras:", name="TExtra")
+        self.label_Extra = wx.StaticText(self, -1, name="Extra")
+        self.labelmap["Extra"] = "Extra.ANMELD"
+        self.label_TTransfer = wx.StaticText(self, -1, label="Transfer:", name="TTransfer")
+        self.label_TTransfer.Show(False)
+        self.label_Transfer = wx.StaticText(self, -1, name="Transfer")
+        self.labelmap["Transfer"] = "Transfer.ANMELD"
+        self.label_Transfer.Show(False)
+        self.label_TPreis = wx.StaticText(self, -1, label="Preis:", name="TPreis")
+        self.label_Preis = wx.StaticText(self, -1, name="Preis")
+        self.labelmap["Preis"] = "Preis.ANMELD"
+        self.label_TBezahlt = wx.StaticText(self, -1, label="bezahlt:", name="TBezahlt")
+        self.label_Zahlung = wx.StaticText(self, -1, name="Zahlung")
+        self.labelmap["Zahlung"] = "Zahlung.ANMELD"
+        self.label_TZahlDat = wx.StaticText(self, -1,label="am:", name="TZahlDat")
+        self.label_ZahlDat = wx.StaticText(self, -1, name="ZahlDat")
+        self.labelmap["ZahlDat"] = "ZahlDat.ANMELD"
+        self.right_price_panel_sizer.Add(self.label_TGrund,0,wx.EXPAND)
+        self.right_price_panel_sizer.Add(self.label_Grund,1,wx.EXPAND)
+        self.right_price_panel_sizer.Add(self.label_TExtra,0,wx.EXPAND)
+        self.right_price_panel_sizer.Add(self.label_Extra,1,wx.EXPAND)
+        self.right_price_panel_sizer.Add(self.label_TTransfer,0,wx.EXPAND)
+        self.right_price_panel_sizer.Add(self.label_Transfer,1,wx.EXPAND)
+        self.right_price_panel_sizer.Add(self.label_TPreis,0,wx.EXPAND)
+        self.right_price_panel_sizer.Add(self.label_Preis,1,wx.EXPAND)
+        self.right_price_panel_sizer.Add(self.label_TBezahlt,0,wx.EXPAND)
+        self.right_price_panel_sizer.Add(self.label_Zahlung,1,wx.EXPAND)
+        self.right_price_panel_sizer.Add(self.label_TZahlDat,0,wx.EXPAND)
+        self.right_price_panel_sizer.Add(self.label_ZahlDat,1,wx.EXPAND)
+
+       
+        self.price_panel_sizer.Add(self.left_price_panel_sizer,1,wx.EXPAND)
+        #self.price_panel_sizer.Add(self.right_price_panel_sizer,1,wx.EXPAND)
+        self.price_panel_sizer.AddSpacer(10)
+        #self.price_panel_sizer.AddStretchSpacer(1)
+        self.price_panel_sizer.Add(self.right_price_panel_sizer,1,wx.EXPAND)
+        #self.price_panel_sizer.Add(self.left_price_panel_sizer,1,wx.EXPAND)
+        
+        self.panel_sizer.Add(self.price_panel_sizer,1,wx.EXPAND)
+        
+        # BUTTONs
+        self.button_sizer = wx.BoxSizer(wx.VERTICAL)          
+        self.choice_Zustand = wx.Choice(self, -1,  choices= [""] + AfpEvent_getZustandList() ,  name="CZustand")      
+        #self.choicemap["CZustand"] = "Zustand.ANMELD"
+        self.Bind(wx.EVT_CHOICE, self.On_CZustand, self.choice_Zustand)  
+        self.button_Agent = wx.Button(self, -1, label="&Vermittler".decode("UTF-8"), name="Agent")
+        self.Bind(wx.EVT_BUTTON, self.On_Agent, self.button_Agent)
+        self.button_Adresse = wx.Button(self, -1, label="A&dresse", name="Adresse")
+        self.Bind(wx.EVT_BUTTON, self.On_Adresse_aendern, self.button_Adresse)
+        self.check_Mehrfach = wx.CheckBox(self, -1, label="Mehrfach", name="Mehrfach")
+        self.button_Neu = wx.Button(self, -1, label="&Neu", name="Neu")
+        self.Bind(wx.EVT_BUTTON, self.On_Anmeld_Neu, self.button_Neu)
+        self.button_Storno = wx.Button(self, -1, label="&Stornierung", name="Storno")
+        self.Bind(wx.EVT_BUTTON, self.On_Storno, self.button_Storno)
+        self.button_Zahl = wx.Button(self, -1, label="&Zahlung", name="Zahl")
+        self.Bind(wx.EVT_BUTTON, self.On_Zahlung, self.button_Zahl)
+        self.button_sizer.Add(self.choice_Zustand,0,wx.EXPAND)
+        self.button_sizer.AddSpacer(5)
+        self.button_sizer.Add(self.button_Agent,0,wx.EXPAND)
+        self.button_sizer.AddSpacer(5)
+        self.button_sizer.Add(self.button_Adresse,0,wx.EXPAND)
+        self.button_sizer.AddStretchSpacer(1)
+        self.button_sizer.Add(self.check_Mehrfach,0,wx.EXPAND)
+        self.button_sizer.AddSpacer(5)
+        self.button_sizer.Add(self.button_Neu,0,wx.EXPAND)
+        self.button_sizer.AddStretchSpacer(1)
+        self.button_sizer.Add(self.button_Storno,0,wx.EXPAND)
+        self.button_sizer.AddSpacer(5)
+        self.button_sizer.Add(self.button_Zahl,0,wx.EXPAND)
+        self.setWx(self.button_sizer, [1, 0, 0], [1, 0, 1]) # set Edit and Ok widgets
+
+        self.lower_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.lower_sizer.AddSpacer(10)
+        self.lower_sizer.Add(self.panel_sizer,1,wx.EXPAND)
+        self.lower_sizer.AddSpacer(10)
+        self.lower_sizer.Add(self.button_sizer,0,wx.EXPAND)
+        self.lower_sizer.AddSpacer(10)   
+
+        self.sizer.AddSpacer(10)
+        self.sizer.Add(self.upper_sizer,1,wx.EXPAND)
+        self.sizer.AddSpacer(10)
+        self.sizer.Add(self.lower_sizer,5,wx.EXPAND)
+        self.sizer.AddSpacer(10)   
+        self.SetSizerAndFit(self.sizer)
+        self.SetAutoLayout(1)
+        self.sizer.Fit(self)
+        
+    ## set up dialog widgets - overwritten from AfpDialog
+    def InitWx_panel(self):
         self.panel = wx.Panel(self, -1)
         panel = self.panel
         self.label_Zustand = wx.StaticText(panel, -1,  pos=(12,68), size=(140,18), name="Zustand")
@@ -1061,12 +1251,52 @@ class AfpDialog_EvClientEdit(AfpDialog):
             self.Set_Editable(True)
             self.choice_Edit.SetSelection(1)
             self.choice_Edit.Enable(False)
-
+            
+    ## return if changes have been made in the dialog
+    def has_changed(self):
+       return self.changed_text or self.ort or not self.agent is None or self.zustand or self.change_preis or self.new
+            
     ## read values from dialog and invoke writing into data         
     def store_data(self):
         self.Ok = False
+        RechNr = None
+        changed = self.load_into_data()
+        if not self.sameRechIndex is None and self.sameRechData:
+            # look for data stack (mutiple registrations)
+            self.sameRechData[self.sameRechIndex] = data
+            if self.sameRechData:
+                RechNr = None
+                for data in self.sameRechData:
+                    if data is None: continue
+                    if data.has_changed():
+                        if data.is_new() and not data.get_value("RechNr") and RechNr:
+                            data.set_value("RechNr", RechNr)
+                            print "WARNING: RechNr reset during storage of AfpEvClient:", RechNr
+                        data.store()
+                        if data.is_new():
+                            data.add_to_event()
+                        changed = True
+                    if not RechNr: RechNr = data.get_value("RechNr")
+        elif changed:
+            # store data
+            self.data.store()
+            # count up number of event participants
+            if self.new: 
+                self.data.add_to_event()
+        if changed:
+            # execute payment
+            if self.zahl_data:
+                self.zahl_data.store()            
+            # execute change in location data
+            if self.route and self.route.has_changed():
+                self.route.store()
+            self.new = False
+            self.Ok = True
+
+    ## read values from dialog and load it into self.data         
+    def load_into_data(self):
         data = {}
-        #print "AfpDialog_EvClientEdit.store_data changed_text:",self.changed_text
+        #print "AfpDialog_EvClientEdit.load_into_data changed_text:",self.changed_text
         for entry in self.changed_text:
             name, wert = self.Get_TextValue(entry)
             data[name] = wert
@@ -1081,42 +1311,36 @@ class AfpDialog_EvClientEdit(AfpDialog):
                 data["AgentName"] = None
         if self.zustand:
             data["Zustand"] = self.zustand
-        #print "AfpDialog_EvClientEdit.store_data data:",self.new, self.change_preis, data
-        #self.data.view()
+        #print "AfpDialog_EvClientEdit.load_into_data changed:",self.new, self.change_preis, data
         if data or self.change_preis or self.new:
-            if self.new:
-                data = self.complete_data(data)
             if self.new or self.change_preis:
                 if self.preisnr: data["PreisNr"] = self.preisnr
                 if self.preisprv: data["ProvPreis"] = self.preisprv
                 extra = Afp_floatString(self.label_Extra.GetLabel())
                 if extra != self.data.get_value("Extra"):
                     data["Extra"] = extra
-                preis = Afp_floatString(self.label_Preis.GetLabel())
-                data["Preis"] = preis
+                data["Preis"] = Afp_floatString(self.label_Preis.GetLabel())
+            if self.new:
+                data = self.complete_data(data)
             self.data.set_data_values(data, "ANMELD")
-            # store data
-            self.data.store()
-            # count up number of tour participants
-            if self.new: self.data.add_to_event()
-            # execute payment
-            if self.zahl_data:
-                self.zahl_data.store()            
-            # execute change in location data
-            if self.route and self.route.has_changed():
-                self.route.store()
-            self.new = False
-            self.Ok = True
-        self.changed_text = []   
-        self.preisnr = None
-        self.ort = None
-        self.agent = None
-        self.change_preis = False  
+            #print "AfpDialog_EvClientEdit.load_into_data data:", self.data.view()
+            self.changed_text = []   
+            self.preisnr = None
+            self.preisprv = None
+            self.ort = None
+            self.agent = None
+            self.zustand = None
+            self.change_preis = False  
+            return True
+        else:
+            return False
 
     ## complete data before storing
     # @param data - data to be completed      
     def complete_data(self, data):
         IdNr = None
+        if "IdNr" in data:
+            IdNr = data["IdNr"]
         if not "Zustand" in data:
             data["Zustand"] = AfpEvent_getZustandList()[-1]
         if not self.data.get_value("RechNr"):
@@ -1160,9 +1384,13 @@ class AfpDialog_EvClientEdit(AfpDialog):
     ## populate the 'Alle' list, \n
     # this routine is called from the AfpDialog.Populate
     def Pop_Alle(self):
-        dummy, self.sameRechNr, liste = self.data.get_sameRechNr()
-        self.list_Alle.Clear()
-        if liste: self.list_Alle.InsertItems(liste, 0)
+        if self.sameRechLoad:
+            dummy, self.sameRechNr, liste = self.data.get_sameRechNr()
+            self.sameRechIndex = None
+            self.sameRechData = None
+            self.list_Alle.Clear()
+            if liste: 
+                self.list_Alle.InsertItems(liste, 0)
         #print "AfpDialog_EvClientEdit.Pop_Alle:", self.sameRechNr
 
    ## Eventhandler TEXT-KILLFOCUS - check date syntax 
@@ -1225,7 +1453,7 @@ class AfpDialog_EvClientEdit(AfpDialog):
         if index < 0: 
             #print "AfpDialog_EvClientEdit.On_Anmeld_Preise index:", index
             row = self.get_Preis_row(index)
-            #print "AfpDialog_EvClientEdit.On_Anmeld_Preise row:", row
+            print "AfpDialog_EvClientEdit.On_Anmeld_Preise row:", row
             if row:
                 self.actualise_preise(row)
                 self.change_preis = True
@@ -1358,12 +1586,28 @@ class AfpDialog_EvClientEdit(AfpDialog):
         if self.debug: print "AfpDialog_EvClientEdit Event handler `On_Anmeld_Alle'"
         index = self.list_Alle.GetSelections()[0]
         ANr = self.sameRechNr[index] 
-        #print "AfpDialog_EvClientEdit.On_Anmeld_Alle Index:", index, self.data.get_value("AnmeldNr") , ANr
-        if self.data.get_value("AnmeldNr") != ANr:
-            #print "AfpDialog_EvClientEdit.On_Anmeld_Alle: change data:", ANr
-            data = self.get_client(ANr)
+        #print "AfpDialog_EvClientEdit.On_Anmeld_Alle Index:", index, "<>", self.sameRechIndex, "ANr:", self.data.get_value("AnmeldNr") , "<>", ANr, self.sameRechData
+        if self.data.get_value("AnmeldNr") != ANr or (not ANr and index == self.sameRechIndex):
+            if self.sameRechData and self.sameRechData[index]:
+                data = self.sameRechData[index]
+                #print "AfpDialog_EvClientEdit.On_Anmeld_Alle load_data:", index, ANr, data.get_value("AnmeldNr")
+            else:
+                if not self.sameRechData: 
+                    self.sameRechData = [None] * len(self.sameRechNr)
+                data = self.get_client(ANr)
+                if data:
+                    self.sameRechData[index] = data
+            #print "AfpDialog_EvClientEdit.On_Anmeld_Alle change data:", ANr,  data, self.data, data.view()
             if data:
-                self.attach_data(data)
+                if self.ort: self.data.delete_selection("TORT")
+                self.load_into_data()
+                if not self.sameRechIndex is None:
+                    self.sameRechData[self.sameRechIndex] = self.data
+                else:
+                    self.sameRechData[0] = self.data
+                self.sameRechLoad = False
+                self.attach_data(data, data.is_new(), self.is_editable())
+                self.sameRechIndex = index
         event.Skip()
 
     ## Eventhandler BUTTON - select travel agency
@@ -1414,25 +1658,51 @@ class AfpDialog_EvClientEdit(AfpDialog):
         
     ##Eventhandler BUTTON - add new client \n
     # @param event - event which initiated this action   
-    def On_Anmeld_Neu(self,event):
+    def On_Anmeld_Neu(self,event=None):
         if self.debug: print "AfpDialog_EvClientEdit Event handler `On_Anmeld_Neu'"
-        mehr = self.check_Mehrfach.GetValue()
-        self.Anmeld_neu(mehr)
-        add = self.globals.get_value("add-registration-to-archive","Event")
-        if self.new and add:
-            client = AfpEv_addRegToArchiv(self.data, True)
-            if client is None:
-                if add == "mandatory": 
-                    print "AfpDialog_EvClientEdit.On_Anmeld_Neu: skip new dialog"
-                    self.EndModal(wx.ID_CANCEL)
+        multi = self.get_multiflags()
+        ok = multi
+        print "AfpDialog_EvClientEdit.On_Anmeld_Neu on:", multi
+        if multi:
+            #move data to sameRechData
+            if not self.sameRechData:
+                self.sameRechData = [None]
+                self.sameRechIndex = 0
+            self.sameRechData[self.sameRechIndex] = self.data
+        else:
+            changed = False
+            if self.sameRechData:
+                for data in self.sameRechData:
+                    if data.has_changed(): changed = True
             else:
-                if not client == True:
-                    self.data = client
-        event.Skip()  
+                changed = self.has_changed()
+            if changed:
+                ok = AfpReq_Question("Die Daten sind verändert worden, diese Änderungen gehen verloren.".decode("UTF-8"),"Soll die Neuanmeldung trotzdem fortgesetzt werden?","Fortsetzen?")
+        if ok:
+            # check for changes in sameRechData, possibly ask for Cancel
+            self.Anmeld_Neu(multi)
+            if not multi:
+                self.sameRechIndex = None
+                self.sameRechData = None
+            add = self.data.get_globals().get_value("add-registration-to-archive","Event")
+            if self.new and add:
+                client = AfpEv_addRegToArchiv(self.data, True)
+                if client is None:
+                    if add == "mandatory": 
+                        print "AfpDialog_EvClientEdit.On_Anmeld_Neu: skip new dialog"
+                        self.EndModal(wx.ID_CANCEL)
+                else:
+                    if not client == True:
+                        self.data = client
+        if event: event.Skip()  
+    ## get multiflags accorfing to multi checkbox
+    # may be overwritten in devired class
+    def get_multiflags(self):
+        return self.check_Mehrfach.GetValue()
     ## execute new client generation
-    # @param mehr - flag(s) for copying internal data    
-    def Anmeld_Neu(self, mehr):
-        new_data = AfpEvClient_copy(self.data, mehr)
+    # @param multi - flag(s) for copying internal data    
+    def Anmeld_Neu(self, multi):
+        new_data = AfpEvClient_copy(self.data, multi)
         if new_data:
             self.new = True
             self.data = new_data
@@ -1514,7 +1784,7 @@ def AfpLoad_EvClientEdit_fromSb(globals, sb, flavour = None, new = False, edit =
         KNr = AfpLoad_AdAusw(globals,"ADRESSE","NamSort","", None, text, True)
         if KNr: EvClient.set_new(ENr, KNr)
         else: EvClient = None
-    elif EvClient.is_cancelled():
+    elif EvClient.is_canceled():
         return AfpLoad_EvClientCancel(EvClient, edit)
     return AfpLoad_EvClientEdit(EvClient, flavour, edit)
 ## loader routine for dialog EvClientEdit according to the given EvClient identification number \n
@@ -1607,7 +1877,7 @@ class AfpDialog_EvClientCancel(AfpDialog):
     # @param editable - flag if dialogentries are editable when dialog pops up
     def attach_data(self, data, new = False, editable = False):
         super(AfpDialog_EvClientCancel, self).attach_data(data, new, editable)
-        if not data.is_cancelled():
+        if not data.is_canceled():
             self.set_new_cancel()
         if self.data.get_value("UmbFahrt"):
             self.label_T_Umb_am.SetLabel("am")
@@ -1629,7 +1899,7 @@ class AfpDialog_EvClientCancel(AfpDialog):
     # don't rely on AfpDialog menchanismns, as 'mehrfach' list has to be applied
     def store_data(self):
         self.Ok = False
-        if not self.data.is_cancelled():
+        if not self.data.is_canceled():
             data = {}
             werte = []
             liste = []
@@ -1696,7 +1966,7 @@ class AfpDialog_EvClientCancel(AfpDialog):
         self.text_Storno_Datum.SetValue(self.data.globals.today_string())
     ## set cancellation charges
     def set_charges(self):
-        if self.data.is_cancelled():
+        if self.data.is_canceled():
             self.text_Storno_Geb.SetValue(self.label_Preis.GetLabel())
             cancel = self.data.get_value("Anmeldung")
             already_cancelled = True

@@ -378,6 +378,9 @@ class AfpFiScreen(AfpScreen):
     ## Eventhandler BUTTON - payment
     def On_Zahlung(self,event):
         print "AfpFiScreen Event handler `On_Zahlung' not implemented!"
+        data = AfpVerbindlichkeit(self.globals, 21985)
+        ok = AfpLoad_Rechnung(data)
+        print "AfpFiScreen.On_Zahlung:", ok
         event.Skip()
 
     ## Eventhandler BUTTON - selection

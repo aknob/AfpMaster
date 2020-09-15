@@ -418,6 +418,33 @@ def Afp_getAge(datum, daysharp = False):
             age -= 1
     #print "Afp_getAge:", datum, age
     return age
+## get a birthday list (firtsname, name, birthday)
+# @param mysql - mysql connection
+# @param interval - lentgh of interval from today
+def Afp_getBirthdayList(mysql, interval, secondtable, filter):
+    com1 = "SELECT a.Vorname, a.Name, a.Geburtstag FROM ADRESSE AS a"
+    com2 =  "(DATE_ADD(a.Geburtstag, INTERVAL YEAR(CURDATE())-YEAR(a.Geburtstag) + IF(DAYOFYEAR(CURDATE()) > DAYOFYEAR(a.Geburtstag),1,0) YEAR) BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL " + Afp_toIntString(interval) + " DAY))"
+    if secondtable:
+        com1 += "," + secondtable + " AS b"
+        com2 = filter + " AND " + com2
+    command = com1 + " WHERE " + com2 +";"
+    rows = mysql.execute(command)
+    dats = []
+    todat = Afp_toDateString(Afp_getToday(),"mm-dd")
+    for row in rows:
+        dats.append(Afp_toDateString(row[2],"mm-dd"))
+    dats, rows = Afp_sortSimultan(dats, rows)
+    index = None
+    for i in range(len(dats)):
+        dat = dats[i]
+        if dat < todat: index = i
+    if not index is None:
+        if index < len(dats):
+            index += 1
+            dats = dats[index:] + dats[:index]
+            rows = rows[index:] + rows[:index]
+    #print "Afp_getBirthdayList dats year:", dats
+    return rows
 
 ##  provide a list from a SQLTableSelection object - \n
 #    mostly to allow additional selection
@@ -567,8 +594,9 @@ def Afp_selectSameKundenNr(mysql, table, KNr, debug = False, felder = None, filt
 #     return the accountnumber
 # @param mysql - database where values are retrieved from
 # @param ident  - identifier of account to be selected
-def Afp_getSpecialAccount(mysql, ident):
-    rows = mysql.select("KtNr","KtName = \"" + ident + "\"","KTNR")
+# @param index  - index to be searched
+def Afp_getSpecialAccount(mysql, ident, index = "KtName"):
+    rows = mysql.select("KtNr", index + " = \"" + ident + "\"","KTNR")
     if rows: return rows[0][0]
     else: return 0
 ##  get individual account from 'KtNr' table
@@ -822,12 +850,21 @@ class AfpSelectionList(object):
                     select_clause = ""
                     #clauses = select.split("AND")
                     clauses = Afp_split(select, ["AND", "OR"])
-                    #print "AfpSelectionList.evaluate_selects:", clauses
+                    #print "AfpSelectionList.evaluate_selects clauses:", clauses
                     seq = None
                     if len(clauses) > 1:
                         seq = Afp_getSequence(select,  ["AND", "OR"])
                     for clause in clauses:
-                        sels = clause.split("=")
+                        #print "AfpSelectionList.evaluate_selects clause:", clause
+                        if  "=" in clause:
+                            splitter = "="
+                        elif ">" in clause:
+                            splitter = ">"
+                        elif "<" in clause:
+                            splitter = "<"
+                        else:
+                            continue
+                        sels = clause.split(splitter)
                         feld = sels[1].strip()
                         if "." in feld and not Afp_isNumeric(Afp_fromString(feld)): 
                             value = self.get_string_value(feld, True)
@@ -839,11 +876,11 @@ class AfpSelectionList(object):
                                     select_clause += " " + seq.pop(0) + " "
                                 else:
                                     select_clause += " AND "
-                            # <=, >= work also, as < and > are kept on the left (not evaluated) side
+                            # <=, >= work also with splitter '=', as < and > are kept on the left (not evaluated) side
                             if sels[0][-1] == ">" or sels[0][-1] == "<":
-                                select_clause += sels[0].strip() + "= " + value
+                                select_clause += sels[0].strip() + splitter + " " + value
                             else:
-                                select_clause += sels[0].strip() + " = " + value
+                                select_clause += sels[0].strip() + " " + splitter + " " + value
             #print "AfpSelectionList.evaluate_selects:", selname, self.selects[selname], "CLAUSE:", select_clause, order_clause
         return select_clause, order_clause
     ## set the customised select_clause for the main selection
@@ -1327,7 +1364,7 @@ class AfpSelectionList(object):
             new_data = self.set_archiv_data(new_data)
             if initiate_copy and self.globals.get_value("path-delimiter") in new_data["Extern"]:
                 self.archiv_copy_needed.append([selname, row])
-            print "AfpSelectionList.add_to_Archiv:", new_data, self.archiv_copy_needed
+            #print "AfpSelectionList.add_to_Archiv:", new_data, self.archiv_copy_needed
             selection.set_data_values(new_data, row)
         else:
             print "WARNING SelectionList.add_to_Archiv called but not implemented for", self.listname, "with selection",selname
@@ -1384,6 +1421,10 @@ class AfpSelectionList(object):
     def set_payment_values(self, payment, datum):
         self.set_value("Zahlung", payment)
         self.set_value("ZahlDat", datum)
+    ## routine to retrieve splitting data for paymentfrom SelectionList \n
+    # may be overwritten, default implementation: return None
+    def get_splitting_values(self):
+        return None
     ## set identification data for archive \n
     # default implementation: add name of maintable and mainvalue \n
     # - may be overwritten if necessary
@@ -1406,6 +1447,21 @@ class AfpSelectionList(object):
     # - should be overwritten in devired class
     def get_identification_string(self):
         return ""
+
+## routine to order list of selection lists due to one field
+# @param datas - list of selection lists to be sorted
+# @param sorttyp - field to sort output 
+# - sorttyo == "Namen": special sortine of complete names, the method 'gte_name' has to be supplied
+# - the method 'get_value(sorttyp)' will be called
+def Afp_orderSelectionLists(datas, sorttyp):
+        sortlist = []
+        for data in datas:
+            if sorttyp == "Namen":
+                sortlist.append(data.get_name(True))
+            else:
+                sortlist.append(data.get_value(sorttyp))
+        sortlist, datas = Afp_sortSimultan(sortlist, datas)
+        return datas
         
     ## class for handling extern numberations       
 class AfpExternNr(AfpSQLTableSelection):
@@ -1655,7 +1711,6 @@ class AfpImport(object):
             if self.tag_parameter: befehl = befehl[:-1] + ", " + self.tag_parameter + ")"
             if self.debug: print "AfpImport.read_from_xml_file Befehl:", befehl
             exec befehl
-            print "AfpImport.read_from_xml_file return:", datalist
         else:
             if self.debug: print "AfpImport.read_from_xml_file type: AfpDocument"
             datalist = self.interprete_xml_tags(tags)

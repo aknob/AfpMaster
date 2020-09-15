@@ -478,7 +478,7 @@ def AfpLoad_FaCustomSelect(globals):
     DiSelect.Destroy()
     return Ok, data
 
- ## allows the entry and modification of an invoice line
+## allows the entry and modification of an invoice line
 class AfpDialog_FaLine(AfpDialog):
     def __init__(self, *args, **kw):
         AfpDialog.__init__(self,None, -1, "")
@@ -551,10 +551,10 @@ class AfpDialog_FaLine(AfpDialog):
         self.EndModal(wx.ID_CANCEL)
 
 
-    ## loader routine for dialog for invoice entries, returns Ok flag and action = [textvalue, radiovalue]
-    # @param ident - identifier to be displayed and edited
-    # @param name - if ident == None: name to be displayed and edited
-    # @param debug - debug flag
+## loader routine for dialog for invoice entries, returns Ok flag and action = [textvalue, radiovalue]
+# @param ident - identifier to be displayed and edited
+# @param name - if ident == None: name to be displayed and edited
+# @param debug - debug flag
 def AfpLoad_FaLine( ident = None, name = False,  debug = False):
     #print "AfpLoad_FaLine init:",ident, name, debug
     EditLine = AfpDialog_FaLine(None)

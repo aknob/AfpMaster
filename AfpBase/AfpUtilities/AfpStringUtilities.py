@@ -85,7 +85,11 @@ def Afp_toString(data):
 # @param data - data to be converted
 # @param date_conv - flag if dates have to be converted, default: False
 def Afp_toQuotedString(data, date_conv = False):
-    string = Afp_toString(data)
+    if date_conv is None:
+        string = Afp_toInternDateString(Afp_fromString(data))
+        #print "Afp_toQuotedString None:", data, string
+    else:
+        string = Afp_toString(data)
     if Afp_isString(data): string = "\"" + string + "\""
     if date_conv:
         typ = type(data)

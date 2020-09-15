@@ -358,7 +358,7 @@ class AfpZahlung(object):
         for entry in self.selected_list: entry.store()
         if self.finance: self.finance.store()
             
-## invoice base class
+## common invoice base class (outgoing)
 class AfpRechnung(AfpSelectionList):
     ## initialise a invoice base class
     # @param globals - global values including the mysql connection - this input is mandatory
@@ -391,7 +391,7 @@ class AfpRechnung(AfpSelectionList):
         if self.debug: print "AfpRechnung Destruktor"
         #AfpSelectionList.__del__(self) 
     ## clear current SelectionList to behave as a newly created List 
-    # @param KundenNr - KundenNr of newly seelected adress, == None if address is kept   
+    # @param KundenNr - KundenNr of newly selected adress, == None if address is kept   
     def set_new(self, KundenNr):
         self.new = True
         data = {}
@@ -412,7 +412,7 @@ class AfpRechnung(AfpSelectionList):
             self.set_value("Name", self.get_name(True))
     ## one line to hold all relevant values of this invoice to be displayed 
     def line(self):
-        zeile = self.get_string_value("RechNr").rjust(8) + " " + self.get_string_value("Datum") + " " + self.get_string_value("Wofuer") + " " 
+        zeile = self.get_string_value("RechNr").rjust(8) + " " + self.get_string_value("Datum") + " " + self.get_string_value("Bem") + " " 
         zeile += self.get_string_value("Zahlbetrag").rjust(10) + " " + self.get_string_value("Zahlung").rjust(10)
         return zeile 
     ## switch 'Zustand' from open (offen) to payed (bezahlt) if necessary
@@ -425,7 +425,7 @@ class AfpRechnung(AfpSelectionList):
     def set_payment_values(self, payment, datum):
         AfpSelectionList.set_payment_values(self, payment, datum)
         self.set_zustand()
-        if self.get_value("MietNr"):
+        if self.get_value("Typ") and self.get_value("Typ")  == "FAHRTEN":
             self.set_value("Zahlung.FAHRTEN", payment)
             self.set_value("ZahlDat.FAHRTEN", datum)
     ## extract payment relevant data from SelectionList for 'Finance' modul, overwritten from AfpSelectionList

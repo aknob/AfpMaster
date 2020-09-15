@@ -132,7 +132,7 @@ class AfpEvScreen_Tourist(AfpEvScreen):
     
     ## initialize widgets
     # overwritten from AfpEvScreen
-    def initWx(self):
+    def InitWx(self):
         self.custs_rows = 8
         self.grid_rows["Customers"] = self.custs_rows
         self.grid_cols["Customers"] = 7

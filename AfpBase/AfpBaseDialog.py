@@ -441,6 +441,7 @@ class AfpDialog_MultiLines(wx.Dialog):
         elif extra_button: self.button_Extra.SetLabel(extra_button)
         if len(self.types) == 1 and self.types[0] == "Button":
             self.button_Ok.Hide()
+            self. button_Cancel.SetLabel("Be&enden")
         if len(self.types) < self.lines: 
             while len(self.types) < self.lines:
                 self.types.append(self.types[-1])
@@ -733,6 +734,7 @@ class AfpDialog(wx.Dialog):
         self.changed_text = []
         self.readonlycolor = self.GetBackgroundColour()
         self.editcolor = (255,255,255)
+        #self.editcolor = (240,240,240)
         self.no_readonly = True
         self.InitWx()
 
@@ -785,7 +787,8 @@ class AfpDialog(wx.Dialog):
         edit = new or editable
         if edit and not self.no_readonly: self.choice_Edit.SetSelection(1)
         if self.new:
-            self.Pop_lists()
+            #self.Pop_lists()
+            self.Populate()
         else:
             self.Populate()
         self.Set_Editable(edit, False)
@@ -1059,6 +1062,7 @@ class AfpDialog_Auswahl(wx.Dialog):
         height = self.GetSize()[1] - self.fixed_height
         self.row_height = height/self.rows 
         #print "New:", self.GetSize(), height, self.row_height, self.rows, self.new_rows
+        self.Bind(wx.EVT_KEY_DOWN, self.On_KeyDown)
         self.Bind(wx.EVT_SIZE, self.On_ReSize)
 
     ## set up dialog widgets      
@@ -1308,6 +1312,14 @@ class AfpDialog_Auswahl(wx.Dialog):
                     self.grid_auswahl.SetCellValue(row, col,  "")
             if row < lgh:
                 self.ident.append(rows[row][-1])
+        if dynamic == False:
+            self.grid_deselect()
+    ## deselect grid-row
+    def grid_deselect(self):
+        if self.result_index > -1:
+            self.grid_auswahl.DeselectRow(self.result_index)        
+        self.result_index = -1
+        self.result = None
     ## return if grid-rows are empty
     def grid_is_empty(self):
         return len(self.ident) == 0
@@ -1366,6 +1378,11 @@ class AfpDialog_Auswahl(wx.Dialog):
         return self.result
  
     # Event Handlers 
+    ## handle keydown event, used to deselect gridline using 'ESC'
+    def On_KeyDown(self, event):
+        keycode = event.GetKeyCode() 
+        if keycode == wx.WXK_ESCAPE:
+            self.grid_deselect()
     ## event handler for resizing window
     def On_ReSize(self, event):
         height = self.GetSize()[1] - self.fixed_height

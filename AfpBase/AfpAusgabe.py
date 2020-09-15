@@ -314,6 +314,14 @@ class AfpAusgabe(object):
                 entry = start + entry + end
             newline += entry + outsides[i+oplus]
         return newline
+    ## replace special html-tag by unicode sign for formulas
+    # @phrase - string where tags have to be replaced
+    def replace_html_tags(self, phrase):
+        phrase = phrase.replace("&gt;",">")
+        phrase = phrase.replace("&lt;","<")
+        phrase = phrase.replace("&apos;","\"")
+        phrase = phrase.replace("&quot;","\"")
+        return phrase
     ## execute lines except WHILE statements \n
     # {IF,ELSE statement} ... and proper lines will be handled \n
     # - IF,ELSE statements are handles here, \n
@@ -368,13 +376,14 @@ class AfpAusgabe(object):
         line = ""
         if len(netto) > len(fields): 
             for i in range(len(fields)):
-                if quoted: line += netto[i].decode("UTF-8")  + Afp_toQuotedString(self.gen_value(fields[i]))
+                if quoted: line += netto[i].decode("UTF-8")  + Afp_toQuotedString(self.gen_value(fields[i]), None)
                 else: line += netto[i].decode("UTF-8")  + self.gen_value(fields[i])
             line += netto[-1].decode("UTF-8") 
         else:
             for f,n in fields,netto:
-                if quoted: line += Afp_toQuotedString(self.gen_value(f)) + n.decode("UTF-8") 
+                if quoted: line += Afp_toQuotedString(self.gen_value(f), None) + n.decode("UTF-8") 
                 else: line += self.gen_value(f) + n.decode("UTF-8") 
+        #line = self.replace_html_tags(line)
         return line
     ## generate the values stated in []-phrases \n
     # fields, variables, list of fields are handled here \n
@@ -451,10 +460,7 @@ class AfpAusgabe(object):
         splitphrase = inphrase.split("FUNCTION")
         phrase = splitphrase[0]
         condition = False
-        phrase = phrase.replace("&gt;",">")
-        phrase = phrase.replace("&lt;","<")
-        phrase = phrase.replace("&apos;","\"")
-        phrase = phrase.replace("&quot;","\"")
+        phrase = self.replace_html_tags(phrase)
         sign = ""
         if ">" in phrase: sign = ">"
         elif "<" in phrase: sign = "<"
@@ -556,11 +562,11 @@ class AfpAusgabe(object):
         if self.data is None:
             rows, indices = self.extract_rows_from_file(feldnamen, while_clause, file_index)
         else:
-            #print "AfpAusgabe.execute_while select:", self.data, feldnamen, while_clause, dsnamen
+            #print "AfpAusgabe.execute_while select:", feldnamen, while_clause, dsnamen
             if while_clause:
                 rows = self.data.mysql.select(feldnamen, while_clause, dsnamen) 
             else:
-                rows = self.extract_rows_from_data(dsnamen, feldnamen)            
+                rows = self.extract_rows_from_data(feldnamen)            
             #print "AfpAusgabe.execute_while rows:", len(rows), "\n", rows
         felder = feldnamen.split(",")
         local_lines = self.line_stack[stack_index]
@@ -613,6 +619,7 @@ class AfpAusgabe(object):
                 #function = funct[0]
             # extract where clause for database access
             clause = split_func[0][6:]
+            #print "AfpAusgabe.while_input split:", split_func, clause
             if clause[:7] == "ROWS IN":
                 clause = clause[8:]
                 if "AS" in clause:
@@ -623,6 +630,7 @@ class AfpAusgabe(object):
                 fields, netto = Afp_between(clause,"[","]")
                 clause = self.concat_line(fields, netto, True)
                 clause = clause.replace(":","and")
+                #print "AfpAusgabe.while_input clause:", clause
             # get needed fileds from lines 
             felder = []
             if function: felder += Afp_getWords(function,".")
@@ -652,7 +660,11 @@ class AfpAusgabe(object):
                     if clause and not split[1] in dats:
                         dats.append(split[1])
                         datsels += ","+ split[1]
-                feldnamen += "," + feld
+                else:
+                    if feld in self.variables:
+                        feld = ""
+                if feld:
+                    feldnamen += "," + feld
             if len(feldnamen) > 1: feldnamen = feldnamen[1:]
             # extract possible tables from clause which are not included in feldnamen
             if clause:
@@ -714,12 +726,23 @@ class AfpAusgabe(object):
             if i < lgh:
                 line = self.filecontent[i]
     ## read block of rows from datafile
-    # @param selname - names of selection where values to be extracted from
     # @param feldnamen - names of values to be extracted
-    def extract_rows_from_data(self, selname, feldnamen):
+    def extract_rows_from_data(self, feldnamen):
+        fields = feldnamen.split(",")
+        selname = ""
+        felder = ""
+        for field in fields:
+            split = field.split(".")
+            if split:
+                felder += "," + split[0]
+                if not selname and len(split) > 1:
+                    selname = split[1]
+        if felder: felder = felder[1:]            
         rows = []
         if self.data:
-            rows = self.data.get_grid_rows(selname) 
+            #rows = self.data.get_grid_rows(selname) 
+            rows = self.data.get_value_rows(selname, felder) 
+            #print "AfpAusgabe.extract_rows_from_data:", selname, felder, rows
         return rows
    ## read block of rows from datafile
     # @param feldnamen - names of values to be extracted

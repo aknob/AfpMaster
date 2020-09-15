@@ -68,7 +68,230 @@ class AfpAdScreen(AfpScreen):
         self.SetBackgroundColour(wx.Colour(192, 192, 192))
         self.SetForegroundColour(wx.Colour(20, 19, 18))
         self.SetFont(wx.Font(9, wx.DEFAULT, wx.NORMAL, wx.NORMAL, 0, "DejaVu Sans"))
-
+        self.InitWx()
+ 
+    ## initialize widgets
+    def InitWx(self):
+        #self.InitWx_panel()
+        self.InitWx_sizer()
+       
+    ## initialize widgets with sizer
+    def InitWx_sizer(self):
+        # set up sizer strukture
+        self.sizer =wx.BoxSizer(wx.HORIZONTAL)
+        
+        self.left_sizer =wx.BoxSizer(wx.VERTICAL)
+        self.button_sizer =wx.BoxSizer(wx.VERTICAL)
+        self.button_low_sizer =wx.BoxSizer(wx.HORIZONTAL)
+        self.button_mid_sizer =wx.BoxSizer(wx.VERTICAL)
+        self.top_sizer =wx.BoxSizer(wx.HORIZONTAL)
+        self.top_mid_sizer =wx.BoxSizer(wx.HORIZONTAL)
+        self.modul_button_sizer =wx.BoxSizer(wx.HORIZONTAL)
+        self.grid_mid_sizer =wx.BoxSizer(wx.VERTICAL)
+        self.grid_panel_sizer =wx.BoxSizer(wx.HORIZONTAL)
+        
+        # right BUTTON sizer
+        #self.text_MerkT_Archiv = wx.TextCtrl(self, -1,value="", size=(80,18), style=0, name="MerkT_Archiv")
+        self.text_MerkT_Archiv = wx.TextCtrl(self, -1,value="", style=0, name="MerkT_Archiv")
+        
+        self.button_Auswahl = wx.Button(self, -1, label="Aus&wahl",size=(77,50), name="BAuswahl")
+        self.Bind(wx.EVT_BUTTON, self.On_Adresse_AuswErw, self.button_Auswahl)
+        self.button_Bearbeiten = wx.Button(self, -1, label="&Bearbeiten",size=(77,50), name="BBearbeiten")
+        self.Bind(wx.EVT_BUTTON, self.On_Adresse_AendF, self.button_Bearbeiten)      
+        self.button_Voll = wx.Button(self, -1, label="&Sparte",size=(77,50), name="BEvent")
+        self.Bind(wx.EVT_BUTTON, self.On_Ad_Volltext, self.button_Voll)
+        self.button_Voll.Enable(False)        
+        self.button_Doppelt = wx.Button(self, -1, label="Do&ppelte", size=(77,50),name="BDoppelt")
+        self.Bind(wx.EVT_BUTTON, self.On_Adresse_Doppelt, self.button_Doppelt)
+        self.button_Dokumente = wx.Button(self, -1, label="&Dokumente",size=(77,50), name="BDokumente")
+        self.Bind(wx.EVT_BUTTON, self.On_Adresse_Doku, self.button_Dokumente)
+        self.button_Dokumente.Enable(False)
+        self.button_Listen = wx.Button(self, -1, label="&Listen",size=(77,50), name="BListen")
+        self.Bind(wx.EVT_BUTTON, self.On_Adresse_Listen, self.button_Listen)               
+        self.button_Listen.Enable(False)
+        self.button_Ende = wx.Button(self, -1, label="Be&enden",size=(77,50), name="BEnde")
+        self.Bind(wx.EVT_BUTTON, self.On_Ende, self.button_Ende)
+        
+        self.button_mid_sizer.AddStretchSpacer(1)
+        self.button_mid_sizer.Add(self.button_Auswahl,0,wx.EXPAND)
+        self.button_mid_sizer.AddStretchSpacer(1)
+        self.button_mid_sizer.Add(self.button_Bearbeiten,0,wx.EXPAND)
+        self.button_mid_sizer.AddStretchSpacer(1)
+        self.button_mid_sizer.Add(self.button_Voll,0,wx.EXPAND)
+        self.button_mid_sizer.AddStretchSpacer(1)
+        self.button_mid_sizer.Add(self.button_Doppelt,0,wx.EXPAND)
+        self.button_mid_sizer.AddStretchSpacer(1)
+        self.button_mid_sizer.Add(self.button_Dokumente,0,wx.EXPAND)
+        self.button_mid_sizer.AddStretchSpacer(1)
+        self.button_mid_sizer.Add(self.button_Listen,0,wx.EXPAND)
+        self.button_mid_sizer.AddStretchSpacer(1)
+        self.button_mid_sizer.Add(self.button_Ende,0,wx.EXPAND)
+        
+        self.button_low_sizer.AddStretchSpacer(1)
+        self.button_low_sizer.Add(self.button_mid_sizer,0,wx.EXPAND)
+        self.button_low_sizer.AddStretchSpacer(1)
+        
+        self.button_sizer.AddSpacer(10)
+        self.button_sizer.Add(self.text_MerkT_Archiv,0,wx.EXPAND)
+        self.button_sizer.AddSpacer(10)
+        self.button_sizer.Add(self.button_low_sizer,1,wx.EXPAND)
+        self.button_sizer.AddSpacer(20)
+     
+        # COMBOBOX
+        self.combo_Filter_Merk = wx.ComboBox(self, -1, value="", size=(150,20), choices=[], style=wx.CB_DROPDOWN, name="Filter_Merk")
+        self.Bind(wx.EVT_COMBOBOX, self.On_Filter_Merk, self.combo_Filter_Merk)
+        self.top_mid_sizer.AddStretchSpacer(1)
+        self.top_mid_sizer.Add(self.combo_Filter_Merk,0,wx.EXPAND)
+        self.top_mid_sizer.AddSpacer(10)
+        
+        self.label_LAdresse = wx.StaticText(self, -1,label="Adresse:", name="LAdresse")
+        self.label_Geschlecht = wx.StaticText(self, -1,label="", name="Geschlecht")
+        self.labelmap["Geschlecht"] = "Geschlecht.ADRESSE"
+        self.label_Anrede = wx.StaticText(self, -1,label="",  name="Anrede")
+        self.labelmap["Anrede"] = "Anrede.ADRESSE"
+        #self.choice_Status = wx.Choice(self, -1, size=(77,18), choices=["Passiv", "Aktiv", "Neutral", "Markiert", "Inaktiv"],  name="RStatus")
+        self.choice_Status = wx.Choice(self, -1, choices=["Passiv", "Aktiv", "Neutral", "Markiert", "Inaktiv"],  name="RStatus")
+        self.choice_Status.SetSelection(0)
+        #self.choice_Status.Enable(False)
+        self.Bind(wx.EVT_CHOICE, self.On_CStatus, self.choice_Status)
+        self.choicemap = AfpAdresse_StatusMap()
+        
+        self.top_client_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.top_client_sizer.Add(self.label_LAdresse, 0, wx.EXPAND)
+        self.top_client_sizer.AddStretchSpacer(1)
+        self.top_client_sizer.Add(self.label_Geschlecht, 0, wx.EXPAND)
+        self.top_client_sizer.AddStretchSpacer(1)
+        self.top_client_sizer.Add(self.label_Anrede, 0, wx.EXPAND)
+        self.top_client_sizer.AddStretchSpacer(1)
+        self.top_client_sizer.Add(self.choice_Status, 0, wx.EXPAND)
+    
+        #Adress
+        self.label_Vorname = wx.StaticText(self, -1, label="", name="Vorname")
+        self.labelmap["Vorname"] = "Vorname.ADRESSE"
+        self.label_Name = wx.StaticText(self, -1, label="", name="Name")
+        self.labelmap["Name"] = "Name.ADRESSE"
+        self.label_Strasse = wx.StaticText(self, -1, label="", name="Strasse")
+        self.labelmap["Strasse"] = "Strasse.ADRESSE"
+       
+        self.label_Plz = wx.StaticText(self, -1, label="", name="Plz")
+        self.labelmap["Plz"] = "Plz.ADRESSE"
+        self.label_Ort = wx.StaticText(self, -1, label="", name="Ort")
+        self.labelmap["Ort"] = "Ort.ADRESSE"
+        self.ort_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.ort_sizer.Add(self.label_Plz, 1, wx.EXPAND)
+        self.ort_sizer.AddSpacer(10)
+        self.ort_sizer.Add(self.label_Ort, 4, wx.EXPAND)
+        
+        self.adress_sizer = wx.BoxSizer(wx.VERTICAL)
+        self.adress_sizer.Add(self.top_client_sizer, 1, wx.EXPAND)
+        self.adress_sizer.Add(self.label_Vorname, 1, wx.EXPAND)
+        self.adress_sizer.Add(self.label_Name, 1, wx.EXPAND)
+        #self.adress_sizer.AddSpacer(10)
+        self.adress_sizer.Add(self.label_Strasse, 1, wx.EXPAND)
+        self.adress_sizer.Add(self.ort_sizer, 1, wx.EXPAND)
+        
+        self.contact_sizer = wx.BoxSizer(wx.VERTICAL)
+        self.label_LTelefon = wx.StaticText(self, -1, label="Telefon:", size=(50,16), name="LTelefon")
+        self.label_Telefon = wx.StaticText(self, -1, label="", name="Telefon")
+        self.labelmap["Telefon"] = "Telefon.ADRESSE"
+        self.label_Handy = wx.StaticText(self, -1, label="", name="Handy")
+        self.labelmap["Handy"] = "Tel2.ADRESSE"
+        self.tel_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.tel_sizer.Add(self.label_LTelefon, 0, wx.EXPAND)
+        self.tel_sizer.AddSpacer(10)
+        self.tel_sizer.Add(self.label_Telefon, 1, wx.EXPAND)
+        self.tel_sizer.AddSpacer(10)
+        self.tel_sizer.Add(self.label_Handy, 1, wx.EXPAND)        
+        self.label_LMail = wx.StaticText(self, -1, label="E-Mail:", size=(50,16), name="LMail")
+        self.label_Mail = wx.StaticText(self, -1, label="", name="Mail")
+        self.labelmap["Mail"] = "Mail.ADRESSE"
+        self.label_LFax= wx.StaticText(self, -1, label="Fax:", size=(50,16), name="LFax")
+        self.label_Fax = wx.StaticText(self, -1, label="", name="Fax")
+        self.labelmap["Fax"] = "Fax.ADRESSE"
+        #self.labelmap["Ab"] = "Name.TOrt"
+        self.fax_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.fax_sizer.Add(self.label_LFax, 0, wx.EXPAND)
+        self.fax_sizer.AddSpacer(10)
+        self.fax_sizer.Add(self.label_Fax, 1, wx.EXPAND)
+        self.mail_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.mail_sizer.Add(self.label_LMail, 0, wx.EXPAND)
+        self.mail_sizer.AddSpacer(10)
+        self.mail_sizer.Add(self.label_Mail, 1, wx.EXPAND)
+        self.mail_sizer.AddSpacer(10)
+        self.label_Bem = wx.StaticText(self, -1,label="", name="Bem")
+        self.labelmap["Bem"] = "Bem.ADRESSE"
+        self.label_BemExt = wx.StaticText(self, -1,label="", name="BemExt")
+        self.labelmap["BemExt"] = "BemExt.ADRESSE"        
+        self.contact_sizer.Add(self.tel_sizer, 1, wx.EXPAND)
+        self.contact_sizer.Add(self.fax_sizer, 1, wx.EXPAND)
+        self.contact_sizer.Add(self.mail_sizer, 1, wx.EXPAND)
+        self.contact_sizer.Add(self.label_Bem, 1, wx.EXPAND)
+        self.contact_sizer.Add(self.label_BemExt, 2, wx.EXPAND)
+        
+        # complete layout
+        self.panel_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.panel_sizer.AddSpacer(20)
+        self.panel_sizer.Add(self.adress_sizer, 1, wx.EXPAND)
+        self.panel_sizer.AddSpacer(10)
+        self.panel_sizer.Add(self.contact_sizer, 1, wx.EXPAND)
+        self.panel_sizer.AddSpacer(10)
+        
+        # Combo Box to control grid
+        self.combo_Archiv = wx.ComboBox(self, -1, value="Dokumente", size=(186,20), choices=["Dokumente","Merkmale","Beziehungen"], style=wx.CB_DROPDOWN, name="Archivtyp")
+        #self.combo_Archiv = wx.ComboBox(self, -1, value="Rechnungs-Ausgang", pos=(23,236), size=(186,20), choices=["Dokumente","Anmeldungen","Mietfahrten","Rechnungs-Ausgang","Rechnungs-Eingang"], style=wx.CB_DROPDOWN, name="Archiv")
+        self.Bind(wx.EVT_COMBOBOX, self.On_Filter_Archiv, self.combo_Archiv)
+        # GRID
+        self.grid_archiv = wx.grid.Grid(self, -1, pos=(23,256) , size=(653, 264), name="Archiv")
+        self.grid_archiv.CreateGrid(self.archiv_rows, 5)
+        self.grid_archiv.SetRowLabelSize(3)
+        self.grid_archiv.SetColLabelSize(18)
+        self.grid_archiv.EnableEditing(0)
+        self.grid_archiv.EnableDragColSize(0)
+        self.grid_archiv.EnableDragRowSize(0)
+        self.grid_archiv.EnableDragGridSize(0)
+        self.grid_archiv.SetSelectionMode(wx.grid.Grid.wxGridSelectRows)
+        self.grid_archiv.SetColLabelValue(0, self.archiv_colname[0])
+        self.grid_archiv.SetColSize(0, 130)
+        self.grid_archiv.SetColLabelValue(1, self.archiv_colname[1])
+        self.grid_archiv.SetColSize(1, 130)
+        self.grid_archiv.SetColLabelValue(2, self.archiv_colname[2])
+        self.grid_archiv.SetColSize(2, 130)
+        self.grid_archiv.SetColLabelValue(3, self.archiv_colname[3])
+        self.grid_archiv.SetColSize(3, 130)
+        self.grid_archiv.SetColLabelValue(4, self.archiv_colname[4])
+        self.grid_archiv.SetColSize(4, 130)
+        for row in range(0,self.archiv_rows):
+            for col in range(0,5):
+                self.grid_archiv.SetReadOnly(row, col)
+        self.gridmap.append("Archiv")
+        self.grid_minrows["Archiv"] = self.grid_archiv.GetNumberRows()
+        self.Bind(wx.grid.EVT_GRID_CMD_CELL_LEFT_DCLICK, self.On_DClick_Archiv, self.grid_archiv)
+        
+        self.grid_mid_sizer.Add(self.combo_Archiv,0,wx.EXPAND)
+        self.grid_mid_sizer.Add(self.grid_archiv,1,wx.EXPAND)
+        self.grid_panel_sizer.AddSpacer(20)
+        self.grid_panel_sizer.Add(self.grid_mid_sizer,1,wx.EXPAND)
+        self.grid_panel_sizer.AddSpacer(10)
+       
+        self.top_sizer.Add(self.modul_button_sizer,0,wx.EXPAND)
+        self.top_sizer.Add(self.top_mid_sizer,1,wx.EXPAND)
+       
+        self.left_sizer.AddSpacer(10)
+        self.left_sizer.Add(self.top_sizer,0,wx.EXPAND)
+        self.left_sizer.AddSpacer(10)
+        self.left_sizer.Add(self.panel_sizer,0,wx.EXPAND)
+        self.left_sizer.AddSpacer(10)
+        self.left_sizer.Add(self.grid_panel_sizer,1,wx.EXPAND)
+        self.left_sizer.AddSpacer(20)
+    
+        self.sizer.Add(self.left_sizer,1,wx.EXPAND)
+        self.sizer.Add(self.button_sizer,0,wx.EXPAND)   
+        
+        self.dynamic_grid_sizer = self.grid_panel_sizer
+        #self.Bind(wx.EVT_ACTIVATE, self.On_Activate)
+        
+    ## initialize widgets on panel        
+    def InitWx_panel(self):
         panel = self.panel
       
         # BUTTON
@@ -131,7 +354,7 @@ class AfpAdScreen(AfpScreen):
         self.text_Bem = wx.TextCtrl(panel, -1,value="", pos=(379,137), size=(297,18), style=wx.TE_READONLY, name="Bem")
         self.textmap["Bem"] = "Bem.ADRESSE"
         self.text_BemExt = wx.TextCtrl(panel, -1,value="", pos=(462,52), size=(214,84), style=0, name="BemExt")
-        self.extmap["BemExt"] = "BemExt.ADRESSE"
+        self.textmap["BemExt"] = "BemExt.ADRESSE"
         
         self.text_Geschlecht = wx.TextCtrl(panel, -1,value="", pos=(166,57), size=(24,18), style=wx.TE_READONLY, name="Geschlecht")
         self.textmap["Geschlecht"] = "Geschlecht.ADRESSE"
@@ -470,7 +693,8 @@ class AfpAdScreen(AfpScreen):
             select = ( "KundenNr = %d")% KundenNr
             if typ == "Dokumente":
                 self.archiv_colname = self.archiv_colnames[0]
-                rows = self.mysql.select_strings("Datum,Art,Typ,Gruppe,Bem,Extern",select,"ARCHIV")
+                rows = self.mysql.select_strings("Datum,Art,Typ,Gruppe,Bem,Extern",select,"ARCHIV") 
+                rows = rows[::-1] # reverse list
             elif typ == "Anmeldungen":
                 self.archiv_colname = self.archiv_colnames[1]
                 # select += " and FahrtNr.REISEN = FahrtNr.ANMELD"

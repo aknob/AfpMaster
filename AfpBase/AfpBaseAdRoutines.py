@@ -168,6 +168,22 @@ class AfpAdresse(AfpSelectionList):
     ## destructor
     def __del__(self):    
         if self.debug: print "AfpAdresse Destruktor"
+    ## clear current SelectionList to behave as a newly created List 
+    # @param KundenNr - if given, KundenNr address from where main data should be delivered   
+    def set_new(self, KundenNr):
+        self.new = True
+        data = {}
+        keep = []
+        self.clear_selections(keep)
+        if KundenNr:
+            Adresse = AfpAdresse(self.globals, KundenNr)
+            data["Name"]  = Adresse.get_value("Name")
+            data["Strasse"] =  Adresse.get_value("Strasse")
+            data["Plz"]  = Adresse.get_value("Plz")
+            data["Ort"]  = Adresse.get_value("Ort")
+            self.set_data_values(data,"ADRESSE")   
+        #print "AfpAdresse.set_new:", KundenNr 
+        #self.view()
     ## special selection (overwritten from AfpSelectionList) \n
     # to handle the selection 'Bez' (Beziehung) which attach different address entries via a single connected list in the datafield 'Bez'
     # @param selname - name of selection (in our case 'Bez' is implemented)

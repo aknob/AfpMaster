@@ -5,6 +5,7 @@
 # AfpFiDialog module provides classes and routines needed for user interaction of finance handling and accounting,\n
 #
 #   History: \n
+#        13 June 2020 - add incoming and outgoing invoice dialog- Andreas.Knoblauch@afptech.de
 #        10 July 2019 - add direct accounting dialog- Andreas.Knoblauch@afptech.de
 #        08 May 2019 - inital code generated - Andreas.Knoblauch@afptech.de
 
@@ -471,7 +472,7 @@ class AfpDialog_FiBuchung(AfpDialog):
     def Pop_entries(self, values):
         for entry in values:
             widget = self.FindWindowByName(entry) 
-            print "AfpDialog_FiBuchung.Pop_entries widgets:", entry, widget
+            #print "AfpDialog_FiBuchung.Pop_entries widgets:", entry, widget
             if widget:
                 if entry[0] == "L":
                     widget.SetLabel(Afp_toString(values[entry]))
@@ -479,7 +480,7 @@ class AfpDialog_FiBuchung(AfpDialog):
                     widget.SetValue(Afp_toString(values[entry]))
             else:
                 self.values[entry] = values[entry]
-        print "AfpDialog_FiBuchung.Pop_entries:", self.values
+        #print "AfpDialog_FiBuchung.Pop_entries:", self.values
 
     ## read account number from combo box
     def read_account(self, combo):
@@ -516,7 +517,7 @@ class AfpDialog_FiBuchung(AfpDialog):
                         #print "AfpDialog_FiBuchung.execute_Ok client:", cl.get_value(), row[6],  cl.get_mainselection().lower(), row[5].lower()
                         if cl.get_value() == row[6] and cl.get_mainselection().lower() == row[5].lower():
                             client = cl
-                            print "AfpDialog_FiBuchung.execute_Ok client found:", row[5], row[6]
+                            #print "AfpDialog_FiBuchung.execute_Ok client found:", row[5], row[6]
                             break
                 if not client:
                     client = self.data.get_client(row[6])
@@ -556,7 +557,7 @@ class AfpDialog_FiBuchung(AfpDialog):
                 filename, Ok = AfpReq_FileName(dir, "", "*.xml") 
                 typ =  filename[-4:] 
                 if not typ == ".xml" or typ == ".XML":  filename += ".xml"
-                print "AfpDialog_FiBuchung.execute_Quit filename:", filename
+                #print "AfpDialog_FiBuchung.execute_Quit filename:", filename
                 if Ok and filename:
                     Export = AfpExport(self.data.get_globals(), self.data, filename, self.debug)
                     Export.write_to_file(None, 4) 
@@ -643,7 +644,7 @@ class AfpDialog_FiBuchung(AfpDialog):
             row[10] = "Storno"
             row[17] = self.data.get_globals().today()
             sel.add_row(row)
-
+            
     ## event handler for resizing window
     def On_ReSize(self, event):
         height = self.GetSize()[1] - self.fixed_height
@@ -703,6 +704,10 @@ class AfpDialog_FiBuchung(AfpDialog):
     ## Event handler to add financial transaction to SelectionList
     def On_Add(self, event):
         if self.debug: print "AfpDialog_FiBuchung Event handler `On_Add'"
+        if  "xxx-Split" in self.values:
+            splitting = self.values["xxx-Split"]
+        else:
+            splitting = None
         accdata = {}
         accdata["Datum"] = Afp_fromString(self.text_Datum.GetValue())
         beleg = self.text_Beleg.GetValue()
@@ -717,6 +722,7 @@ class AfpDialog_FiBuchung(AfpDialog):
         accdata["Art"] = self.combo_Vorgang.GetValue()
         soll = self.get_acc_stat(accdata["Konto"] )
         haben = self.get_acc_stat(accdata["Gegenkonto"]) 
+        if not (soll == "bank" or haben == "bank"): splitting = None
         if accdata["Art"] == "-automatisch-":
             if soll == "bank" or haben == "bank":
                  accdata["Art"] = "Zahlung"
@@ -728,11 +734,24 @@ class AfpDialog_FiBuchung(AfpDialog):
             accdata["Tab"] = self.values["Tab"]
             accdata["TabNr"] = self.values["TabNr"]
         if "KundenNr" in self.values:  accdata["KundenNr"] = self.values["KundenNr"]
+        if  splitting: 
+            text = ""
+            for sp in splitting:
+                text += "\n"  + Afp_ArraytoLine(sp)
+            text += "\n Gesamtsumme: " + self.text_Betrag.GetValue()
+            split = AfpReq_Question("Der ausgewählte Vorgang enthält eine Splitbuchung, soll diese so durchgeführt werden?".decode("UTF-8"), text, "Splitbuchung durchführen?".decode("UTF-8"))
+            if split:
+                if soll == "bank":
+                    accdata["Gegenkonto"]  = self.transfer
+                else:
+                    accdata["Konto"]  = self.transfer
+            else:
+                splitting = None
         if self.debug: print "AfpDialog_FiBuchung.On_Add:", accdata
         selected = self.get_selected_row()
         Storno = False
         Change = False
-        if not selected is None:
+        if not (selected is None or splitting):
             if self.grid_ident[selected]:
                 Storno = AfpReq_Question("Die ausgewählte Buchung ist schon eingetragen und kann nicht überschrieben werden!".decode("UTF-8"), "Soll eine Stornierungsbuchung mit einer neuen Buchung zusammen erstellt werden?".decode("UTF-8"), "Buchung überschreiben?".decode("UTF-8"))
             else:
@@ -744,6 +763,20 @@ class AfpDialog_FiBuchung(AfpDialog):
                 self.data.set_data_values(accdata, "BUCHUNG", selected)
             else:
                 self.data.add_direct_transaction(accdata)
+                if splitting:
+                    bem = accdata["Bem"]
+                    if soll == "bank":
+                        accdata["Konto"]  = self.transfer
+                        konto = "Gegenkonto"
+                    else:
+                        accdata["Gegenkonto"]  = self.transfer
+                        konto = "Konto"
+                    for split in splitting:
+                        accdata[konto] = split[0]
+                        accdata["Betrag"] = split[1]
+                        if split[2]: accdata["Bem"] = Afp_toString(split[2]) + " " + bem
+                        else: accdata["Bem"] = bem
+                        self.data.add_direct_transaction(accdata)
             self.Pop_Buchung()
             self.Pop_Auszug()
             self.text_Text.SetValue("")
@@ -843,7 +876,6 @@ class AfpDialog_FiBuchung(AfpDialog):
     def On_Vorgang(self, event=None):
         if self.debug: print "AfpDialog_FiBuchung Event handler `On_Vorgang'"
         client = AfpFinance_getZahlVorgang(self.data.get_globals(), "EventNr", 1)
-        print "AfpDialog_FiBuchung.On_Vorgang:", client
         if client:
             data = {}
             preis, zahlung, dat = client.get_payment_values()
@@ -851,7 +883,9 @@ class AfpDialog_FiBuchung(AfpDialog):
                 data["Betrag"] = preis - zahlung
             else:
                 data["Betrag"]  = preis
-            if client.is_cancelled(): 
+                splitting =  client.get_splitting_values()
+                if splitting: data["xxx-Split"] = splitting
+            if client.is_canceled(): 
                 data["Betrag"] *= -1
             if self.read_account(self.combo_Soll) == self.transfer:
                 soll = self.transfer
@@ -871,6 +905,7 @@ class AfpDialog_FiBuchung(AfpDialog):
             data["Text"] = "Zahlung: " + client.get_name(selection)
             data["Tab"] = client.get_mainselection()
             data["TabNr"] = client.get_value()
+            # = [[KtNr, Betrag, Zusatz], ...]  hier weiter ->
             self.Pop_entries(data)
         if event: event.Skip()
         
@@ -1097,6 +1132,7 @@ class AfpDialog_SEPA(AfpDialog):
         self.textmap.pop("BIC")
         self.textmap.pop("IBAN")
         self.textmap.pop("Anz")
+        self.button_Load.Enable(False)
         self.label_Anz.SetLabel("")
         self.label_Folge.SetLabel("Summe:")
         self.sizer_box.SetLabel("Zahlung")
@@ -1230,23 +1266,27 @@ class AfpDialog_SEPA(AfpDialog):
     
     ## execution in case the OK button ist hit - overwritten ifrom AfpDialog
     def execute_Ok(self):
+        #print "AfpDialog_SEPA.execute_Ok:", self.xml_data_loaded, self.clients, self.newclients
         if  self.xml_data_loaded:
             ok = AfpReq_Question("SEPA xml-Dateien werden erzeugt", "und entsprechend im Archiv abgelegt!","SEPA xml-Dateien erzeugen!")
-            if ok: self.data.execute_xml()
-        #print "AfpDialog_SEPA.execute_Ok:", self.xml_data_loaded
-        self.data.store()
-        pathes = self.data.get_filepathes()
-        if pathes:
-            split = pathes.split()
-            if len(split) == 2:
-                text1 = "Die folgenden SEPA xml-Dateien wurden erzeugt:\n" + split[0] + "\n" + split[1]
-                text2 = "Bitte unverzüglich bei der Bank abgeben!\nSollen Dateipfade in die Zwischenablage übernommen werden?".decode("UTF-8")
-            else:
-                text1 = "Die folgende SEPA xml-Dateien wurde erzeugt:\n" + split[0] 
-                text2 = "Bitte unverzüglich bei der Bank abgeben!\nSoll Dateipfad in die Zwischenablage übernommen werden?".decode("UTF-8")
-            ok = AfpReq_Question(text1, text2,"Pfade in Zwischenablage?")
             if ok:
-                Afp_toClipboard(pathes)
+                if self.clients or self.newclients: 
+                    self.data.set_clients(self.clients, self.newclients)
+                self.data.execute_xml()
+        self.data.store()
+        if  self.xml_data_loaded:
+            pathes = self.data.get_filepathes()
+            if pathes:
+                split = pathes.split()
+                if len(split) == 2:
+                    text1 = "Die folgenden SEPA xml-Dateien wurden erzeugt:\n" + split[0] + "\n" + split[1]
+                    text2 = "Bitte unverzüglich bei der Bank abgeben!\nSollen Dateipfade in die Zwischenablage übernommen werden?".decode("UTF-8")
+                else:
+                    text1 = "Die folgende SEPA xml-Dateien wurde erzeugt:\n" + split[0] 
+                    text2 = "Bitte unverzüglich bei der Bank abgeben!\nSoll Dateipfad in die Zwischenablage übernommen werden?".decode("UTF-8")
+                ok = AfpReq_Question(text1, text2,"Pfade in Zwischenablage?")
+                if ok:
+                    Afp_toClipboard(pathes)
 
    
     ## event handler for resizing window
@@ -1438,7 +1478,7 @@ class AfpDialog_SEPA(AfpDialog):
             self.Set_Editable(True)  
             if self.xml_sepa_type == "SEPA-DD":
                 if self.xml_data_loaded:
-                    print "AfpDialog_SEPA.On_Deaktivate: XML Data loaded:", self.grid_row_selected, self.grid_mandate.GetSelectedRows()
+                    #print "AfpDialog_SEPA.On_Deaktivate: XML Data loaded:", self.grid_row_selected, self.grid_mandate.GetSelectedRows()
                     lgh = 0
                     if self.newclients: lgh = len(self.newclients)
                     if self.grid_row_selected >= lgh:
@@ -1462,7 +1502,6 @@ class AfpDialog_SEPA(AfpDialog):
                                 sepa = AfpFinance_addSEPAdd(self.data, client)
                                 if sepa:
                                     self.data = sepa
-                                    self.Pop_Mandate()
                                     self.Set_Editable(True)
             elif self.xml_sepa_type == "SEPA-CT":
                 print "AfpDialog_SEPA.On_Deaktivate:", self.xml_sepa_type, self.grid_row_selected
@@ -1470,8 +1509,8 @@ class AfpDialog_SEPA(AfpDialog):
                     self.data.delete_transfer_data(self.grid_row_selected)
                     self.grid_mandate.DeleteRows(self.grid_row_selected)
                     self.grid_row_selected = None
-                    self.Pop_sums()
-                    
+            self.Pop_Mandate()   
+            self.Pop_sums()    
         else: 
             if self.xml_data_loaded: 
                 AfpReq_Info("Aktion kann nicht durchgeführt werden,".decode("UTF-8"), "bitte den Eintrag auswählen, für den kein Einzug ausgeführt werden soll!".decode("UTF-8"))
@@ -1509,3 +1548,192 @@ def AfpLoad_SEPAct(data, mandator = None, filename = None):
     Ok = DiSepa.get_Ok()
     DiSepa.Destroy()
     return Ok 
+
+class AfpDialog_Rechnung(AfpDialog):
+    def __init__(self, *args, **kw):
+        AfpDialog.__init__(self,None, -1, "")
+        self.SetSize((378,400))
+        #self.SetTitle("Verbindlichkeit")
+        self.SetTitle("Rechnung")
+        
+    def InitWx(self):
+        self.InitWx_panel()
+
+    def InitWx_panel(self):
+        panel = wx.Panel(self, -1)
+        self.label_Typ = wx.StaticText(panel, -1, label="Rechnung", pos=(8,2), size=(120,18), name="TVbNr")
+        self.label_VerbNr = wx.StaticText(panel, -1, label="VerbNr$", pos=(140,2), size=(92,20), name="VerbNr")
+        self.label_ReNr = wx.StaticText(panel, -1, label="RechNr", pos=(234,2), size=(22,18), name="ReNr")
+        self.labelmap["ReNr"] = "RechNr"
+        self.label_Bezahlt = wx.StaticText(panel, -1, label="Verb_Bezahlt$", pos=(260,2), size=(110,20), name="Bezahlt")
+        self.labelmap["Bezahlt"] = "Zustand"
+    #FOUND: DialogFrame "OrgDat", conversion not implemented due to lack of syntax analysis!
+        self.label_Vorname= wx.StaticText(panel, -1, label="Vorname.Adresse", pos=(10,36), size=(100,20), name="Vorname")
+        self.labelmap["Vorname"] = "Vorname.ADRESSE"
+        self.label_Name = wx.StaticText(panel, -1, label="Name.Adresse", pos=(120,36), size=(140,20), name="Name")
+        self.labelmap["Name"] = "Name.ADRESSE"
+        self.label_TReNr = wx.StaticText(panel, -1, label="Rechnungs N&r :", pos=(8,60), size=(128,20), name="TReNr")
+        self.text_RefNr = wx.TextCtrl(panel, -1, value="", pos=(156,60), size=(80,22), style=0, name="RefNr")
+        self.textmap["RefNr"] = "RefNr"
+        self.text_RefNr.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
+        self.label_TReDat = wx.StaticText(panel, -1, label="Rechnungs&datum :", pos=(8,84), size=(128,20), name="TReDat")
+        self.text_Dat = wx.TextCtrl(panel, -1, value="", pos=(156,84), size=(80,22), style=0, name="Dat")
+        self.textmap["Dat"] = "Datum"
+        self.text_Dat.Bind(wx.EVT_KILL_FOCUS, self.On_Verb_Datum)
+        self.label_TReBet = wx.StaticText(panel, -1, label="Rechnungs&betrag :", pos=(8,108), size=(128,20), name="TReBet")
+        self.text_Betrag = wx.TextCtrl(panel, -1, value="", pos=(156,108), size=(80,22), style=0, name="Betrag")
+        self.textmap["Betrag"] = "Betrag"
+        self.text_Betrag.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
+        self.label_EUR = wx.StaticText(panel, -1, label="EUR", pos=(240,108), size=(30,20), name="EUR")
+        self.label_TZiel = wx.StaticText(panel, -1, label="F&alligkeit :", pos=(8,132), size=(128,20), name="TZiel")
+        self.text_Ziel_Datum = wx.TextCtrl(panel, -1, value="", pos=(156,134), size=(80,22), style=0, name="Ziel_Datum")
+        self.textmap["Ziel_Datum"] = "ZahlZiel"
+        self.text_Ziel_Datum.Bind(wx.EVT_KILL_FOCUS, self.On_Check_Datum)
+        self.text_Bem = wx.TextCtrl(panel, -1, value="", pos=(14,160), size=(250,35), style=0, name="Bem")
+        self.textmap["Bem"] = "Bem"
+        self.text_Bem.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
+    #FOUND: DialogFrame "Buch", conversion not implemented due to lack of syntax analysis!
+        self.label_TKred = wx.StaticText(panel, -1, label="Kredi&tor :", pos=(118,208), size=(60,20), name="TKred")
+        self.text_Kreditor = wx.TextCtrl(panel, -1, value="", pos=(182,208), size=(80,22), style=0, name="Kreditor")
+        self.textmap["Kreditor"] = "Kreditor"
+        self.text_Kreditor.Bind(wx.EVT_KILL_FOCUS, self.On_ReVb_Konto)
+        self.button_Konto = wx.Button(panel, -1, label="&Kontierung", pos=(290,234), size=(80,36), name="Konto")
+        self.Bind(wx.EVT_BUTTON, self.On_Verb_Konto, self.button_Konto)
+        self.label_Kst = wx.StaticText(panel, -1, label="Kontierung:", pos=(10,222), size=(100,18), name="Kst")
+        self.list_Split = wx.ListBox(panel, -1, pos=(14,238), size=(250,34), name="Split")
+        self.listmap.append("Split")
+        self.Bind(wx.EVT_LISTBOX_DCLICK, self.On_Verb_Kst, self.list_Split)
+    #FOUND: DialogFrame "SkFrame", conversion not implemented due to lack of syntax analysis!
+        self.text_SkPro = wx.TextCtrl(panel, -1, value="", pos=(110,298), size=(50,22), style=0, name="SkPro")
+        self.textmap["SkPro"] = "Verb_SkPro$"
+        self.text_SkPro.Bind(wx.EVT_KILL_FOCUS, self.On_Verb_SkPro)
+        self.text_Skonto = wx.TextCtrl(panel, -1, value="", pos=(156,298), size=(80,22), style=0, name="Skonto")
+        self.textmap["Skonto"] = "Skonto.VERBIND"
+        self.text_Skonto.Bind(wx.EVT_KILL_FOCUS, self.On_Verb_Skonto)
+        self.label_TSkPro = wx.StaticText(panel, -1, label="&Prozent :", pos=(30,300), size=(70,20), name="TSkPro")
+        self.label_EUR2 = wx.StaticText(panel, -1, label="EUR", pos=(240,300), size=(30,20), name="EUR2")
+        self.label_TZahlbet = wx.StaticText(panel, -1, label="&Gesamtbetrag :", pos=(8,326), size=(128,20), name="TZahlbet")
+        self.text_Zahlbet = wx.TextCtrl(panel, -1, value="", pos=(156,326), size=(80,22), style=0, name="Zahlbet")
+        self.textmap["Zahlbet"] = "Zahlbetrag.VERBIND"
+        self.text_Zahlbet.Bind(wx.EVT_KILL_FOCUS, self.On_Verb_ZahlBet)
+        self.label_EUR3 = wx.StaticText(panel, -1, label="EUR", pos=(240,328), size=(30,20), name="EUR3")
+        self.button_BZahl = wx.Button(panel, -1, label="&Zahlung", pos=(290,28), size=(80,36), name="BZahl")
+        self.Bind(wx.EVT_BUTTON, self.On_Verb_Zahl, self.button_BZahl)
+        self.button_Neu = wx.Button(panel, -1, label="&Neu", pos=(290,70), size=(80,36), name="Neu")
+        self.Bind(wx.EVT_BUTTON, self.On_Verb_Neu, self.button_Neu)
+        self.button_Storno = wx.Button(panel, -1, label="&Storno", pos=(290,112), size=(80,36), name="Storno")
+        self.Bind(wx.EVT_BUTTON, self.On_Verb_Storno, self.button_Storno)
+        self.button_Verbindung = wx.Button(panel, -1, label="&Verbindung", pos=(290,154), size=(80,36), name="Verbindung")
+        self.Bind(wx.EVT_BUTTON, self.On_Verb_Verb, self.button_Verbindung)
+        self.check_Voraus = wx.CheckBox(panel, -1, label="&Vorausz.", pos=(290,200), size=(86,18), name="Voraus")
+        self.Bind(wx.EVT_CHECKBOX, self.On_Verb_Voraus, self.check_Voraus)
+        self.check_Direkt = wx.CheckBox(panel, -1, label="Daue&r", pos=(290,216), size=(80,18), name="Direkt")
+        self.Bind(wx.EVT_CHECKBOX, self.On_Verb_Direkt, self.check_Direkt)
+        self.setWx(panel, [290, 278, 80, 36], [290, 320, 80, 36]) # set Edit and Ok widgets
+       
+    def InitWx_sizer(self):
+        panel = self
+        self.label_Typ = wx.StaticText(panel, -1, label="Rechnung", pos=(8,2), size=(120,18), name="Typ")
+        self.label_VerbNr = wx.StaticText(panel, -1, label="VerbNr$", pos=(140,2), size=(92,20), name="VerbNr")
+        self.label_ReNr = wx.StaticText(panel, -1, label="RechNr", name="ReNr")
+        self.labelmap["ReNr"] = "RechNr"
+        self.label_Bezahlt = wx.StaticText(panel, -1, name="Bezahlt")
+        self.labelmap["Bezahlt"] = "Zustand"
+        self.top_sizer = wx.BoxSizer(wx.HORIZONTAL)    
+        self.top_sizer.AddSpacer(10)
+        self.top_sizer.Add(self.label_Typ,0,wx.EXPAND)
+        self.top_sizer.AddSpacer(10)
+        self.top_sizer.Add(self.label_VerbNr,0,wx.EXPAND)
+        self.top_sizer.AddSpacer(10)
+        self.top_sizer.Add(self.label_ReNr,0,wx.EXPAND)
+        self.top_sizer.AddSpacer(10)
+        self.top_sizer.Add(self.label_Bezahlt,0,wx.EXPAND)
+        self.top_sizer.AddSpacer(10)
+     #FOUND: DialogFrame "OrgDat", conversion not implemented due to lack of syntax analysis!
+        self.label_Vorname = wx.StaticText(panel, -1, label="Vorname.Adresse", pos=(10,36), size=(100,20), name="Vorname")
+        self.labelmap["Vorname"] = "Vorname.ADRESSE"        
+ 
+    # Event Handlers 
+    def Pop_Split(self):
+        if self.data:
+            konto = self.data.get_value("Kontierung")
+            #print "AfpDialog_Rechnung.Pop_Split:", konto
+            if konto:
+                # hier weiter: echten Split einbauen
+                self.list_Split.InsertItems([Afp_toString(konto)],0)
+
+   # Event Handlers 
+    def On_Verb_Datum(self,event):
+        print "Event handler `On_Verb_Datum' not implemented!"
+        event.Skip()
+
+    def On_Check_Datum(self,event):
+        print "Event handler `On_Check_Datum' not implemented!"
+        event.Skip()
+
+    def On_ReVb_Konto(self,event):
+        print "Event handler `On_ReVb_Konto' not implemented!"
+        event.Skip()
+
+    def On_Verb_Konto(self,event):
+        print "Event handler `On_Verb_Konto' not implemented!"
+        event.Skip()
+
+    def On_Verb_Kst(self,event):
+        print "Event handler `On_Verb_Kst' not implemented!"
+        event.Skip()
+
+    def On_Verb_SkPro(self,event):
+        print "Event handler `On_Verb_SkPro' not implemented!"
+        event.Skip()
+
+    def On_Verb_Skonto(self,event):
+        print "Event handler `On_Verb_Skonto' not implemented!"
+        event.Skip()
+
+    def On_Verb_ZahlBet(self,event):
+        print "Event handler `On_Verb_ZahlBet' not implemented!"
+        event.Skip()
+
+    def On_Verb_Zahl(self,event):
+        print "Event handler `On_Verb_Zahl' not implemented!"
+        event.Skip()
+
+    def On_Verb_Neu(self,event):
+        print "Event handler `On_Verb_Neu' not implemented!"
+        event.Skip()
+
+    def On_Verb_Storno(self,event):
+        print "Event handler `On_Verb_Storno' not implemented!"
+        event.Skip()
+
+    def On_Verb_Verb(self,event):
+        print "Event handler `On_Verb_Verb' not implemented!"
+        event.Skip()
+
+    def On_Verb_Voraus(self,event):
+        print "Event handler `On_Verb_Voraus' not implemented!"
+        event.Skip()
+
+    def On_Verb_Direkt(self,event):
+        print "Event handler `On_Verb_Direkt' not implemented!"
+        event.Skip()
+
+    def On_ReVb_Abbr(self,event):
+        print "Event handler `On_ReVb_Abbr' not implemented!"
+        event.Skip()
+
+    def On_Verb_Ok(self,event):
+        print "Event handler `On_Verb_Ok' not implemented!"
+        event.Skip()
+
+# loader routine for dialog DiVerb
+def AfpLoad_Rechnung(data):
+    DiRech = AfpDialog_Rechnung(None)
+    DiRech.attach_data(data)
+    DiRech.ShowModal()
+    Ok = DiRech.get_Ok()
+    DiRech.Destroy()
+    return Ok
+    
+    

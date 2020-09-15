@@ -373,7 +373,7 @@ class AfpSQL(object):
                     if self.debug: print "AfpSQL.execute:", befehl + ";"
                     retval = self.db_cursor.execute(befehl + ";") 
                     if retval: retval = self.db_cursor.fetchall ()
-                    print "AfpSQL.execute:", befehl, retval
+                    #print "AfpSQL.execute:", befehl, retval
             #if not befehle is None:
                 #self.db_cursor.execute("COMMIT;")
         return retval
@@ -388,7 +388,7 @@ class AfpSQLTableSelection(object):
     # @param feldnamen - names of columns, if not given they will be retrieved from database
     def  __init__(self, mysql, tablename, debug = False, unique_feldname = None, feldnamen = None):
         self.dbg = False # hardcode switch for storage logging
-        #if tablename == "BUCHUNG": debug = True
+        #if tablename == "ANMELDATT": debug = True
         if debug: 
             print "AfpSQLTableSelection Konstruktor dbg On", tablename
             self.dbg = True # hardcoded switch for storage logging, for debug purpose during programming
@@ -495,29 +495,27 @@ class AfpSQLTableSelection(object):
             for i in range(0, len(split), 4):
                 if i: self.select += " " + split[i-1] + " "
                 feldname = split[i]
-                if i+2 < len(split)  and split[i+2]: 
-                    mask = split[i+2][0] == "\""
-                else: 
-                    mask = False
                 values = self.get_values(feldname, last_index)
-                #print "AfpSQLTableSelection.reset_select mask:", i, feldname, last_index, mask, values
-                if values:
-                    value = Afp_toString(values[0][0])
-                    if mask: value = "\"" + value + "\""
+                #print "AfpSQLTableSelection.reset_select value:", i, feldname, last_index,  values
+                if split[i+1] == "=" and values:
+                    value = Afp_toQuotedString(values[0][0], None)
                     self.select += feldname + " = " + value
-                    #print "AfpSQLTableSelection.reset_select value:", value, self.select
+                else:
+                    self.select += split[i] +  " " + split[i+1] +  " " + split[i+2] 
+        if self.dbg: print "AfpSQLTableSelection.reset_select out:", self.select
     ## load data into TableSelection according to given select clause
     # @param select - select clause to identify desired data
     # @param order - if given desired order of output rows
     def load_data(self, select, order = None):
         self.select = select  
-        #print "AfpSQLTableSelection.load_data select:", self.tablename, self.select
+        if self.dbg: print "AfpSQLTableSelection.load_data select:", self.tablename, self.select
         self.data = map(list, self.mysql.select("*",self.select, self.tablename, order))
         if self.dbg: print "AfpSQLTableSelection.load_data:", self.select, self.tablename, order, self.data
         self.select_clause = self.mysql.get_select_clause()
         self.manipulation = []  
     ## reload data from database according to last load
     def reload_data(self):
+        if self.dbg: print "AfpSQLTableSelection.reload_data:", self.select
         if self.select: self.load_data(self.select)
     ## load data from given AfpSbDatei
     # @param datei - name of table
@@ -821,7 +819,8 @@ class AfpSQLTableSelection(object):
         for row in range(0,lgh):
             self.set_value(feldname, value, row)
         if self.select is None:
-            self.select =  feldname + " = " + Afp_toString(value)
+            #self.select =  feldname + " = " + Afp_toString(value)
+            self.select =  feldname + " = " + Afp_toQuotedString(value, None)
     ## set indicated column to a given value
     # @param feldname - indicated column name
     # @param value -  value to be filled in indicated column

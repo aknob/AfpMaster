@@ -359,10 +359,17 @@ class AfpDialog_AdAusw(AfpDialog_Auswahl):
         return Felder
     ## invoke the dialog for a new entry
     def invoke_neu_dialog(self, globals, search, where):
-        if search is None: search = "a"
+        #if search is None: search = "a"
+        KNr = None
         Adresse = AfpAdresse(globals, None, None, globals.is_debug(), False)
+        if self.result_index > -1:
+            KNr = self.ident[self.result_index]
+            Adresse.set_new(KNr)
+            search = None
+        print "AfpDialog_AdAusw.invoke_neu_dialog:", search, self.result_index, KNr
         Ok = AfpLoad_DiAdEin(Adresse, search)
         return Ok
+ 
 ## dialog for address selection from attribut \n 
 # selects an entry of the address table by choosing from the attribut (AdresAtt) table   
 class AfpDialog_AdAttAusw(AfpDialog_Auswahl):
@@ -502,6 +509,200 @@ class AfpDialog_DiAdEin(AfpDialog):
     ## initialize wx widgets of dialog  \n
     # calls setWx to handle Edit and Ok widgets and events
     def InitWx(self):
+        #self.InitWx_panel()
+        self.InitWx_sizer()
+    ## initialize wx widgets of dialog  using sizers\n
+    # calls setWx to handle Edit and Ok widgets and events
+    def InitWx_sizer(self):
+        self.left_weight = 1
+        self.right_weight = 7
+        #self.right_weight = 2
+        self.sizer = wx.BoxSizer(wx.VERTICAL)
+        self.line1_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.label_Anrede = wx.StaticText(self, -1, label="Anre&de:", name="Anrede")
+        self.choice_Anrede = wx.Choice(self, -1, choices=["Du", "Sie"],  name="CAnrede")
+        self.choicemap["CAnrede"] = "Anrede.ADRESSE"
+        self.Bind(wx.EVT_CHOICE, self.On_CAnrede, self.choice_Anrede)      
+        self.label_Geschlecht = wx.StaticText(self, -1, label="&Geschlecht:", name="Geschlecht")      
+        self.choice_Geschlecht = wx.Choice(self, -1,  choices=["w","n","m"],  name="CGeschlecht")
+        self.choice_Geschlecht.SetSelection(1)
+        self.choicemap["CGeschlecht"] = "Geschlecht.ADRESSE"
+        self.Bind(wx.EVT_CHOICE, self.On_CGeschlecht, self.choice_Geschlecht)
+        self.line1_sizer.AddSpacer(10)
+        self.line1_sizer.Add(self.label_Anrede,self.left_weight,wx.EXPAND)
+        self.line1_right = wx.BoxSizer(wx.HORIZONTAL)
+        self.line1_right.Add(self.choice_Anrede,0,wx.EXPAND)
+        self.line1_right.AddStretchSpacer(1) 
+        self.line1_right.Add(self.label_Geschlecht,0,wx.EXPAND)
+        self.line1_right.Add(self.choice_Geschlecht,0,wx.EXPAND)
+        self.line1_sizer.AddSpacer(10) 
+        self.line1_sizer.Add(self.line1_right,self.right_weight,wx.EXPAND)        
+        self.line1_sizer.AddSpacer(10) 
+
+        self.line2_sizer = wx.BoxSizer(wx.HORIZONTAL)        
+        self.label_T_Vorname_Adresse = wx.StaticText(self, -1, label="&Vorname:", name="T_Vorname_Adresse")
+        self.text_Vorname_Adresse = wx.TextCtrl(self, -1, value="",  style=wx.TE_MULTILINE|wx.TE_LINEWRAP, name="Vorname_Adresse")
+        self.text_Vorname_Adresse.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
+        self.textmap["Vorname_Adresse"] = "Vorname.ADRESSE"
+        self.line2_sizer.AddSpacer(10)
+        self.line2_sizer.Add(self.label_T_Vorname_Adresse,self.left_weight,wx.EXPAND)
+        self.line2_sizer.AddSpacer(10) 
+        self.line2_sizer.Add(self.text_Vorname_Adresse,self.right_weight,wx.EXPAND)
+        self.line2_sizer.AddSpacer(10) 
+
+        self.line3_sizer = wx.BoxSizer(wx.HORIZONTAL)        
+        self.label_T_Name_Adresse = wx.StaticText(self, -1, label="&Name:", name="T_Name_Adresse")
+        self.text_Name_Adresse = wx.TextCtrl(self, -1, value="", style=wx.TE_MULTILINE|wx.TE_LINEWRAP, name="Name_Adresse")
+        self.text_Name_Adresse.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
+        self.textmap["Name_Adresse"] = "Name.ADRESSE"
+        self.line3_sizer.AddSpacer(10)
+        self.line3_sizer.Add(self.label_T_Name_Adresse,self.left_weight,wx.EXPAND)
+        self.line3_sizer.AddSpacer(10) 
+        self.line3_sizer.Add(self.text_Name_Adresse,self.right_weight,wx.EXPAND)
+        self.line3_sizer.AddSpacer(10) 
+        
+        self.line4_sizer = wx.BoxSizer(wx.HORIZONTAL)        
+        self.label_T_Strasse_Adresse = wx.StaticText(self, -1, label="Stra&sse:",  name="T_Strasse_Adresse")
+        self.text_Strasse_Adresse = wx.TextCtrl(self, -1, value="", style=0, name="Strasse_Adresse")
+        self.text_Strasse_Adresse.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
+        self.textmap["Strasse_Adresse"] = "Strasse.ADRESSE"
+        self.line4_sizer.AddSpacer(10)
+        self.line4_sizer.Add(self.label_T_Strasse_Adresse,self.left_weight,wx.EXPAND)
+        self.line4_sizer.AddSpacer(10) 
+        self.line4_sizer.Add(self.text_Strasse_Adresse,self.right_weight,wx.EXPAND)
+        self.line4_sizer.AddSpacer(10) 
+       
+        self.line5_sizer = wx.BoxSizer(wx.HORIZONTAL)        
+        self.label_T_Plz_Adresse = wx.StaticText(self, -1, label="&Plz/Ort:", name="T_Plz_Adresse")
+        self.text_Plz_Adresse = wx.TextCtrl(self, -1, value="",  style=0, name="Plz_Adresse")
+        self.text_Plz_Adresse.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
+        self.textmap["Plz_Adresse"] = "Plz.ADRESSE"
+        self.text_Ort_Adresse = wx.TextCtrl(self, -1, value="", style=0, name="Ort_Adresse")
+        self.text_Ort_Adresse.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
+        self.textmap["Ort_Adresse"] = "Ort.ADRESSE" 
+        self.line5_sizer.AddSpacer(10) 
+        self.line5_sizer.Add(self.label_T_Plz_Adresse,self.left_weight,wx.EXPAND)
+        self.line5_right = wx.BoxSizer(wx.HORIZONTAL)
+        self.line5_right.Add(self.text_Plz_Adresse,1,wx.EXPAND)
+        self.line5_right.AddSpacer(10) 
+        self.line5_right.Add(self.text_Ort_Adresse,5,wx.EXPAND)
+        self.line5_sizer.AddSpacer(10) 
+        self.line5_sizer.Add(self.line5_right,self.right_weight,wx.EXPAND)
+        self.line5_sizer.AddSpacer(10) 
+        
+        self.line6_sizer = wx.BoxSizer(wx.HORIZONTAL)        
+        self.label_T_Telefon_Adresse = wx.StaticText(self, -1, label="&Telefon:", name="T_Telefon_Adresse")
+        self.text_Telefon_Adresse = wx.TextCtrl(self, -1, value="", style=0, name="Telefon_Adresse")
+        self.text_Telefon_Adresse.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
+        self.textmap["Telefon_Adresse"] = "Telefon.ADRESSE"
+        self.line6_sizer.AddSpacer(10)
+        self.line6_sizer.Add(self.label_T_Telefon_Adresse,self.left_weight,wx.EXPAND)
+        self.line6_sizer.AddSpacer(10) 
+        self.line6_sizer.Add(self.text_Telefon_Adresse,self.right_weight,wx.EXPAND)
+        self.line6_sizer.AddSpacer(10) 
+         
+        self.line7_sizer = wx.BoxSizer(wx.HORIZONTAL)        
+        self.label_T_Tel2 = wx.StaticText(self, -1, label="", name="T_Tel2")
+        self.text_Tel2 = wx.TextCtrl(self, -1, value="",  style=0, name="Tel2")
+        self.text_Tel2.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
+        self.textmap["Tel2"] = "Tel2.ADRESSE"
+        self.line7_sizer.AddSpacer(10)
+        self.line7_sizer.Add(self.label_T_Tel2,self.left_weight,wx.EXPAND)
+        self.line7_sizer.AddSpacer(10) 
+        self.line7_sizer.Add(self.text_Tel2,self.right_weight,wx.EXPAND)
+        self.line7_sizer.AddSpacer(10) 
+         
+        self.line8_sizer = wx.BoxSizer(wx.HORIZONTAL)        
+        self.label_TFax = wx.StaticText(self, -1, label="&Fax:", name="TFax")
+        self.text_Fax = wx.TextCtrl(self, -1, value="", style=0, name="Fax")
+        self.text_Fax.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
+        self.textmap["Fax"] = "Fax.ADRESSE"
+        self.line8_sizer.AddSpacer(10)
+        self.line8_sizer.Add(self.label_TFax,self.left_weight,wx.EXPAND)
+        self.line8_sizer.AddSpacer(10) 
+        self.line8_sizer.Add(self.text_Fax,self.right_weight,wx.EXPAND)
+        self.line8_sizer.AddSpacer(10) 
+         
+        self.line9_sizer = wx.BoxSizer(wx.HORIZONTAL)        
+        self.label_TMail = wx.StaticText(self, -1, label="&E-Mail:",  name="TMail")
+        self.text_Mail = wx.TextCtrl(self, -1, value="", style=0, name="Mail")
+        self.text_Mail.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
+        self.textmap["Mail"] = "Mail.ADRESSE"
+        self.line9_sizer.AddSpacer(10)
+        self.line9_sizer.Add(self.label_TMail,self.left_weight,wx.EXPAND)
+        self.line9_sizer.AddSpacer(10) 
+        self.line9_sizer.Add(self.text_Mail,self.right_weight,wx.EXPAND)
+        self.line9_sizer.AddSpacer(10) 
+        
+        self.line10_sizer = wx.BoxSizer(wx.HORIZONTAL)        
+        self.label_T_StNr = wx.StaticText(self, -1, label="Ste&uerNr:", name="T_StNr")
+        self.text_StNr = wx.TextCtrl(self, -1, value="", style=0, name="StNr")
+        self.text_StNr.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
+        self.textmap["StNr"] = "SteuerNr.ADRESSE"
+        self.line10_sizer.AddSpacer(10)
+        self.line10_sizer.Add(self.label_T_StNr,self.left_weight,wx.EXPAND)
+        self.line10_sizer.AddSpacer(10) 
+        self.line10_sizer.Add(self.text_StNr,self.right_weight,wx.EXPAND)
+        self.line10_sizer.AddSpacer(10) 
+       
+        self.line11_sizer = wx.BoxSizer(wx.HORIZONTAL)        
+        self.label_T_Geb_Adresse = wx.StaticText(self, -1, label="&Geb:", name="T_Geb_Adresse")
+        self.text_Geb_Adresse = wx.TextCtrl(self, -1, value="", style=0, name="Geb_Adresse")
+        self.text_Geb_Adresse.Bind(wx.EVT_KILL_FOCUS, self.On_Adresse_Geb)
+        self.vtextmap["Geb_Adresse"] = "Geburtstag.ADRESSE"
+        self.line11_sizer.AddSpacer(10)
+        self.line11_sizer.Add(self.label_T_Geb_Adresse,self.left_weight,wx.EXPAND)
+        self.line11_right = wx.BoxSizer(wx.HORIZONTAL)
+        self.line11_right.Add(self.text_Geb_Adresse,1,wx.EXPAND)
+        self.line11_right.AddStretchSpacer(5)        
+        self.line11_sizer.AddSpacer(10) 
+        self.line11_sizer.Add(self.line11_right,self.right_weight,wx.EXPAND)
+        self.line11_sizer.AddSpacer(10) 
+ 
+        self.line12_sizer = wx.BoxSizer(wx.HORIZONTAL)        
+        self.button_Merk = wx.Button(self, -1, label="Mer&kmale",  name="Merk")
+        self.Bind(wx.EVT_BUTTON, self.On_Adresse_Merk, self.button_Merk)
+        self.line12_sizer.AddSpacer(10)
+        self.line12_sizer.AddStretchSpacer(self.left_weight)
+        self.line12_right = wx.BoxSizer(wx.HORIZONTAL)
+        self.line12_right.Add(self.button_Merk,1,wx.EXPAND)
+        self.setWx(self.line12_right, [3, 0, 0], [0, 0, 0])        
+        self.line12_sizer.AddSpacer(10) 
+        self.line12_sizer.Add(self.line12_right,self.right_weight,wx.EXPAND)
+        self.line12_sizer.AddSpacer(10) 
+ 
+        self.sizer.AddSpacer(10)
+        self.sizer.Add(self.line1_sizer,1,wx.EXPAND)
+        self.sizer.AddSpacer(10)
+        self.sizer.Add(self.line2_sizer,1,wx.EXPAND)
+        self.sizer.AddSpacer(10)
+        self.sizer.Add(self.line3_sizer,2,wx.EXPAND)
+        self.sizer.AddSpacer(10)
+        self.sizer.Add(self.line4_sizer,1,wx.EXPAND)
+        self.sizer.AddSpacer(10)
+        self.sizer.Add(self.line5_sizer,1,wx.EXPAND)
+        self.sizer.AddSpacer(10)
+        self.sizer.Add(self.line6_sizer,1,wx.EXPAND)
+        self.sizer.AddSpacer(10)
+        self.sizer.Add(self.line7_sizer,1,wx.EXPAND)
+        self.sizer.AddSpacer(10)
+        self.sizer.Add(self.line8_sizer,1,wx.EXPAND)
+        self.sizer.AddSpacer(10)
+        self.sizer.Add(self.line9_sizer,1,wx.EXPAND)
+        self.sizer.AddSpacer(10)
+        self.sizer.Add(self.line10_sizer,1,wx.EXPAND)
+        self.sizer.AddSpacer(10)
+        self.sizer.Add(self.line11_sizer,1,wx.EXPAND)
+        self.sizer.AddSpacer(10)
+        self.sizer.Add(self.line12_sizer,1,wx.EXPAND)
+        self.sizer.AddSpacer(10)
+        self.SetSizerAndFit(self.sizer)
+        self.SetAutoLayout(1)
+        #self.sizer.Fit(self)
+        
+    ## initialize wx widgets of dialog  using panel\n
+    # calls setWx to handle Edit and Ok widgets and events
+    def InitWx_panel(self):
         panel = wx.Panel(self, -1)
         self.label_T_Vorname_Adresse = wx.StaticText(panel, -1, label="&Vorname:", pos=(14,28), size=(62,18), name="T_Vorname_Adresse")
         self.text_Vorname_Adresse = wx.TextCtrl(panel, -1, value="", pos=(80,26), size=(260,56), style=wx.TE_MULTILINE|wx.TE_LINEWRAP, name="Vorname_Adresse")
@@ -569,10 +770,10 @@ class AfpDialog_DiAdEin(AfpDialog):
     ## attach to database and populate widgets
     def attach_data(self, Adresse, name = None):
         self.new = Adresse.is_new()     
+        AfpDialog.attach_data(self, Adresse, self.new)
         if name: 
             self.text_Name_Adresse.SetValue(name)
             self.changed_text.append(self.text_Name_Adresse.GetName())
-        AfpDialog.attach_data(self, Adresse, self.new)
     ## execution in case the OK button ist hit (overwritten from AfpDialog)
     def execute_Ok(self):
         self.store_database()
@@ -646,6 +847,8 @@ class AfpDialog_DiAdEin(AfpDialog):
     ## Eventhandler BUTTON - invoke dialog to change attributes
     def On_Adresse_Merk(self,event):
         if self.debug: print "Event handler `On_Adresse_Merk'"
+        #print "AfpDialog_DiAdEin.On_Adresse_Merk:", self.GetSize()
+        #return
         if self.new: self.store_database()
         changed = AfpLoad_DiAdEin_SubMrk(self.data)
         if changed:      
