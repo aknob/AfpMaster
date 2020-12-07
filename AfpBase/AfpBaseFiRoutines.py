@@ -46,6 +46,31 @@ def AfpFinance_getNameFromKNr(mysql, KNr, rev=False):
             return row[0] + " " + row[1]
     else:
         return "Kein Adresseintrag für KundenNr ".decode("UTF-8") + Afp_toString(KNr)
+
+## add tax to a given value
+# @param globals - global variables, including tax values
+# @param netto - value where tax has to be added
+# @param halftax - if given, flag if half tax rate has to be used, at the moment: V,F -full rate, H- half rate
+def AfpFinance_addTax(globals, netto,  halftax=None):
+    if halftax:
+        rate = globals.get_value("half-tax")
+    else:
+        rate = globals.get_value("standard-tax")
+    if not rate: rate = 19
+    percent = netto/100.0
+    return (100.0 + rate) *percent
+## subtract tax from a given value
+# @param globals - global variables, including tax values
+# @param brutto - value where tax has to be sbstracted
+# @param halftax - if given, flag if half tax rate has to be used, at the moment: V,F -full rate, H- half rate
+def AfpFinance_stripTax(globals, brutto,  halftax=None):
+    if halftax:
+        rate = globals.get_value("half-tax")
+    else:
+        rate = globals.get_value("standard-tax")
+    if not rate: rate = 19
+    percent = brutto/(100.0 + rate)
+    return 100.0 *percent
     
 ##class for payment in afp-modules
 class AfpZahlung(object):
@@ -53,12 +78,11 @@ class AfpZahlung(object):
     # if avaulable attach modul to record financial transactions
     # @param data - SelectionList where payment is due to - this input is mandatory
     # @param multi - if given, additional entries will be retrieved from database with identic values in this column(s)
-    # @param debug - flag for debug information
-    def  __init__(self, data , multi = None, debug = False):
+    def  __init__(self, data , multi = None):
         self.globals = data.get_globals()
         self.mysql = self.globals.get_mysql()
         self.moduls = {}
-        self.debug = debug
+        self.debug = data.is_debug()
         self.amount = []
         self.partial = []
         self.balance = []
@@ -67,7 +91,6 @@ class AfpZahlung(object):
         self.finance = None
         self.auszug = None
         self.datum = self.globals.today()
-        self.ausgang = False
         self.selected_list = [data]
         self.append_payment_data(data)
         if multi:
@@ -202,7 +225,7 @@ class AfpZahlung(object):
                 if modul:
                     sellist = modul.AfpCharter(self.globals, nr, None, self.debug)
             elif tablename == "RECHNG":
-                sellist = AfpRechnung(self.globals, nr, self.debug)
+                sellist = AfpCommonInvoice(self.globals, nr, self.debug)
             elif tablename == "ANMELD":
                 #modul = self.get_modul("AfpTourist.AfpToRoutines")
                 modul = self.get_modul("AfpEvent.AfpEvRoutines")
@@ -298,7 +321,7 @@ class AfpZahlung(object):
         #print "AfpZahlung.get_display_list:", self.selected_list
         liste = []
         for entry in self.selected_list:
-            liste.append(entry.get_listname()[:2] + ": " + entry.line())
+            liste.append(entry.get_listname()[:4] + ": " + entry.line())
         return liste
     ## distributes the given payment to all selected data entries \n
     # should only be called once, when all data has been gathered
@@ -359,7 +382,7 @@ class AfpZahlung(object):
         if self.finance: self.finance.store()
             
 ## common invoice base class (outgoing)
-class AfpRechnung(AfpSelectionList):
+class AfpCommonInvoice(AfpPaymentList):
     ## initialise a invoice base class
     # @param globals - global values including the mysql connection - this input is mandatory
     # @param RechNr - if given, data will be retrieved this database entry
@@ -367,7 +390,7 @@ class AfpRechnung(AfpSelectionList):
     # @param complete - flag if data from all tables should be retrieved during initialisation \n
     # RechNr has to be supplied,  otherwise a new, clean object is created
     def  __init__(self, globals, RechNr = None, debug = False, complete = False):
-        AfpSelectionList.__init__(self, globals, "Rechnung", debug)
+        AfpPaymentList.__init__(self, globals, "Rechnung", debug)
         self.debug = debug
         self.new = False
         self.mainindex = "RechNr"
@@ -384,11 +407,16 @@ class AfpRechnung(AfpSelectionList):
         #  self.selects[name of selection]  [tablename,, select criteria, optional: unique fieldname]
         self.selects["ADRESSE"] = [ "ADRESSE","KundenNr = KundenNr.RECHNG"] 
         self.selects["FAHRTEN"] = [ "FAHRTEN","RechNr = RechNr.RECHNG"] 
+        #self.selects["Original"] = [ Typ.RECHNG,"RechNr = TypNr.RECHNG"] 
         if complete: self.create_selections()
-        if self.debug: print "AfpRechnung Konstruktor, RechNr:", self.mainvalue
+        # set payment related data
+        payment_values = {"cancel":"Zustand",  "cancel_value":"Storno", "price":"ZahlBetrag,Betrag", "text":"Bem"}
+        self.set_payment_data(payment_values)
+
+        if self.debug: print "AfpCommonInvoice Konstruktor, RechNr:", self.mainvalue
     ## destructor
     def __del__(self):    
-        if self.debug: print "AfpRechnung Destruktor"
+        if self.debug: print "AfpCommonInvoice Destruktor"
         #AfpSelectionList.__del__(self) 
     ## clear current SelectionList to behave as a newly created List 
     # @param KundenNr - KundenNr of newly selected adress, == None if address is kept   
@@ -412,13 +440,27 @@ class AfpRechnung(AfpSelectionList):
             self.set_value("Name", self.get_name(True))
     ## one line to hold all relevant values of this invoice to be displayed 
     def line(self):
+        betrag = self.get_value("Betrag")
+        if self.get_value("ZahlBetrag"):
+            betrag = self.get_value("ZahlBetrag")
         zeile = self.get_string_value("RechNr").rjust(8) + " " + self.get_string_value("Datum") + " " + self.get_string_value("Bem") + " " 
-        zeile += self.get_string_value("Zahlbetrag").rjust(10) + " " + self.get_string_value("Zahlung").rjust(10)
+        zeile += Afp_toString(betrag).rjust(10)  + " " + self.get_string_value("Zahlung").rjust(10)
         return zeile 
     ## switch 'Zustand' from open (offen) to payed (bezahlt) if necessary
     def set_zustand(self):
         if self.get_value("Zustand") == "offen" and self.get_value("Zahlung") >= self.get_value("ZahlBetrag"):
             self.set_value("Zustand","bezahlt")
+    ## routine to retrieve payment data from SelectionList \n
+    #  overwritten, from AfpSelectionList
+    def get_payment_values(self):
+        betrag = self.get_value("Betrag")
+        if self.get_value("ZahlBetrag"):
+            betrag = self.get_value("ZahlBetrag")
+        zahlung = self.get_value("Zahlung")
+        if betrag is None: betrag = 0.0
+        if zahlung is None: zahlung = 0.0
+        print "AfpCommonInvoice.get_payment_values:", betrag, zahlung
+        return betrag, zahlung, self.get_value("ZahlDat")
     ## set internal payment values
     # @param payment - amount of payment
     # @param datum - date when last payment has been done
@@ -436,5 +478,78 @@ class AfpRechnung(AfpSelectionList):
         if not paymentdata["Gegenkonto"]:
             paymentdata["Gegenkonto"]  = Afp_getIndividualAccount(self.get_mysql(), self.get_value("KundenNr"))
         paymentdata["GktName"] = self.get_name(True) 
-        print "AfpRechnung.add_payment_data:",paymentdata
+        print "AfpCommonInvoice.add_payment_data:",paymentdata
+        return paymentdata
+
+## common invoice base class (incoming)
+class AfpObligation(AfpPaymentList):
+    ## initialise a invoice base class
+    # @param globals - global values including the mysql connection - this input is mandatory
+    # @param RechNr - if given, data will be retrieved this database entry
+    # @param debug - flag for debug information
+    # @param complete - flag if data from all tables should be retrieved during initialisation \n
+    # RechNr has to be supplied,  otherwise a new, clean object is created
+    def  __init__(self, globals, RechNr = None, debug = False, complete = False):
+        AfpPaymentList.__init__(self, globals, "Verbindlichkeit", debug)
+        self.debug = debug
+        self.new = False
+        self.mainindex = "RechNr"
+        self.mainvalue = ""
+        self.spezial_bez = []
+        if RechNr:
+            self.mainvalue = Afp_toString(RechNr)
+        else:
+            self.new = True
+        self.mainselection = "VERBIND"
+        self.set_main_selects_entry()
+        if not self.mainselection in self.selections:
+            self.create_selection(self.mainselection)   
+        #  self.selects[name of selection]  [tablename,, select criteria, optional: unique fieldname]
+        self.selects["ADRESSE"] = [ "ADRESSE","KundenNr = KundenNr.VERBIND"] 
+        if complete: self.create_selections()
+        # set payment related data
+        payment_values = {"outgoing":True, "cancel":"Zustand",  "cancel_value":"Storno", "price":"ZahlBetrag,Betrag", "text":"Bem"}
+        self.set_payment_data(payment_values)
+        if self.debug: print "AfpObligation Konstruktor, RechNr:", self.mainvalue
+    ## destructor
+    def __del__(self):    
+        if self.debug: print "AfpObligation Destruktor"
+    ## clear current SelectionList to behave as a newly created List 
+    # @param KundenNr - KundenNr of newly seelected adress, == None if address is kept   
+    def set_new(self, KundenNr):
+        self.new = True
+        data = {}
+        keep = []
+        if KundenNr:
+            data["KundenNr"] = KundenNr
+        else:
+            data["KundenNr"] = self.get_value("KundenNr")
+            keep.append("ADRESSE")
+        data["Zustand"] = "offen"
+        data["Datum"] = self.globals.today_string()
+        #print data
+        #print keep
+        self.clear_selections(keep)
+        self.set_data_values(data,"VERBIND")
+        if KundenNr:
+            self.create_selection("ADRESSE", False)
+   ## switch 'Zustand' from open (offen) to payed (bezahlt) if necessary
+    def set_zustand(self):
+        if self.get_value("Zustand") == "offen" and self.get_value("Zahlung") >= self.get_value("ZahlBetrag"):
+            self.set_value("Zustand","bezahlt")
+    ## one line to hold all relevant values of this invoice to be displayed 
+    def line(self):
+        betrag, zahlung, dummy = self.get_payment_values()
+        zeile = self.get_string_value("RechNr").rjust(8) + " " + self.get_string_value("Datum") + " " + self.get_string_value("Bem") + " " 
+        zeile += Afp_toString(betrag).rjust(10) + " " + Afp_toString(zahlung).rjust(10)
+        return zeile 
+    ## extract payment relevant data from SelectionList for 'Finance' modul, overwritten from AfpSelectionList
+    # has to return the account number this payment has to be charged ("Gegenkonto")
+    # @param paymentdata - payment data dictionary to be modified and returned
+    def add_payment_data(self, paymentdata):
+        paymentdata["Gegenkonto"] = self.get_value("Creditor") 
+        if not paymentdata["Gegenkonto"]:
+            paymentdata["Gegenkonto"]  = Afp_getIndividualAccount(self.get_mysql(), self.get_value("KundenNr"))
+        paymentdata["GktName"] = self.get_name(True) 
+        print "AfpObligation.add_payment_data:",paymentdata
         return paymentdata

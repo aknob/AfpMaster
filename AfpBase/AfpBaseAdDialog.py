@@ -49,7 +49,7 @@ from AfpBase.AfpBaseAdRoutines import *
 # @param client - SelectionList where file should be added to archive
 # @param text - text to be displayed in header and default for 'Gruppe' in archive 
 # @param fixed - dictionary for fixed entries in archive 
-# @param changeable - dictionary for changeable entries for arvhive
+# @param changeable - dictionary for changeable entries for archive
 # - will be written from the back: last to 'Bem', second last to 'Gruppe', ..'Typ', .. 'Art';
 # - if 'datum' is found in a entry, this one is written to 'Datum'
 def AfpAdresse_addFileToArchiv(client, text = "Archiveintrag", fixed = None, changeable = None):

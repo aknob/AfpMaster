@@ -42,7 +42,7 @@ from AfpBase.AfpDatabase import *
 from AfpBase.AfpDatabase.AfpSQL import AfpSQL
 from AfpBase.AfpDatabase.AfpSuperbase import AfpSuperbase
 from AfpBase.AfpBaseRoutines import Afp_archivName, Afp_startFile, Afp_getBirthdayList, Afp_orderSelectionLists
-from AfpBase.AfpBaseDialog import AfpReq_Info, AfpReq_Selection, AfpReq_Question, AfpReq_Text, AfpReq_Date, AfpDialog
+from AfpBase.AfpBaseDialog import AfpReq_Info, AfpReq_Question, AfpReq_Text, AfpReq_Selection, AfpReq_Date, AfpReq_MultiLine,  AfpReq_FileName, AfpDialog
 from AfpBase.AfpBaseDialogCommon import AfpLoad_DiReport
 from AfpBase.AfpBaseScreen import AfpScreen, Afp_loadScreen
 from AfpBase.AfpBaseAdRoutines import AfpAdresse
@@ -123,7 +123,8 @@ class AfpEvVerein(AfpEvent):
                         if not nr in leftover and not nr in cancelled:
                             leftover.append(nr)
                 client.store()
-                client.delete_from_event()
+            self.add_client_count(-len(rows))
+            self.store()
         return leftover
         
     ## reset payment for new financial period
@@ -154,6 +155,18 @@ class AfpEvVerein(AfpEvent):
         if sorttyp:
             clients = Afp_orderSelectionLists(clients, sorttyp)
         return clients  
+    
+    ## generate identification number (membership number for "Verein")  
+    def generate_IdNr(self):
+        # ToDo: for different 'Sparten' in 'Verein' look for already given id
+        #self.lock_data("EVENT")
+        self.lock_data()
+        IdNr = self.get_value("RechNr") + 1
+        self.set_value("RechNr", IdNr)
+        #tag = self.get_value("Tag.Verein")
+        #Extern = AfpExternNr(self.get_globals(),"Count", tag, self.debug)
+        #IdNr = Extern.get_number()
+        return IdNr
 
     ## decide whether this event may holds a route insted of the location
     # - overwritten from AfpEvent
@@ -168,6 +181,16 @@ class AfpEvVerein(AfpEvent):
     # @param ANr - data will be retrieved for this database entry
     def get_client(self, ANr = None):
         return AfpEvMember(self.globals, ANr)
+    ## generate invoice number
+    # overwritten from AfpEvent
+    # @param Nr - if given, this counter will be used to generate RechNr-string
+    def generate_RechNr(self, Nr=None):
+        if Nr is None: Nr = self.generate_IdNr()
+        deci = self.globals.get_value("decimals-in-rechnr","Event")
+        if not deci: deci = 2
+        RechNr = self.get_string_value("Kennung") + "-" + Afp_toIntString(Nr, deci)
+        print "AfpEvVerein.generate_RechNr RNr:", RechNr
+        return RechNr
 
 ## baseclass for member handling         
 class AfpEvMember(AfpEvClient):
@@ -236,7 +259,22 @@ class AfpEvMember(AfpEvClient):
         for row in rows:
             ex += row[0]
         return preis + ex, ex
-        
+
+    ## set family member price
+    def set_family_price(self):
+        preis = None
+        nr = None
+        datas = self.get_value_rows("Preise")
+        for data in datas:
+            if data[2] == "Familienmitglied":
+                nr = data[1]
+                preis = data[5]
+                break
+        if not preis is None:
+            self.set_value("PreisNr", nr)
+            self.set_value("Preis", preis)
+            self.set_value("ProvPreis", preis)
+            self.delete_selection("Preis")
     ## get attributs for a year
     # @param attribut - name of attribut to be extracted
     # @param period - if given, year for which the attributes have to be extracted, default: actuel year
@@ -281,7 +319,7 @@ class AfpEvMember(AfpEvClient):
         else:
             return sum
    ## generate identification number (membership number for "Verein")  
-    def generate_IdNr(self):
+    def generate_IdNr_depricated(self):
         IdNr = None
         # ToDo: for different 'Sparten' in 'Verein' look for already given id
         IdNr = self.get_next_RechNr_value()
@@ -290,7 +328,7 @@ class AfpEvMember(AfpEvClient):
         #IdNr = Extern.get_number()
         return IdNr
     ## return field to be increased to generate 'RechNr'  
-    def get_RechNr_name(self):
+    def get_RechNr_name_depricated(self):
         return "RechNr.EVENT"
     ## check if  the name of the price holds string
     # @param check - string to be checked
@@ -299,7 +337,12 @@ class AfpEvMember(AfpEvClient):
             return check in self.get_value("Bezeichnung.Preis")  
         else:
             return False
-
+            
+    ## generate Event object for this client
+    # overwritten from AfpEvClient
+    def get_event(self):
+        ENr = self.get_value("EventNr.EVENT")
+        return AfpEvVerein(self.get_globals(), ENr)
     ## return specific identification string to be used in dialogs \n
     # - overwritten from AfpSelectionList
     def get_identification_string(self):
@@ -1115,7 +1158,9 @@ class AfpDialog_EvMemberEdit(AfpDialog_EvClientEdit):
     def __init__(self, *args, **kw): 
         super(AfpDialog_EvMemberEdit, self).__init__(self, *args, **kw)
         self.modifyWx()
+        self.extra_provision_possible = False
         self.storno = None
+        self.stornodata = None
         self.stornofile = None
         self.initial_price = None
         self.initial_price_factor = None
@@ -1141,34 +1186,47 @@ class AfpDialog_EvMemberEdit(AfpDialog_EvClientEdit):
     # @param new - flag if new database entry has to be created 
     # @param editable - flag if dialogentries are editable when dialog pops up
     def attach_data(self, data, new = False, editable = False):
-        self.check_family(data)
         routenr = data.get_value("Route.EVENT")
         self.route = AfpEvRoute(data.get_globals(), routenr, None, self.debug, True)
         super(AfpDialog_EvMemberEdit, self).attach_data(data, new, editable)
+        self.check_family()
 
     ## read values from dialog and invoke writing into data         
     def store_data(self):
         if self.storno:
             # only set the cancel stamp here
             self.zustand = "PreStorno"
-            self.data.set_value("InfoDat", self.storno)
-            self.data.set_value("Info",  Afp_toString(self.storno) + "  Abmeldung")
+            self.data = self.set_preStorno(self.data)
             if self.stornofile:
                 ext = self.stornofile.split(".")[-1]
                 fname = "AfpVerein_Abmeldung_" + self.data.get_string_value("AnmeldNr") + "." + ext
-                Afp_copyFile(self.stornofile, Afp_addPath(self.globals.get_value("archivdir"), fname))
+                Afp_copyFile(self.stornofile, Afp_addPath(self.data.get_globals().get_value("archivdir"), fname))
                 self.data.add_to_Archiv({"Gruppe": "Abmeldung","Bem": Afp_toString(self.storno), "Extern": fname})
+            if self.stornodata:
+                for i in range(len(self.stornodata)):
+                    self.stornodata[i] = self.set_preStorno(self.stornodata[i])
+                if self.sameRechIndex is None: # only needed to invoke possible sameRechData storage
+                    self.sameRechIndex = 0
         super(AfpDialog_EvMemberEdit, self).store_data()
         #if self.storno:
-            #self.data.delete_from_event()
+            #self.event.add_client_count(-1)
+            
+    ## set 'PreStorno' values in data
+    # @param data - data object, where values have to be set
+    def set_preStorno(self, data):
+        data.set_value("Zustand","PreStorno")
+        data.set_value("InfoDat", self.storno)
+        data.set_value("Info",  Afp_toString(self.storno) + "  Abmeldung")
+        return data
         
     ## complete data before storing
     # @param data - data to be completed
-    def complete_data(self, data):
-        if not self.data.get_value("IdNr"):
-            IdNr= self.data.generate_IdNr() 
+    def complete_data(self, data): 
+        print "AfpDialog_EvMemberEdit.complete_data:", data
+        if not "IdNr" in data:
+            IdNr= self.event.generate_IdNr() 
             data["IdNr"] = IdNr 
-        if self.data.get_value("Zahlung") is None and "Preis" in data and data["Preis"] > 0.0:
+        if "Preis" in data and data["Preis"] > 0.0:
             data["Zahlung"] = 0.0
         super(AfpDialog_EvMemberEdit, self).complete_data(data)
         return data
@@ -1226,15 +1284,17 @@ class AfpDialog_EvMemberEdit(AfpDialog_EvClientEdit):
             sel.set_data_values(changed_data, index)
             
     ## check if 'family' id allowed for 'verein'-member
-    # @param data - if given, data to be checked, otherwise self.data is used
-    def check_family(self, data = None):
-        if not data:
-            data = self.data
-        if  data:
-            if self.check_Mehrfach.GetValue() or (data.pricename_holds("Familie") and not data.pricename_holds("Familien")):
-                self.check_Mehrfach.Enable(True)
-            else:
-                self.check_Mehrfach.Enable(False)
+    def check_family(self):
+        enable = False
+        if  self.data:
+            #print "AfpDialog_EvMemberEdit.check_family:", self.data.pricename_holds("Familie"), self.data.pricename_holds("Familien")
+            if self.data.pricename_holds("Familie") and not self.data.pricename_holds("Familien"):
+                enable = True
+            elif self.sameRechData and self.sameRechData[0]:
+                #print "AfpDialog_EvMemberEdit.check_family RechNr:", self.sameRechData[0] ,  self.sameRechData[0].pricename_holds("Familie"), self.sameRechData[0].pricename_holds("Familien")
+                if self.sameRechData[0].pricename_holds("Familie") and not self.sameRechData[0].pricename_holds("Familien"):
+                    enable = True
+        self.check_Mehrfach.Enable(enable)
 
     ## Eventhandler BUTTON - graphic pick for dates, 
     # - not applicable for 'Members' 
@@ -1278,20 +1338,42 @@ class AfpDialog_EvMemberEdit(AfpDialog_EvClientEdit):
             dat = self.data.get_string_value("InfoDat")
             Ok = AfpReq_Question("Abmeldung für " + name + " liegt vor,".decode("UTF-8"),"Austritt zum " + dat + " umsetzten?", "Austritt")
             if Ok:
-                print "AfpDialog_EvMemberEdit.On_Storno abmelden nicht implementiert!"
+                print "AfpDialog_EvMemberEdit.On_Storno direkter Austritt nicht implementiert!"
         else:
             dat = "31.12." + Afp_toString(self.data.get_globals().today().year)
             text1 = self.data.get_name() +  " von '" + self.data.get_value("Bez.EVENT") + "' der " + self.data.get_value("Name.Veranstalter") + " abmelden?"
             dir = ""            
-            fname, Ok = AfpReq_FileName(dir, text1, "Kündigungsschreiben auswählen!".decode("UTF-8") , True)
+            fname, Ok = AfpReq_FileName(dir, text1, "*.pdf" , True)
             if Ok and fname:
-                text2 = "Die Kündigung wird wirksam zum:".decode("UTF-8")
-                dat, Ok = AfpReq_Date(text1, text2, dat, "Abmeldung")
+                if self.sameRechNr:
+                    liste = [["Austrittsdatum",dat]]
+                    if not self.sameRechData:
+                        self.sameRechData = []
+                        for rnr in self.sameRechNr:
+                            self.sameRechData.append(self.get_client(rnr))
+                    datas = []
+                    for data in self.sameRechData:
+                        if data.get_value() == self.data.get_value(): continue
+                        liste.append(data.get_name())
+                        datas.append(data)
+                    text2 = "Bitte Austrittsdatum eingeben und weitere austretende Mitglieder anwählen!".decode("UTF-8")
+                    values = AfpReq_MultiLine(text1, text2, ["Text","Check"], liste, "Abmeldungen")
+                    if values:
+                        dat = Afp_ChDatum(values[0])
+                        self.stornodata = []
+                        for i in range (1,len(values)):
+                            if values[i]: self.stornodata.append(datas[i-1])
+                    else:
+                        Ok = False
+                else:
+                    text2 = "Die Kündigung wird wirksam zum:".decode("UTF-8")
+                    dat, Ok = AfpReq_Date(text1, text2, dat, "Abmeldung")
             if Ok and dat and fname:
                 self.storno = Afp_fromString(dat)
                 self.stornofile = fname
             else:
                 self.storno = None
+        #print "AfpDialog_EvMemberEdit.On_Storno:", self.storno, self.stornodata, self.stornofile
         self.Set_Editable(True)
         event.Skip()
  
@@ -1300,12 +1382,12 @@ class AfpDialog_EvMemberEdit(AfpDialog_EvClientEdit):
     # @param event - event which initiated this action   
     def On_Anmeld_Neu(self,event):
         if self.debug: print "AfpDialog_EvMemberEdit Event handler `On_Anmeld_Neu'"
-        new = self.new
         super(AfpDialog_EvMemberEdit, self).On_Anmeld_Neu()
-        if new:
-            self.data.set_value("PreisNr", 12)
+        if self.check_Mehrfach.GetValue():
+            self.data.set_family_price()
             self.Pop_Preise()
             self.check_family()
+            self. Populate()
         event.Skip()
     ## get multiflags accorfing to multi checkbox
     # overwritten from AfpEvDialog

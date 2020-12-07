@@ -75,7 +75,7 @@ def AfpFinance_SEPActTagInterpreter(globals, tags, datstring, konto, transfer, g
 # @param credit - flag if interpreter is used for a creditor payment, defaul: False
 def AfpFinance_SEPATagInterpreter(globals, tags, datstring, konto, transfer, gkonto, beleg, auszug,  flavour, credit = False):
     mysql = globals.get_mysql()
-    print "AfpFinance_SEPATagInterpreter:", datstring, konto, transfer, gkonto, auszug, flavour
+    #print "AfpFinance_SEPATagInterpreter:", datstring, konto, transfer, gkonto, auszug, flavour
     datum = Afp_fromString(datstring)
     data = AfpFinance(globals)
     is_transaction = False
@@ -133,7 +133,7 @@ def AfpFinance_SEPATagInterpreter(globals, tags, datstring, konto, transfer, gko
                 accdata = {"Datum":datum, "BelegDatum":datum, "Konto": transfer, "Gegenkonto":gkonto, "Art":"Zahlung intern", "Beleg":beleg}
             elif typ == "CdtTrfTxInf":
                 is_transaction = True
-                accdata = {"Datum":datum, "BelegDatum":datum, "Konto": gkonto, "Gegenkonto":transfer, "Art":"Zahlung intern", "Beleg":beleg}
+                accdata = {"Datum":datum, "BelegDatum":datum, "Konto": gkonto, "Gegenkonto":transfer, "Art":"Zahlung intern", "Beleg":beleg, "Reference":auszug}
             elif typ == "GrpHdr":
                 is_header = True
                 if credit:
@@ -178,7 +178,7 @@ def AfpFinance_specialXMLTag(mysql, typ, tag, value, accdata):
         KNr = AfpAdresse_getKNrFromSingleName(mysql, name)
         if KNr:
              accdata["KundenNr"] = KNr
-        print "AfpFinance_specialXMLTag:", tag, value, KNr
+        #print "AfpFinance_specialXMLTag:", tag, value, KNr
     return accdata
     
 ## set period from input data
@@ -1906,82 +1906,4 @@ class AfpFinanceExport(AfpSelectionList):
             self.information = self.get_globals().get_value(vname + ".info", "Finance")
         Export.write_to_file(fieldlist, self.information)
 
-## common invoice base class (incoming)
-class AfpVerbindlichkeit(AfpSelectionList):
-    ## initialise a invoice base class
-    # @param globals - global values including the mysql connection - this input is mandatory
-    # @param RechNr - if given, data will be retrieved this database entry
-    # @param debug - flag for debug information
-    # @param complete - flag if data from all tables should be retrieved during initialisation \n
-    # RechNr has to be supplied,  otherwise a new, clean object is created
-    def  __init__(self, globals, RechNr = None, debug = False, complete = False):
-        AfpSelectionList.__init__(self, globals, "Verbindlichkeit", debug)
-        self.debug = debug
-        self.new = False
-        self.mainindex = "RechNr"
-        self.mainvalue = ""
-        self.spezial_bez = []
-        if RechNr:
-            self.mainvalue = Afp_toString(RechNr)
-        else:
-            self.new = True
-        self.mainselection = "VERBIND"
-        self.set_main_selects_entry()
-        if not self.mainselection in self.selections:
-            self.create_selection(self.mainselection)   
-        #  self.selects[name of selection]  [tablename,, select criteria, optional: unique fieldname]
-        self.selects["ADRESSE"] = [ "ADRESSE","KundenNr = KundenNr.VERBIND"] 
-        if complete: self.create_selections()
-        if self.debug: print "AfpVerbindlichkeit Konstruktor, RechNr:", self.mainvalue
-    ## destructor
-    def __del__(self):    
-        if self.debug: print "AfpVerbindlichkeit Destruktor"
-        #AfpSelectionList.__del__(self) 
-    ## clear current SelectionList to behave as a newly created List 
-    # @param KundenNr - KundenNr of newly seelected adress, == None if address is kept   
-    def set_new(self, KundenNr):
-        self.new = True
-        data = {}
-        keep = []
-        if KundenNr:
-            data["KundenNr"] = KundenNr
-        else:
-            data["KundenNr"] = self.get_value("KundenNr")
-            keep.append("ADRESSE")
-        data["Zustand"] = "offen"
-        data["Datum"] = self.globals.today_string()
-        #print data
-        #print keep
-        self.clear_selections(keep)
-        self.set_data_values(data,"VERBIND")
-        if KundenNr:
-            self.create_selection("ADRESSE", False)
-            self.set_value("Name", self.get_name(True))
-    ## one line to hold all relevant values of this invoice to be displayed 
-    def line(self):
-        zeile = self.get_string_value("RechNr").rjust(8) + " " + self.get_string_value("Datum") + " " + self.get_string_value("Bem") + " " 
-        zeile += self.get_string_value("Zahlbetrag").rjust(10) + " " + self.get_string_value("Zahlung").rjust(10)
-        return zeile 
-    ## switch 'Zustand' from open (offen) to payed (bezahlt) if necessary
-    def set_zustand(self):
-        if self.get_value("Zustand") == "offen" and self.get_value("Zahlung") >= self.get_value("ZahlBetrag"):
-            self.set_value("Zustand","bezahlt")
-    ## set internal payment values
-    # @param payment - amount of payment
-    # @param datum - date when last payment has been done
-    def set_payment_values(self, payment, datum):
-        AfpSelectionList.set_payment_values(self, payment, datum)
-        self.set_zustand()
-        if self.get_value("Typ") and self.get_value("Typ")  == "FAHRTEN":
-            self.set_value("Zahlung.FAHRTEN", payment)
-            self.set_value("ZahlDat.FAHRTEN", datum)
-    ## extract payment relevant data from SelectionList for 'Finance' modul, overwritten from AfpSelectionList
-    # has to return the account number this payment has to be charged ("Gegenkonto")
-    # @param paymentdata - payment data dictionary to be modified and returned
-    def add_payment_data(self, paymentdata):
-        paymentdata["Gegenkonto"] = self.get_value("Creditor") 
-        if not paymentdata["Gegenkonto"]:
-            paymentdata["Gegenkonto"]  = Afp_getIndividualAccount(self.get_mysql(), self.get_value("KundenNr"))
-        paymentdata["GktName"] = self.get_name(True) 
-        print "AfpVerbindlichkeit.add_payment_data:",paymentdata
-        return paymentdata
+

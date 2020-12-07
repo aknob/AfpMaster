@@ -78,7 +78,7 @@ def AfpAdresse_getOrderlistOfTable(mysql, index, datei = "ADRESSE"):
 def AfpAdresse_getKNrFromSingleName(mysql, name):
     KNr = None
     rows = mysql.execute("SELECT KundenNr FROM ADRESSE WHERE CONCAT(Vorname,\" \",Name) = \"" + name + "\";")
-    print "AfpAdresse_getKNrFromSingleName:", name, rows
+    #print "AfpAdresse_getKNrFromSingleName:", name, rows
     if rows and len(rows) == 1:
         KNr = rows[0][0]
     return KNr

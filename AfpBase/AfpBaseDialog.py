@@ -47,7 +47,7 @@ import wx.calendar
 import AfpUtilities.AfpBaseUtilities
 from AfpUtilities.AfpBaseUtilities import Afp_isTime, Afp_isDate, Afp_genDate, Afp_isNumeric
 import AfpUtilities.AfpStringUtilities
-from AfpUtilities.AfpStringUtilities import Afp_addRootpath, Afp_isString, Afp_toString, Afp_toInternDateString, Afp_fromString, Afp_ChDatum, Afp_split
+from AfpUtilities.AfpStringUtilities import Afp_addRootpath, Afp_isString, Afp_toString, Afp_toInternDateString, Afp_fromString, Afp_ChDatum, Afp_split, Afp_getFuncVar
 
 # routines needded for communication with wx
 #
@@ -727,6 +727,7 @@ class AfpDialog(wx.Dialog):
         self.labelmap = {}
         self.choicemap = {}
         self.combomap = {}
+        self.checkmap = {}   
         self.listmap = []
         self.gridmap = []
         self.keepeditable = []
@@ -844,6 +845,7 @@ class AfpDialog(wx.Dialog):
         self.Pop_label()
         self.Pop_choice()
         self.Pop_combo()
+        self.Pop_check()
         self.Pop_lists()
         self.Pop_grids()
     ## population routine for textboxes \n
@@ -854,7 +856,7 @@ class AfpDialog(wx.Dialog):
         for entry in self.textmap:
             TextBox = self.FindWindowByName(entry)
             value = self.data.get_tagged_value(self.textmap[entry])
-            #print "AfpDialog.Pop_text:", self.textmap[entry], "=", value
+            #print "AfpDialog.Pop_text:", entry, self.textmap[entry], "=", value
             TextBox.SetValue(value)
         for entry in self.vtextmap:
             TextBox = self.FindWindowByName(entry)
@@ -878,7 +880,7 @@ class AfpDialog(wx.Dialog):
     # covention: choicemap holds the entryname to retrieve value from self.data
     def Pop_choice(self):
       for entry in self.choicemap:
-            Choice= self.FindWindowByName(entry)
+            Choice = self.FindWindowByName(entry)
             value = self.data.get_string_value(self.choicemap[entry])
             #print "AfpDialog:Pop_choice:", self.choicemap[entry], "=", value
             Choice.SetStringSelection(value)
@@ -886,10 +888,22 @@ class AfpDialog(wx.Dialog):
     # covention: combomap holds the entryname to retrieve value from self.data
     def Pop_combo(self):
       for entry in self.combomap:
-            Combo= self.FindWindowByName(entry)
+            Combo = self.FindWindowByName(entry)
             value = self.data.get_string_value(self.combomap[entry])
             #print "AfpDialog:Pop_combo", self.combomap[entry], "=", value
             Combo.SetValue(value)
+    ## population routine for ceckboxes
+    # covention: checkmap holds the formula when box is checked
+    # "entryname = value "
+    # the entryname to retrieve value from self.data has to be on the left hand side
+    def Pop_check(self):
+      for entry in self.checkmap:
+            Check = self.FindWindowByName(entry)
+            var, val = Afp_getFuncVar(self.checkmap[entry])
+            value = self.data.get_value(var)
+            val = Afp_fromString(val) 
+            #print "AfpDialog:Pop_check:", var, val, value, val == value, type(val), type(value)
+            Check.SetValue(val == value)
     ## population routine for lists \n
     # covention: listmap holds the name to generate the routinename to be called: \n
     # Pop_'name'()
@@ -966,6 +980,9 @@ class AfpDialog(wx.Dialog):
         for entry in self.combomap:
             Combo = self.FindWindowByName(entry)
             Combo.Enable(ed_flag)
+        for entry in self.checkmap:
+            Check = self.FindWindowByName(entry)
+            Check.Enable(ed_flag)
         for entry in self.listmap:
             list = self.FindWindowByName(entry)
             if ed_flag or entry in self.keepeditable:
@@ -990,8 +1007,13 @@ class AfpDialog(wx.Dialog):
     def On_KillFocus(self,event):
         if self.is_editable():
             object = event.GetEventObject()
-            if object.GetValue():
-                name = object.GetName()
+            name = object.GetName()
+            value = None
+            if name in self.textmap:
+                value = self.data.get_string_value(self.textmap[name])
+            elif name in self.vtextmap:
+                value = self.data.get_string_value(self.vtextmap[name])
+            if (not value and object.GetValue()) or (value != object.GetValue()):
                 if not name in self.changed_text: self.changed_text.append(name)    
     ## Eventhandler CHOICE - handle event of the 'edit','read' or 'quit' choice
     # @param event - event which initiated this action
@@ -1007,10 +1029,10 @@ class AfpDialog(wx.Dialog):
         if self.no_readonly or self.choice_Edit.GetSelection() == 1:
             self.execute_Ok()
             #if self.lock_data and not self.new: self.data.unlock_data() 
-            if self.debug: print "Event handler `On_Button_Ok' save, neu:", self.new,"Ok:",self.Ok 
+            if self.debug: print "Event handler `AfpDialog.On_Button_Ok' save, neu:", self.new,"Ok:",self.Ok 
         else: 
             self.execute_Quit()
-            if self.debug: print "Event handler `On_Button_Ok' quit!"
+            if self.debug: print "Event handler `AfpDialog.On_Button_Ok' quit!"
         event.Skip()
         self.EndModal(wx.ID_OK)
           
@@ -1179,8 +1201,8 @@ class AfpDialog_Auswahl(wx.Dialog):
                 else:
                     if explicit_name: # delayed write
                         if self.sortname == "":
-                            #self.sortname = explicit_name
-                            self.sortname = explicit_sort_name[:-1]
+                            self.sortname = explicit_name # reactivated for "Adresse"
+                            #self.sortname = explicit_sort_name[:-1] # don't know where this 
                             self.valuecol = len(self.col_percents)
                         self.col_labels.append(explicit_name)
                         self.col_percents.append(sum_percent)

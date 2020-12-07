@@ -454,12 +454,24 @@ def Afp_getMaxOfColumn(matrix, col=3):
             if Max is None or row[col] > Max:
                 Max = row[col]
     return Max
-## deep copy of an array (list)
-# @param array - array to be copied
+## deep copy of an array (list), diving recursively into arrays
+# @param array - array to be copied, may be combined 'list' and 'dict'
 def Afp_copyArray(array):
-    new_array = []
-    for entry in array:
-        new_array.append(entry)
+    dict = False
+    if type(array) == dict: 
+        dict = True
+        new_array = {}
+    else:
+        new_array = []
+    for ent in array:
+        if dict: entry = array[ent]
+        else: entry = ent
+        if type(entry) == list or type(entry) == dict: 
+            new_entry = Afp_copyArray(entry)
+        else: 
+            new_entry = entry
+        if dict: new_array[ent] = new_entry
+        else: new_array.append(new_entry)
     return new_array
 ## get an array (list) of dictionary witth two entries per line
 # @param dict - dictionary to be converted

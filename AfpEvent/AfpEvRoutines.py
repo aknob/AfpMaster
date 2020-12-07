@@ -322,6 +322,8 @@ class AfpEvent(AfpSelectionList):
             if sorttyp:
                 clients = Afp_orderSelectionLists(clients, sorttyp)
         return clients
+        
+    # may be overwritten in devired class
             
     ## return specific identification string to be used in dialogs \n
     # - overwritten from AfpSelectionList
@@ -331,13 +333,50 @@ class AfpEvent(AfpSelectionList):
         else:
             return "Veranstaltung (" +  self.get_string_value("Bez") + ") am "  +  self.get_string_value("Beginn") + " in " + self.get_string_value("Name.Ort")
     ## create client data
-    # may be overwritten in devired class
     # @param ANr - if given, data will be retrieved for this database entry
     def get_client(self, ANr = None):
         return AfpEvClient(self.globals, ANr)
+    ## generate invoice number
+    # @param Nr - if given, this counter will be used to generate RechNr-string
+    def generate_RechNr(self, Nr=None):
+        RechNr = None
+        if self.get_value("AgentNr.EVENT"):
+            Extern = AfpExternNr(self.get_globals(),"Monat", None, self.debug)
+            RechNr = Extern.get_number_string()
+        else: 
+            if Nr is None:
+                #self.lock_data("EVENT")
+                self.lock_data()
+                Nr = self.get_value("RechNr") + 1
+                self.set_value("RechNr", Nr)
+            deci = self.globals.get_value("decimals-in-rechnr","Event")
+            if not deci: deci = 2
+            div = 10**deci
+            while Nr/div > 0:  div*10
+            RNr = float(Nr)/div
+            RNr += self.get_value("Kostenst.EVENT")
+            print "AfpEvClient.generate_RechNr RNr:", Kst, Nr, RNr
+            RechNr = Afp_toString(RNr)
+        return RechNr
+    ## add clients to event-counter
+    #@param cnt - number of clients to be added to counter, use negative value for removal
+    def add_client_count(self, cnt = 1):
+        self.set_value("Anmeldungen", self.get_value("Anmeldungen") + cnt) 
+    ## add client to event
+    #@param data - data to be completed by event dependent values
+    def add_client(self, data):
+        print "AfpEvent.add_client:", data
+        #self.lock_data("EVENT")
+        self.lock_data()
+        if not "RechNr" in data:
+            if "IdNr" in data: IdNr = data["IdNr"]
+            else: IdNr = None
+            data["RechNr"]  = self.generate_RechNr(IdNr)
+        self.add_client_count()
+        return data
 
 ## baseclass for client handling         
-class AfpEvClient(AfpSelectionList):
+class AfpEvClient(AfpPaymentList):
     ## initialize AfpEvClient class
     # @param globals - global values including the mysql connection - this input is mandatory
     # @param AnmeldNr - if given and sb == None, data will be retrieved this database entry
@@ -347,7 +386,7 @@ class AfpEvClient(AfpSelectionList):
     # \n
     # either AnmeldNr or sb (superbase) has to be given for initialisation,otherwise a new, clean object is created
     def  __init__(self, globals, AnmeldNr = None, sb = None, debug = None, complete = False):
-        AfpSelectionList.__init__(self, globals, "Client", debug)
+        AfpPaymentList.__init__(self, globals, "Client", debug)
         if debug: self.debug = debug
         else: self.debug = globals.is_debug()
         self.finance = None
@@ -400,14 +439,14 @@ class AfpEvClient(AfpSelectionList):
             if self.finance_modul:
                 self.finance = self.finance_modul.AfpFinanceTransactions(self.globals)
         #print "AfpEvClient.finance:", self.finance
+        # set payment related data
+        payment_values = {"payer":"AgentNr,KundenNr", "account":"ErloesKt.EVENT"}
+        self.set_payment_data(payment_values)
         if self.debug: print "AfpEvClient Konstruktor, AnmeldNr:", self.mainvalue
     ## destuctor
     def __del__(self):    
         if self.debug: print "AfpEvClient Destruktor"
         #AfpSelectionList.__del__(self) 
-    ## decide whether this client entry has been cancelled
-    def is_canceled(self):
-        return "Storno" in self.get_value("Zustand")
     ## decide whether payment is possible or not
     def is_payable(self):
         zustand = self.get_string_value("Zustand")
@@ -420,7 +459,7 @@ class AfpEvClient(AfpSelectionList):
         return True
     ## client is connected to a separate invoice which has to be syncronised
     def is_invoice_connected(self):
-        return self.get_RechNr_name() == "RechNr.RECHNG"
+        return self.get_RechNr_name_depricated() == "RechNr.RECHNG"
     ## event is a tourists tour
     def event_is_tour(self):
         art = self.get_value("Art.EVENT")
@@ -513,13 +552,13 @@ class AfpEvClient(AfpSelectionList):
         return None, None
     ## return field to be increased to generate 'RechNr'  
     # may be overwritten in devired class
-    def get_RechNr_name(self):
+    def get_RechNr_name_depricated(self):
         if self.get_value("AgentNr.EVENT"): return "Nummer.ExternNr" 
         else:  return "RechNr.EVENT:Kostenst.EVENT"
         # possibillity to assign extern invoice number
         # return "RechNr.RECHNG"
     ## generate next value for  RechNr
-    def get_next_RechNr_value(self):
+    def get_next_RechNr_value_depricated(self):
         Nr = None
         Nr = self.get_value("IdNr")
         if not Nr:
@@ -541,27 +580,27 @@ class AfpEvClient(AfpSelectionList):
         self.set_value("ProvPreis", extra + price - noprv)
     ## generate invoice number
     # @param Nr - if given, this counter will be used to generate RechNr-string
-    def generate_RechNr(self, Nr=None):
+    def generate_RechNr_depricated(self, Nr=None):
         RechNr = None
         typ = self.get_RechNr_name()
-        if self.debug: print "AfpEvClient.generate_RechNr Typ:",typ
+        if self.debug: print "AfpEvClient.generate_RechNr Typ:", typ
         if "RechNr.EVENT" in typ:
             if Nr is None:
                 Nr = self.get_next_RechNr_value()
             deci = self.globals.get_value("decimals-in-rechnr","Event")
             if not deci: deci = 2
-            div = 10**deci
-            while Nr/div > 0:  div*10
-            RNr = float(Nr)/div
             if "Kostenst.EVENT" in typ:
+                div = 10**deci
+                while Nr/div > 0:  div*10
+                RNr = float(Nr)/div                
                 Kst = self.get_value("Kostenst.EVENT")
                 RNr += Kst 
-                #print "AfpEvClient.generate_RechNr RNr:", Kst, Nr, RNr
+                print "AfpEvClient.generate_RechNr RNr:", typ, Kst, Nr, RNr
                 RechNr = Afp_toString(RNr)
             else:
                 RNr =  Afp_toIntString(Nr, deci)
                 RechNr = self.get_string_value("Kennung.EVENT") + "-" + RNr
-                #print "AfpEvClient.generate_RechNr RNr:", RNr, RechNr
+                print "AfpEvClient.generate_RechNr RNr:", typ, RNr, RechNr, self.get_name()
         elif typ == "Nummer.ExternNr":
             Extern = AfpExternNr(self.get_globals(),"Monat", None, self.debug)
             RechNr = Extern.get_number_string()
@@ -571,7 +610,7 @@ class AfpEvClient(AfpSelectionList):
         return RechNr
     ## count tour entry up or down
     # @param plus - number to be added to event, default: 1
-    def add_to_event(self, plus = 1):
+    def add_to_event_depricated(self, plus = 1):
         if plus != 0:
             event = self.get_selection("EVENT")
             event.lock_data()
@@ -579,11 +618,16 @@ class AfpEvClient(AfpSelectionList):
             cnt = event.get_value("Anmeldungen")
             event.set_value("Anmeldungen", cnt + plus)
             event.store()
+            print "AfpEvClient.add_to_event:", cnt, plus, event.get_value("Anmeldungen")
     ## delete entries from tour
     # @param minus - number to be addeleted from event, default: 1
-    def delete_from_event(self, minus = 1):
+    def delete_from_event_depricated(self, minus = 1):
         if minus != 0:
            self.add_to_event(-minus)
+    ## generate Event object for this client
+    def get_event(self):
+        ENr = self.get_value("EventNr.EVENT")
+        return AfpEvent(self.get_globals(), ENr)
     ## financial transaction will be initated if the appropriate modul is installed
     # @param initial - flag for initial call of transaction (interal payment may be added)
     def execute_financial_transaction(self, initial):
@@ -658,23 +702,26 @@ class AfpEvClient(AfpSelectionList):
         rows = self.get_value_rows("RechNr", "RechNr,Preis,Zahlung,KundenNr,AnmeldNr,EventNr")
         FNr = self.get_value("EventNr")
         ANr = self.get_value("AnmeldNr")
-        liste = [None]
-        sameRechNr = [None]
+        liste = []
+        sameRechNr = []
         preis = 0.0
         zahlung = 0.0
         #print "AfpEvClient.get_sameRechNr:", rows
         for row in rows:
             if row[5] == FNr:
-                name = AfpAdresse(self.get_globals(), row[3]).get_name()
                 if row[1]: preis += row[1]
                 if row[2]: zahlung += row[2]
-                if row[4] == ANr:
-                    liste[0] = Afp_toString(row[0]) + Afp_toFloatString(row[1]).rjust(10) + Afp_toFloatString(row[2]).rjust(10) + "  " + name
-                    sameRechNr[0] = row[4]  
-                else:
-                    liste.append( Afp_toString(row[0]) + Afp_toFloatString(row[1]).rjust(10) + Afp_toFloatString(row[2]).rjust(10) + "  " + name)
-                    sameRechNr.append(row[4])  
+                liste.append(self.get_sameRechLine(row[0], row[1], row[2], row[3]))
+                sameRechNr.append(row[4])  
         return [preis, zahlung], sameRechNr, liste
+    ## get one line of client entries having the same 'RechNr' (invoice number) \n
+    # @param RNr - invoice number
+    # @param preis - price to be payed
+    # @param zahl - payment already made
+    # @param KNr - address identifier to generate name
+    def get_sameRechLine(self, RNr, preis, zahl, KNr):
+        name = AfpAdresse(self.get_globals(), KNr).get_name()
+        return Afp_toString(RNr) + Afp_toFloatString(preis).rjust(10) + Afp_toFloatString(zahl).rjust(10) + "  " + name
     #
     #  overritten from SelectionList
     #

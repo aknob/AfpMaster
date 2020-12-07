@@ -567,11 +567,16 @@ def Afp_getPyModTables(globals, required, modul, flavour):
 # @param filter  - additional filter to be used
 def Afp_selectSameValue(mysql, table, field, value, debug = False, felder = None, filter = None):
     selection = AfpSQLTableSelection(mysql, table, debug, False)
+    sel = ""
+    if field and not value is None:
+        sel = field + " = " + Afp_toString(value) 
     if filter:
-        filter =  " AND " + filter
+        if sel:
+            filter =  " AND " + filter
     else:
         filter = ""
-    selection.load_data(field + " = " + Afp_toString(value) + filter)
+    print "Afp_selectSameValue:", sel, "Filter:", filter
+    selection.load_data(sel + filter)
     return selection.get_values(felder)
 ##  retrieve a list of database entries with same "KundenNr" from table
 # @param mysql - database where values are retrieved from
@@ -735,6 +740,7 @@ class AfpSelectionList(object):
         self.new = False
         self.international_output= False
         self.tables = self.mysql.get_tables()
+        # if copies of files into the archiv are needed, fill in here
         self.archiv_copy_needed = []
         if self.debug: print "AfpSelectionList Konstruktor",listname
     ## destructor
@@ -827,6 +833,12 @@ class AfpSelectionList(object):
         row = self.get_value_rows(None, None, 0)
         zeile = Afp_ArraytoLine(row)
         return zeile
+    ## copy selection data, needed for deep copies, when not already stored in database
+    # @param data - SelectionList, where selections are copied from
+    def copy_selections_from_data(self, data):
+        selections = data.selections
+        for sel in selections:
+            self.selections[sel] = selections[sel].create_complete_copy(True, True)
     ## generate the customised select_clause of this SelectionList for indicated TableSelection
     # @param selname - name of TableSelection
     def evaluate_selects(self, selname):
@@ -868,6 +880,11 @@ class AfpSelectionList(object):
                         feld = sels[1].strip()
                         if "." in feld and not Afp_isNumeric(Afp_fromString(feld)): 
                             value = self.get_string_value(feld, True)
+                            if value == "":
+                                #print "AfpSelectionList.evaluate_selects value:", feld, self.mainindex, self.mainselection 
+                                split = feld.split(".")
+                                if split[0] == self.mainindex and split[1] == self.mainselection:
+                                    return None, None
                         else: 
                             value = feld
                         if value:
@@ -935,7 +952,7 @@ class AfpSelectionList(object):
         else: new = False
         selection = self.constitute_selection(name)
         select_clause, order_clause = self.evaluate_selects(name)
-        #print "AfpSelectionList.create_selection:", "\"" + name + "\"", select_clause, order_clause, new, selection
+        #print "AfpSelectionList.create_selection:", "\"" + name + "\"", select_clause, order_clause, new, selection, self.selects
         if selection is None and select_clause == []:
             if new: selection = self.spezial_selection(name, True)
             else:   selection = self.spezial_selection(name)
@@ -1406,6 +1423,10 @@ class AfpSelectionList(object):
     # may be overwritten, if special handling is necessary
     def store_preparation(self):
         return
+    ## routine to retrieve payment irection \n
+    # may be overwritten, default implementation: return False
+    def get_payment_outgoing(self):
+        return False
     ## routine to retrieve payment data from SelectionList \n
     # may be overwritten, default implementation: return "Preis", "Zahlung" and "ZahlDat" column from main selection
     def get_payment_values(self):
@@ -1421,7 +1442,7 @@ class AfpSelectionList(object):
     def set_payment_values(self, payment, datum):
         self.set_value("Zahlung", payment)
         self.set_value("ZahlDat", datum)
-    ## routine to retrieve splitting data for paymentfrom SelectionList \n
+    ## routine to retrieve splitting data for payment from SelectionList \n
     # may be overwritten, default implementation: return None
     def get_splitting_values(self):
         return None
@@ -1447,11 +1468,142 @@ class AfpSelectionList(object):
     # - should be overwritten in devired class
     def get_identification_string(self):
         return ""
+        
+## class for Selectin Lists handling payments
+class AfpPaymentList(AfpSelectionList):
+    ## initialize AfpSelectionList class
+    # @param globals - global values including the mysql connection - this input is mandatory
+    # @param listname - name of this selction list
+    # @param debug - flag for debug information
+    def  __init__(self, globals, listname, debug = False):
+        AfpSelectionList.__init__(self, globals, listname, debug)
+        self.outgoing = False
+        self.payer_fields= ["KundenNr"]
+        self.price_fields = ["Preis"]
+        self.payment_field = "Zahlung"
+        self.payment_date = "ZahlDat"
+        self.payment_text_field = None
+        self.account_field = "Kontierung"
+        self.personal_account = None
+        self.cancel_field = "Zustand"
+        self.cancel_value = "Storno"
+        if self.debug:  print "AfpPaymentList Construktor"
+    ## destuctor
+    def __del__(self):    
+        if self.debug: print "AfpPaymentList Destruktor"
+    ## routine to set payment data in one step using a dictionary
+    # @param data - dictionary to be evaluated, the following entries are possile:
+    # - "outgoing" - if set, outgoing flag will be set to 'True'
+    # - "payer" - see input of self.set_payer_fields()
+    # - "account" - database field were accountnumber is hold
+    # - "personal" - database field were personal accountnumber is hold (creditor/debitor)
+    # - "price"  - database field were price is hold
+    # - "payment" - database field were payment value  is hold 
+    # - "date"  - database field were payment date is hold 
+    # - ,"text" -  database field were payment text is hold,
+    # - "cancel" - database field were  value  for cancel decission is hold 
+    # - "canvel_value" value defining the Is_canceled flag is set
+    def set_payment_data(self, data): 
+        #print "AfpPaymentList.set_payment_data:", data
+        if "outgoing" in data: self.outgoing = True
+        if "payer" in data: self.payer_fields = self.set_field_list(data["payer"])
+        if  "account" in data: self.account_field = data["account"]
+        if  "personal" in data: self.personal_account  = data["personal"]
+        if  "price" in data: self.price_fields = self.set_field_list(data["price"])
+        if  "payment" in data: self.payment_field = data["payment"]
+        if  "date" in data: self.payment_date = data["date"]
+        if  "text" in data: self.payment_text_field = data["text"]
+        if  "cancel" in data: self.cancel_field = data["cancel"]
+        if  "cancel_value" in data: self.cancel_value = data["cancel_value"]
+        
+     ## set field where identifier of person which pays for this event
+    # @param payer - database field name were adressidentifier is hold, different value may be separated by a ','
+    def set_field_list(self, instring):
+        split = instring.split(",")
+        list = []
+        for entry in split:
+            list.append(entry.strip())
+        return list
+    ## return flag, if this has been canceled
+    def is_canceled(self):
+        is_canceled = None
+        if self.cancel_field:
+            if not self.cancel_value is None:
+                is_canceled = self.get_value(self.cancel_field) == self.cancel_value
+            elif self.get_value(self.cancel_field):
+                is_canceled = True
+            else:
+                is_canceled = False
+        return is_canceled
+   ## routine to retrieve payment direction 
+    def is_outgoing(self):
+        return self.outgoing
+    ## return address identifier of payer
+    def get_payer(self):
+        for entry in self.payer_fields:
+            #print "AfpPaymentList.get_payer:", entry,  self.get_value(entry) , type(self.get_value(entry))
+            if self.get_value(entry): return self.get_value(entry)
+        return None
+    ## routine to retrieve account number to book payment
+    def get_account(self):
+        #print "AfpPaymentList.get_account:",  self.account_field,  self.get_value(self.account_field)
+        if self.personal_account: return self.get_value(self.personal_account)
+        else: return self.get_value(self.account_field)
+    ## retrieve payment text
+    def get_payment_text(self):
+        if self.payment_text_field: 
+            return self.get_value(self.payment_text_field)
+        else:
+            text = "Zahlung"
+            KNr = self.get_payer()
+            #print "AfpPaymentList.get_payment_text:", KNr, self.get_value("KundenNr.ADRESSE")
+            if KNr == self.get_value("KundenNr.ADRESSE"):
+                text += ": " + self.get_name(True)
+            else:
+                for sel in self.selects:
+                    #print "AfpPaymentList.get_payment_text sel:", sel, KNr, self.get_value("KundenNr." + sel)
+                    if KNr == self.get_value("KundenNr." + sel):
+                        #print "AfpPaymentList.get_payment_text sel found:", sel, self.get_name(True, sel)
+                        text += ": " + self.get_name(True, sel)
+            print "AfpPaymentList.get_payment_text out:", text
+            return text
+    ## routine to retrieve payment data from SelectionList \n
+    def get_payment_values(self):
+        preis = None
+        for entry in self.price_fields:
+            if preis: continue
+            #print "AfpPaymentList.get_payment_values preis:", preis, entry, self.get_value(entry)
+            if self.get_value(entry): preis = self.get_value(entry)
+        #print "AfpPaymentList.get_payment_values Zahlung:", self.payment_field, self.get_value(self.payment_field)
+        zahlung = self.get_value(self.payment_field)
+        if preis is None: preis = 0.0
+        if zahlung is None: zahlung = 0.0
+        #print "AfpPaymentList.get_payment_values", preis, zahlung, self.get_value(self.payment_date)
+        return preis, zahlung, self.get_value(self.payment_date)
+    ## routine to set payment data in SelectionList \n
+    # @param payment - amount that already has been payed
+    # @param datum - date of last payment
+    def set_payment_values(self, payment, datum):
+        self.set_value(self.payment_field , payment)
+        self.set_value(self.payment_date , datum)
+    ## routine to retrieve splitting data for payment from SelectionList \n
+    # may be overwritten, default implementation: return None
+    def get_splitting_values(self):
+        return None        
+    #    
+    # routines to be overwritten in devired class
+    #
+    ## extract payment relevant data from SelectionList for 'Finance' modul (onlý needed if bookkeeping is considered)
+    # has to return the account number this payment has to be charged ("Gegenkonto")
+    # @param paymentdata - payment data dictionary to be modified and returned
+    def add_payment_data(self, paymentdata):
+        print "AfpPaymentList.add_payment_data not implemented for list:", self.listname
+        return paymentdata
 
 ## routine to order list of selection lists due to one field
 # @param datas - list of selection lists to be sorted
 # @param sorttyp - field to sort output 
-# - sorttyo == "Namen": special sortine of complete names, the method 'gte_name' has to be supplied
+# - sorttyp == "Namen": special routine for complete names, the method 'get_name' has to be supplied
 # - the method 'get_value(sorttyp)' will be called
 def Afp_orderSelectionLists(datas, sorttyp):
         sortlist = []
@@ -1463,7 +1615,7 @@ def Afp_orderSelectionLists(datas, sorttyp):
         sortlist, datas = Afp_sortSimultan(sortlist, datas)
         return datas
         
-    ## class for handling extern numberations       
+## class for handling extern numberations       
 class AfpExternNr(AfpSQLTableSelection):
     ## initialize AfpExternNr class
     # @param globals - global values including the mysql connection - this input is mandatory

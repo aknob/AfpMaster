@@ -62,7 +62,6 @@ def AfpEv_addRegToArchiv(client, check=False):
                     needed = False
     if needed:
         wanted = AfpReq_Question("Bitte die Anmeldung einscannen und die gescannte Datei auswählen!".decode("UTF-8"),"")
-    if needed:
         if wanted:
             fixed = {"Art": art, "Typ": listname, "Gruppe":"Anmeldung"}
             change = {"Eintrittsdatum": client.get_globals().today_string(), "Bemerkung":""}
@@ -177,6 +176,8 @@ class AfpDialog_EvAusw(AfpDialog_Auswahl):
         self.typ = "Veranstaltungsauswahl"
         if self.flavour == "Tourist":
             self.typ = "Reiseauswahl"
+        elif self.flavour == "Verein":
+            self.typ = "Spartenauswahl"
         self.datei = "EVENT"
         self.modul = "Event"
         
@@ -846,7 +847,7 @@ class AfpDialog_EventPrices(AfpDialog):
             data["NoPrv"] = self.noPrv
         if data and (len(data) > 2 or not self.new):
             if self.new: data = self.complete_data(data)
-            #print "AfpDialog_EventPrices.store_data data:", data
+            print "AfpDialog_EventPrices.store_data data:", data
             self.data.set_data_values(data, "PREISE", self.index)
             self.Ok = True
         self.changed_text = []   
@@ -948,6 +949,8 @@ class AfpDialog_EvClientEdit(AfpDialog):
     def __init__(self, *args, **kw):   
         self.change_preis = False
         super(AfpDialog_EvClientEdit, self).__init__(*args, **kw)
+        self.event = None # dialog only used for one event, all event manipulation should be handled here
+        self.actuel_invnr = None
         self.lock_data = True
         self.active = None
         self.agent = None
@@ -963,6 +966,7 @@ class AfpDialog_EvClientEdit(AfpDialog):
         self.sameRechIndex = None
         self.sameRechData = None
         self.zahl_data = None
+        self.extra_provision_possible = True
         #self.SetSize((500,430))
         self.SetSize((650,330))
         self.SetTitle("Anmeldung")
@@ -1242,6 +1246,8 @@ class AfpDialog_EvClientEdit(AfpDialog):
     # @param new - flag if new database entry has to be created 
     # @param editable - flag if dialogentries are editable when dialog pops up
     def attach_data(self, data, new = False, editable = False):
+        self.event = data.get_event()
+        if data.get_value("RechNr"): self.actuel_invnr = data.get_value("RechNr")
         super(AfpDialog_EvClientEdit, self).attach_data(data, new, editable)
         if new: self.Populate()
     ## only allow OK-button to exit dialog for automatic new creation \n
@@ -1259,30 +1265,35 @@ class AfpDialog_EvClientEdit(AfpDialog):
     ## read values from dialog and invoke writing into data         
     def store_data(self):
         self.Ok = False
-        RechNr = None
         changed = self.load_into_data()
+        #print "AfpDialog_EvClientEdit.store_data changed:", changed, self.sameRechIndex, self.sameRechData
         if not self.sameRechIndex is None and self.sameRechData:
             # look for data stack (mutiple registrations)
-            self.sameRechData[self.sameRechIndex] = data
+            self.sameRechData[self.sameRechIndex] = self.data
             if self.sameRechData:
-                RechNr = None
+                new = False
                 for data in self.sameRechData:
                     if data is None: continue
+                    #print "AfpDialog_EvClientEdit.store_data sameRechNr:", data.get_name(), data.has_changed(), data.is_new(), "RechNr:", self.actuel_invnr
                     if data.has_changed():
-                        if data.is_new() and not data.get_value("RechNr") and RechNr:
-                            data.set_value("RechNr", RechNr)
-                            print "WARNING: RechNr reset during storage of AfpEvClient:", RechNr
-                        data.store()
                         if data.is_new():
-                            data.add_to_event()
+                            new = True
+                            dat =  {}
+                            if self.actuel_invnr:  dat["RechNr"] = self.actuel_invnr
+                            self.complete_data(dat)
+                            data.set_data_values(dat, "ANMELD")
+                            #print "AfpDialog_EvClientEdit.store_data completed:", dat
+                        data.store()
                         changed = True
-                    if not RechNr: RechNr = data.get_value("RechNr")
+                    if not self.actuel_invnr: self.actuel_invnr = data.get_value("RechNr")
+                    #print "AfpDialog_EvClientEdit.store_data data:", data.view()
+                if new: self.event.store()
         elif changed:
             # store data
             self.data.store()
-            # count up number of event participants
+            # store count up number of event participants
             if self.new: 
-                self.data.add_to_event()
+                self.event.store()
         if changed:
             # execute payment
             if self.zahl_data:
@@ -1293,8 +1304,9 @@ class AfpDialog_EvClientEdit(AfpDialog):
             self.new = False
             self.Ok = True
 
-    ## read values from dialog and load it into self.data         
-    def load_into_data(self):
+    ## read values from dialog and load it into self.data 
+    # @param complete - flag, if new data should be completed, default: True
+    def load_into_data(self, complete = True):
         data = {}
         #print "AfpDialog_EvClientEdit.load_into_data changed_text:",self.changed_text
         for entry in self.changed_text:
@@ -1320,7 +1332,7 @@ class AfpDialog_EvClientEdit(AfpDialog):
                 if extra != self.data.get_value("Extra"):
                     data["Extra"] = extra
                 data["Preis"] = Afp_floatString(self.label_Preis.GetLabel())
-            if self.new:
+            if self.new and complete:
                 data = self.complete_data(data)
             self.data.set_data_values(data, "ANMELD")
             #print "AfpDialog_EvClientEdit.load_into_data data:", self.data.view()
@@ -1338,16 +1350,15 @@ class AfpDialog_EvClientEdit(AfpDialog):
     ## complete data before storing
     # @param data - data to be completed      
     def complete_data(self, data):
+        print "AfpDialog_EvClientEdit.complete_data:", data
         IdNr = None
-        if "IdNr" in data:
-            IdNr = data["IdNr"]
         if not "Zustand" in data:
             data["Zustand"] = AfpEvent_getZustandList()[-1]
-        if not self.data.get_value("RechNr"):
-            RNr = self.data.generate_RechNr(IdNr)
-            data["RechNr"] = RNr
         if not "Ab" in data:
             data["Ab"] = 0
+        if self.actuel_invnr: data["RechNr"] = self.actuel_invnr
+        data = self.event.add_client(data)
+        if self.actuel_invnr is None: self.actuel_invnr = data["RechNr"]
         return data
                     
     ## execution in case the OK button ist hit - overwritten from AfpDialog
@@ -1386,11 +1397,18 @@ class AfpDialog_EvClientEdit(AfpDialog):
     def Pop_Alle(self):
         if self.sameRechLoad:
             dummy, self.sameRechNr, liste = self.data.get_sameRechNr()
+           # print "AfpDialog_EvClientEdit.Pop_Alle:", dummy, liste
             self.sameRechIndex = None
             self.sameRechData = None
             self.list_Alle.Clear()
             if liste: 
                 self.list_Alle.InsertItems(liste, 0)
+        elif self.sameRechData:
+            self.list_Alle.Clear()
+            liste = []
+            for i in range(len(self.sameRechData)):
+                liste.append(self.data.get_sameRechLine(self.sameRechData[i].get_value("RechNr"), self.sameRechData[i].get_value("Preis"), self.sameRechData[i].get_value("Zahlung"), self.sameRechData[i].get_value("KundenNr")))
+            self.list_Alle.InsertItems(liste, 0)
         #print "AfpDialog_EvClientEdit.Pop_Alle:", self.sameRechNr
 
    ## Eventhandler TEXT-KILLFOCUS - check date syntax 
@@ -1514,7 +1532,10 @@ class AfpDialog_EvClientEdit(AfpDialog):
             #print "AfpDialog_EvClientEdit.get_Preis_row Extrapreis:", Ok, value, idents
         if Ok:
             if value == -1: # manual entry
-                res_row = AfpReq_MultiLine("Bitte Extrapreis und Bezeichnung manuell eingeben.", "", ["Text","Text","Check"], [["Preis:", ""], ["Bezeichnung:", ""], "Verprovisionierbar"],"Eingabe Extrapreis")
+                liste = [["Preis:", ""], ["Bezeichnung:", ""]]
+                if self.extra_provision_possible: liste.append("Verprovisionierbar")
+                res_row = AfpReq_MultiLine("Bitte Extrapreis und Bezeichnung manuell eingeben.", "", ["Text","Text","Check"], liste,"Eingabe Extrapreis")
+                if len(res_row) < 3: res_row.append(False)
                 if res_row:
                     res_row[0] = Afp_fromString(res_row[0])
                     res_row[2] = not res_row[2]
@@ -1586,25 +1607,25 @@ class AfpDialog_EvClientEdit(AfpDialog):
         if self.debug: print "AfpDialog_EvClientEdit Event handler `On_Anmeld_Alle'"
         index = self.list_Alle.GetSelections()[0]
         ANr = self.sameRechNr[index] 
-        #print "AfpDialog_EvClientEdit.On_Anmeld_Alle Index:", index, "<>", self.sameRechIndex, "ANr:", self.data.get_value("AnmeldNr") , "<>", ANr, self.sameRechData
-        if self.data.get_value("AnmeldNr") != ANr or (not ANr and index == self.sameRechIndex):
+        if self.data.get_value("AnmeldNr") != ANr or ((ANr is None or ANr == 0) and index != self.sameRechIndex):  
             if self.sameRechData and self.sameRechData[index]:
                 data = self.sameRechData[index]
-                #print "AfpDialog_EvClientEdit.On_Anmeld_Alle load_data:", index, ANr, data.get_value("AnmeldNr")
             else:
                 if not self.sameRechData: 
                     self.sameRechData = [None] * len(self.sameRechNr)
                 data = self.get_client(ANr)
+                if ANr is None or ANr == 0:
+                    data.copy_selections_from_data(self.data)
                 if data:
                     self.sameRechData[index] = data
-            #print "AfpDialog_EvClientEdit.On_Anmeld_Alle change data:", ANr,  data, self.data, data.view()
             if data:
                 if self.ort: self.data.delete_selection("TORT")
-                self.load_into_data()
-                if not self.sameRechIndex is None:
-                    self.sameRechData[self.sameRechIndex] = self.data
+                self.load_into_data(False)
+                if self.sameRechIndex is None:
+                    self.sameRechData.append(self.clone_data())
+                    self.sameRechNr.append(None)
                 else:
-                    self.sameRechData[0] = self.data
+                    self.sameRechData[self.sameRechIndex] = self.data
                 self.sameRechLoad = False
                 self.attach_data(data, data.is_new(), self.is_editable())
                 self.sameRechIndex = index
@@ -1661,14 +1682,23 @@ class AfpDialog_EvClientEdit(AfpDialog):
     def On_Anmeld_Neu(self,event=None):
         if self.debug: print "AfpDialog_EvClientEdit Event handler `On_Anmeld_Neu'"
         multi = self.get_multiflags()
-        ok = multi
-        print "AfpDialog_EvClientEdit.On_Anmeld_Neu on:", multi
-        if multi:
+        if multi: multiflag = True
+        else: multiflag = False
+        #ok = multiflag
+        ok = True
+        #print "AfpDialog_EvClientEdit.On_Anmeld_Neu on:", multiflag, self.sameRechData, self.sameRechIndex
+        if multiflag:
             #move data to sameRechData
             if not self.sameRechData:
-                self.sameRechData = [None]
-                self.sameRechIndex = 0
-            self.sameRechData[self.sameRechIndex] = self.data
+                self.sameRechData = []
+                self.sameRechIndex = None
+            if self.sameRechIndex is None: 
+                self.load_into_data(False)
+                self.sameRechData.append(self.clone_data())
+                self.sameRechNr.append(None)
+            self.sameRechIndex = None
+            self.sameRechLoad = False
+            #print "AfpDialog_EvClientEdit.On_Anmeld_Neu multi:", multiflag, self.sameRechData, self.sameRechIndex
         else:
             changed = False
             if self.sameRechData:
@@ -1681,7 +1711,8 @@ class AfpDialog_EvClientEdit(AfpDialog):
         if ok:
             # check for changes in sameRechData, possibly ask for Cancel
             self.Anmeld_Neu(multi)
-            if not multi:
+            print "AfpDialog_EvClientEdit.On_Anmeld_Neu ok:", not multiflag, self.sameRechData, self.sameRechIndex
+            if not multiflag:
                 self.sameRechIndex = None
                 self.sameRechData = None
             add = self.data.get_globals().get_value("add-registration-to-archive","Event")
@@ -1694,11 +1725,8 @@ class AfpDialog_EvClientEdit(AfpDialog):
                 else:
                     if not client == True:
                         self.data = client
+        print "AfpDialog_EvClientEdit.On_Anmeld_Neu off:", self.sameRechData, self.sameRechIndex
         if event: event.Skip()  
-    ## get multiflags accorfing to multi checkbox
-    # may be overwritten in devired class
-    def get_multiflags(self):
-        return self.check_Mehrfach.GetValue()
     ## execute new client generation
     # @param multi - flag(s) for copying internal data    
     def Anmeld_Neu(self, multi):
@@ -1709,6 +1737,14 @@ class AfpDialog_EvClientEdit(AfpDialog):
             self.Populate()
             self.choice_Edit.SetSelection(1)
             self.Set_Editable(True)
+    ## clone client data
+    def clone_data(self):
+        client = self.get_client()
+        client.new = self.data.new
+        client.mainindex = self.data.mainindex
+        client.mainvalue = self.data.mainvalue
+        client.copy_selections_from_data(self.data)
+        return client
 
     ##Eventhandler BUTTON - delete client \n
     # @param event - event which initiated this action   
@@ -1733,6 +1769,10 @@ class AfpDialog_EvClientEdit(AfpDialog):
     #
     # may be overwritten in derived class
     #
+    ## get multiflags accorfing to multi checkbox
+    # may be overwritten in devired class
+    def get_multiflags(self):
+        return self.check_Mehrfach.GetValue()
     ##  get a client object with given identnumber
     # @parm ANr - if given, identifier
     def get_client(self, ANr = None):
@@ -1941,7 +1981,9 @@ class AfpDialog_EvClientCancel(AfpDialog):
                     client.set_data_values(data, "ANMELD")
                     if self.umbuchung: self.clients.append(client)
                     client.store()
-            self.data.delete_from_event(anz)
+            event = self.data.get_event()
+            event.add_client_count(-anz)
+            event.store()
             if self.umbuchung:
                 #print "AfpDialog_EvClientCancel.store_data: Umbuchungen:", anz, "Zahlung:", payment, "Anmeldungen:", self.clients
                 for i in range(anz):

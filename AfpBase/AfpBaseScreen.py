@@ -42,6 +42,8 @@ import AfpBaseDialog
 from AfpBaseDialog import AfpReq_Question
 import AfpBaseDialogCommon
 from AfpBaseDialogCommon import AfpLoad_editArchiv, AfpReq_Information, AfpReq_Version, AfpReq_extraProgram
+import AfpBaseFiDialog
+from AfpBaseFiDialog import Afp_handleCommonInvoice, Afp_handleObligation
 import AfpGlobal
 from AfpGlobal import *
 
@@ -179,6 +181,12 @@ class AfpScreen(wx.Frame):
         tmp_menu = wx.Menu() 
         mmenu =  wx.MenuItem(tmp_menu, wx.NewId(), "Archiv", "")
         self.Bind(wx.EVT_MENU, self.On_ScreenArchiv, mmenu)
+        tmp_menu.AppendItem(mmenu)
+        mmenu =  wx.MenuItem(tmp_menu, wx.NewId(), "Ausgangsrechnung", "")
+        self.Bind(wx.EVT_MENU, self.On_ScreenInvoice, mmenu)
+        tmp_menu.AppendItem(mmenu)
+        mmenu =  wx.MenuItem(tmp_menu, wx.NewId(), "Eingangsrechnung", "")
+        self.Bind(wx.EVT_MENU, self.On_ScreenObligation, mmenu)
         tmp_menu.AppendItem(mmenu)
         mmenu =  wx.MenuItem(tmp_menu, wx.NewId(), "Zusatzprogramme", "")
         self.Bind(wx.EVT_MENU, self.On_ScreenZusatz, mmenu)
@@ -336,6 +344,16 @@ class AfpScreen(wx.Frame):
         if self.debug: print "AfpScreen Event handler `On_ScreenArchiv'!"
         data = self.get_data()
         ok = AfpLoad_editArchiv(data,  "Archiv von " + data.get_name() , data.get_identification_string())
+        if ok: self.Reload()
+   ## Eventhandler Menu - handle outgoing common invoices
+    def On_ScreenInvoice(self, event):
+        if self.debug: print "AfpScreen Event handler `On_ScreenInvoicecc'!"
+        ok = Afp_handleCommonInvoice(self.globals)
+        if ok: self.Reload()
+   ## Eventhandler Menu - handle incoming obligations
+    def On_ScreenObligation(self, event):
+        if self.debug: print "AfpScreen Event handler `On_ScreenObligation'!"
+        ok = Afp_handleObligation(self.globals)
         if ok: self.Reload()
     ## Eventhandler Menu - select and start additional programs
     # @param data - optional input of data for indirect use

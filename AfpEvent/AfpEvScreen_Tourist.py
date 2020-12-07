@@ -109,14 +109,16 @@ class AfpEvTourist(AfpEvClient):
         if complete: self.create_selections()
         if self.debug: print "AfpEvTourist Konstruktor, AnmeldNr:", self.mainvalue
 
+    ## generate Event object for this client
+    # overwritten from AfpEvClient
+    def get_event(self):
+        ENr = self.get_value("EventNr.EVENT")
+        return AfpTour(self.get_globals(), ENr)
     ## return specific identification string to be used in dialogs \n
     # - overwritten from AfpSelectionList
     def get_identification_string(self):
         return "Anmeldung für Reise am ".decode("UTF-8")  +  self.get_string_value("Beginn.EVENT") + " nach " + self.get_string_value("Bez.EVENT")
-
 # end of class AfpEvTourist
-
-
 
 ## Class AfpEvScreen_Tourist shows 'Tourist' screen and handles interactions
 class AfpEvScreen_Tourist(AfpEvScreen):

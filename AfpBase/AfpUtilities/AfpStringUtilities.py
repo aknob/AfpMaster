@@ -6,6 +6,7 @@
 # it does not hold any classes
 #
 #   History: \n
+#        29 Sep. 2020 - allow spaces between minus and digit for negativ values in Afp_fromString - Andreas.Knoblauch@afptech.de \n
 #        08 May 2016 - allow negativ values in Afp_fromString - Andreas.Knoblauch@afptech.de \n
 #        19 Okt. 2014 - adapt package hierarchy - Andreas.Knoblauch@afptech.de \n
 #        30 Nov. 2012 - inital code generated - Andreas.Knoblauch@afptech.de
@@ -178,6 +179,9 @@ def Afp_fromString(string):
     if not Afp_isString(string): return string
     string = string.strip()
     data = None
+    if " " in string and "-" in string and Afp_hasNumericValue(string):
+        # find negative values with spaces (between - and digit)
+        string = "-" + string.strip()[1:].strip()
     if not " " in string:
         if "." in string:
             split = string.split(".")
@@ -502,8 +506,14 @@ def Afp_isMailAddress(string):
 # - check == 2: default, less then 2 parts are accepted \n
 # - check > 2: exact number of parts has to be available
 def Afp_hasNumericValue(string, check=2):
-    if "." in string:
-        split = string.split(".")
+    string = string.strip()
+    if string[0] == "-":
+        string = string[1:].strip()
+    if "." in string  or "," in string:
+        if "." in string:
+            split = string.split(".")
+        else:
+            split = string.split(",")
         if check > 2 and not len(split) == check:
             numeric = False
         else:

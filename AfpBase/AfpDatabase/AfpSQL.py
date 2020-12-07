@@ -388,7 +388,7 @@ class AfpSQLTableSelection(object):
     # @param feldnamen - names of columns, if not given they will be retrieved from database
     def  __init__(self, mysql, tablename, debug = False, unique_feldname = None, feldnamen = None):
         self.dbg = False # hardcode switch for storage logging
-        #if tablename == "ANMELDATT": debug = True
+        #if tablename == "BUCHUNG": debug = True
         if debug: 
             print "AfpSQLTableSelection Konstruktor dbg On", tablename
             self.dbg = True # hardcoded switch for storage logging, for debug purpose during programming
@@ -429,10 +429,10 @@ class AfpSQLTableSelection(object):
         copy.new = self.new
         if mani:
             if self.last_manipulation:
-                copy.last_manipulation = self.last_manipulation[:]
-            copy.manipulation = self.manipulation[:]
+                copy.last_manipulation = Afp_copyArray(self.last_manipulation)
+            copy.manipulation = Afp_copyArray(self.manipulation)
         if data:
-            copy.data = self.data[:]
+            copy.data = Afp_copyArray(self.data)
         return copy
     ## returns if data of this TableSelection has been deleted after last load or write
     # @param row - if given, index of row which should be checked
@@ -577,7 +577,8 @@ class AfpSQLTableSelection(object):
         self.insert_row(None, row)
   ## delete indicated row
     # @param row - index of row to be deleted
-    def delete_row(self, row = 0):
+    def delete_row(self, row = 0):        
+        #print "AfpSQLTableSelection.delete_row:", row, self.get_data_length()
         if row >= 0 and row < self.get_data_length():
             mani = [row, None]
             self.manipulate_data([mani])
@@ -592,7 +593,7 @@ class AfpSQLTableSelection(object):
     # - insert: rowindex  < 0 and  values = [value1, value2, ...] , len == len(self.feldnamen), rowindexrow will be mapped to index = -1 - rowindex
     def manipulate_data(self, changes):
         for entry in changes:
-            if self.dbg: print "AfpSQLTableSelectio.manipulate_data:", entry, type(entry[1])
+            if self.dbg: print "AfpSQLTableSelection.manipulate_data:", entry, type(entry[1])
             index = entry[0]
             values = entry[1]
             originals = None

@@ -6,6 +6,7 @@
 # payment userinteraction is performed here. \n
 #
 #   History: \n
+#        19 Nov. 2020 - add simple invoice handling - Andreas.Knoblauch@afptech.de \n
 #        19 Okt. 2014 - adapt package hierarchy - Andreas.Knoblauch@afptech.de \n
 #        14 Feb. 2014 - inital code generated - Andreas.Knoblauch@afptech.de
 
@@ -37,16 +38,20 @@ import AfpBaseRoutines
 from AfpBaseRoutines import *
 import AfpBaseDialog
 from AfpBaseDialog import *
+import AfpBaseAdDialog
+from AfpBaseAdDialog import AfpLoad_AdAusw
 import AfpBaseFiRoutines
 from AfpBaseFiRoutines import *
+import AfpBaseFiDialog
+from AfpBaseFiDialog import *
 
 
 
-## deliver one ZahlSelector 
+## deliver one client of a PaySelector 
 # @param globals - global variables inclusive database access
 # @param field - if given field for value selection
-# @param value - if given value of field for selection
-def AfpFinance_getZahlVorgang(globals, field = None, value = None):
+# @param fvalue - if given value of field for selection
+def AfpFinance_getZahlVorgang(globals, field = None, fvalue = None):
     selectors = AfpFinance_get_ZahlSelectors(globals)
     liste = []
     names = []
@@ -54,31 +59,40 @@ def AfpFinance_getZahlVorgang(globals, field = None, value = None):
         names.append(sel)
         liste.append(selectors[sel].get_label())
     result = AfpReq_MultiLine("Übernahme der Daten aus einem Vorgang,".decode("UTF-8"), "die folgenden Vorgänge stehen zur Auswahl:".decode("UTF-8"), "Button", liste, "Vorgangsauswahl", 250)
-    #print "AfpFinance_getZahlVorgang:", result
-    selname = None
-    for i in range(len(result)):
-        if result[i]: selname = names[i]
-    selector = selectors[selname]
-    rows = selector.get_rows(field, value)
-    liste = []
-    ident = []
-    for row in rows:
-        liste.append(Afp_ArraytoLine(row, " ", 5))
-        ident.append(row[-1])
-    text = selector.get_text()
-    value,ok = AfpReq_Selection("Bitte " + text + " für Zahlung auswählen!","",liste, text + " für Zahlung", ident)
+    print "AfpFinance_getZahlVorgang result:", result
+    ok = False 
+    value = None    
+    if result:
+        selname = None
+        for i in range(len(result)):
+            if result[i]: selname = names[i]
+        selector = selectors[selname]
+        if selector.is_editable():
+             value = AfpLoad_PaySelectorAusw(selector)
+             if value: ok = True
+        else:
+            rows = selector.get_rows(field, fvalue)
+            liste = []
+            ident = []
+            if rows:
+                for row in rows:
+                    liste.append(Afp_ArraytoLine(row, " ", 5))
+                    ident.append(row[-1])
+            text = selector.get_text()
+            #print "AfpFinance_getZahlVorgang ident:", liste, ident
+            value,ok = AfpReq_Selection("Bitte " + text + " für Zahlung auswählen!","",liste, text + " für Zahlung", ident)
     client = None 
-    #print "AfpFinance_getZahlVorgang:", ok, value
+    print "AfpFinance_getZahlVorgang OK:", ok, value
     if ok and value:
-        client = selector.get_client(globals, value)
+        client = selector.get_client(value)
     return client
 
 
 ## deliver all ZahlSelectors for the actuel installed moduls
 # @param globals - global variables inclusive database access
-def AfpFinance_get_ZahlSelectors(globals = None, in_filter=None):
+# @param in_filter - flag if selectors should be filtered due to payment direction, default: None - no filter
+def AfpFinance_get_ZahlSelectors(globals , in_filter=None):
     selectors = {}    
-    mysql = globals.get_mysql()
     debug = globals.is_debug()
     finmods = []
     #print "AfpFinance_get_ZahlSelectors:", globals.get_value("only-direct-payment")
@@ -89,21 +103,21 @@ def AfpFinance_get_ZahlSelectors(globals = None, in_filter=None):
     selects = []
     for mod in finmods:
         if mod == "Charter":
-            selects.append(AfpFinance_CharterSelector(mysql, debug))
+            selects.append(AfpFinance_CharterSelector(globals, debug))
         elif "Tourist" in mod or "Event" in mod or "Verein" in mod:
-            selects.append(AfpFinance_EventStornoSelector(mysql, debug))
-            if "Tourist" in mod:   selects.append(AfpFinance_TouristSelector(mysql, debug))
-            elif "Verein" in mod:   selects.append(AfpFinance_MemberSelector(mysql, debug))
-            else:   selects.append(AfpFinance_EventSelector(mysql, debug))
+            selects.append(AfpFinance_EventStornoSelector(globals, debug))
+            if "Tourist" in mod:   selects.append(AfpFinance_TouristSelector(globals, debug))
+            elif "Verein" in mod:   selects.append(AfpFinance_MemberSelector(globals, debug))
+            else:   selects.append(AfpFinance_EventSelector(globals, debug))
         elif mod == "Faktura":
-            selects.append(AfpFinance_OrderSelector(mysql, debug))
-            #selects.append(AfpFinance_OfferSelector(mysql, debug))
-            selects.append(AfpFinance_InvoiceSelector(mysql, debug))
+            selects.append(AfpFinance_OrderSelector(globals, debug))
+            #selects.append(AfpFinance_OfferSelector(globals, debug))
+            selects.append(AfpFinance_InvoiceSelector(globals, debug))
     tables = globals.get_mysql().get_tables()
     if "VERBIND" in tables:
-        selects.append(AfpFinance_VerbindSelector(mysql, debug))
+        selects.append(AfpFinance_ObligationSelector(globals, debug))
     if "RECHNG" in tables and not "Rechnung" in selectors:
-        selects.append(AfpFinance_RechSelector(mysql, debug))
+        selects.append(AfpFinance_simpleInvoiceSelector(globals, debug))
     for sel in selects:
         if in_filter is None or (in_filter and sel.is_incoming()) or (not in_filter and not sel.is_incoming()):
             selectors[sel.get_name()] = sel
@@ -111,100 +125,115 @@ def AfpFinance_get_ZahlSelectors(globals = None, in_filter=None):
     return selectors
         
 ## generate ZahlSelector for 'Charter' Modul
-# @param mysql -  object for dadabase access
+# @param globals -  global values including object for dadabase access
 # @param debug - debug flag
-def AfpFinance_CharterSelector(mysql, debug = False):
+def AfpFinance_CharterSelector(globals, debug = False):
     name = "Mietfahrt"
     label = "&Mietfahrt"
     tablename = "FAHRTEN"
     felder = "Abfahrt,Preis,Zahlung,Zielort,Zustand,FahrtNr"
     filter =  "Zustand = \"Angebot\" OR Zustand = \"Rechnung\" OR Zustand = \"Storno Rechnung\""
     text = "Mietfahrt"
-    modul = None
-    object = "AfpCharter"
-    return AfpZahlSelector(mysql, name, label, tablename, felder, filter, text, modul, object, debug)
+    object = "AfpCharter/AfpChRoutines/AfpCharter"
+    edit = None
+    return AfpPaySelector(globals, name, label, tablename, None, felder, filter, text, object, edit, debug)
 ## generate ZahlSelector for invoice part of the 'Charter'  and  'Tourist' Modul
-# @param mysql -  object for dadabase access
+# @param globals -  global values including object for dadabase access
 # @param debug - debug flag
-def AfpFinance_RechSelector(mysql, debug = False):
+def AfpFinance_simpleInvoiceSelector(globals, debug = False):
     name = "Rechnung"
     label = "&Rechnung"
     tablename = "RECHNG"
-    felder = "Datum,Zahlbetrag,Zahlung,Wofuer,Zustand,RechBetrag,RechNr"
+    #indexfield = None
+    indexfield = "RechNr"
+    #felder = "Datum,ZahlBetrag,Zahlung,Bem,Zustand,Betrag,RechNr"
+    felder = [["RechNr.RECHNG",10], ["Datum.RECHNG",20], ["ZahlBetrag.RECHNG",15], ["Bem.RECHNG",30], ["Name.Adresse",25], 
+                  ["KundenNr.ADRESSE = KundenNr.RECHNG",None], ["RechNr.RECHNG",None]] # Ident column  
     filter =  "Zustand = \"offen\""
     text = "Rechnung" 
-    modul = None
-    object = "AfpRech"
-    return AfpZahlSelector(mysql, name, label, tablename, felder, filter, text, modul, object, debug)
-## generate ZahlSelector for incomimg invoice part of the 'Charter'  and  'Tourist' Modul
-# @param mysql -  object for dadabase access
+    object = "AfpCommonInvoice"
+    #edit = None
+    edit = "Afp_newSimpleInvoice" 
+    return AfpPaySelector(globals, name, label,  tablename, indexfield, felder, filter, text, object, edit, debug)
+## generate ZahlSelector for incomimg invoice
+# @param globals -  global values including object for dadabase access
 # @param debug - debug flag
-def AfpFinance_VerbindSelector(mysql, debug = False):
+def AfpFinance_ObligationSelector(globals, debug = False):
     name = "Verbind"
     label = "&Verbindl."
-    tablename = "Verbind"
-    felder = "Datum,Zahlbetrag,Zahlung,Wofuer,Zustand,RechBetrag,RechNr"
-    filter =  "Zustand = \"offen\""
-    text = "Verbindlichkeit" 
-    modul = None    
-    object = "AfpVerb"          
-    return AfpZahlSelector(mysql, name, label, tablename, felder, filter, text, modul, object, debug, True)
+    tablename = "VERBIND"
+    indexfield = "RechNr"
+    #felder = "Datum,ZahlBetrag,Betrag,Zahlung,Bem,Zustand,RechNr"
+    felder = [["RechNr.VERBIND",10], ["Datum.VERBIND",20], ["ZahlBetrag.VERBIND",15], ["Bem.VERBIND",30], ["Name.Adresse",25], 
+                  ["KundenNr.ADRESSE = KundenNr.VERBIND",None], ["RechNr.VERBIND",None]] # Ident column  
+    filter =  "(Zustand = \"offen\" OR Zustand = \"Dauer\")"
+    text = "Eingangsrechnung" 
+    object = "AfpObligation"          
+    #edit = None 
+    edit = "Afp_newSimpleInvoice" 
+    return AfpPaySelector(globals, name, label, tablename, indexfield, felder, filter, text, object, edit, debug, True)
 ## generate ZahlSelector for invoice part of the  'Event' Modul, flavour 'Tourist'
-# @param mysql -  object for dadabase access
+# @param globals -  global values including object for dadabase access
 # @param debug - debug flag
-def AfpFinance_TouristSelector(mysql, debug = False):
+def AfpFinance_TouristSelector(globals, debug = False):
     name = "Anmeldung"
     label = "&Anmeldung"
     tablename = "ANMELD"
+    indexfield = "EventNr"
     felder = "Beginn,Preis,Zahlung,Bez,Zustand,EventNr"
     filter =  "Zustand = \"Anmeldung\""
     text = "Reiseanmeldung"
-    modul = "AfpEvent/AfpEvScreenTourist/"
-    object = "AfpEvTourist"
-    return AfpZahlSelector(mysql, name, label, tablename, felder, filter, text, modul, object, debug)
+    object = "AfpEvent/AfpEvScreenTourist/AfpEvTourist"
+    edit = None
+    return AfpPaySelector(globals, name, label,  tablename, indexfield, felder, filter, textl, object, modu, debug)
 ## generate ZahlSelector for invoice part of the  'Event' Modul
-# @param mysql -  object for dadabase access
+# @param globals -  global values including object for dadabase access
 # @param debug - debug flag
-def AfpFinance_MemberSelector(mysql, debug = False):
+def AfpFinance_MemberSelector(globals, debug = False):
     name = "Anmeldung"
     label = "&Beitrag"
     tablename = "ANMELD"
+    indexfield = "EventNr"
     felder = "RechNr,Preis,ZahlDat,Zahlung,KundenNr,AnmeldNr"
+    #felder = [["RechNr.ANMELD",10], ["Preis.ANMELD",20], ["Zahlung.ANMELD",20],  ["Vorname.ADRESSE.Name",20], ["Name.ADRESSE.Name",30],  
+    #              ["KundenNr.ADRESSE = KundenNr.ANMELD",None], ["AnmeldNr.ANMELD",None]] # Ident column  
     filter =  "(Zustand = \"Anmeldung\" OR Zustand = \"PreStorno\") AND Preis > 0"
     text = "Anmeldung"
-    modul = "AfpEvent/AfpEvScreen_Verein"
-    object = "AfpEvMember"
-    return AfpZahlSelector(mysql, name, label, tablename, felder, filter, text, modul, object, debug)
+    object = "AfpEvent/AfpEvScreen_Verein/AfpEvMember"
+    edit = None
+    return AfpPaySelector(globals, name, label,  tablename, indexfield, felder, filter, text, object, edit, debug)
 ## generate ZahlSelector for invoice part of the  'Event' Modul
-# @param mysql -  object for dadabase access
+# @param globals -  global values including object for dadabase access
 # @param debug - debug flag
-def AfpFinance_EventSelector(mysql, debug = False):
+def AfpFinance_EventSelector(globals, debug = False):
     name = "Anmeldung"
     label = "&Anmeldung"
     tablename = "ANMELD"
+    indexfield = "EventNr"
     felder = "Beginn,Preis,Zahlung,Bez,Zustand,EventNr"
     filter =  "Zustand = \"Anmeldung\""
     text = "Anmeldung"
-    modul = "AfpEvent/AfpEvRoutines/"
-    object = "AfpEvClient"
-    return AfpZahlSelector(mysql, name, label, tablename, felder, filter, text, modul, object, debug)
+    object = "AfpEvent/AfpEvRoutines/AfpEvClient"
+    edit = None
+    return AfpPaySelector(globals, name, label,  tablename, indexfield, felder, filter, text, object, edit, debug)
 ## generate ZahlSelector for cancellation part of the  'Event' Modul, includong all flavours
-# @param mysql -  object for dadabase access
+# @param globals -  global values including object for dadabase access
 # @param debug - debug flag
-def AfpFinance_EventStornoSelector(mysql, debug = False):
+def AfpFinance_EventStornoSelector(globals, debug = False):
     name = "Storno"
     label = "&Stornierung"
     tablename = "ANMELD"
+    indexfield = "EventNr"
     felder = "Abfahrt,Preis,Zahlung,Bez,Zustand,EventNr"
     filter =  "Zustand = \"Storno\""
     text = "Stornierung"
-    modul = "AfpEvent/AfpEvRoutines/"
-    object = "AfpEvClient"
-    return AfpZahlSelector(mysql, name, label, tablename, felder, filter, text, modul, object, debug, True)
+    object = "AfpEvent/AfpEvRoutines/AfpEvClient"
+    edit = None
+    return AfpPaySelector(globals, name, label,  tablename, indexfield, felder, filter, text, object, edit, debug, True)
 ## generate ZahlSelector for invoice part of the  'Faktura' Modul
-# @param mysql -  object for dadabase access
+# @param globals -  global values including object for dadabase access
 # @param debug - debug flag
-def AfpFinance_InvoiceSelector(mysql, debug = False):
+def AfpFinance_InvoiceSelector(globals, debug = False):
     name = "Invoice"
     label = "&Rechnung"
     tablename = "RECHNG"
@@ -212,65 +241,75 @@ def AfpFinance_InvoiceSelector(mysql, debug = False):
     #filter_feld = "Zustand"
     #filter =  ["offen","Mahnung","bezahlt"]
     text = "Rechnung"
-    modul = "AfpFaktura/AfpFaRoutines"
-    object = "AfpInvoice"
-    return AfpZahlSelector(mysql, name, label, tablename, felder, None, text, modul, object, debug)
+    object = "AfpFaktura/AfpFaRoutines/AfpInvoice"
+    edit = None
+    return AfpPaySelector(globals, name, label, tablename, None, felder, None, text, object, edit, debug)
 ## generate ZahlSelector for offer part of the  'Faktura' Modul
-# @param mysql -  object for dadabase access
+# @param globals -  global values including object for dadabase access
 # @param debug - debug flag
-def AfpFinance_OfferSelector(mysql, debug = False):
+def AfpFinance_OfferSelector(globals, debug = False):
     name = "Offer"
     label = "&Auftrag"
     tablename = "KVA"
     felder = "RechNr,Datum,Pos,Betrag,Bem"
     filter =  "Zustand = \"Auftrag\""
     text = "Auftrag"
-    modul = "AfpFaktura/AfpFaRoutines"
-    object = "AfpOffer"
-    return AfpZahlSelector(mysql, name, label, tablename, felder, filter, text, modul, object, debug)
+    object = "AfpFaktura/AfpFaRoutines/AfpOffer"
+    edit = None
+    return AfpPaySelector(globals, name, label, tablename, None, felder, None, text, object, edit, debug)
 ## generate ZahlSelector for order part of the  'Faktura' Modul
-# @param mysql -  object for dadabase access
+# @param globals -  global values including object for dadabase access
 # @param debug - debug flag
-def AfpFinance_OrderSelector(mysql, debug = False):
+def AfpFinance_OrderSelector(globals, debug = False):
     name = "Order"
     label = "&Bestellung"
     tablename = "BESTELL"
     felder = "RechNr,Datum, Pos,Betrag,ZahlBetrag,Bem"
     filter =  "Zustand = \"beglichen\" OR Zustand = \"erhalten\" OR Zustand = \"offen\""
     text = "Bestellung"
-    modul = "AfpFaktura/AfpFaRoutines"
-    object = "AfpOrder"
-    return AfpZahlSelector(mysql, name, label, tablename, felder, filter, text, modul, object, debug, True)
+    object = "AfpFaktura/AfpFaRoutines/AfpOrder"
+    edit = None
+    return AfpPaySelector(globals, name, label, tablename, None, felder, None, text, object, edit, debug)
     
 ## class to select additional payment entries
-class AfpZahlSelector(object):
+class AfpPaySelector(object):
    ## initialize payment class, \n
     # if avaulable attach modul to record financial transactions
-    # @param mysql - database handle
+    # @param globals - global values including database handle
     # @param name - name of button
     # @param label - label of button
     # @param tablename - name of database table
+    # @param indexfield - name field on which given value should be selected
     # @param felder - name if columns given in the list
     # @param filter - filter for selection
     # @param text - text to be displayed in dialog
-    # @param object - name of object to be created from selection
+    # @param object - path of object to be created from selection
+    # @param edit - path of routine to generate and edit new created object
     # @param debug - debug flag
     # @param outgoing - flag if payment direction is outgoing
-    def  __init__(self, mysql, name, label, tablename , felder, filter, text, modul, object, debug = False, outgoing = False):
-        self.mysql = mysql
+    def  __init__(self, globals, name, label, tablename , indexfield, felder, filter, text, object, edit, debug = False, outgoing = False):
+        self.globals = globals
+        self.mysql = self.globals.get_mysql()
         self.name = name
         self.label = label
         self.tablename = tablename
+        self.indexfield = indexfield
         self.felder = felder
         self.filter = filter
         self.text = text
-        self.modul = modul
         self.object = object
+        self.edit = edit
         self.outgoing = outgoing
         self.debug = debug
     ## get flag if payment is incoming \n
     def is_incoming(self):
         return not self.outgoing
+    ## get flag if payment may deliver 'edit' dialog \n
+    def is_editable(self):
+        if self.edit and self.indexfield:
+            return True
+        else:
+            return False
     ## get name
     def get_name(self):
         return self.name
@@ -280,28 +319,67 @@ class AfpZahlSelector(object):
     ## get table name
     def get_tablename(self):
         return self.tablename
+    ## get sort field name
+    def get_indexfield(self):
+        return self.indexfield
+    ## get filter used
+    def get_filter(self):
+        return self.filter
+    ## get fields values
+    def get_felder(self):
+        return self.felder
+    ## get fields to be displayed in a string
+    def get_felder_string(self):
+        result = self.felder
+        if type(self.felder) == list:
+            result = ""
+            for entry in self.felder:
+                if self.tablename in entry[0] and not entry[1] is None:
+                    result += "," + entry[0] .split(".")[0]
+            result += "," + self.felder[-1][0].split(".")[0]
+            print "AfpPaySelector.get_felder:", result[1:]
+            if result: result = result[1:]
+        return result
     ## get dialog text
     def get_text(self):
         return self.text
-    ## get modul
-    def get_modul(self):
-        return self.modul
+    ## get modul- and objectname from self.object
+    def get_object_modul(self):
+        return self.split_object_modul(self.object)
+    ## get modul- and objectname from self.edit
+    def get_edit_modul(self):
+        return self.split_object_modul(self.edit)
+    ## get modul- and objectname from entry
+    # @param entry - string to be splitted into modul- and objectname
+    def split_object_modul(self, entry):
+        #print "AfpPaySelector.split_object_modul:", entry, self.object, self.edit
+        modul = None
+        object = None
+        if entry and "/" in entry:
+            split = entry.split("/")
+            modul = "/".join(split[:-1])
+            object = split[-1]
+        else:
+            object = entry
+        return modul, object
     ## method to retrieve client object
-    # @param globals- globals variables
-    # @param value- identifier for generated client object
-    def get_client(self, globals, value):
+    # @param value - identifier for generated client object
+    def get_client(self, value = None):
         client = None
-        modulname = self.get_modul()
+        modulname, objectname = self.get_object_modul()
         befehl = None 
-        #print "AfpZahlSelector.get_client:",  modulname, globals
+        #print "AfpPaySelector.get_client:",  modulname, objectname
         if modulname:
-            modul = Afp_importPyModul(modulname, globals)
+            modul = Afp_importPyModul(modulname, self.globals)
             if modul:
                 befehl = "client = modul."
         else:
             befehl = "client = "
         if befehl:
-            befehl +=  self.object + "(globals," + Afp_toString(value) +")"
+            if value is None:
+                befehl +=  objectname + "(self.globals)"
+            else:
+                befehl +=  objectname + "(self.globals," + Afp_toString(value) +")"
             exec befehl
         return client
     ## method to retrieve rows from database
@@ -309,8 +387,11 @@ class AfpZahlSelector(object):
     # @param value - value looked for in field
     def get_rows(self, field, value):
         if field and value:
-            #print "AfpZahlSelector.get_rows:", self.tablename, field, value, self.debug, self.felder, self.filter
-            rows = Afp_selectSameValue(self.mysql, self.tablename, field, value, self.debug, self.felder, self.filter)
+            print "AfpPaySelector.get_rows:", self.tablename, field, value, self.debug, self.felder, self.filter
+            if self.indexfield != field:
+                field = None
+                value = None
+            rows = Afp_selectSameValue(self.mysql, self.tablename, field, value, self.debug, self.get_felder_string(), self.filter)
             if "KundenNr" in self.felder:
                 ind = self.felder.split(",").index("KundenNr")
                 for i in range(len(rows)):
@@ -345,11 +426,12 @@ class AfpZahlSelector(object):
 ## display and manipulation of payments
 class AfpDialog_DiFiZahl(AfpDialog):
     ## initialise dialog
-    def __init__(self, globals):
+    def __init__(self, globals,out=False):
         self.globals = globals        
         self.selector_buttons= []
         self.selectors = None
         self.is_full = False
+        self.outgoing = out
         AfpDialog.__init__(self,None, -1, "")
         self.do_store = True
         self.allow_skonto = False
@@ -357,7 +439,10 @@ class AfpDialog_DiFiZahl(AfpDialog):
             self.SetSize((570,400))
         else:
             self.SetSize((400,150))
-        self.SetTitle("Zahlung")
+        if self.outgoing:
+            self.SetTitle("Zahlung (Ausgang)")
+        else:
+            self.SetTitle("Zahlung (Eingang)")
 
     ## initialise graphic elements
     def InitWx(self):
@@ -542,25 +627,16 @@ class AfpDialog_DiFiZahl(AfpDialog):
     # @param panel - object where buttons should be placed (panel, self)
     def gen_sel_buttons(self, panel):
         selectors = AfpFinance_get_ZahlSelectors(self.globals)
-        incoming = True
+        incoming = not self.outgoing
         if selectors:
             ind = -1
             for sel in selectors:
                 selector = selectors[sel]
-                if not selector.is_incoming():
+                if selector.is_incoming() == incoming:
                     ind += 1                
                     button = wx.Button(panel, -1, label=selector.get_label(), pos=(20 + ind*100,160), size=(92,34), name=selector.get_name())
                     self.selector_buttons.append(button)
                     self.Bind(wx.EVT_BUTTON, self.On_Zahlung_Select, self.selector_buttons[ind])
-                    self.selector_buttons[ind].Enable(selector.is_incoming()==incoming)
-            for sel in selectors: 
-                selector = selectors[sel]
-                if selector.is_incoming():
-                    ind += 1                
-                    button = wx.Button(panel, -1, label=selector.get_label(), pos=(20 + ind*100,160), size=(92,34), name=selector.get_name())
-                    self.selector_buttons.append(button)
-                    self.Bind(wx.EVT_BUTTON, self.On_Zahlung_Select, self.selector_buttons[ind])
-                    self.selector_buttons[ind].Enable(selector.is_incoming()==incoming)
         if self.selector_buttons:
             self.selectors = selectors
             self.is_full = True
@@ -664,8 +740,7 @@ class AfpDialog_DiFiZahl(AfpDialog):
     ## event handler when cursor leaves the 'statement of account' (Auszug) textbox
     def On_Zahlung_Auszug(self,event):
         if self.debug: print "AfpDialog_DiFiZahl Event handler `On_Zahlung_Auszug'"
-        A
-        uszug = self.text_Auszug.GetValue()
+        Auszug = self.text_Auszug.GetValue()
         self.check_auszug(Auszug)
         event.Skip()
 
@@ -742,7 +817,7 @@ class AfpDialog_DiFiZahl(AfpDialog):
 # @param multi - if given, additional entries will be retrieved from database with identic values in this column(s)
 # @param do_not_store - flag if writing to database should be skipped
 def AfpLoad_DiFiZahl(data, multi = None, do_not_store = False):
-    DiZahl = AfpDialog_DiFiZahl(data.globals)
+    DiZahl = AfpDialog_DiFiZahl(data.globals, data.get_payment_outgoing() )
     Zahl = AfpZahlung(data, multi) 
     DiZahl.attach_data(Zahl, False, True)
     if do_not_store: DiZahl.do_not_store()
@@ -751,4 +826,595 @@ def AfpLoad_DiFiZahl(data, multi = None, do_not_store = False):
     data = DiZahl.get_data()
     DiZahl.Destroy()
     return Ok, data
+ 
+## dialog for selection of dat depending of PaySelection data \n
+# selects an entry from the appropriate table
+class AfpDialog_PaySelectorAusw(AfpDialog_Auswahl):
+    ## initialise dialog
+    # @param selector - PaySelector object to be used
+    def __init__(self, selector):
+        self.selector = selector
+        AfpDialog_Auswahl.__init__(self,None, -1, "", style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER)
+        if not self.selector.is_editable(): self.button_Neu.Enable(False)
+        self.typ = self.selector.get_text() + "-Auswahl"
+        self.datei = self.selector.get_tablename() 
+       
+    ## get the definition of the selection grid content \n
+    # overwritten for "PaySelector" use
+    def get_grid_felder(self): 
+        Felder = self.selector.get_felder()
+        return Felder
+    ## invoke the dialog for a new entry \n
+    # overwritten for "PaySelector" use
+    def invoke_neu_dialog(self, globals, eingabe, filter):
+        res = False
+        data = self.selector.get_client()
+        modulname, routinename = self.selector.get_edit_modul()
+        befehl = None 
+        #print "AfpDialog_PaySelectorAusw.invoke_neu_dialog:",  modulname, routinename
+        if modulname:
+            modul = Afp_importPyModul(modulname, self.selector.globals)
+            if modul:
+                befehl = "res = modul."
+        else:
+            befehl = "res = "
+        if befehl:
+            befehl +=  routinename + "(data)"
+            exec befehl
+            if res: self.Pop_grid()
+        return res
+## loader routine for event selection dialog 
+# @param pselector - PaySelector to be used for selection
+# @param value - if given value to be selected
+def AfpLoad_PaySelectorAusw(pselector, value=None):
+    DiAusw = AfpDialog_PaySelectorAusw(pselector)
+    text = "Bitte " + pselector.get_text() + " auswählen:".decode("UTF-8")   
+    DiAusw.initialize(pselector.globals, pselector.get_indexfield(), value, pselector. get_filter(), text)
+    DiAusw.ShowModal()
+    result = DiAusw.get_result()
+    DiAusw.Destroy()
+    return result    
+        
+## dialog for selection of invoice data \n
+# selects an entry from the RECHNG or VERBIND table
+class AfpDialog_simpleInvoiceAusw(AfpDialog_Auswahl):
+    ## initialise dialog
+    def __init__(self, flavour = None):
+        self.flavour = flavour
+        AfpDialog_Auswahl.__init__(self,None, -1, "", style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER)
+        self.typ = "Rechnungsauswahl"
+        self.datei = "RECHNG"
+        if self.flavour == "Obligation":
+            self.typ = "Eingangsrechnungsauswahl"
+            self.datei = "VERBIND"
+        
+    ## get the definition of the selection grid content \n
+    # overwritten for "Event" use
+    def get_grid_felder(self): 
+        if self.flavour == "Obligation":
+            Felder = [["Datum.VERBIND",20], 
+                                ["Betrag.VERBIND",15],
+                                ["ZahlBetrag.VERBIND",15],
+                                ["Bem.VERBIND",35],
+                                ["Zustand.VERBIND",15], 
+                                ["RechNr.VERBIND",None]] # Ident column
+        else:
+            Felder = [["Datum.RECHNG",15], 
+                                ["Betrag.RECHNG",10],
+                                ["ZahlBetrag.RECHNG",10],
+                                ["Bem.RECHNG",50],
+                                ["Zustand.RECHNG",15], 
+                                ["RechNr.RECHNG",None]] # Ident column
+        return Felder
+    ## invoke the dialog for a new entry \n
+    # overwritten for "Invoice" use
+    def invoke_neu_dialog(self, globals, eingabe, filter):
+        if self.flavour == "Obligation": 
+            data = AfpObligation(globals)
+        else:
+            data = AfpCommonInvoice(globals)
+        return AfpLoad_SimpleInvoice(data)      
+ 
+## handling routine for common invoices
+# @param globals - global variables including database connection
+# @param where - if given, filter for search in table
+def Afp_handleCommonInvoice(globals, where = None):
+    pselector = AfpFinance_simpleInvoiceSelector(globals)
+    if not where is None:
+        if where:
+            pselector.filter = where
+        else:
+            pselector.filter = None
+    ReNr = AfpLoad_PaySelectorAusw(pselector)
+    Ok = False
+    if ReNr:
+        data = AfpCommonInvoice(globals, ReNr)
+        Ok = AfpLoad_SimpleInvoice(data)
+    return Ok  
+## handling routine for obligations
+# @param globals - global variables including database connection
+# @param where - if given, filter for search in table
+def Afp_handleObligation(globals, where = None):
+    pselector = AfpFinance_ObligationSelector(globals)
+    if not where is None:
+        if where:
+            pselector.filter = where
+        else:
+            pselector.filter = None
+    ReNr = AfpLoad_PaySelectorAusw(pselector)
+    Ok = False
+    if ReNr:
+        data = AfpObligation(globals, ReNr)
+        Ok = AfpLoad_SimpleInvoice(data)
+    return Ok  
+    
+## class for simple Invoice dialog (incoming/outgoing)
+class AfpDialog_SimpleInvoice(AfpDialog):
+    def __init__(self, obligation = False):
+        self.oblig = obligation    
+        AfpDialog.__init__(self,None, -1, "")
+        self.checked_box = []
+        self.data_changed = False
+
+        self.SetSize((378,400))
+        self.SetTitle("Rechnung")
+        if self.oblig:
+            self.SetTitle("Eingangsrechnung")   
+        
+    def InitWx(self): 
+        self.sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.panel_sizer = wx.BoxSizer(wx.VERTICAL)
+        # INVOICE DATA
+        self.label_RechNr = wx.StaticText(self, -1, name="RechNr")
+        self.labelmap["RechNr"] = "RechNr"
+        self.line1_sizer =  wx.BoxSizer(wx.HORIZONTAL)
+        self.line1_sizer.AddStretchSpacer(1)           
+        self.line1_sizer.Add(self.label_RechNr,1,wx.EXPAND)
+        self.line1_sizer.AddStretchSpacer(1)  
+        
+        self.label_Vorname = wx.StaticText(self, -1, name="Vorname")
+        self.labelmap["Vorname"] = "Vorname.ADRESSE"
+        self.label_Nachname = wx.StaticText(self, -1, name="Nachname")
+        self.labelmap["Nachname"] = "Name.ADRESSE"
+        self.line2_sizer =  wx.BoxSizer(wx.HORIZONTAL)
+        self.line2_sizer.Add(self.label_Vorname,1,wx.EXPAND)
+        self.line2_sizer.AddSpacer(5)        
+        self.line2_sizer.Add(self.label_Nachname,1,wx.EXPAND)
+
+        if self.oblig:
+            self.label_TReNr = wx.StaticText(self, -1, label="Rechnungs Nr:", style=wx.ALIGN_RIGHT)
+            self.text_ReNr = wx.TextCtrl(self, -1,  name="ReNr")
+            self.textmap["ReNr"] = "ExternNr"
+            self.text_ReNr.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
+            self.line3_sizer =  wx.BoxSizer(wx.HORIZONTAL)
+            self.line3_sizer.Add(self.label_TReNr,1,wx.EXPAND)
+            self.line3_sizer.AddSpacer(5)        
+            self.line3_sizer.Add(self.text_ReNr,1,wx.EXPAND)
+            self.line3_sizer.AddSpacer(5) 
+        else:
+            self.label_TNetto = wx.StaticText(self, -1, label="Netto:", style=wx.ALIGN_RIGHT)
+            self.text_Netto = wx.TextCtrl(self, -1,  name="Netto")
+            self.textmap["Netto"] = "Netto"
+            self.text_Netto.Bind(wx.EVT_KILL_FOCUS, self.On_Skonto)
+            self.line3_sizer =  wx.BoxSizer(wx.HORIZONTAL)
+            self.line3_sizer.Add(self.label_TNetto,1,wx.EXPAND)
+            self.line3_sizer.AddSpacer(5)        
+            self.line3_sizer.Add(self.text_Netto,1,wx.EXPAND)
+            self.line3_sizer.AddSpacer(5)        
+
+        self.label_TReDat = wx.StaticText(self, -1, label="Datum:", style=wx.ALIGN_RIGHT)
+        self.text_ReDat = wx.TextCtrl(self, -1,  name="Dat")
+        self.vtextmap["Dat"] = "Datum"
+        self.text_ReDat.Bind(wx.EVT_KILL_FOCUS, self.On_Datum)
+        self.line4_sizer =  wx.BoxSizer(wx.HORIZONTAL)
+        self.line4_sizer.Add(self.label_TReDat,1,wx.EXPAND)
+        self.line4_sizer.AddSpacer(5)        
+        self.line4_sizer.Add(self.text_ReDat,1,wx.EXPAND)
+        self.line4_sizer.AddSpacer(5)        
+
+        self.label_TBetrag = wx.StaticText(self, -1, label="Betrag:", style=wx.ALIGN_RIGHT)
+        self.text_Betrag = wx.TextCtrl(self, -1,  name="Betrag")
+        self.textmap["Betrag"] = "Betrag"
+        self.text_Betrag.Bind(wx.EVT_KILL_FOCUS, self.On_Skonto)
+        self.line5_sizer =  wx.BoxSizer(wx.HORIZONTAL)
+        self.line5_sizer.Add(self.label_TBetrag,1,wx.EXPAND)
+        self.line5_sizer.AddSpacer(5)        
+        self.line5_sizer.Add(self.text_Betrag,1,wx.EXPAND)
+        self.line5_sizer.AddSpacer(5)        
+
+        self.label_TZiel = wx.StaticText(self, -1, label="Falligkeit:".decode("UTF-8"), style=wx.ALIGN_RIGHT)
+        self.text_Ziel = wx.TextCtrl(self, -1,  name="ZielDat")
+        self.vtextmap["ZielDat"] = "ZahlZiel"
+        self.text_Ziel.Bind(wx.EVT_KILL_FOCUS, self.On_Datum)
+        self.line6_sizer =  wx.BoxSizer(wx.HORIZONTAL)
+        self.line6_sizer.Add(self.label_TZiel,1,wx.EXPAND)
+        self.line6_sizer.AddSpacer(5)        
+        self.line6_sizer.Add(self.text_Ziel,1,wx.EXPAND)
+        self.line6_sizer.AddSpacer(5)        
+
+        #self.label_TKred= wx.StaticText(self, -1, label="Debitor:".decode("UTF-8"), style=wx.ALIGN_RIGHT)
+        #self.text_Kred = wx.TextCtrl(self, -1,  name="KreDeb")
+        #self.textmap["KreDeb"] = "Debitor"
+        #self.text_Kred.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
+        #self.line7_sizer =  wx.BoxSizer(wx.HORIZONTAL)
+        #self.line7_sizer.Add(self.label_TKred,1,wx.EXPAND)
+        #self.line7_sizer.AddSpacer(5)        
+        #self.line7_sizer.Add(self.text_Kred,1,wx.EXPAND)
+        #self.line7_sizer.AddSpacer(5)        
+
+        self.label_TKonto= wx.StaticText(self, -1, label="Kontierung:".decode("UTF-8"), style=wx.ALIGN_RIGHT)
+        self.text_Konto = wx.TextCtrl(self, -1,  name="Kontierung")
+        self.textmap["Kontierung"] = "Kontierung"
+        self.text_Konto.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
+        self.line8_sizer =  wx.BoxSizer(wx.HORIZONTAL)
+        self.line8_sizer.Add(self.label_TKonto,1,wx.EXPAND)
+        self.line8_sizer.AddSpacer(5)        
+        self.line8_sizer.Add(self.text_Konto,1,wx.EXPAND)
+        self.line8_sizer.AddSpacer(5)        
+ 
+        self.text_Bem = wx.TextCtrl(self, -1, style=wx.TE_MULTILINE|wx.TE_LINEWRAP,  name="Bem")
+        self.textmap["Bem"] = "Bem"
+        self.text_Bem.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
+        self.line9_sizer =  wx.BoxSizer(wx.HORIZONTAL)
+        self.line9_sizer.AddSpacer(5)        
+        self.line9_sizer.Add(self.text_Bem,1,wx.EXPAND)
+        self.line9_sizer.AddSpacer(5)           
+
+        self.label_TSkonto= wx.StaticText(self, -1, label="Prozent:".decode("UTF-8"), style=wx.ALIGN_RIGHT)
+        self.text_SkPro = wx.TextCtrl(self, -1,  name="SkPro")
+        self.textmap["SkPro"] = "SkPro._tmp"
+        self.text_SkPro.Bind(wx.EVT_SET_FOCUS, self.In_SkPro)
+        self.text_SkPro.Bind(wx.EVT_KILL_FOCUS, self.On_Skonto)
+        self.text_Skonto = wx.TextCtrl(self, -1,  name="Skonto")
+        self.textmap["Skonto"] = "Skonto"
+        self.text_Skonto.Bind(wx.EVT_KILL_FOCUS, self.On_Skonto)
+        self.line10_sizer =  wx.BoxSizer(wx.HORIZONTAL)
+        self.line10_sizer.Add(self.label_TSkonto,1,wx.EXPAND)
+        self.line10_sizer.AddSpacer(5)        
+        self.line10_sizer.Add(self.text_SkPro,1,wx.EXPAND)
+        self.line10_sizer.Add(self.text_Skonto,2,wx.EXPAND)
+        self.line10_sizer.AddSpacer(5)                  
+
+        self.label_TGesamt= wx.StaticText(self, -1, label="Zahlbetrag:".decode("UTF-8"), style=wx.ALIGN_RIGHT)
+        self.text_ZahlBet = wx.TextCtrl(self, -1,  name="ZahlBet")
+        self.textmap["ZahlBet"] = "ZahlBetrag"
+        self.text_ZahlBet.Bind(wx.EVT_KILL_FOCUS, self.On_Skonto)
+        self.line11_sizer =  wx.BoxSizer(wx.HORIZONTAL)
+        self.line11_sizer.Add(self.label_TGesamt,1,wx.EXPAND)
+        self.line11_sizer.AddSpacer(5)        
+        self.line11_sizer.Add(self.text_ZahlBet,1,wx.EXPAND)
+        self.line11_sizer.AddSpacer(5)          
+        
+        self.panel_sizer.AddSpacer(5)          
+        self.panel_sizer.Add(self.line1_sizer,0,wx.EXPAND)
+        self.panel_sizer.AddSpacer(5)          
+        self.panel_sizer.Add(self.line2_sizer,0,wx.EXPAND)
+        self.panel_sizer.AddSpacer(5)  
+        if self.oblig:
+            self.panel_sizer.Add(self.line3_sizer,0,wx.EXPAND)
+            self.panel_sizer.AddSpacer(5)  
+            self.panel_sizer.Add(self.line4_sizer,0,wx.EXPAND)
+            self.panel_sizer.AddSpacer(5)   
+        else:
+            self.panel_sizer.Add(self.line4_sizer,0,wx.EXPAND)
+            self.panel_sizer.AddSpacer(5)   
+            self.panel_sizer.Add(self.line3_sizer,0,wx.EXPAND)
+            self.panel_sizer.AddSpacer(5)  
+        self.panel_sizer.Add(self.line5_sizer,0,wx.EXPAND)
+        self.panel_sizer.AddSpacer(5)    
+        self.panel_sizer.Add(self.line6_sizer,0,wx.EXPAND)
+        self.panel_sizer.AddSpacer(5)    
+        #self.panel_sizer.Add(self.line7_sizer,0,wx.EXPAND)
+        #self.panel_sizer.AddSpacer(5)    
+        self.panel_sizer.Add(self.line8_sizer,0,wx.EXPAND)
+        self.panel_sizer.AddSpacer(5)     
+        self.panel_sizer.Add(self.line9_sizer,1,wx.EXPAND)
+        self.panel_sizer.AddSpacer(5)      
+        self.panel_sizer.Add(self.line10_sizer,0,wx.EXPAND)
+        self.panel_sizer.AddSpacer(5)      
+        self.panel_sizer.Add(self.line11_sizer,0,wx.EXPAND)
+        self.panel_sizer.AddSpacer(5)  
+        
+        # BUTTONs
+        self.button_sizer = wx.BoxSizer(wx.VERTICAL)          
+        self.label_Zustand = wx.StaticText(self, -1,  name="Zustand")
+        self.labelmap["Zustand"] = "Zustand"        
+        self.button_Zahl = wx.Button(self, -1, label="&Zahlung", name="Zahl")
+        self.Bind(wx.EVT_BUTTON, self.On_Zahlung, self.button_Zahl)
+        self.button_Neu = wx.Button(self, -1, label="&Neu", name="Neu")
+        self.Bind(wx.EVT_BUTTON, self.On_Neu, self.button_Neu)
+        self.button_Storno = wx.Button(self, -1, label="&Stornierung", name="Storno")
+        self.Bind(wx.EVT_BUTTON, self.On_Storno, self.button_Storno)
+        self.button_Orig = wx.Button(self, -1, label="&Original".decode("UTF-8"), name="Orig")
+        self.Bind(wx.EVT_BUTTON, self.On_Original, self.button_Orig)
+        self.check_Dauer = wx.CheckBox(self, -1, label="Dauer", name="Dauer")
+        self.checkmap["Dauer"] = "Zustand = Dauer"
+        self.Bind(wx.EVT_CHECKBOX, self.On_Check, self.check_Dauer)
+        if not self.oblig:
+            self.check_Voraus = wx.CheckBox(self, -1, label="Voraus", name="Voraus")
+            self.Bind(wx.EVT_CHECKBOX, self.On_Check, self.check_Voraus)
+        self.button_Druck = wx.Button(self, -1, label="&Drucken", name="Druck")
+        self.Bind(wx.EVT_BUTTON, self.On_drucken, self.button_Druck)
+        self.button_sizer.AddSpacer(5)
+        self.button_sizer.Add(self.label_Zustand,0,wx.EXPAND)
+        self.button_sizer.AddSpacer(5)
+        self.button_sizer.Add(self.button_Zahl,0,wx.EXPAND)
+        self.button_sizer.AddSpacer(5)
+        self.button_sizer.Add(self.button_Neu,0,wx.EXPAND)
+        self.button_sizer.AddStretchSpacer(1)
+        self.button_sizer.Add(self.button_Storno,0,wx.EXPAND)
+        self.button_sizer.AddSpacer(5)
+        self.button_sizer.Add(self.button_Orig,0,wx.EXPAND)
+        self.button_sizer.AddStretchSpacer(1)
+        self.button_sizer.Add(self.check_Dauer,0,wx.EXPAND)
+        if not self.oblig:
+            self.button_sizer.AddSpacer(1)
+            self.button_sizer.Add(self.check_Voraus,0,wx.EXPAND)
+        self.button_sizer.AddStretchSpacer(1)
+        self.button_sizer.Add(self.button_Druck,0,wx.EXPAND)
+        self.setWx(self.button_sizer, [1, 0, 0], [1, 0, 1]) # set Edit and Ok widgets
+
+        self.sizer.AddSpacer(10)
+        self.sizer.Add(self.panel_sizer,2,wx.EXPAND)
+        self.sizer.AddSpacer(10)
+        self.sizer.Add(self.button_sizer,1,wx.EXPAND)
+        self.sizer.AddSpacer(10)   
+        self.SetSizerAndFit(self.sizer)
+        self.SetAutoLayout(1)
+        self.sizer.Fit(self)
+        
+    ## set all payment values due to change in wx-object
+    # @param object - gaphic object where value has been changed
+    def set_payment_change(self, object):
+        name = object.GetName()
+        #print "AfpDialog_SimpleInvoice.set_payment_change name:", name
+        netto = None
+        if not self.oblig and name == "Netto":
+            netto  = Afp_fromString(self.text_Netto.GetValue())
+            betrag = AfpFinance_addTax(self.data.get_globals(), netto)
+        else:
+            betrag = Afp_fromString(self.text_Betrag.GetValue())
+        if betrag:
+            percent = self.get_percent()
+            skonto = Afp_fromString(self.text_Skonto.GetValue())
+            zahl = Afp_fromString(self.text_ZahlBet.GetValue())
+            if percent and (name == "Betrag" or name == "Netto"  or name == "SkPro"):
+                skonto  = int(percent*betrag)/100.0
+            elif zahl and name == "ZahlBet" :
+                skonto = betrag - zahl
+            if skonto and (name == "Skonto" or name == "ZahlBet"):
+                initial = percent
+                percent = 100.0*skonto/betrag
+                if initial and percent and not Afp_isEps(percent - initial):
+                    percent = initial
+            if percent and skonto and name != "ZahlBet":
+                zahl = betrag - skonto
+            #print "AfpDialog_SimpleInvoice.set_payment_change:", percent, "% von ", betrag, "ist",  skonto, "bleiben zu zahlen", zahl
+            if percent:
+                self.text_SkPro.SetValue(Afp_toString(percent) + "%")
+                self.text_Skonto.SetValue(Afp_toFloatString(skonto))
+                self.text_ZahlBet.SetValue(Afp_toFloatString(zahl))
+                if not "Skonto" in self.changed_text: self.changed_text.append("Skonto")
+                if not "ZahlBet" in self.changed_text: self.changed_text.append("ZahlBet")
+            if name == "Betrag" or name == "Netto":
+                self.text_Betrag.SetValue(Afp_toFloatString(betrag))
+                if not self.oblig:
+                    if netto is None:
+                        netto = AfpFinance_stripTax(self.data.get_globals(), betrag)
+                    self.text_Netto.SetValue(Afp_toFloatString(netto))
+                    if not "Netto" in self.changed_text: self.changed_text.append("Netto")
+                if not "Betrag" in self.changed_text: self.changed_text.append("Betrag")
+    ## get percent value from textinput (may extract %'-sign)
+    def get_percent(self):
+        valstring = self.text_SkPro.GetValue().strip()
+        if valstring:
+            if valstring[-1] == "%":
+                valstring = valstring[:-1].strip()
+            return Afp_fromString(valstring)
+        else:
+            return None
+            
+    ## add value according to checkbox 'Dauer' to data
+    # @param data - dictionry where entries should be added
+    def add_dauer_value(self, data):
+        dauer = self.check_Dauer.GetValue()
+        if dauer:
+            data["Zustand"] = "Dauer"
+        else:
+            preis, zahlung, dummy = self.data.get_payment_values()
+            if "Betrag" in data or "ZahlBetrag" in data:
+                if "ZahlBetrag" in data:
+                    preis = data["ZahlBetrag"]
+                else:
+                    preis = data["Betrag"]
+            if zahlung < preis:
+                data["Zustand"] = "offen"
+            else:
+                data["Zustand"] = "bezahlt"
+        return data
+
+    ## handle archiv entries of documents for obligations
+    def handle_obligation_archiv(self):
+        add = True
+        wanted = True
+        art = self.data.get_globals().get_value("name")
+        if art[:3] == "Afp": art = art[3:]
+        listname = self.data.get_listname()
+        rows = self.data.get_value_rows("ARCHIV","Art,Typ,Gruppe,Extern")
+        #print "AfpDialog_SimpleInvoice.handle_obligation_archiv:", rows
+        if rows:
+            for row in rows:
+                if row[0] == art and row[1] == listname and row[2] == "Rechnungseingang":
+                    add = False
+                    fpath = Afp_addRootpath(self.data.globals.get_value("archivdir"), row[3])
+                    if Afp_existsFile(fpath):
+                        Afp_startFile(fpath,self.data.globals, self.debug)
+                    else:
+                        AfpReq_Info("Archiveintrag existiert, aber Datei ist nicht vorhanden!","")
+        if add:
+            wanted = AfpReq_Question("Bitte die Eingangsrechnung einscannen und die gescannte Datei auswählen!".decode("UTF-8"),"")
+            if wanted:
+                fixed = {"Art": art, "Typ": listname, "Gruppe":"Rechnungseingang"}
+                change = {"Eingangsdatum": self.data.get_globals().today_string(), "Bemerkung":""}
+                data = AfpAdresse_addFileToArchiv(self.data, "Eingangsrechnung", fixed, change)
+                if data:
+                    self.data = data
+                    self.data_changed = True
+                    self.Set_Editable(True)
+        
+    ## execution in case the OK button ist hit - overwritten ifrom AfpDialog
+    def execute_Ok(self):
+        data = {}
+        for entry in self.changed_text:
+            field, value = self.Get_TextValue(entry)
+            data[field] = value
+        if "Dauer" in self.checked_box:
+            data = self.add_dauer_value(data)
+        print "AfpDialog_SimpleInvoice.execute_Ok:", data
+        if data:
+            data = self.complete_data(data)
+            self.data.set_data_values(data)
+        if data or self.data_changed:
+            self.data.store()
+    ## complete data before storing
+    # @param data - dictionary of changed values
+    def complete_data(self, data):
+        if  "Betrag" in data:
+            if not self.oblig and not "Netto" in data :
+                data["Netto"] = Afp_toString(AfpFinance_stripTax(self.data.get_globals(), Afp_fromString(data["Betrag"])))
+            if not "ZahlBetrag" in data :
+                data["ZahlBetrag"] = data["Betrag"]
+        if not "Zustand" in data and not self.data.get_value("Zustand"):
+            data["Zustand"] = "offen"
+        return data
+        
+    # Event Handlers 
+    def On_Datum(self,event):
+        if self.debug: print "Event handler `AfpDialog_SimpleInvoice.On_Datum'"
+        object = event.GetEventObject()
+        dat = object.GetValue()
+        object.SetValue(Afp_ChDatum(dat))
+        name = object.GetName()
+        if not name in self.changed_text:
+            self.changed_text.append(name)
+        event.Skip()
+        
+    def In_SkPro(self,event):
+        if self.debug: print "Event handler`AfpDialog_SimpleInvoice.In_SkPro'"
+        valstring = self.text_SkPro.GetValue().strip()
+        if not valstring:
+            skonto = Afp_fromString(self.text_Skonto.GetValue())
+            if skonto:
+                self.set_payment_change(self.text_Skonto) 
+            else:
+                percent = self.data.get_globals().get_value("default-cash-discount","Finance")
+                if not percent:
+                    percent = 2
+                valstring = Afp_toString(percent) + "%"
+                self.text_SkPro.SetValue(valstring)
+        event.Skip()
+        
+    def On_SkPro(self,event):   
+        if self.debug: print "Event handler AfpDialog_SimpleInvoice.On_SkPro'"
+        valstring = self.text_SkPro.GetValue().strip()
+        if valstring[-1] == "%":
+            valstring = valstring[:-1].strip()
+        val = Afp_fromString(valstring)
+        betrag = Afp_fromString(self.text_Betrag.GetValue())
+        skonto  = int(val*betrag)/100.0
+        print "AfpDialog_SimpleInvoice.On_SkPro:", val, "% von ", betrag, "ist",  skonto, "bleiben zu zahlen", betrag - skonto
+        self.text_Skonto.SetValue(Afp_toString(skonto))
+        self.text_ZahlBet.SetValue(Afp_toString(betrag - skonto))
+        event.Skip()
+
+    ## event handler for payment changes
+    def On_Skonto(self,event):
+        if self.debug: print "Event handler `AfpDialog_SimpleInvoice.On_Skonto'"
+        object = event.GetEventObject()
+        self.set_payment_change(object)
+        event.Skip()
+
+    ## event handler for button 'Zahlung'
+    def On_Zahlung(self,event):
+        if self.debug: print "Event handler `AfpDialog_SimpleInvoice.On_Zahlung"
+        ok, data = AfpLoad_DiFiZahl(self.data, None, True)
+        if ok and data:
+            self.data = data
+            self.data_changed = True
+            self.Set_Editable(True)
+        event.Skip()
+   
+    ## event handler for button 'Neu'
+    def On_Neu(self,event):
+        if self.debug: print "Event handler AfpDialog_SimpleInvoice.On_Neu"
+        KNr = None
+        name = self.data.get_value("Name.Adresse")
+        if self.oblig:
+            text = "Bitte Adresse für neue Eingangsrechnung auswählen:"
+        else:
+            text = "Bitte Adresse für neue Rechnung auswählen:"
+        KNr = AfpLoad_AdAusw(self.data.get_globals(),"ADRESSE","NamSort",name, None, text)
+        if KNr:
+            self.data.set_new(KNr)
+            self.Populate()
+            self.Set_Editable(True)
+        event.Skip()
+    
+    ## event handler for button 'Stornierung'
+    def On_Storno(self,event):
+        print "Event handler `On_Storno' not implemented!"
+        event.Skip()
+        
+    ## event handler for button 'Original'    
+    def On_Original(self,event):
+        print "Event handler `AfpDialog_SimpleInvoice.On_Original' not implemented!"
+        if self.oblig:
+            self.handle_obligation_archiv()
+        event.Skip()
+
+    ## event handler for checkbox 'Dauer'
+    def On_Check(self,event):
+        name = event.GetEventObject().GetName()
+        if not name in self.checked_box:
+            self.checked_box.append(name)
+        event.Skip()
+
+    ## event handler for button 'Drucken'
+    def On_drucken(self,event):
+        print "Event handler `On_drucken' not implemented!"
+        event.Skip()
+
+    ## dummy event handler for panel dialogs
+    def On_Dummy(self,event):
+        print "Event handler `On_Dummy' not implemented!"
+        event.Skip()
+
+## loader routine for simple Invoice dialog 
+# @param data - data to be edited with dialog
+# @param new - flag if new data has to be created
+def AfpLoad_SimpleInvoice(data, new = False):
+    DiRech = AfpDialog_SimpleInvoice(data.is_outgoing())
+    DiRech.attach_data(data, new)
+    DiRech.ShowModal()
+    Ok = DiRech.get_Ok()
+    DiRech.Destroy()
+    return Ok
+    
+## routine to fill new Invoice data
+# @param data - data to be reset to new and edited
+def Afp_newSimpleInvoice(data):
+    KNr = None
+    name = data.get_value("Name.Adresse")
+    if data.is_outgoing():
+        text = "Bitte Adresse für neue Eingangsrechnung auswählen:"
+    else:
+        text = "Bitte Adresse für neue Rechnung auswählen:"
+    KNr = AfpLoad_AdAusw(data.get_globals(),"ADRESSE","NamSort",name, None, text)
+    if KNr:
+        data.set_new(KNr)
+        Ok = AfpLoad_SimpleInvoice(data, True)
+    else:
+        Ok = False
+    return Ok
+  
 
