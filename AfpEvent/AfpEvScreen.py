@@ -14,8 +14,8 @@
 # This file is part of the  'Open Source' project "BusAfp" by 
 #  AfpTechnologies (afptech.de)
 #
-#    BusAfp is a software to manage coach and travel acivities
-#    Copyright© 1989 - 2019 afptech.de (Andreas Knoblauch)
+#    BusAfp is a software to manage coach and travel activities
+#    Copyright© 1989 - 2021 afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -580,7 +580,7 @@ class AfpEvScreen(AfpScreen):
                     #print "AfpEvScreen.On_Click_Custs last column selected"
                     #text_g = self.grid_custs.getCellValue(index, col)
                     name = AfpAdresse(self.globals, self.sb.get_value("KundenNr.ANMELD")).get_name()
-                    text = self.sb.get_value("Info.ANMELD")
+                    text = Afp_toString(self.sb.get_value("Info.ANMELD"))
                     if not text: text = ""
                     text, Ok = AfpReq_Text("Bitte Information für Anmeldung".decode("UTF-8"),  name+ " eingeben.", text, "Info")
                     if Ok:

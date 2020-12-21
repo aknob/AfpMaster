@@ -12,7 +12,7 @@
 # This file is part of the  'Open Source' project "BusAfp" by 
 #  AfpTechnologies (afptech.de)
 #
-#    BusAfp is a software to manage coach and travel acivities
+#    BusAfp is a software to manage coach and travel activities
 #    Copyright© 1989 - 2019 afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify

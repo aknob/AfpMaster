@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 
 ## @package BusAfp
-# BusAfp is a software to manage coach and travel acivities \n
-#    Copyright© 1989 - 2020  afptech.de (Andreas Knoblauch) \n
+# BusAfp is a software to manage coach and travel activities \n
+#    Copyright© 1989 - 2021  afptech.de (Andreas Knoblauch) \n
 # \n
 #   History: \n
 #        05 Mar. 2020 - allow individual database config files additionally- Andreas.Knoblauch@afptech.de \n
@@ -20,7 +20,7 @@
 #  AfpTechnologies (afptech.de)
 #
 #    BusAfp is a software to manage coach and travel acivities
-#    Copyright© 1989 - 2020 afptech.de (Andreas Knoblauch)
+#    Copyright© 1989 - 2021 afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -97,7 +97,7 @@ class AfpMainApp(wx.App):
         website = "http://www.afptech.de"
         baseversion = "6.1.1 beta"       
         version = baseversion    
-        copyright = 'Copyright (C) 1989 - 2020  AfpTech.de'
+        copyright = 'Copyright (C) 1989 - 2021  AfpTech.de'
         moduls = ["Adresse"]
         if info:
             name = info.get_name()
@@ -115,7 +115,7 @@ class AfpMainApp(wx.App):
         rechtssichere englische Version:
         
         """.decode("UTF-8") + name + """ is a software to manage coach and travel acivities
-         Copyright© 1989 - 2020  afptech.de (Andreas Knoblauch)
+         Copyright© 1989 - 2021  afptech.de (Andreas Knoblauch)
 
          This program is free software: you can redistribute it and/or modify
          it under the terms of the GNU General Public License as published by

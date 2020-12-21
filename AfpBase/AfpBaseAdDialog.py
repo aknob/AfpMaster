@@ -17,8 +17,8 @@
 # This file is part of the  'Open Source' project "BusAfp" by 
 #  AfpTechnologies (afptech.de)
 #
-#    BusAfp is a software to manage coach and travel acivities
-#    Copyright© 1989 - 2020 afptech.de (Andreas Knoblauch)
+#    BusAfp is a software to manage coach and travel activities
+#    Copyright© 1989 - 2021 afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -393,7 +393,7 @@ class AfpDialog_AdAttAusw(AfpDialog_Auswahl):
     
     ## invoke the dialog for a new entry
     def invoke_neu_dialog(self, globals, search, where):
-        if search is None: search = "a"
+        #if search is None: search = "a"
         attribut = where.split("=")[1].strip()[1:-1]  #[1:-1] needed as attribut is enclosed by " " in where phrase
         text = "Bitte neue Adresse als '" + attribut + "' auswählen!".decode("UTF-8")
         name, Ok = AfpAdresse_addAttributToAdresse(globals, attribut, search, text)
@@ -466,7 +466,7 @@ def AfpLoad_AdAttAusw(globals, attribut, value = ""):
         Datei = "ADRESATT"
         Index = "Name"
         where = "Attribut.ADRESATT = \"" + attribut.decode("UTF-8") + "\" and KundenNr.ADRESATT > 0"
-        if not value: value = "a"
+        #if not value: value = "a"
         result = AfpLoad_AdAusw(globals, Datei, Index, value, where, attribut)
         return result
         

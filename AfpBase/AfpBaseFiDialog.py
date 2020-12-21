@@ -14,8 +14,8 @@
 # This file is part of the  'Open Source' project "BusAfp" by 
 #  AfpTechnologies (afptech.de)
 #
-#    BusAfp is a software to manage coach and travel acivities
-#    Copyright© 1989 - 2020 afptech.de (Andreas Knoblauch)
+#    BusAfp is a software to manage coach and travel activities
+#    Copyright© 1989 - 2021 afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -75,8 +75,9 @@ def AfpFinance_getZahlVorgang(globals, field = None, fvalue = None):
             liste = []
             ident = []
             if rows:
+                lgh = len(rows[0]) - 1
                 for row in rows:
-                    liste.append(Afp_ArraytoLine(row, " ", 5))
+                    liste.append(Afp_ArraytoLine(row, " ", lgh))
                     ident.append(row[-1])
             text = selector.get_text()
             #print "AfpFinance_getZahlVorgang ident:", liste, ident
@@ -340,6 +341,23 @@ class AfpPaySelector(object):
             print "AfpPaySelector.get_felder:", result[1:]
             if result: result = result[1:]
         return result
+    ## identify payment columns
+    def identify_payment_indices(self):
+        felder = self.get_felder_string().split(",")
+        pay_ind = None
+        price_ind = None
+        pprice_ind = None
+        for feld in felder:
+            if "Zahlung" in feld:
+                pay_ind = felder.index(feld)
+            if "Betrag" in feld or "Preis" in feld:
+                price_ind = felder.index(feld)
+                if "Zahl" in feld:
+                    pprice_ind = price_ind
+        if not pprice_ind is None:
+            return pay_ind, pprice_ind
+        else:
+            return pay_ind, price_ind
     ## get dialog text
     def get_text(self):
         return self.text
@@ -388,9 +406,9 @@ class AfpPaySelector(object):
     def get_rows(self, field, value):
         if field and value:
             print "AfpPaySelector.get_rows:", self.tablename, field, value, self.debug, self.felder, self.filter
-            if self.indexfield != field:
-                field = None
-                value = None
+            #if self.indexfield != field:
+            #    field = None
+            #    value = None
             rows = Afp_selectSameValue(self.mysql, self.tablename, field, value, self.debug, self.get_felder_string(), self.filter)
             if "KundenNr" in self.felder:
                 ind = self.felder.split(",").index("KundenNr")
@@ -405,13 +423,19 @@ class AfpPaySelector(object):
         liste = []
         ident = []
         rows = self.get_rows("KundenNr", KNr)
-        for row in rows:
-            if row[1] is None and self.name == "Rechnung": row[1] = row[5]
-            if row[1]:
-                if row[2]: row[2] = row[1] - row[2]
-                else: row[2] = row[1]
-            liste.append(Afp_ArraytoLine(row, " ", 5))
-            ident.append(row[-1])
+        if rows:
+            lgh = len(rows[0]) -1
+            for row in rows:
+                if row[1] is None and self.name == "Rechnung": row[1] = row[5]
+                if row[1]:
+                    zind, pind = self.identify_payment_indices()
+                    if not zind is None and not pind is None:
+                        if row[zind]:
+                            row[zind] = row[pind] - row[zind]
+                        else:
+                            row[zind] = row[pind]
+                liste.append(Afp_ArraytoLine(row, " ", lgh))
+                ident.append(row[-1])
         value,ok = AfpReq_Selection("Bitte " + self.text + " für Zahlung auswählen!","",liste, self.text + " für Zahlung", ident)
         if ok and value:
             return self.tablename, value
@@ -421,7 +445,10 @@ class AfpPaySelector(object):
     # @param KNr - address identifier for which incident has to be selected
     def select_client_by_KNr(self, KNr):
         table, tabNr = self.select_incident_by_KNr(KNr)
-        return self.get_client(tabNr)
+        if table and tabNr:
+            return self.get_client(tabNr)
+        else:
+            return None
   
 ## display and manipulation of payments
 class AfpDialog_DiFiZahl(AfpDialog):

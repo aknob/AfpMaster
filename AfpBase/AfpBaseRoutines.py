@@ -21,8 +21,8 @@
 # This file is part of the  'Open Source' project "BusAfp" by 
 #  AfpTechnologies (afptech.de)
 #
-#    BusAfp is a software to manage coach and travel acivities
-#    Copyright© 1989 - 2020 afptech.de (Andreas Knoblauch)
+#    BusAfp is a software to manage coach and travel activities
+#    Copyright© 1989 - 2021 afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -575,7 +575,7 @@ def Afp_selectSameValue(mysql, table, field, value, debug = False, felder = None
             filter =  " AND " + filter
     else:
         filter = ""
-    print "Afp_selectSameValue:", sel, "Filter:", filter
+    #print "Afp_selectSameValue:", table, field, sel, "Filter:", filter
     selection.load_data(sel + filter)
     return selection.get_values(felder)
 ##  retrieve a list of database entries with same "KundenNr" from table

@@ -14,8 +14,8 @@
 # This file is part of the  'Open Source' project "BusAfp" by 
 #  AfpTechnologies (afptech.de)
 #
-#    BusAfp is a software to manage coach and travel acivities
-#    Copyright© 1989 - 2020 afptech.de (Andreas Knoblauch)
+#    BusAfp is a software to manage coach and travel activities
+#    Copyright© 1989 - 2021 afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -159,7 +159,7 @@ class AfpFiScreen(AfpScreen):
         
         # COMBOBOX
         #self.combo_Filter = wx.ComboBox(panel, -1, value="Veranstaltung-Anmeldungen", size=(164,20), choices=["Veranstaltung-Anmeldungen","Veranstaltung-Stornierungen","Veranstaltung-Reservierungen","Reisen-Anmeldungen","Reisen-Stornierungen"], style=wx.CB_DROPDOWN, name="Filter")
-        self.combo_Filter = wx.ComboBox(panel, -1, value="Journal", size=(164,20), choices=["Journal","Auszug","Konten"], style=wx.CB_DROPDOWN, name="Filter")
+        self.combo_Filter = wx.ComboBox(panel, -1, value="Journal", size=(164,20), choices=["Journal","Auszug","Konten","Ausgang","Eingang"], style=wx.CB_DROPDOWN, name="Filter")
         self.Bind(wx.EVT_COMBOBOX, self.On_Filter, self.combo_Filter)
         self.combo_Period = wx.ComboBox(panel, -1, value="", size=(84,20), style=wx.CB_DROPDOWN, name="Period")
         self.Bind(wx.EVT_COMBOBOX, self.On_Filter, self.combo_Period)

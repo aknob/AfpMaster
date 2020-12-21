@@ -13,8 +13,8 @@
 # This file is part of the  'Open Source' project "BusAfp" by 
 #  AfpTechnologies (afptech.de)
 #
-#    BusAfp is a software to manage coach and travel acivities
-#    Copyright© 1989 - 2020 afptech.de (Andreas Knoblauch)
+#    BusAfp is a software to manage coach and travel activities
+#    Copyright© 1989 - 2021 afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -94,23 +94,30 @@ def AfpFinance_getSEPAct(globals, KNr, input = None):
         result = AfpReq_MultiLine( "Neue Überweisung, bitte Daten eingeben:".decode("UTF-8"), "", "Text", liste, "Überweisung".decode("UTF-8"), 350, "Vorgang")
         if result is None: # Vorgang button pressed
             selectors = AfpFinance_get_ZahlSelectors(globals, False)  
-            print "AfpFinance_getSEPAct selectors:", selectors
+            #print "AfpFinance_getSEPAct selectors:", selectors
+            selector = None
             if len(selectors) > 1:
-                liste = []
+                sellist = []
                 for sel in selectors:
-                    liste.append(selectors[sel].get_label())
-                value = AfpReq_MultiLine("Bitte wählen sie die Adresse".decode("UTF-8"), "oder den Vorgang für die Überweisung aus.".decode("Utf-8"), "Button", liste, "Auswahl für Überweisung".decode("UTF-8"))
-                for sel in selectors:
-                    if selector[sel].get_lable() == value:
-                        sel = selector
+                    sellist.append(selectors[sel].get_label())
+                value = AfpReq_MultiLine("Bitte wählen sie die Adresse".decode("UTF-8"), "oder den Vorgang für die Überweisung aus.".decode("Utf-8"), "Button", sellist, "Auswahl für Überweisung".decode("UTF-8"))
+                if len(value) > 1:
+                    for sel in selectors:
+                        print "AfpFinance_getSEPAct:", value,  selectors[sel].get_label()
+                        if selectors[sel].get_label() == value[1]:
+                            selector = selectors[sel]
             else:
-                sel = selectors[selectors.keys()[0]]
-            if sel:
-                client= sel.select_client_by_KNr(adresse.get_value())
-                preis, zahlung, dummy = client.get_payment_values()
-                liste["Betrag"] = Afp_toString(preis - zahlung)
+                selector = selectors[selectors.keys()[0]]
+            if selector:
+                client= selector.select_client_by_KNr(adresse.get_value())
                 if client:
-                    liste["Zweck"] = client.get_value("Zustand") + ": " + client.get_value("TabNr") + ", " + adresse.get_name(True)
+                    preis, zahlung, dummy = client.get_payment_values()
+                    print "AfpFinance_getSEPAct pay:", preis, zahlung, dummy
+                    liste[3][1] = Afp_toString(preis - zahlung)
+                    #liste[4][1] = client.get_string_value("Zustand") + ": " + client.get_string_value("TabNr") + ", " + adresse.get_name(True)
+                    liste[4][1] = client.get_payment_text()
+                else:
+                    result = False
     #print "AfpFinance_getSEPAct Überweisung:", result, client
     return result, client        
 

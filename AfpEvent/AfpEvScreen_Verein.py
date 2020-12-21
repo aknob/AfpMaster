@@ -15,8 +15,8 @@
 # This file is part of the  'Open Source' project "BusAfp" by 
 #  AfpTechnologies (afptech.de)
 #
-#    BusAfp is a software to manage coach and travel acivities
-#    Copyright© 1989 - 2019 afptech.de (Andreas Knoblauch)
+#    BusAfp is a software to manage coach and travel activities
+#    Copyright© 1989 - 2021 afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -1160,6 +1160,7 @@ class AfpDialog_EvMemberEdit(AfpDialog_EvClientEdit):
         self.modifyWx()
         self.extra_provision_possible = False
         self.storno = None
+        self.stornotext = None
         self.stornodata = None
         self.stornofile = None
         self.initial_price = None
@@ -1216,7 +1217,9 @@ class AfpDialog_EvMemberEdit(AfpDialog_EvClientEdit):
     def set_preStorno(self, data):
         data.set_value("Zustand","PreStorno")
         data.set_value("InfoDat", self.storno)
-        data.set_value("Info",  Afp_toString(self.storno) + "  Abmeldung")
+        if self.stornotext:  stext = " " + self.stornotext
+        else: stext = " Abmeldung"
+        data.set_value("Info",  Afp_toString(self.storno) + stext)
         return data
         
     ## complete data before storing
@@ -1339,12 +1342,16 @@ class AfpDialog_EvMemberEdit(AfpDialog_EvClientEdit):
             Ok = AfpReq_Question("Abmeldung für " + name + " liegt vor,".decode("UTF-8"),"Austritt zum " + dat + " umsetzten?", "Austritt")
             if Ok:
                 print "AfpDialog_EvMemberEdit.On_Storno direkter Austritt nicht implementiert!"
-        else:
+        elif not self.data.get_value("Zustand") == "Storno":
             dat = "31.12." + Afp_toString(self.data.get_globals().today().year)
             text1 = self.data.get_name() +  " von '" + self.data.get_value("Bez.EVENT") + "' der " + self.data.get_value("Name.Veranstalter") + " abmelden?"
             dir = ""            
             fname, Ok = AfpReq_FileName(dir, text1, "*.pdf" , True)
-            if Ok and fname:
+            stext = None
+            if not Ok:
+                fname = None
+                stext, Ok = AfpReq_Text("Keine Abmeldung ausgewählt,".decode("UTF-8"),"bitte Begründung für den Austritt eingeben.".decode("UTF-8"),"", "Abmeldung")
+            if Ok and (stext or fname):
                 if self.sameRechNr:
                     liste = [["Austrittsdatum",dat]]
                     if not self.sameRechData:
@@ -1368,9 +1375,12 @@ class AfpDialog_EvMemberEdit(AfpDialog_EvClientEdit):
                 else:
                     text2 = "Die Kündigung wird wirksam zum:".decode("UTF-8")
                     dat, Ok = AfpReq_Date(text1, text2, dat, "Abmeldung")
-            if Ok and dat and fname:
+            if Ok and dat :
                 self.storno = Afp_fromString(dat)
-                self.stornofile = fname
+                if fname:
+                    self.stornofile = fname
+                if stext:
+                    self.stornotext = stext
             else:
                 self.storno = None
         #print "AfpDialog_EvMemberEdit.On_Storno:", self.storno, self.stornodata, self.stornofile
