@@ -33,12 +33,10 @@
 #
 
 import AfpBase
-from AfpBase import AfpBaseRoutines
+from AfpBase.AfpSelectionLists import AfpSelectionList, AfpOrderedList
 from AfpBase.AfpBaseRoutines import *
 from AfpBase.AfpUtilities.AfpStringUtilities import Afp_getEndNumber
-from AfpBase import AfpAusgabe
 from AfpBase.AfpAusgabe import AfpAusgabe
-from AfpBase import AfpBaseAdRoutines
 from AfpBase.AfpBaseAdRoutines import AfpAdresse, AfpAdresse_getKNrFromSingleName
  
 ## interprete tags of a SEPA direct debit file and create the appropriate data
@@ -915,7 +913,7 @@ class AfpFinanceTransactions(AfpSelectionList):
     # a new, clean object is created
     def  __init__(self, globals, value = None, mainindex="BuchungsNr", period = None):
         AfpSelectionList.__init__(self, globals, "BUCHUNG", globals.is_debug())
-       # print "AfpFinanceTransactions Konstruktor:", value, mainindex, period
+        #print "AfpFinanceTransactions Konstruktor:", value, mainindex, period
         self.set_period(period)
         self.transfer = None
         self.spread_key = True
@@ -932,6 +930,7 @@ class AfpFinanceTransactions(AfpSelectionList):
         self.mainselection = "BUCHUNG"
         if period and not mainindex == "Period":
             self.mainfilter = "Period = \"" + self.period + "\""
+        #print "AfpFinanceTransactions select entriy:", self.mainindex, self.mainselection, self.mainfilter, self.mainvalue, self.mainselection in self.selections
         self.set_main_selects_entry()
         if not self.mainselection in self.selections:
             self.create_selection(self.mainselection)
@@ -941,7 +940,7 @@ class AfpFinanceTransactions(AfpSelectionList):
     def __del__(self):    
         if self.debug: print "AfpFinanceTransactions Destruktor"
 
-    ## set period marker for financial tarnsactions
+    ## set period marker for financial transactions
     # @param period - if given, period marker to be set, defaut: period is set to current year \n
     #                            or global variable 'actuel-transaction-period' for 'Finance' modul
     def set_period(self, period = None):
@@ -949,13 +948,13 @@ class AfpFinanceTransactions(AfpSelectionList):
     ## set the customised select_clause for the main selection
     # overwritten from SelectionList to set period
     def set_main_selects_entry(self):  
-        if self.mainselection and self.mainindex and self.mainvalue:         
-            selname = self.mainselection
-            #print "AfpFinanceTransactions.set_main_selects_entry:",  self.mainindex, type(self.mainindex), self.mainvalue , type(self.mainvalue) , self.period , type(self.period)
-            if self.mainindex == "BuchungsNr":
-                self.selects[selname] = [selname, self.mainindex + " = " + self.mainvalue  + " AND Period = \"" + self.period + "\"", self.mainindex]
-            else:
-                self.selects[selname] = [selname, self.mainindex + " = " + self.mainvalue  + " AND Period = \"" + self.period + "\""]
+        selname = "BUCHUNG"
+        self.mainselection= selname
+        #print "AfpFinanceTransactions.set_main_selects_entry:",  self.mainindex, self.mainvalue  , self.period
+        if self.mainindex and self.mainvalue:         
+            self.selects[selname] = [selname, self.mainindex + " = " + self.mainvalue  + " AND Period = \"" + self.period + "\"", "BuchungsNr"]
+        else:
+            self.selects[selname] = [selname, "Period = \"" + self.period + "\"", "BuchungsNr"]
         
     ## check if identifier of statement of this account (Auszug) exists, if yes load it
     # @param auszug - identifier of statement of account
@@ -1081,7 +1080,10 @@ class AfpFinanceTransactions(AfpSelectionList):
         Konto = data["Konto"]
         data["Konto"] = data["Gegenkonto"]
         data["Gegenkonto"] = Konto
-        data["Bem"] = data["Bem"] + " " + bem
+        KtName = data["KtName"]
+        data["KtName"] = data["GktName"]
+        data["GktName"] = KtName
+        data["Bem"] = bem + " " + data["Bem"] 
         return data
     ## retrieve last used receipt number
     # @pßaram colname - name of column checked
@@ -1148,7 +1150,7 @@ class AfpFinanceTransactions(AfpSelectionList):
     # @param data -  incident data where financial values have to be extracted, if == None: payment is assigned to transferaccount
     # @param reverse -  accounting data has to be swapped
     def add_payment(self, payment, datum, auszug, KdNr, Name, data = None, reverse = False):
-        print "AfpFinanceTransactions.add_payment:", self.period, payment, datum, auszug, KdNr, Name, data 
+        print "AfpFinanceTransactions.add_payment:", self.period, payment, datum, auszug, KdNr, Name, reverse 
         if auszug: self.set_auszug(auszug, datum)
         accdata = {}
         accdata["Datum"] = datum
@@ -1169,6 +1171,7 @@ class AfpFinanceTransactions(AfpSelectionList):
             accdata["GktName"] = "ZTF"
             accdata["Bem"] = "Mehrfach (" + Name + ")"
         else:
+            if data.is_outgoing(): reverse = not reverse
             # distribute according to data-types
             if self.transfer: 
                 accdata["Konto"] = self.transfer
@@ -1181,7 +1184,7 @@ class AfpFinanceTransactions(AfpSelectionList):
                 accdata["Bem"] = "Zahlung: " + Name
             accdata = self.add_payment_data(accdata, data)
         accdata = self.add_payment_data_default(accdata)
-        if reverse: accdata = self.set_storno_values(accdata, "Auszahlung")
+        if reverse: accdata = self.set_storno_values(accdata, "-Ausgabe-")
         self.set_data_values(accdata, None, -1)
         # possible Skonto has to be accounted during payment
         if data:
@@ -1424,6 +1427,7 @@ class AfpFinance(AfpFinanceTransactions):
             self.get_selection("BUCHUNG").load_data("(Konto = " + konto + " OR Gegenkonto = " + gkonto + ") AND Period = \"" + self.period + "\"")
             self.konto = konto
         self.selects["KTNR"] = [ "KTNR","NOT Typ = \"Debitor\" AND NOT Typ = \"Kreditor\""] 
+        self.selects["AUSGABE"] = [ "AUSGABE","Modul = \"Finance\""] 
         self.selects["Mandant"] = [ "ADRESSE"," KundenNr = " + Afp_toString(mandant)] 
         #if value: self.set_main_selects_entry() 
         #print "AfpFinance.init set_auszug:", self.auszug
@@ -1473,6 +1477,10 @@ class AfpFinance(AfpFinanceTransactions):
                         self.internal_account_names.append(Afp_toString(row[2]))    
                         if row[0] == "ZTF": 
                             self.transfer = row[1]
+   ## return mayor type of this SelectionList,
+    def get_mayor_type(self):
+        #print "AfpFinance.get_mayor_type:", "AfpFinance"
+        return "AfpFinance"
     ## get all available accouts of a given typ
     # @param typ - typ of returned account list, possible are 'Kosten', 'Ertrag', 'Cash', 'Other'
     def get_accounts(self, typ):
@@ -1814,7 +1822,7 @@ class AfpFinanceExport(AfpSelectionList):
     ## initialize class
     # @param globals - global values including the mysql connection - this input is mandatory
     # @param period - if given, [startdate, enddate] for data to be exported otherwise selectionlists must be given
-    # @param selectionlists - if given and no period given, SelectionLists holdin the data to be exported
+    # @param selectionlists - if given and no period given, SelectionLists holding the data to be exported
     # @param only_payment - flag if only payments shouzld be extracted
     # - None: all entries are extracted
     # - False: only internal transitions are extracted
@@ -1906,4 +1914,33 @@ class AfpFinanceExport(AfpSelectionList):
             self.information = self.get_globals().get_value(vname + ".info", "Finance")
         Export.write_to_file(fieldlist, self.information)
 
+## class holding sorted obligations
+class AfpBulkObligations(AfpOrderedList):
+    ## initialize class
+    # @param globals - global values including the mysql connection - this input is mandatory
+    # @param index -if given, column where sorting should occur
+    # @param filter - if given, filter for sorted data on database
+    # @param debug - flag for debug information
+    def  __init__(self, globals, filter = None, index = None, debug = False):
+        if index is None: Index = "RechNr"
+        AfpOrderedList.__init__(self, globals, "BulkObligations", index, filter, debug)
+        self.debug = debug
+        self.new = False
+        self.mainselection = "VERBIND"
+        self.set_main_selects_entry()
+        if not self.mainselection in self.selections:
+            self.create_selection(self.mainselection)   
+        #  self.selects[name of selection]  [tablename,, select criteria, optional: unique fieldname]
+        #print "AfpBulkObligations Konstruktor:", filter, self.selects, self.selections
+        if self.debug: print "AfpBulkObligations Konstruktor"
+    ## destructor
+    def __del__(self):    
+        if self.debug: print "AfpBulkObligations Destruktor"
+    ## get client object
+    def get_client(self):
+        row = 0
+        if self.mainposition: row = self.mainposition
+        value = self.get_value_row("VERBIND","RechNr", row)[0]
+        client = AfpObligation(self.get_globals(), self.get_value_row("VERBIND","RechNr", row)[0])
+        return client
 

@@ -927,6 +927,7 @@ class AfpDialog(wx.Dialog):
     # @param new_lgh - new number of rows to be populated
     def grid_resize(self, grid, new_lgh):
         old_lgh = grid.GetNumberRows()
+        #print "AfpDialog.grid_resize:", old_lgh, new_lgh
         if new_lgh > old_lgh:
             grid.AppendRows(new_lgh - old_lgh)
             for row in range(old_lgh, new_lgh):

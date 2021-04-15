@@ -32,6 +32,7 @@ from AfpBase import *
 from AfpBase.AfpDatabase import AfpSQL
 from AfpBase.AfpDatabase.AfpSQL import AfpSQLTableSelection
 from AfpBase.AfpBaseRoutines import *
+from AfpBase.AfpSelectionLists import AfpSelectionList
 #from AfpBase.AfpBaseAdRoutines import AfpAdresse, AfpAdresse_getListOfTable
 
 ## returns all payable incidents
@@ -63,7 +64,7 @@ def AfpFa_changeKind(name, kind = None):
     elif newtable == "BESTELL":
         change, ind = AfpFa_possibleKinds(None, "BESTELL", "neu")
     elif newtable == "RECHNG":
-        change, ind = AfpFa_possibleKinds(None, "RECHNG", "offen")
+        change, ind = AfpFa_possibleKinds(None, "RECHNG", "open")
     return change, newtable == table or not newtable
  
  ## return index of name in filter list
@@ -88,7 +89,7 @@ def AfpFa_inFilterList(name, filter = None):
 def AfpFa_possibleKinds(name = None, table = None, filter = None):
     names = ["Ausgabe" , "Waren"     , "Bestellung", "Bestell-Liste", "Kostenvoranschlag","Angebot" , "Lieferschein", "Auftrag" , "Rechnung", "Mahnung", "Einnahme"]
     tables = ["BESTELL"  , "BESTELL" , "BESTELL"      , "BESTELL"          , "KVA"                        , "KVA"       , "KVA"                , "KVA"        , "RECHNG"   , "RECHNG"  , "RECHNG"]
-    filters =  ["bezahlt"  ,"erhalten", "offen"         , "neu"                 , "KVA"                        , "Angebot",  "Liefer"          , "Auftrag" , "offen"    ,  "Mahnung", "bezahlt"]
+    filters =  ["closed"  ,"erhalten", "open"         , "neu"                 , "KVA"                        , "Angebot",  "Liefer"          , "Auftrag" , "open"    ,  "Mahnung", "closed"]
     print "AfpFa_possibleKinds:", name, table, filter
     if table and not filter is None:
         for i in range(len(tables)):
@@ -181,7 +182,7 @@ def AfpFa_getSelectedRows(mysql, typ, debug):
     datei, filter = AfpFa_possibleKinds(typ)
     if datei == "":
         datei = "ADMEMO"
-        filter = "Zustand." + datei + " = \"offen\""
+        filter = "Zustand." + datei + " = \"open\""
     else:
         filter = "Zustand." + datei + " = \"" + filter + "\""
     select = filter + " AND KundenNr." + datei + " = KundenNr.ADRESSE"
@@ -296,7 +297,6 @@ class AfpFaktura(AfpSelectionList):
         self.mainindex = "RechNr"
         self.mainvalue = ""
         self.maintable = "RECHNG"
-        self.spezial_bez = []
         self.content = None # shortcut to selection "Content"
         self.standard_tax=globals.get_value("standard-tax","Faktura")
         self.totable_fields = {"Netto":"Gesamtpreis", "Gewinn":"Gewinn"}
@@ -754,14 +754,14 @@ class AfpInvoice(AfpFaktura):
         Konto = self.get_indi_account()
         self.set_value("Debitor",Konto)
         if not self.get_value("KundenNr"):
-            self.set_value("Zustand","bezahlt")
+            self.set_value("Zustand","closed")
             self.set_value("ZahlDat",self.get_value("Datum"))
             self.set_value("Zahlung",self.get_value("ZahlBetrag"))
         else:
             if self.get_value("Zahlung") >= self.get_value("ZahlBetrag"):
-                self.set_value("Zustand","bezahlt")
+                self.set_value("Zustand","closed")
             if not self.get_value("Zustand"):
-                self.set_value("Zustand","offen")
+                self.set_value("Zustand","open")
     ## book content difference into stock
     def book_content(self):
         complete = [self.initial_content, self.content]
@@ -833,7 +833,7 @@ class AfpInvoice(AfpFaktura):
         Betrag = self.get_value("ZahlBetrag")
         if not Betrag: Betrag = self.get_value("Betrag")
         if self.get_value("Zahlung") >=  Betrag:
-            self.set_value("Zustand","bezahlt")
+            self.set_value("Zustand","closed")
     ## return specific identification string to be used in dialogs \n
     # - overwritten from AfpSelectionList
     def get_identification_string(self):
@@ -869,7 +869,7 @@ class AfpOffer(AfpFaktura):
         data = {"Typ":"KVA", "TypNr": self.get_value("RechNr")}
         if datei == "RECHNG":
             faktura = AfpInvoice(self.globals)
-            faktura.set_new("offen")
+            faktura.set_new("open")
             data["Debitor"] = Afp_getIndividualAccount(self.get_mysql(), self.get_value("KundenNr"))
         elif datei == "BESTELL":
             faktura = AfpOrder(self.globals)
@@ -938,7 +938,7 @@ class AfpOrder(AfpFaktura):
         data = {"Typ":"BESTELL", "TypNr": self.get_value("RechNr")}
         if datei == "RECHNG":
             faktura = AfpInvoice(self.globals)
-            faktura.set_new("offen")
+            faktura.set_new("open")
         elif datei == "KVA":
             faktura = AfpOrder(self.globals)
             faktura.set_new(filter)
@@ -956,7 +956,7 @@ class AfpOrder(AfpFaktura):
     def set_payment_values(self, payment, datum):
         AfpSelectionList.set_payment_values(self, payment, datum)
         if self.get_value("Zahlung") >=  self.get_value("Betrag"):
-            self.set_value("Zustand","bezahlt")
+            self.set_value("Zustand","closed")
     ## return specific identification string to be used in dialogs \n
     # - overwritten from AfpSelectionList
     def get_identification_string(self):
@@ -1032,12 +1032,12 @@ class AfpFaTourist(AfpFaktura):
             #data["Konto2"] = Afp_getSpecialAccount(self.get_mysql(), "EMFA")
         data["Betrag"] = betrag
         data["Kontierung"] = Afp_getSpecialAccount(self.get_mysql(), "ERL")
-        data["Zustand"] = "offen"
+        data["Zustand"] = "open"
         data["Wofuer"] = "Reiseanmeldung Nr " + self.get_string_value("AnmeldNr") + " am " + self.get_string_value("Abfahrt.REISEN") + " nach " + self.get_string_value("Zielort.REISEN")
         if self.get_value("ZahlDat"):
             data["Zahlung"] = self.get_value("Zahlung")
             data["ZahlDat"] = self.get_value("ZahlDat")
-            if data["Zahlung"] >= betrag: data["Zustand"] = "bezahlt"
+            if data["Zahlung"] >= betrag: data["Zustand"] = "closed"
         invoice.new_data()
         invoice.set_data_values(data)
         self.selections["RECHNG"] = invoice

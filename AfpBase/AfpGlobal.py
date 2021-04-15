@@ -89,6 +89,8 @@ def Afp_iniGlobalVars(settings, modul = None):
             settings["antiquedir"] = settings["archivdir"]
         if not "extradir" in settings:
             settings["extradir"] =  settings["afpdir"] + "Extra" + settings["path-delimiter"]
+        if not "scandir" in settings:
+            settings["scandir"] = settings["homedir"]
         # set default file handles (not needed for windows)
         if not "office" in settings:
             settings["office"] = "libreoffice"

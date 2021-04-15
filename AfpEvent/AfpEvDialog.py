@@ -65,7 +65,12 @@ def AfpEv_addRegToArchiv(client, check=False):
         if wanted:
             fixed = {"Art": art, "Typ": listname, "Gruppe":"Anmeldung"}
             change = {"Eintrittsdatum": client.get_globals().today_string(), "Bemerkung":""}
-            return AfpAdresse_addFileToArchiv(client, "Anmeldung", fixed, change)
+            client = AfpAdresse_addFileToArchiv(client, "Anmeldung", fixed, change)
+            # get entry
+            dat = client.get_selection("ARCHIV").get_mani_value("Datum")
+            print "AfpEv_addRegToArchiv:", dat
+            client.set_value("Datum", dat)
+            return client
         else:
             return None
     else:
@@ -1471,7 +1476,7 @@ class AfpDialog_EvClientEdit(AfpDialog):
         if index < 0: 
             #print "AfpDialog_EvClientEdit.On_Anmeld_Preise index:", index
             row = self.get_Preis_row(index)
-            print "AfpDialog_EvClientEdit.On_Anmeld_Preise row:", row
+            #print "AfpDialog_EvClientEdit.On_Anmeld_Preise row:", row
             if row:
                 self.actualise_preise(row)
                 self.change_preis = True
@@ -1535,12 +1540,17 @@ class AfpDialog_EvClientEdit(AfpDialog):
                 liste = [["Preis:", ""], ["Bezeichnung:", ""]]
                 if self.extra_provision_possible: liste.append("Verprovisionierbar")
                 res_row = AfpReq_MultiLine("Bitte Extrapreis und Bezeichnung manuell eingeben.", "", ["Text","Text","Check"], liste,"Eingabe Extrapreis")
-                if len(res_row) < 3: res_row.append(False)
-                if res_row:
-                    res_row[0] = Afp_fromString(res_row[0])
-                    res_row[2] = not res_row[2]
-                    res_row.append(0)
-                    res_row.append("")
+                if res_row: 
+                    if len(res_row) < 3: 
+                        res_row.append(0)
+                    else:
+                        if res_row[2]: res_row[2] = 1
+                        else: res_row[2] = 0
+                    if res_row:
+                        res_row[0] = Afp_fromString(res_row[0])
+                        res_row[2] = 1 - res_row[2]
+                        res_row.append(0)
+                        res_row.append("")
                 #print "AfpDialog_EvClientEdit.get_Preis_row Manual:", Ok, value, res_row
             elif index == -2 and value < exlgh: # common extra price selected
                 res_row = listentries[value]

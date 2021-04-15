@@ -127,7 +127,7 @@ def AfpFinance_getSEPAct(globals, KNr, input = None):
 # @param data - data in which context this handling takes place
 def AfpFinance_handleStatements(globals, data):
     res = None
-    period = globals.get_value("actuel-transaction-period","Finance")
+    period = globals.get_string_value("actuel-transaction-period","Finance")
     if not period:
         period = Afp_toString(globals.today().year)
     ok = True
@@ -170,13 +170,12 @@ def AfpFinance_selectStatement(mysql, period, new = True, type ="Bank"):
     raws = map(list, mysql.select("*", sel, "AUSZUG,KTNR", "Auszug.AUSZUG", None, where))
     #print "AfpFinance_selectStatement:", raws
     rows = []
+    saldo = 0.0
     if raws:
         for raw in raws:
             if raw[0] != "SALDO":
                 rows.append(raw[0] + " " + Afp_toString(raw[1]) + " Anfangssaldo: " + Afp_toString(raw[3]) + " Endsaldo: " + Afp_toString(raw[4]))
                 saldo = raw[4]
-    else:
-        saldo = 0.0
     if new: rows.append("--- Neuen Auszug anlegen ---")
     rows.reverse()
     val, ok = AfpReq_Selection("Bitte Auszug für Finanzperiode '".decode("UTF-8") + period + "' auswählen:".decode("UTF-8"), "", rows)
@@ -999,6 +998,7 @@ class AfpDialog_SEPA(AfpDialog):
     def __init__(self, *args, **kw):   
         self.cols = 5
         self.rows = 10
+        self.filled_rows = 0
         AfpDialog.__init__(self,None, -1, "")
         self.grid_ident = None
         self.col_percents = [25, 15, 25, 10, 25]
@@ -1187,12 +1187,14 @@ class AfpDialog_SEPA(AfpDialog):
                     row = [adresse.get_name(), raw[3], raw[4], raw[6], raw[5], raw[-1]]
                     rows.append(row)
         if rows:
-            #print "AfpDialog_SEPA.Pop_Mandate rows:", rows
             lgh = len(rows)
+            #print "AfpDialog_SEPA.Pop_Mandate rows:", lgh, self.rows, rows
             if lgh > self.rows:
                 self.adjust_grid_rows(lgh)
                 self.rows = lgh
+                self.filled_rows = lgh
             self.grid_ident = []
+            #print "AfpDialog_SEPA.Pop_Mandate lgh:", lgh, self.rows
             for row in range(self.rows):
                 for col in range(self.cols): 
                     if row < lgh:
@@ -1262,6 +1264,7 @@ class AfpDialog_SEPA(AfpDialog):
     # @param new_rows - new number of rows needed    
     def adjust_grid_rows(self, new_rows = None):
         if not new_rows: new_rows = self.rows
+        #print "AfpDialog_SEPA.adjust_grid_rows:", new_rows
         self.grid_resize(self.grid_mandate, new_rows)
         if self.col_percents:
             grid_width = self.GetSize()[0] - self.fixed_width
@@ -1299,8 +1302,9 @@ class AfpDialog_SEPA(AfpDialog):
     def On_ReSize(self, event):
         height = self.GetSize()[1] - self.fixed_height
         new_rows = int(height/self.grid_mandate.GetDefaultRowSize())
-        #print "AfpDialog_Auswahl.Resize:", size, height, self.row_height, self.rows, self.new_rows
-        self.adjust_grid_rows(new_rows)
+        #print "AfpDialog_SEPA.On_ReSize:", height, self.filled_rows, new_rows
+        if new_rows >= self.filled_rows:
+            self.adjust_grid_rows(new_rows)
         #self.Pop_grid(True)
         event.Skip()   
     

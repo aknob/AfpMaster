@@ -34,16 +34,12 @@ import wx.grid
 
 import AfpDatabase
 from AfpDatabase import AfpSuperbase
-import AfpBaseRoutines
-from AfpBaseRoutines import *
 import AfpBaseDialog
 from AfpBaseDialog import *
 import AfpBaseAdDialog
 from AfpBaseAdDialog import AfpLoad_AdAusw
 import AfpBaseFiRoutines
 from AfpBaseFiRoutines import *
-import AfpBaseFiDialog
-from AfpBaseFiDialog import *
 
 
 
@@ -150,7 +146,7 @@ def AfpFinance_simpleInvoiceSelector(globals, debug = False):
     #felder = "Datum,ZahlBetrag,Zahlung,Bem,Zustand,Betrag,RechNr"
     felder = [["RechNr.RECHNG",10], ["Datum.RECHNG",20], ["ZahlBetrag.RECHNG",15], ["Bem.RECHNG",30], ["Name.Adresse",25], 
                   ["KundenNr.ADRESSE = KundenNr.RECHNG",None], ["RechNr.RECHNG",None]] # Ident column  
-    filter =  "Zustand = \"offen\""
+    filter =  "Zustand = \"open\""
     text = "Rechnung" 
     object = "AfpCommonInvoice"
     #edit = None
@@ -167,7 +163,7 @@ def AfpFinance_ObligationSelector(globals, debug = False):
     #felder = "Datum,ZahlBetrag,Betrag,Zahlung,Bem,Zustand,RechNr"
     felder = [["RechNr.VERBIND",10], ["Datum.VERBIND",20], ["ZahlBetrag.VERBIND",15], ["Bem.VERBIND",30], ["Name.Adresse",25], 
                   ["KundenNr.ADRESSE = KundenNr.VERBIND",None], ["RechNr.VERBIND",None]] # Ident column  
-    filter =  "(Zustand = \"offen\" OR Zustand = \"Dauer\")"
+    filter =  "(Zustand = \"Open\" OR Zustand = \"Static\")"
     text = "Eingangsrechnung" 
     object = "AfpObligation"          
     #edit = None 
@@ -240,7 +236,7 @@ def AfpFinance_InvoiceSelector(globals, debug = False):
     tablename = "RECHNG"
     felder = "RechNr,Datum,Pos,Betrag,ZahlBetrag,Zahlung,Bem"
     #filter_feld = "Zustand"
-    #filter =  ["offen","Mahnung","bezahlt"]
+    #filter =  ["open","Mahnung","closed"]
     text = "Rechnung"
     object = "AfpFaktura/AfpFaRoutines/AfpInvoice"
     edit = None
@@ -266,7 +262,7 @@ def AfpFinance_OrderSelector(globals, debug = False):
     label = "&Bestellung"
     tablename = "BESTELL"
     felder = "RechNr,Datum, Pos,Betrag,ZahlBetrag,Bem"
-    filter =  "Zustand = \"beglichen\" OR Zustand = \"erhalten\" OR Zustand = \"offen\""
+    filter =  "Zustand = \"beglichen\" OR Zustand = \"erhalten\" OR Zustand = \"open\""
     text = "Bestellung"
     object = "AfpFaktura/AfpFaRoutines/AfpOrder"
     edit = None
@@ -1155,7 +1151,7 @@ class AfpDialog_SimpleInvoice(AfpDialog):
         self.button_Orig = wx.Button(self, -1, label="&Original".decode("UTF-8"), name="Orig")
         self.Bind(wx.EVT_BUTTON, self.On_Original, self.button_Orig)
         self.check_Dauer = wx.CheckBox(self, -1, label="Dauer", name="Dauer")
-        self.checkmap["Dauer"] = "Zustand = Dauer"
+        self.checkmap["Dauer"] = "Zustand = Static"
         self.Bind(wx.EVT_CHECKBOX, self.On_Check, self.check_Dauer)
         if not self.oblig:
             self.check_Voraus = wx.CheckBox(self, -1, label="Voraus", name="Voraus")
@@ -1246,7 +1242,7 @@ class AfpDialog_SimpleInvoice(AfpDialog):
     def add_dauer_value(self, data):
         dauer = self.check_Dauer.GetValue()
         if dauer:
-            data["Zustand"] = "Dauer"
+            data["Zustand"] = "Static"
         else:
             preis, zahlung, dummy = self.data.get_payment_values()
             if "Betrag" in data or "ZahlBetrag" in data:
@@ -1255,9 +1251,9 @@ class AfpDialog_SimpleInvoice(AfpDialog):
                 else:
                     preis = data["Betrag"]
             if zahlung < preis:
-                data["Zustand"] = "offen"
+                data["Zustand"] = "Open"
             else:
-                data["Zustand"] = "bezahlt"
+                data["Zustand"] = "Closed"
         return data
 
     ## handle archiv entries of documents for obligations
@@ -1294,7 +1290,7 @@ class AfpDialog_SimpleInvoice(AfpDialog):
         data = {}
         for entry in self.changed_text:
             field, value = self.Get_TextValue(entry)
-            data[field] = value
+            if value: data[field] = value
         if "Dauer" in self.checked_box:
             data = self.add_dauer_value(data)
         print "AfpDialog_SimpleInvoice.execute_Ok:", data
@@ -1312,7 +1308,7 @@ class AfpDialog_SimpleInvoice(AfpDialog):
             if not "ZahlBetrag" in data :
                 data["ZahlBetrag"] = data["Betrag"]
         if not "Zustand" in data and not self.data.get_value("Zustand"):
-            data["Zustand"] = "offen"
+            data["Zustand"] = "open"
         return data
         
     # Event Handlers 

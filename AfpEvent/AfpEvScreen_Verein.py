@@ -41,7 +41,8 @@ from AfpBase.AfpUtilities.AfpBaseUtilities import Afp_existsFile
 from AfpBase.AfpDatabase import *
 from AfpBase.AfpDatabase.AfpSQL import AfpSQL
 from AfpBase.AfpDatabase.AfpSuperbase import AfpSuperbase
-from AfpBase.AfpBaseRoutines import Afp_archivName, Afp_startFile, Afp_getBirthdayList, Afp_orderSelectionLists
+from AfpBase.AfpBaseRoutines import Afp_archivName, Afp_startFile, Afp_getBirthdayList
+from AfpBase.AfpSelectionLists import Afp_orderSelectionLists
 from AfpBase.AfpBaseDialog import AfpReq_Info, AfpReq_Question, AfpReq_Text, AfpReq_Selection, AfpReq_Date, AfpReq_MultiLine,  AfpReq_FileName, AfpDialog
 from AfpBase.AfpBaseDialogCommon import AfpLoad_DiReport
 from AfpBase.AfpBaseScreen import AfpScreen, Afp_loadScreen
@@ -208,6 +209,7 @@ class AfpEvMember(AfpEvClient):
         #  self.selects[name of selection]  [tablename,, select criteria, optional: unique fieldname]
         self.selects["TORT"] = [ "TORT","OrtsNr = Ab.ANMELD"] 
         self.selects["ANMELDATT"] = [ "ANMELDATT","AnmeldNr = AnmeldNr.ANMELD"] 
+        self.selects["ARCHIV"] = [ "ARCHIV","Tab = \"ANMELD\" AND TabNr = AnmeldNr.ANMELD"] 
         if complete: self.create_selections()
         if self.debug: print "AfpEvMember Konstruktor, AnmeldNr:", self.mainvalue
     
@@ -238,9 +240,14 @@ class AfpEvMember(AfpEvClient):
         else:
             diff = self.get_value("Preis")
         if diff < 0: diff = 0.0
+        print "AfpEvMember.reset_payment Zahlung:", self.get_name(), zahlung, diff
         rows = self.get_value_rows("ANMELDEX","NoPrv")
+        print "AfpEvMember.reset_payment Rows:", rows
+        if rows: self.view()
         for i in range(len(rows)-1, -1, -1):
-            if rows[i][0]: self.delete_row("ANMELDEX", i)
+            if rows[i][0]: 
+                self.delete_row("ANMELDEX", i)
+                print "AfpEvMember.reset_payment Rows deleted:",i
         if diff:
             jahr = Afp_toString(self.globals.today().year - 1)
             data = {"AnmeldNr": self.get_value(), "Bezeichnung": "Restbeitrag " + jahr, "Preis": diff, "NoPrv": 1}
@@ -249,7 +256,8 @@ class AfpEvMember(AfpEvClient):
         if zahlung is None or preis < 0.01:
             data = {"Preis": preis, "Extra": extra, "Zahlung": None, "ZahlDat":  None}
         else:
-            data = {"Preis": preis, "Extra": extra, "Zahlung": 0.0, "ZahlDat":  None}
+            data = {"Preis": preis, "Extra": extra, "Zahlung": 0.0, "ZahlDat":  None} 
+        print "AfpEvMember.reset_payment new:", preis, extra, data
         self.set_data_values(data)
     ## generate price for actuel selections   
     def gen_price(self):
@@ -1160,6 +1168,8 @@ class AfpDialog_EvMemberEdit(AfpDialog_EvClientEdit):
         self.modifyWx()
         self.extra_provision_possible = False
         self.storno = None
+        self.stornodirect = False
+        self.storno_adressstatus = None
         self.stornotext = None
         self.stornodata = None
         self.stornofile = None
@@ -1195,31 +1205,39 @@ class AfpDialog_EvMemberEdit(AfpDialog_EvClientEdit):
     ## read values from dialog and invoke writing into data         
     def store_data(self):
         if self.storno:
-            # only set the cancel stamp here
-            self.zustand = "PreStorno"
-            self.data = self.set_preStorno(self.data)
-            if self.stornofile:
-                ext = self.stornofile.split(".")[-1]
-                fname = "AfpVerein_Abmeldung_" + self.data.get_string_value("AnmeldNr") + "." + ext
-                Afp_copyFile(self.stornofile, Afp_addPath(self.data.get_globals().get_value("archivdir"), fname))
-                self.data.add_to_Archiv({"Gruppe": "Abmeldung","Bem": Afp_toString(self.storno), "Extern": fname})
+            # set the cancel stamp here
+            self.data = self.set_Storno(self.data)
             if self.stornodata:
                 for i in range(len(self.stornodata)):
-                    self.stornodata[i] = self.set_preStorno(self.stornodata[i])
+                    self.stornodata[i] = self.set_Storno(self.stornodata[i])
                 if self.sameRechIndex is None: # only needed to invoke possible sameRechData storage
                     self.sameRechIndex = 0
+        if self.stornofile:
+            ext = self.stornofile.split(".")[-1]
+            fname = "AfpVerein_Abmeldung_" + self.data.get_string_value("AnmeldNr") + "." + ext
+            Afp_copyFile(self.stornofile, Afp_addPath(self.data.get_globals().get_value("archivdir"), fname))
+            datum = self.storno
+            if self.storno:
+                datum = self.storno
+            else:
+                datum = self.data.get_value("InfoDat")
+            self.data.add_to_Archiv({"Gruppe": "Abmeldung","Bem": Afp_toString(datum), "Extern": fname})
         super(AfpDialog_EvMemberEdit, self).store_data()
         #if self.storno:
             #self.event.add_client_count(-1)
             
-    ## set 'PreStorno' values in data
+    ## set 'Storno' and 'PreStorno' values in data
     # @param data - data object, where values have to be set
-    def set_preStorno(self, data):
-        data.set_value("Zustand","PreStorno")
+    def set_Storno(self, data):
+        if self.stornodirect: self.zustand = "Storno"
+        else: self.zustand = "PreStorno"
+        if self.storno_adressstatus: data.set_value("Kennung.ADRESSE", self.storno_adressstatus)
+        data.set_value("Zustand", self.zustand)
         data.set_value("InfoDat", self.storno)
         if self.stornotext:  stext = " " + self.stornotext
         else: stext = " Abmeldung"
         data.set_value("Info",  Afp_toString(self.storno) + stext)
+        #print "AfpDialog_EvMemberEdit.set_Storno:", data, data.view()
         return data
         
     ## complete data before storing
@@ -1298,6 +1316,86 @@ class AfpDialog_EvMemberEdit(AfpDialog_EvClientEdit):
                 if self.sameRechData[0].pricename_holds("Familie") and not self.sameRechData[0].pricename_holds("Familien"):
                     enable = True
         self.check_Mehrfach.Enable(enable)
+        
+    ## resign from the club
+    # @param onlyfile - flag for file selection only, default: False
+    def resign(self, onlyfile = False):
+        dat = "31.12." + Afp_toString(self.data.get_globals().today().year)
+        if onlyfile:
+            text1 = "Abmeldung von " + self.data.get_name() +  " von '" + self.data.get_value("Bez.EVENT") + "' der " + self.data.get_value("Name.Veranstalter") + " aussuchen?"
+        else:
+            text1 = self.data.get_name() +  " von '" + self.data.get_value("Bez.EVENT") + "' der " + self.data.get_value("Name.Veranstalter") + " abmelden?"
+        dir = self.data.get_globals().get_value("scandir")
+        fname, Ok = AfpReq_FileName(dir, text1, "*.pdf" , True)
+        stext = None
+        if onlyfile:
+            if Ok and fname:
+                self.stornofile = fname
+        else:
+            if not Ok:
+                fname = None
+                stext, Ok = AfpReq_Text("Keine Abmeldung ausgewählt,".decode("UTF-8"),"bitte Begründung für den Austritt eingeben,/n z.B. 'verstorben' bei Tod, 'freigesetzt' bei Rauswurf".decode("UTF-8"),"", "Abmeldung")
+            if Ok and (stext or fname):
+                if self.sameRechNr:
+                    liste = [["Austrittsdatum",dat]]
+                    if not self.sameRechData:
+                        self.sameRechData = []
+                        for rnr in self.sameRechNr:
+                            self.sameRechData.append(self.get_client(rnr))
+                    datas = []
+                    for data in self.sameRechData:
+                        if data.get_value() == self.data.get_value(): continue
+                        liste.append(data.get_name())
+                        datas.append(data)
+                    text2 = "Bitte Austrittsdatum eingeben und weitere austretende Mitglieder anwählen!".decode("UTF-8")
+                    values = AfpReq_MultiLine(text1, text2, ["Text","Check"], liste, "Abmeldungen")
+                    if values:
+                        dat = Afp_ChDatum(values[0])
+                        self.stornodata = []
+                        for i in range (1,len(values)):
+                            if values[i]: self.stornodata.append(datas[i-1])
+                    else:
+                        Ok = False
+                else:
+                    text2 = "Die Kündigung wird wirksam zum:".decode("UTF-8")
+                    dat, Ok = AfpReq_Date(text1, text2, dat, "Abmeldung")
+            if Ok and dat:
+                self.storno = Afp_fromString(dat)
+                if self.storno < self.data.get_globals().today():
+                    status = None
+                    text2 = "Das Austrittsdatum (" + dat + ") liegt in der Vergangenheit, Kündigung direkt umsetzen".decode("UTF-8")
+                    if stext == "verstorben":
+                        text2 += " und Adresse deaktivieren"
+                        status = 9
+                    elif stext == "freigesetzt":
+                        text2 += "und Adresse markieren"
+                        status = 6
+                    text2 += "?"
+                    Ok = AfpReq_Question(text1, text2, "Abmeldung")
+                    if Ok: 
+                        self.stornodirect = True
+                        if status: self.storno_adressstatus = status
+                if fname:
+                    self.stornofile = fname
+                if stext:
+                    self.stornotext = stext
+            else:
+                self.storno = None
+    ## show resignment file from archiv
+    def show_resignment_file(self):
+        data = self.data.get_value_rows("ARCHIV")
+        ok = False
+        print "AfpDialog_EvMemberEdit.show_resignment_file:", data
+        if data:
+            fname = None
+            for row in data:
+                if row[3] == "Abmeldung":
+                    fname = row[5]
+            if fname:
+                fpath = Afp_addRootpath(self.data.get_globals().get_value("archivdir"), fname)
+                Afp_startFile(fpath,self.data.get_globals(), self.debug, True)
+                ok = True
+        return ok
 
     ## Eventhandler BUTTON - graphic pick for dates, 
     # - not applicable for 'Members' 
@@ -1337,52 +1435,11 @@ class AfpDialog_EvMemberEdit(AfpDialog_EvClientEdit):
     def On_Storno(self, event):
         if self.debug: print "AfpDialog_EvMemberEdit Event handler `On_Storno'"
         if self.data.get_value("Zustand") == "PreStorno":
-            name = self.data.get_name()
-            dat = self.data.get_string_value("InfoDat")
-            Ok = AfpReq_Question("Abmeldung für " + name + " liegt vor,".decode("UTF-8"),"Austritt zum " + dat + " umsetzten?", "Austritt")
-            if Ok:
-                print "AfpDialog_EvMemberEdit.On_Storno direkter Austritt nicht implementiert!"
+            shown = self.show_resignment_file()
+            if not shown:
+                self.resign(True)
         elif not self.data.get_value("Zustand") == "Storno":
-            dat = "31.12." + Afp_toString(self.data.get_globals().today().year)
-            text1 = self.data.get_name() +  " von '" + self.data.get_value("Bez.EVENT") + "' der " + self.data.get_value("Name.Veranstalter") + " abmelden?"
-            dir = ""            
-            fname, Ok = AfpReq_FileName(dir, text1, "*.pdf" , True)
-            stext = None
-            if not Ok:
-                fname = None
-                stext, Ok = AfpReq_Text("Keine Abmeldung ausgewählt,".decode("UTF-8"),"bitte Begründung für den Austritt eingeben.".decode("UTF-8"),"", "Abmeldung")
-            if Ok and (stext or fname):
-                if self.sameRechNr:
-                    liste = [["Austrittsdatum",dat]]
-                    if not self.sameRechData:
-                        self.sameRechData = []
-                        for rnr in self.sameRechNr:
-                            self.sameRechData.append(self.get_client(rnr))
-                    datas = []
-                    for data in self.sameRechData:
-                        if data.get_value() == self.data.get_value(): continue
-                        liste.append(data.get_name())
-                        datas.append(data)
-                    text2 = "Bitte Austrittsdatum eingeben und weitere austretende Mitglieder anwählen!".decode("UTF-8")
-                    values = AfpReq_MultiLine(text1, text2, ["Text","Check"], liste, "Abmeldungen")
-                    if values:
-                        dat = Afp_ChDatum(values[0])
-                        self.stornodata = []
-                        for i in range (1,len(values)):
-                            if values[i]: self.stornodata.append(datas[i-1])
-                    else:
-                        Ok = False
-                else:
-                    text2 = "Die Kündigung wird wirksam zum:".decode("UTF-8")
-                    dat, Ok = AfpReq_Date(text1, text2, dat, "Abmeldung")
-            if Ok and dat :
-                self.storno = Afp_fromString(dat)
-                if fname:
-                    self.stornofile = fname
-                if stext:
-                    self.stornotext = stext
-            else:
-                self.storno = None
+            self.resign()
         #print "AfpDialog_EvMemberEdit.On_Storno:", self.storno, self.stornodata, self.stornofile
         self.Set_Editable(True)
         event.Skip()

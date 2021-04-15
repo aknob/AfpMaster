@@ -33,6 +33,7 @@ from AfpBase.AfpDatabase import AfpSQL
 from AfpBase.AfpDatabase.AfpSQL import AfpSQLTableSelection
 from AfpBase.AfpUtilities.AfpBaseUtilities import Afp_sortSimultan
 from AfpBase.AfpBaseRoutines import *
+from AfpBase.AfpSelectionLists import AfpSelectionList, AfpPaymentList
 from AfpBase.AfpBaseAdRoutines import AfpAdresse, AfpAdresse_getListOfTable
 
 ## returns all possible entries for kind of tours
@@ -393,7 +394,6 @@ class AfpEvClient(AfpPaymentList):
         self.new = False
         self.mainindex = "AnmeldNr"
         self.mainvalue = ""
-        self.spezial_bez = []
         if sb:
             if self.debug: print "AfpEvClient Konstruktor, EventNr:", sb.get_value("EventNr.EVENT"), sb.get_value("EventNr.ANMELD"), sb.get_string_value("AnmeldNr.ANMELD")
             if  sb.get_value("EventNr.ANMELD") and sb.get_value("EventNr.EVENT") == sb.get_value("EventNr.ANMELD"):
@@ -656,7 +656,7 @@ class AfpEvClient(AfpPaymentList):
             #data["Konto2"] = Afp_getSpecialAccount(self.get_mysql(), "EMFA")
         data["RechBetrag"] = betrag
         data["Kontierung"] = Afp_getSpecialAccount(self.get_mysql(), "ERL")
-        data["Zustand"] = "offen"
+        data["Zustand"] = "open"
         if self.event_is_tour:
             data["Wofuer"] = "Reiseanmeldung Nr " + self.get_string_value("AnmeldNr") + " am " + self.get_string_value("Beginn.EVENT") + " nach " + self.get_string_value("Bez.EVENT")
         else:
@@ -664,7 +664,7 @@ class AfpEvClient(AfpPaymentList):
         if self.get_value("ZahlDat"):
             data["Zahlung"] = self.get_value("Zahlung")
             data["ZahlDat"] = self.get_value("ZahlDat")
-            if data["Zahlung"] >= betrag: data["Zustand"] = "bezahlt"
+            if data["Zahlung"] >= betrag: data["Zustand"] = "closed"
         invoice.new_data()
         invoice.set_data_values(data)
         self.selections["RECHNG"] = invoice

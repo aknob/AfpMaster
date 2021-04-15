@@ -72,15 +72,23 @@ class AfpFiScreen(AfpScreen):
         #self.grid_rows["Bookings"] = 7
         self.grid_cols["Bookings"] = 7
         self.grid_row_selected = False
+        self.grid_col_labels =[["Datum", "Beleg", "Soll", "Haben", "Betrag", "Bezeichnung", "Name"], ["Datum", "Nr", "Ext", "Konto", "Betrag", "Bezeichnung", "Name"]]
         self.dynamic_grid_name = "Bookings"
         self.dynamic_grid_col_percents = [12, 8, 10, 10, 10, 30, 20]
-        self.dynamic_grid_col_labels = ["Datum", "Beleg", "Soll", "Haben", "Betrag", "Bezeichnung", "Name"]
+        self.dynamic_grid_col_labels = self.grid_col_labels[0]
+        self.sort_choices_list = [["Auszug","Datum"],["Offen","Einzeln","Dauer","Beglichen","Jahr"]]
+        self.indexmap_list = [{"Auszug":"Auszug","Datum":"BuchDat"},{"Offen":"Zustand = \"Open\" OR Zustand = \"Static\"", "Einzeln": "Zustand = \"Open\"", "Beglichen":  "Zustand = \"Payed\"", "Dauer": "Zustand = \"Static\"","Jahr": None}]
+        self.sort_choices = self.sort_choices_list[0]
+        self.indexmap = self.indexmap_list[0]
+        self.sort_filter = "Zustand = \"Open\" OR Zustand = \"Static\""
+        self.sort_index = 0
         self.fixed_width = 80
         self.fixed_height = 300
         self.font = wx.Font(10, wx.DEFAULT, wx.NORMAL, wx.NORMAL, 0, "DejaVu Sans")
         self.sb_master = "AUSZUG"
         self.sb_period_filter = ""
         self.sb_filter = ""
+        self.mandant = None
         if debug: self.debug = debug
         # self properties
         self.SetTitle("Afp Finance")
@@ -112,9 +120,8 @@ class AfpFiScreen(AfpScreen):
         self.grid_panel_sizer =wx.BoxSizer(wx.HORIZONTAL)
         
         # right BUTTON sizer
-        self.combo_Sortierung = wx.ComboBox(panel, -1, value="Auszug", choices=["Auszug","Datum"], size=(100,30), style=wx.CB_DROPDOWN, name="Sortierung")
+        self.combo_Sortierung = wx.ComboBox(panel, -1, value="Auszug", choices=self.sort_choices, size=(100,30), style=wx.CB_DROPDOWN, name="Sortierung")
         self.Bind(wx.EVT_COMBOBOX, self.On_Index, self.combo_Sortierung)
-        self.indexmap = {"Auszug":"Auszug","Datum":"BuchDat"}
         
         self.button_Auswahl = wx.Button(panel, -1, label="Aus&wahl",size=(77,50), name="BAuswahl")
         self.Bind(wx.EVT_BUTTON, self.On_Ausw, self.button_Auswahl)
@@ -125,7 +132,7 @@ class AfpFiScreen(AfpScreen):
         self.button_Zahlung = wx.Button(panel, -1, label="&Zahlung",size=(77,50), name="BZahlung")
         self.Bind(wx.EVT_BUTTON, self.On_Zahlung, self.button_Zahlung)
         self.button_Dokumente = wx.Button(panel, -1, label="&Dokumente",size=(77,50), name="BDokumente")
-        self.Bind(wx.EVT_BUTTON, self.On_Listen_Ausgabe, self.button_Dokumente)
+        self.Bind(wx.EVT_BUTTON, self.On_Documents, self.button_Dokumente)
         self.button_Einsatz = wx.Button(panel, -1, label="Ein&satz",size=(77,50), name="BEinsatz")
         self.Bind(wx.EVT_BUTTON, self.On_VehicleOperation, self.button_Einsatz)               
         self.button_Einsatz.Enable(False)
@@ -158,11 +165,10 @@ class AfpFiScreen(AfpScreen):
         self.button_sizer.AddSpacer(20)
         
         # COMBOBOX
-        #self.combo_Filter = wx.ComboBox(panel, -1, value="Veranstaltung-Anmeldungen", size=(164,20), choices=["Veranstaltung-Anmeldungen","Veranstaltung-Stornierungen","Veranstaltung-Reservierungen","Reisen-Anmeldungen","Reisen-Stornierungen"], style=wx.CB_DROPDOWN, name="Filter")
         self.combo_Filter = wx.ComboBox(panel, -1, value="Journal", size=(164,20), choices=["Journal","Auszug","Konten","Ausgang","Eingang"], style=wx.CB_DROPDOWN, name="Filter")
         self.Bind(wx.EVT_COMBOBOX, self.On_Filter, self.combo_Filter)
         self.combo_Period = wx.ComboBox(panel, -1, value="", size=(84,20), style=wx.CB_DROPDOWN, name="Period")
-        self.Bind(wx.EVT_COMBOBOX, self.On_Filter, self.combo_Period)
+        self.Bind(wx.EVT_COMBOBOX, self.On_Jahr_Filter, self.combo_Period)
         #self.Bind(wx.EVT_TEXT_ENTER, self.On_Jahr_Filter, self.combo_Jahr)
         self.top_mid_sizer.AddStretchSpacer(1)
         self.top_mid_sizer.Add(self.combo_Period,0,wx.EXPAND)
@@ -216,7 +222,6 @@ class AfpFiScreen(AfpScreen):
         self.gridmap.append("Bookings")
         self.grid_minrows["Bookings"] = self.grid_custs.GetNumberRows()
         self.Bind(wx.grid.EVT_GRID_CMD_CELL_LEFT_DCLICK, self.On_DClick_Custs, self.grid_custs)
-        self.Bind(wx.grid.EVT_GRID_CMD_CELL_LEFT_CLICK, self.On_Click_Custs, self.grid_custs)
         
         self.grid_panel_sizer.AddSpacer(20)
         self.grid_panel_sizer.Add(self.grid_custs,1,wx.EXPAND)
@@ -252,7 +257,7 @@ class AfpFiScreen(AfpScreen):
         self.Bind(wx.EVT_MENU, self.On_Zahlung, mmenu)
         tmp_menu.AppendItem(mmenu)
         mmenu =  wx.MenuItem(tmp_menu, wx.NewId(), "&Dokumente", "")
-        self.Bind(wx.EVT_MENU, self.On_Listen_Ausgabe, mmenu)
+        self.Bind(wx.EVT_MENU, self.On_Documents, mmenu)
         tmp_menu.AppendItem(mmenu)
         mmenu =  wx.MenuItem(tmp_menu, wx.NewId(), "&Einsatz", "")
         self.Bind(wx.EVT_MENU, self.On_VehicleOperation, mmenu)
@@ -271,7 +276,7 @@ class AfpFiScreen(AfpScreen):
         tmp_menu.AppendItem(mmenu)
         self.menubar.Append(tmp_menu, "Adresse")
         return
-        
+                
     ## setup date combobox
     def setup_period_filter(self):
         # ToDo: here a selection of all available periods has to be made, possibly with mandate identifier
@@ -279,6 +284,15 @@ class AfpFiScreen(AfpScreen):
         for i in range(5):
             self.combo_Period.Append(Afp_toString(year - i))
         return
+    ## execution routine- set date filter from period indicator
+    def setup_date_filter(self): 
+        filter = None
+        Jahr= Afp_fromString(self.get_period())
+        if Afp_isNumeric(Jahr) and Jahr > 1900:
+            start = Afp_genDate(int(Jahr), 1, 1)
+            end = Afp_genDate(int(Jahr), 12, 31)
+            filter = "Datum >= \"" + Afp_toInternDateString(start) + "\" AND Datum <= \"" + Afp_toInternDateString(end) + "\"" 
+        return filter
         
     ## return globals
     def get_globals(self):
@@ -288,6 +302,9 @@ class AfpFiScreen(AfpScreen):
         return self.combo_Period.GetValue()
     ## return mandant if applicable
     def get_mandant(self):
+        if self.mandant: return self.mandant
+        if self.data:
+            return self.data.get_globals().get_value("actuel-transaction-mandat","Finance")
         return None
 
     ## population routine for special treatment - to be overwritten in derived class
@@ -306,12 +323,42 @@ class AfpFiScreen(AfpScreen):
             self.text_Saldo.SetValue(Afp_toString(saldo))
         return
         
-    ## Eventhandler COMBOBOX - filter
+    ## Eventhandler COMBOBOX - jahr
+    def On_Jahr_Filter(self,event=None):
+        period = self.get_period()            
+        value = self.combo_Filter.GetValue()
+        #print "AfpFiScreen.On_Jahr_Filter:", period, value  
+        if self.debug: print "AfpFiScreen.On_Jahr_Filter:", period, value   
+        if value == "Ausgang" or value == "Eingang":
+            if self.sort_choices[self.sort_index] == "Jahr":
+                self.sort_filter = self.setup_date_filter()
+                self.data = self.get_data()
+                self.Pop_grid()
+        else:
+            self.On_Filter()
+        if event: event.Skip()  
+        
+    ## Event handler filter combo box
     def On_Filter(self,event=None):
         s_key = self.sb.get_value("KtNr")        
         period = self.get_period()
         value = self.combo_Filter.GetValue()
-        if self.debug: print "AfpFiScreen.set_filter:", period, value   
+        #print "AfpFiScreen.On_Filter:", period, value  
+        if self.debug: print "AfpFiScreen.On_Filter:", period, value   
+        if value == "Ausgang" or value == "Eingang":
+            self.dynamic_grid_col_labels = self.grid_col_labels[1]
+            self.sort_choices = self.sort_choices_list[1] 
+            self.indexmap = self.indexmap_list[1]
+            sort_index = self.sort_index
+        else:
+            self.dynamic_grid_col_labels = self.grid_col_labels[0]
+            self.sort_choices = self.sort_choices_list[0]
+            self.indexmap = self.indexmap_list[0]
+            sort_index = 0
+        for col in range(self.grid_cols["Bookings"]):
+            self.grid_custs.SetColLabelValue(col, self.dynamic_grid_col_labels[col])
+        self.combo_Sortierung.SetItems(self.sort_choices)
+        self.combo_Sortierung.SetSelection(sort_index)
         filter = "Period = " + period
         master = "AUSZUG"
         if value == "Konten":
@@ -328,32 +375,33 @@ class AfpFiScreen(AfpScreen):
         self.sb.select_current()
         self.CurrentData()
         if event: event.Skip()    
-        
-    ## return "ANMELD" filter clause from date filter
-    def get_minor_date_filter(self):
-        return self.sb_date_filter.replace("Beginn","Anmeldung")
-
+ 
     ## Eventhandler COMBOBOX - sort index
     def On_Index(self, event = None):
         value = self.combo_Sortierung.GetValue()
+        typ = self.combo_Filter.GetValue()
         if self.debug: print "AfpFiScreen Event handler `On_Index'",value
         index = self.indexmap[value]
-        if index == "RechNr": 
-            master = "ANMELD"
-            self.sb.CurrentIndexName("EventNr","EVENT")
-            self.sb.CurrentIndexName("AnmeldNr","ANMELD")
-        else: master = "EVENT"
-        if self.sb_master != master:
-            self.sb_master = master
-            #print "AfpFiScreen.On_Index master:", master
-            self.sb.CurrentFileName(self.sb_master) 
-        #print "AfpFiScreen.On_Index index:", index, self.sb_master, master
-        self.sb.set_index(index)
-        self.sb.CurrentIndexName(index)
-        #print "AfpScreen.On_Index current index", self.sb.get_value("AnmeldNr.ANMELD"), self.sb.CurrentFile.indexname, self.sb.CurrentFile.name, self.sb.CurrentFile.CurrentIndex.name
-        self.set_jahr_filter()
-        #print "AfpScreen.On_Index filter", self.sb.get_value("AnmeldNr.ANMELD")
-        self.CurrentData()
+        if typ == "Ausgang" or typ == "Eingang":
+            if index  is None: index = self.setup_date_filter()
+            print "AfpFiScreen.On_Index:",value, typ, index
+            self.sort_filter = index
+            self.sort_index = self.sort_choices.index(value)
+            self.data = self.get_data()
+            self.Pop_grid()
+        else:
+            if index == "RechNr": 
+                master = "ANMELD"
+                self.sb.CurrentIndexName("EventNr","EVENT")
+                self.sb.CurrentIndexName("AnmeldNr","ANMELD")
+            else: master = "EVENT"
+            if self.sb_master != master:
+                self.sb_master = master
+                self.sb.CurrentFileName(self.sb_master) 
+            self.sb.set_index(index)
+            self.sb.CurrentIndexName(index)
+            #self.set_jahr_filter()
+            self.CurrentData()
         if event: event.Skip()
 
     ## Eventhandler BUTTON - change address
@@ -405,32 +453,26 @@ class AfpFiScreen(AfpScreen):
         event.Skip()
 
     ## Eventhandler BUTTON, MENU - document generation
-    def On_Listen_Ausgabe(self,event):
-        if self.debug and event: print "AfpFiScreen Event handler `On_Listen_Ausgabe'"
-        Client = self.get_client()
-        if not Client.is_new():
-            prefix = "Event " + Client.get_string_value("Zustand").strip()
-            header = "Anmeldung"
-            archiv = "direkt"
-            if Client.get_value("AgentNr"):
-                if Client.event_is_tour():
-                    header = "Reisebüro".decode("UTF-8")
-                else:
-                    header = "Verkäufer".decode("UTF-8")
-                archiv = Client.get_string_value("AgentName")
-                agent = "Verkauf"
-            else: 
-                agent = ""
-            if Client.get_value("AgentNr.EVENT"):
-                art =  "Fremd"
-            else:
-                art = "Eigen"
-            select = "Modul = \"Event\" AND Art = \"" + art + Client.get_string_value("Art.EVENT")+ "\" and Typ = \""  + Client.get_string_value("Zustand") + agent + "\""
-            Client.get_selection("AUSGABE").load_data(select)
-            #print "AfpFiScreen.On_Listen_Ausgabe:", header, prefix, archiv
-            #Client.view()
-            variables = self.get_output_variables(Client)
-            AfpLoad_DiReport(Client, self.globals, variables, header, prefix, archiv)
+    def On_Documents(self,event):
+        if self.debug and event: print "AfpFiScreen Event handler `On_Documents'"
+        filter = self.combo_Filter.GetValue()
+        data = self.get_data()
+        if data:
+            mandant = self.get_mandant()
+            adresse = AfpAdresse(self.data.get_globals(), mandant)
+            variables = {"Period":self.get_period()}
+            variables["Name"] = adresse.get_name()
+            variables["Strasse"] = adresse.get_value("Strasse")
+            variables["Ort"] = adresse.get_value("Ort")
+            variables["Tel"] = adresse.get_value("Telefon")
+            if filter == "Konten":
+                variables["Wert"] = self.data.get_value("KtNr.Auszug")
+            #print "AfpFiScreen.On_Documents:", data.get_listname(), data.get_mayor_type(), filter, data.get_value(), data.get_string_value(), data.get_period()
+            prefix = "Report_" + Afp_toString(mandant) + " " + filter
+            header = "Auswertungen"
+            sel = "Modul = \"Finance\" AND Art = \"Report\" and Typ = \""+ filter + "\""
+            data.get_selection("AUSGABE").load_data(sel)
+            AfpLoad_DiReport(data, self.globals, variables, header, prefix, None, adresse)
         if event:
             self.Reload()
             event.Skip()
@@ -461,40 +503,13 @@ class AfpFiScreen(AfpScreen):
     ## Eventhandler Grid - double click Grid 'Bookings'
     def On_DClick_Custs(self, event):
         if self.debug: print "AfpFiScreen Event handler `On_DClick_Custs'"
-        self.On_Click_Custs(event)
+        #self.On_Click_Custs(event)
         data = self.get_client()
         changed = self.load_client_edit(data)
         self.grid_row_selected = True
         if changed: 
             self.Reload()      
         
-    ## Eventhandler Grid - single click Grid 'Bookings'
-    def On_Click_Custs(self, event):
-        if self.debug: print "AfpFiScreen Event handler `On_Click_Custs'"
-        index = event.GetRow()
-        #print "AfpFiScreen.On_Click_Custs:", self.grid_id["Bookings"], len(self.grid_id["Bookings"]), index
-        if len(self.grid_id["Bookings"]) > index:
-            self.grid_row_selected = True
-            ANr = Afp_fromString(self.grid_id["Bookings"][index])
-            if ANr:
-                #col = event.GetColumn(), Spalte extrahieren, evtl. Selectionsmethode in der Deklaration ändern
-                col = event.GetCol()
-                self.load_direct(0, ANr)
-                self.Reload()
-                if col == 6:
-                    #print "AfpFiScreen.On_Click_Custs last column selected"
-                    #text_g = self.grid_custs.getCellValue(index, col)
-                    name = AfpAdresse(self.globals, self.sb.get_value("KundenNr.ANMELD")).get_name()
-                    text = self.sb.get_value("Info.ANMELD")
-                    if not text: text = ""
-                    text, Ok = AfpReq_Text("Bitte Information für Anmeldung".decode("UTF-8"),  name+ " eingeben.", text, "Info")
-                    if Ok:
-                        data = self.get_client(ANr)
-                        data.set_value("Info", text)
-                        data.store()
-                        self.Reload()
-        event.Skip()
-      
     ## Eventhandler MENU - copy an event \n
     def On_MEvent_copy(self,event):   
         print "AfpFiScreen Event handler `On_MEvent_copy' not implemented!"
@@ -586,8 +601,12 @@ class AfpFiScreen(AfpScreen):
         elif filter == "Auszug":
             auszug =  self.sb.get_value("Auszug.AUSZUG")
             return  AfpFinance(self.get_globals(), self.get_period(), {"Auszug": auszug}, self.get_mandant())
-        else:
+        elif filter == "Konten":
             return  AfpFinance(self.get_globals(), self.get_period(), {"Konto": KtNr, "Gegenkonto": KtNr}, self.get_mandant())
+        elif filter == "Ausgang":
+            print  "AfpFiScreen.get_data:", filter, self.sort_filter
+        elif filter == "Eingang":
+            return AfpBulkObligations(self.get_globals(),self.sort_filter, "RechNr")
     #
     # methods which may be overwritten in devired classes        
     #
@@ -633,7 +652,10 @@ class AfpFiScreen(AfpScreen):
         if self.debug: print "AfpFiScreen.get_grid_rows typ:", typ
         #if self.no_data_shown: return  rows
         if typ == "Bookings" and self.data:
-            tmps = self.data.get_value_rows("BUCHUNG","Datum,Beleg,Konto,Gegenkonto,Betrag,Bem,KundenNr,BuchungsNr")
+            if self.data.get_listname() == "BulkObligations":
+                tmps = self.data.get_value_rows("VERBIND","Datum,RechNr,ExternNr,Kontierung,ZahlBetrag,Bem,KundenNr,RechNr")
+            else:
+                tmps = self.data.get_value_rows("BUCHUNG","Datum,Beleg,Konto,Gegenkonto,Betrag,Bem,KundenNr,BuchungsNr")
             #print "AfpFiScreen.get_grid_rows tmps:", tmps
             #print "AfpFiScreen.get_grid_rows data:", 
             #self.data.view()
@@ -644,5 +666,6 @@ class AfpFiScreen(AfpScreen):
                         name = AfpAdresse(self.globals, tmp[6]).get_name(True)
                     rows.append([Afp_toString(tmp[0]), Afp_toString(tmp[1]), Afp_toString(tmp[2]), Afp_toString(tmp[3]), Afp_toString(tmp[4]), Afp_toString(tmp[5]), name, tmp[7]])
         if self.debug: print "AfpFiScreen.get_grid_rows rows:", rows 
+        #print "AfpFiScreen.get_grid_rows rows:", rows 
         return rows
 # end of class AfpFiScreen

@@ -403,7 +403,7 @@ class AfpAusgabe(object):
             split = fields.split(",")
             value = ""
             for field in split:
-                #print  "AfpAusgabe.gen_value field:", field, self.values 
+                #print  "AfpAusgabe.gen_value field:", field, self.values, self.variables 
                 #print  "AfpAusgabe.gen_value DATA:", self.data.view()
                 if not field in self.values:
                     if field in self.variables:
@@ -558,13 +558,13 @@ class AfpAusgabe(object):
     # @param file_index - current index of the line in datafile
     def execute_while(self, while_line, stack_index, file_index = 0):  
         indices = None
-        while_clause, feldnamen, dsnamen, function = self.while_input(while_line, stack_index)
+        while_clause, feldnamen, dsnamen, function, order = self.while_input(while_line, stack_index)
         if self.data is None:
             rows, indices = self.extract_rows_from_file(feldnamen, while_clause, file_index)
         else:
-            #print "AfpAusgabe.execute_while select:", feldnamen, while_clause, dsnamen
+            #print "AfpAusgabe.execute_while select:", feldnamen, while_clause, dsnamen, order
             if while_clause:
-                rows = self.data.mysql.select(feldnamen, while_clause, dsnamen) 
+                rows = self.data.mysql.select(feldnamen, while_clause, dsnamen, order) 
             else:
                 rows = self.extract_rows_from_data(feldnamen)            
             #print "AfpAusgabe.execute_while rows:", len(rows), "\n", rows
@@ -587,7 +587,7 @@ class AfpAusgabe(object):
             if self.debug: print "AfpAusgabe.execute_while WHILE:", stack_index,"Row:", i
             #print local_lines
             for line in local_lines:
-                if self.debug: print "Linie", local_lines.index(line)
+                if self.debug: print "AfpAusgabe.execute_while Linie", local_lines.index(line)
                 #print line
                 if self.is_while(line) == 1:
                     # start of new while loop
@@ -599,7 +599,7 @@ class AfpAusgabe(object):
                         self.execute_while(line, stack_index + 1, indices[i])
                         if self.debug: print "END NEW WHILE"
                 else:
-                    if self.debug: print "execute linie", local_lines.index(line), "of WHILE", stack_index
+                    if self.debug: print "AfpAusgabe.execute_while execute linie", local_lines.index(line), "of WHILE", stack_index, "Linie:", line
                     self.execute_line(line)
     ## analyses the while_line, \n
     # extracts the while_clause, fields, tables and optional the function
@@ -609,6 +609,7 @@ class AfpAusgabe(object):
         #print "AfpAusgabe.while_input input:", while_line, stack_index, self.line_stack
         function = ""
         datsels = ""
+        order = None
         action, netto =  Afp_between(while_line,"{","}")
         if len(action) == 1 and action[0][:5] == "WHILE":
             split_func = action[0].split("FUNCTION")
@@ -619,7 +620,11 @@ class AfpAusgabe(object):
                 #function = funct[0]
             # extract where clause for database access
             clause = split_func[0][6:]
-            #print "AfpAusgabe.while_input split:", split_func, clause
+            #print "AfpAusgabe.while_input split:", split_func, clause, "ORDER BY" in clause
+            if "ORDER BY" in clause:
+                split = clause.split("ORDER BY")
+                order = split[1].strip()
+                clause = split[0].strip()
             if clause[:7] == "ROWS IN":
                 clause = clause[8:]
                 if "AS" in clause:
@@ -630,8 +635,9 @@ class AfpAusgabe(object):
                 fields, netto = Afp_between(clause,"[","]")
                 clause = self.concat_line(fields, netto, True)
                 clause = clause.replace(":","and")
-                #print "AfpAusgabe.while_input clause:", clause
-            # get needed fileds from lines 
+            clause = self.replace_html_tags(clause)
+            #print "AfpAusgabe.while_input clause:", clause
+            # get needed fieds from lines 
             felder = []
             if function: felder += Afp_getWords(function,".")
             for line in self.line_stack[stack_index]:
@@ -657,9 +663,10 @@ class AfpAusgabe(object):
             for feld in felder:
                 split = feld.split(".")
                 if  len(split) > 1:
-                    if clause and not split[1] in dats:
-                        dats.append(split[1])
-                        datsels += ","+ split[1]
+                    spl = split[1].strip()
+                    if clause and not spl in dats:
+                        dats.append(spl)
+                        datsels += ","+ spl
                 else:
                     if feld in self.variables:
                         feld = ""
@@ -674,12 +681,13 @@ class AfpAusgabe(object):
                     if "." in word and Afp_floatString(word, None) is None:
                         sp = word.split(".")
                         if len(sp) > 1:
-                            if not sp[1] in dats:
-                                dats.append(sp[1])
-                                datsels += "," + sp[1]
-        #print "AfpAusgabe.while_input output:", clause, feldnamen, datsels, function
-        if self.debug: print "AfpAusgabe.while_input CLAUSE:", clause, "FIELDS:", feldnamen, "TABLES:", datsels, "FUNCT:", function
-        return clause, feldnamen, datsels, function
+                            spl = sp[1].strip()
+                            if not spl in dats:
+                                dats.append(spl)
+                                datsels += "," + spl
+        #print "AfpAusgabe.while_input output CLAUSE:", clause, "FIELDS:", feldnamen, "TABLES:", datsels, "FUNCT:", function, "ORDER:", order
+        if self.debug: print "AfpAusgabe.while_input CLAUSE:", clause, "FIELDS:", feldnamen, "TABLES:", datsels, "FUNCT:", function, "ORDER:", order
+        return clause, feldnamen, datsels, function, order
     ## retrieve value from cache, possibly load into cache first
     # @param fieldname - name of database column to be loaded
     def get_value(self, fieldname):

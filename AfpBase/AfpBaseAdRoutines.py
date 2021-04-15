@@ -30,15 +30,20 @@
 #
 
 import AfpBase
-from AfpBase import AfpDatabase, AfpBaseRoutines, AfpUtilities
 from AfpBase.AfpDatabase import AfpSQL
 from AfpBase.AfpDatabase.AfpSQL import AfpSQLTableSelection
-from AfpBase.AfpBaseRoutines import *
+from AfpBase.AfpSelectionLists import AfpSelectionList
+from AfpBase.AfpBaseRoutines import Afp_getOrderlistOfTable
 from AfpBase.AfpUtilities.AfpBaseUtilities import Afp_getMaxOfColumn
+from AfpBase.AfpUtilities.AfpStringUtilities import Afp_toString
 
+## return list of status string   
+def AfpAdresse_StatusStrings():
+    #return ["Passiv", "Aktiv", "keine Werbung", "Markiert", "Inaktiv"]
+    return ["Passiv", "Aktiv", "Neutral", "Markiert", "Inaktiv"]
 ## return dictionary to map between status integers an choice entries on screen   
 def AfpAdresse_StatusMap():
-    return {-1:1,0:0,1:1,5:2,6:3,9:4}
+    return {-1:1,0:0,1:1,4:2,5:3,9:4}
 ## mapping in other direction \n
 # return status flag indicated by input \n
 # @param ind - index in screen choice selection

@@ -36,13 +36,13 @@ import wx
 import wx.grid
 
 import AfpBase
-from AfpBase import AfpBaseRoutines, AfpBaseDialog, AfpBaseDialogCommon, AfpBaseAdRoutines, AfpUtilities
+from AfpBase import AfpBaseDialog, AfpBaseDialogCommon, AfpBaseRoutines, AfpBaseAdRoutines, AfpUtilities
 from AfpBase.AfpUtilities import AfpStringUtilities, AfpBaseUtilities
 from AfpBase.AfpUtilities.AfpStringUtilities import Afp_ArraytoString
 from AfpBase.AfpUtilities.AfpBaseUtilities import Afp_getMaxOfColumn
-from AfpBase.AfpBaseRoutines import *
 from AfpBase.AfpBaseDialog import *
 from AfpBase.AfpBaseDialogCommon import *
+from AfpBase.AfpBaseRoutines import Afp_getListe_fromTableSelection
 from AfpBase.AfpBaseAdRoutines import *
 
 ## Routine to select a file and add it into the archiv
@@ -904,6 +904,9 @@ class AfpDialog_DiAdEin_SubMrk(AfpDialog):
         self.Bind(wx.EVT_LISTBOX_DCLICK, self.On_DClick_Verbindung, self.list_verbindung)
         self.button_Ad_Attr_Verbind = wx.Button(panel, -1, label="&Verbindung", pos=(250,86), size=(100,32), name="Ad_Attr_Verbind")
         self.Bind(wx.EVT_BUTTON, self.On_Ad_Verbindung, self.button_Ad_Attr_Verbind)
+        self.choice_Status = wx.Choice(panel, -1, pos=(124,86), size=(100,32), choices=AfpAdresse_StatusStrings(),  name="CStatus")
+        self.Bind(wx.EVT_CHOICE, self.On_CStatus, self.choice_Status)
+        self.choicemap["CStatus"] = "Kennung.ADRESSE"
         self.text_Ad_Attr_Bem = wx.TextCtrl(panel, -1, value="", pos=(8,126), size=(342,26), style=0, name="Ad_Attr_Bem")
         self.textmap["Ad_Attr_Bem"] = "Bem.ADRESSE"
         self.text_Ad_Attr_Bem.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
@@ -911,6 +914,13 @@ class AfpDialog_DiAdEin_SubMrk(AfpDialog):
         self.Bind(wx.EVT_BUTTON, self.On_Ad_Bem, self.button_Ad_Attr_Bemerk)
         self.setWx(panel, [129, 158, 100, 32], [250, 158, 100, 32]) # set Edit and Ok widgets
 
+    ## Population routine for status choice
+    def Pop_choice(self):
+        map = AfpAdresse_StatusMap()
+        value = self.data.get_value("Kennung")
+        index = map[value]
+        self.choice_Status.SetSelection(index)
+        #print "AfpDialog_DiAdEin_SubMrk.Pop_Choice:", self.choice_Status.GetString(index)
     ## Population routine for attribut list
     def Pop_Attribut(self):
         rows = self.data.get_value_rows("ADRESATT", "Attribut,AttText")
@@ -993,6 +1003,13 @@ class AfpDialog_DiAdEin_SubMrk(AfpDialog):
                 self.Pop_Verbindung()
         event.Skip()  
     ## Eventhandler BUTTON - add new entry to attribut list   
+    def On_CStatus(self,event):
+        if self.debug: print "AfpDialog_DiAdEin_SubMrk Event  handler `On_CStatus'!"
+        index = self.choice_Status.GetSelection()
+        self.data.set_value("Kennung", AfpAdresse_StatusReMap(index))
+        self.changes = True
+        event.Skip()
+     ## Eventhandler BUTTON - add new entry to attribut list   
     def On_Ad_Merkmal(self,event):
         if self.debug: print "AfpDialog_DiAdEin_SubMrk Event  handler `On_Ad_Merkmal'!"
         ok, row = AfpAdresse_selectAttributRow(self.data)

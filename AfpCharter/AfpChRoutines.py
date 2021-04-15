@@ -35,6 +35,7 @@ from AfpBase import *
 from AfpBase.AfpDatabase import AfpSQL
 from AfpBase.AfpDatabase.AfpSQL import AfpSQLTableSelection
 from AfpBase.AfpBaseRoutines import *
+from AfpBase.AfpSelectionLists import AfpSelectionList
 
 ## available 'Zustand' values are set here \n
 # This is the definition routine for all available 'Zustand' values
@@ -151,7 +152,6 @@ class AfpCharter(AfpSelectionList):
         self.new = False
         self.mainindex = "FahrtNr"
         self.mainvalue = ""
-        self.spezial_bez = []
         if sb:
             self.mainvalue = sb.get_string_value("FahrtNr.FAHRTEN")
             Selection = sb.gen_selection("FAHRTEN", "FahrtNr", debug)
@@ -291,12 +291,12 @@ class AfpCharter(AfpSelectionList):
             data["Konto2"] = Afp_getSpecialAccount(self.get_mysql(), "EMFA")
         data["RechBetrag"] = betrag
         data["Kontierung"] = Afp_getSpecialAccount(self.get_mysql(), "EMF")
-        data["Zustand"] = "offen"
+        data["Zustand"] = "open"
         data["Wofuer"] = "Mietfahrt Nr " + self.get_string_value("FahrtNr") + " am " + self.get_string_value("Abfahrt") + " nach " + self.get_string_value("Zielort")
         if self.get_value("ZahlDat"):
             data["Zahlung"] = self.get_value("Zahlung")
             data["ZahlDat"] = self.get_value("ZahlDat")
-            if data["Zahlung"] >= betrag: data["Zustand"] = "bezahlt"
+            if data["Zahlung"] >= betrag: data["Zustand"] = "closed"
         invoice.new_data()
         invoice.set_data_values(data)
         self.selections["RECHNG"] = invoice

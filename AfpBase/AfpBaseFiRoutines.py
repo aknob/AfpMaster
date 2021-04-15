@@ -30,6 +30,7 @@
 #
 
 import AfpBase
+from AfpBase.AfpSelectionLists import *
 from AfpBase.AfpBaseRoutines import *
 
 ## get name from address with given identifier, when only sql connetion is given
@@ -143,6 +144,7 @@ class AfpZahlung(object):
     # @param auszug - identifier of statemen of account
     def check_auszug(self, auszug):
         datum = None
+        print "AfpZahlung.check_auszug:", auszug
         if self.finance:
             check = self.finance.check_auszug(auszug)
             if check:
@@ -159,7 +161,8 @@ class AfpZahlung(object):
      ## get name of the statement of account for cash ("Bar") payment
     def get_cash_auszug(self):
         today = self.globals.today()
-        return "BAR-" + Afp_toInternDateString(today)[3:]   
+        return "BAR-" + Afp_toInternDateString(today)[5:]   
+        #return "BAR-" + Afp_toShortDateString(today)  
     ## extract date from statement of account identifier, if possible
     # @param auszug - statement of account identifier to be analysed
     def get_date_from_cash(self, auszug):
@@ -171,7 +174,7 @@ class AfpZahlung(object):
                 month = int(split[0])
                 if len(split) > 1:
                     if "/" in split[1]:
-                        ssplit = split.split("/")
+                        ssplit = split[1].split("/")
                         year = int(ssplit[1])
                         day = int(ssplit[0])
                     else:
@@ -395,7 +398,6 @@ class AfpCommonInvoice(AfpPaymentList):
         self.new = False
         self.mainindex = "RechNr"
         self.mainvalue = ""
-        self.spezial_bez = []
         if RechNr:
             self.mainvalue = Afp_toString(RechNr)
         else:
@@ -429,7 +431,7 @@ class AfpCommonInvoice(AfpPaymentList):
         else:
             data["KundenNr"] = self.get_value("KundenNr")
             keep.append("ADRESSE")
-        data["Zustand"] = "offen"
+        data["Zustand"] = "open"
         data["Datum"] = self.globals.today_string()
         #print data
         #print keep
@@ -446,10 +448,10 @@ class AfpCommonInvoice(AfpPaymentList):
         zeile = self.get_string_value("RechNr").rjust(8) + " " + self.get_string_value("Datum") + " " + self.get_string_value("Bem") + " " 
         zeile += Afp_toString(betrag).rjust(10)  + " " + self.get_string_value("Zahlung").rjust(10)
         return zeile 
-    ## switch 'Zustand' from open (offen) to payed (bezahlt) if necessary
+    ## switch 'Zustand' from open (open) to payed (closed) if necessary
     def set_zustand(self):
-        if self.get_value("Zustand") == "offen" and self.get_value("Zahlung") >= self.get_value("ZahlBetrag"):
-            self.set_value("Zustand","bezahlt")
+        if self.get_value("Zustand") == "open" and self.get_value("Zahlung") >= self.get_value("ZahlBetrag"):
+            self.set_value("Zustand","closed")
     ## routine to retrieve payment data from SelectionList \n
     #  overwritten, from AfpSelectionList
     def get_payment_values(self):
@@ -495,7 +497,6 @@ class AfpObligation(AfpPaymentList):
         self.new = False
         self.mainindex = "RechNr"
         self.mainvalue = ""
-        self.spezial_bez = []
         if RechNr:
             self.mainvalue = Afp_toString(RechNr)
         else:
@@ -525,7 +526,7 @@ class AfpObligation(AfpPaymentList):
         else:
             data["KundenNr"] = self.get_value("KundenNr")
             keep.append("ADRESSE")
-        data["Zustand"] = "offen"
+        data["Zustand"] = "open"
         data["Datum"] = self.globals.today_string()
         #print data
         #print keep
@@ -533,10 +534,10 @@ class AfpObligation(AfpPaymentList):
         self.set_data_values(data,"VERBIND")
         if KundenNr:
             self.create_selection("ADRESSE", False)
-   ## switch 'Zustand' from open (offen) to payed (bezahlt) if necessary
+   ## switch 'Zustand' from open (open) to payed (closed) if necessary
     def set_zustand(self):
-        if self.get_value("Zustand") == "offen" and self.get_value("Zahlung") >= self.get_value("ZahlBetrag"):
-            self.set_value("Zustand","bezahlt")
+        if self.get_value("Zustand") == "open" and self.get_value("Zahlung") >= self.get_value("ZahlBetrag"):
+            self.set_value("Zustand","closed")
     ## one line to hold all relevant values of this invoice to be displayed 
     def line(self):
         betrag, zahlung, dummy = self.get_payment_values()
@@ -547,7 +548,9 @@ class AfpObligation(AfpPaymentList):
     # has to return the account number this payment has to be charged ("Gegenkonto")
     # @param paymentdata - payment data dictionary to be modified and returned
     def add_payment_data(self, paymentdata):
-        paymentdata["Gegenkonto"] = self.get_value("Creditor") 
+        paymentdata["Gegenkonto"] = self.get_value("Kreditor") 
+        if not paymentdata["Gegenkonto"]:
+            paymentdata["Gegenkonto"]  = self.get_value("Kontierung")
         if not paymentdata["Gegenkonto"]:
             paymentdata["Gegenkonto"]  = Afp_getIndividualAccount(self.get_mysql(), self.get_value("KundenNr"))
         paymentdata["GktName"] = self.get_name(True) 

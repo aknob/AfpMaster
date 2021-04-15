@@ -51,6 +51,7 @@ class AfpSQL(object):
     def  __init__(self, dbhost, dbuser, dbword, dbname, debug):
         self.dbname = dbname
         self.create_db = False
+        #self.debug = True
         self.debug = debug
         self.db_connection = None
         self.db_cursor = None      
@@ -391,6 +392,7 @@ class AfpSQLTableSelection(object):
         #if tablename == "BUCHUNG": debug = True
         if debug: 
             print "AfpSQLTableSelection Konstruktor dbg On", tablename
+            print "AfpSQLTableSelection Konstruktor input", tablename, debug, unique_feldname, feldnamen
             self.dbg = True # hardcoded switch for storage logging, for debug purpose during programming
         self.mysql = mysql      
         self.tablename = tablename
@@ -457,6 +459,16 @@ class AfpSQLTableSelection(object):
             changed = self.mani_has_changed(manipulation, feld)
         elif self.new: changed = True
         return changed
+    ## returns if table selection holds no data
+    def is_empty(self):
+        empty = True
+        if self.data:
+            for row in self.data:
+                for entry in row:
+                    if entry:
+                        empty = False
+                        break
+        return empty
     ## returns if given column has been set to last inserted id
     # @param feldname - name of column
     def is_last_inserted_id(self, feldname):
@@ -839,7 +851,7 @@ class AfpSQLTableSelection(object):
     # @param changed_data - dictionary holding appropriate value in entry [column name]
     # @param row -  index of row where values have to be inserted 
     def set_data_values(self, changed_data, row = 0):
-        if self.dbg: print "AfpSQLTableSelection.set_data_value:", changed_data, row
+        if self.dbg: print "AfpSQLTableSelection.set_data_values:", changed_data, row
         for data in changed_data:
             self.set_value(data, changed_data[data], row)
     ## add a row with data values from given dictionary

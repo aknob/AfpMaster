@@ -45,7 +45,7 @@ from AfpBase.AfpBaseRoutines import AfpMailSender, Afp_ModulNames, Afp_startFile
 from AfpBase.AfpBaseDialog import AfpReq_Info, AfpReq_Question
 from AfpBase.AfpBaseDialogCommon import  AfpReq_Information, Afp_editMail
 from AfpBase.AfpBaseScreen import AfpScreen
-from AfpBase.AfpBaseAdRoutines import AfpAdresse_StatusMap, AfpAdresse
+from AfpBase.AfpBaseAdRoutines import AfpAdresse_StatusStrings, AfpAdresse_StatusMap, AfpAdresse
 from AfpBase.AfpBaseAdDialog import AfpLoad_DiAdEin_fromSb, AfpLoad_AdAusw
 
 ## Class_Adresse shows Window Adresse and handles interactions
@@ -150,9 +150,9 @@ class AfpAdScreen(AfpScreen):
         self.label_Anrede = wx.StaticText(self, -1,label="",  name="Anrede")
         self.labelmap["Anrede"] = "Anrede.ADRESSE"
         #self.choice_Status = wx.Choice(self, -1, size=(77,18), choices=["Passiv", "Aktiv", "Neutral", "Markiert", "Inaktiv"],  name="RStatus")
-        self.choice_Status = wx.Choice(self, -1, choices=["Passiv", "Aktiv", "Neutral", "Markiert", "Inaktiv"],  name="RStatus")
-        self.choice_Status.SetSelection(0)
-        #self.choice_Status.Enable(False)
+        self.choice_Status = wx.Choice(self, -1, choices=AfpAdresse_StatusStrings(),  name="RStatus")
+        #self.choice_Status.SetSelection(0)
+        self.choice_Status.Enable(False)
         self.Bind(wx.EVT_CHOICE, self.On_CStatus, self.choice_Status)
         self.choicemap = AfpAdresse_StatusMap()
         
@@ -596,7 +596,7 @@ class AfpAdScreen(AfpScreen):
         self.Pop_grid("Archiv")        
         if self.debug: print "AfpAdScreen Event handler `On_Filter_Archiv'" 
         event.Skip()
-    ## Eventhandler RADIOBOX - only implemented to reset selection due to databas entry
+    ## Eventhandler RADIOBOX - only implemented to reset selection due to database entry
     def On_CStatus(self, event):
         self.Pop_choice_status()
         if self.debug: print "Event handler `On_CStatus' only implemented to reset selection!"
@@ -618,10 +618,11 @@ class AfpAdScreen(AfpScreen):
       
     ## set right status-choice for this address
     def Pop_choice_status(self):
-        stat = self.sb.get_value("Kennung.ADRESSE")
-        if not stat: stat = 0
-        choice = self.choicemap[stat]
-        self.choice_Status.SetSelection(choice)
+        status = self.sb.get_value("Kennung.ADRESSE")
+        if not status: status = 0
+        map = AfpAdresse_StatusMap()
+        index = map[status]
+        self.choice_Status.SetSelection(index)
         if self.debug: print "AfpAdScreen Population routine`Pop_choice_status'", choice
     ## populate attribut filter with entries from database table
     def Pop_Filter_Merk(self):
@@ -706,11 +707,11 @@ class AfpAdScreen(AfpScreen):
                 rows = self.mysql.select_strings("Zustand,Abfahrt,Zielort,Art,Preis,FahrtNr",select,"FAHRTEN")
             elif typ == "Rechnungs-Ausgang":
                 self.archiv_colname = self.archiv_colnames[3]
-                rows = self.mysql.select_strings("RechNr,Datum,Wofuer,RechBetrag,Zahlung,RechNr",select,"RECHNG")
+                rows = self.mysql.select_strings("RechNr,Datum,Bem,Betrag,Zahlung,RechNr",select,"RECHNG")
             elif typ == "Rechnungs-Eingang":
                 self.archiv_colname = self.archiv_colnames[4]
-                select += " and VerbNr > 0"
-                rows = self.mysql.select_strings("ExternNr,Datum,Wofuer,RechBetrag,Zahlung,VerbNr",select,"VERBIND") 
+                select += " and RechNr > 0"
+                rows = self.mysql.select_strings("ExternNr,Datum,Bem,Betrag,Zahlung,RechNr",select,"VERBIND") 
             elif typ == "Merkmale":
                 self.archiv_colname = self.archiv_colnames[5]
                 rows = self.mysql.select_strings("Attribut,AttText,Tag,Attribut",select,"ADRESATT") 

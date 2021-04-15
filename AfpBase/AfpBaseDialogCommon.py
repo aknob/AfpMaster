@@ -271,6 +271,7 @@ class AfpDialog_DiReport(wx.Dialog):
         self.left_lower_sizer.Add(self.check_Archiv,0,wx.EXPAND)
         self.left_lower_sizer.AddStretchSpacer(1)
         self.left_lower_sizer.Add(self.label_Ablage,0,wx.EXPAND)
+        self.left_lower_sizer.AddStretchSpacer(1)
         self.left_lower_sizer.Add(self.text_Bem,0,wx.EXPAND)
         self.left_sizer.AddSpacer(10)
         self.left_sizer.Add(self.list_Report,1,wx.EXPAND)
@@ -321,7 +322,7 @@ class AfpDialog_DiReport(wx.Dialog):
             self.data = data
         self.debug = self.data.debug
         self.globals = globals
-        self.major_type = globals.get_value("name")
+        self.major_type = self.data.get_mayor_type()
         if prepostfix:
             split = prepostfix.split()
             self.prefix = split[0]
@@ -391,9 +392,14 @@ class AfpDialog_DiReport(wx.Dialog):
             self.list_Report.InsertItems(self.reportname, 0)
         return None
     ## fill preset value into archiv description
-    # @param text - text to be displayed
-    def preset_text_bem(self, text):
-        self.text_Bem.SetValue(text)
+    # @param text - text to be displayed, if text is None, archiv checkbox will be enables
+    def preset_archiv_text(self, text):
+        if text is None:
+            self.check_Archiv.SetValue(False)
+            self.check_Archiv.Enable(True)            
+            self.label_Ablage.Enable(True)
+        else:
+            self.text_Bem.SetValue(text)
     ## assign different data for archiv
     # @param data - selectionlist to be used for archiv
     def add_archivdata(self, data):
@@ -472,10 +478,11 @@ class AfpDialog_DiReport(wx.Dialog):
         fresult = None  
         index = self.get_list_Report_index()
         archiv = self.check_Archiv.IsChecked() 
+        #print "AfpDialog_DiReport.get_result_name index:", index, archiv
         if index >= 0 and self.reportflag[index]:
             if archiv:
                 max = 0
-                #print "AfpDialog_DiReport.get_result_name:", self.reportlist
+                #print "AfpDialog_DiReport.get_result_name reportlist:", self.reportlist
                 for entry in self.reportlist:
                     if entry and "." in entry:
                         split = entry.split(".")
@@ -485,10 +492,11 @@ class AfpDialog_DiReport(wx.Dialog):
                 if self.datasindex: max += self.datasindex
                 if max < 10:  null = "0"
                 else:  null = ""
+                #print "AfpDialog_DiReport.get_result_name data:", self.data.mainvalue, self.data.get_string_value()
+                fresult = self.prefix  + "_" + self.data.get_string_value() + "_" + self.reportlist[index] + "_"
                 if self.postfix:
-                    fresult = self.prefix  + "_" + self.data.get_string_value() + "_" + self.postfix + "_" + null + str(max) + ".odt"
-                else:
-                    fresult = self.prefix  + "_" + self.data.get_string_value() + "_" + null + str(max) + ".odt"
+                    fresult += self.postfix + "_" 
+                fresult += null + str(max) + ".odt"
                 self.archivname = fresult
                 fresult = Afp_addRootpath(self.globals.get_value("archivdir"), fresult)
             else:
@@ -496,7 +504,7 @@ class AfpDialog_DiReport(wx.Dialog):
                     fresult = Afp_addRootpath(self.globals.get_value("tempdir"), self.major_type + "_textausgabe" + str(self.datasindex) + ".fodt")
                 else:
                     fresult = Afp_addRootpath(self.globals.get_value("tempdir"), self.major_type + "_textausgabe.fodt")
-        #print "get_result_name:", fresult   
+        #print "AfpDialog_DiReport.get_result_name:", fresult   
         return  fresult
     ## return selected list index
     def get_list_Report_index(self):
@@ -654,7 +662,7 @@ class AfpDialog_DiReport(wx.Dialog):
 def AfpLoad_DiReport(selectionlist, globals, variables = None, header = "", prefix = "", archivtext = None, archivdata = None):
     DiReport = AfpDialog_DiReport(None)
     DiReport.attach_data(selectionlist, globals, variables, header, prefix)
-    if archivtext: DiReport.preset_text_bem(archivtext)
+    DiReport.preset_archiv_text(archivtext)
     if archivdata: DiReport.add_archivdata(archivdata)
     DiReport.ShowModal()
     DiReport.Destroy()
@@ -746,7 +754,7 @@ class AfpDialog_editArchiv(AfpDialog):
     def attach_data(self, data, label1, label2, editable = False):
         self.data = data
         self.debug = data.is_debug()
-        self.major_type = data.get_globals().get_value("name")
+        self.major_type = data.get_mayor_type()
         if label1: self.label_text_1.SetLabel(label1)
         if label2: self.label_text_2.SetLabel(label2)
         self.Populate()

@@ -30,7 +30,7 @@
 #
 
 import AfpBase
-from AfpBase import AfpBaseRoutines
+from AfpBase.AfpSelectionLists import AfpSelectionList
 from AfpBase.AfpBaseRoutines import *
 
 ## class to handle vehicle operations (Einsatz)
