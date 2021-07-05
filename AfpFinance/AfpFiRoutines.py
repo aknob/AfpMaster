@@ -142,6 +142,33 @@ def AfpFinance_SEPATagInterpreter(globals, tags, datstring, konto, transfer, gko
     else: return [data]
 
 ## routine for special handling of xml-tags for this flavour
+# @param globals - global values include mysql connection
+# @param KNr - address identifier
+# @param tab - table name to be used
+# @param tabnr - actuel used identifier in given tabe
+# @param newtabnr - if given, identifier to which entrie should be changes, default: None; set mandat inaktiv
+def AfpFinance_swapSEPAMandat(globals, KNr, tab, tabnr, newtabnr = None):
+    #print "AfpFinance_swapSEPAMandat:", globals, KNr, tab, tabnr, newtabnr
+    selection = AfpSQLTableSelection(globals.get_mysql(),  "ARCHIV", globals.is_debug())
+    if newtabnr:
+        criteria = "KundenNr = " + Afp_toString(KNr) + " AND Art = \"SEPA-DD\" AND Typ = \"Aktiv\" AND Tab = \"" + tab + "\"" 
+    else:
+        criteria = "KundenNr = " + Afp_toString(KNr) + " AND Art = \"SEPA-DD\" AND Typ = \"Aktiv\" AND Tab = \"" + tab + "\" AND TabNr = " + Afp_toString(tabnr)
+    selection.load_data(criteria)
+    chg = False
+    for i in range(selection.get_data_length()):
+        aktnr = selection.get_values("TabNr", i)[0][0]
+        #print "AfpFinance_swapSEPAMandat tabnr:", aktnr,  tabnr, aktnr == tabnr, type(aktnr), type(tabnr)
+        if selection.get_values("TabNr", i)[0][0] == tabnr:
+            chg = True
+            if newtabnr:
+               selection.set_value("TabNr", newtabnr, i)
+            else:
+               selection.set_value("Typ", "Inaktiv", i)
+    if chg: selection.store()
+    print "AfpFinance_swapSEPAMandat stored:", chg, KNr, tabnr, newtabnr
+    return chg
+## routine for special handling of xml-tags for this flavour
 # @param mysql - link to databese
 # @param typ - interpation type (p.e. flavour)
 # @param value - value supplied with this tag
@@ -488,9 +515,13 @@ class AfpSEPAct(AfpSelectionList):
             self.add_to_Archiv(master_data)
             self.add_to_Archiv(dict(client_data))
             client_data.pop("KundenNr")
+            used_KNr = []
             for trans in self.transactions:
+                #print "AfpSEPAct.add_all_archives KNr:", trans.get_value("KundenNr"), used_KNr
+                if trans.get_value("KundenNr") in used_KNr: continue
                 trans.add_to_Archiv(dict(client_data))
                 trans.get_selection("ARCHIV").store()
+                used_KNr.append(trans.get_value("KundenNr"))
 
 ## class to handle SEPA direct debit handling, 
 class AfpSEPAdd(AfpSelectionList):
@@ -630,7 +661,7 @@ class AfpSEPAdd(AfpSelectionList):
             if client.get_value(clientid) == EvNr:
                 self.client_bic[row[0]] = row[3]
                 self.client_iban[row[0]] = row[4]
-                #print "AfpSEPAdd.gen_mandat_data amount:", row[2], row[3], row[4], client.get_value(self.datafields["regular"]), self.interval, self.datafields["regular"]
+                print "AfpSEPAdd.gen_mandat_data amount:", row[2], row[3], row[4], client.get_value(self.datafields["regular"]), self.interval, self.datafields["regular"]
                 amount = client.get_value(self.datafields["regular"])/self.interval
                 first = not (self.lastrun and row[1] <=  self.lastrun)
                 #print "AfpSEPAdd.gen_mandat_data lastrun:", row[2], self.lastrun, row[1], first

@@ -158,6 +158,9 @@ def Afp_editMail(mail):
     if mail.message:
         text += "\n" + mail.message
     attachs = "Anhang: " + mail.get_attachment_names()
+    if text == "Betreff: " and mail.globals.get_value("mail-text"):
+        text = mail.globals.get_value("mail-text")
+        mail.globals.set_value("mail-text", "")
     text, ok = AfpReq_EditText(text,"E-Mail Versand", von, an, attachs, True)
     if ok:
         start = 0
@@ -165,6 +168,7 @@ def Afp_editMail(mail):
         sender = None
         recipients = []
         attachs = []
+        serie = False
         lines = text.split("\n")
         for line in lines:
             if ":" in line: 
@@ -177,6 +181,9 @@ def Afp_editMail(mail):
                     sender = line[4:].strip()
                 elif "Anhang:" in line:
                     attachs = line[7:].split(",")
+                elif "Serie:" in line:
+                    serie = True
+                    start -= (len(line) -5)
             else:
                 break
         message = text[start:].strip()
@@ -191,6 +198,8 @@ def Afp_editMail(mail):
             for attach in attachs:
                 mail.add_attachment(attach)
         ok = mail.is_ready()
+        if serie: 
+            mail.globals.set_value("mail-text", text)
     return mail, ok
 
 ##  handles automatic and manual sort cirterium selection for data search
@@ -284,6 +293,7 @@ class AfpDialog_DiReport(wx.Dialog):
         #self.button_Info = wx.Button(panel, -1, label="&Info", pos=(340,46), size=(78,30), name="Info")
         #self.Bind(wx.EVT_BUTTON, self.On_Rep_Info, self.button_Info)
         self.check_EMail = wx.CheckBox(self, -1, label="per EMail", name="check_EMail")
+        self.Bind(wx.EVT_CHECKBOX, self.On_EMail, self.check_EMail)
         self.button_Abbr = wx.Button(self, -1, label="&Abbruch", name="Abbruch")
         self.Bind(wx.EVT_BUTTON, self.On_Rep_Abbr, self.button_Abbr)
         self.button_Okay = wx.Button(self, -1, label="&Ok", name="Okay")
@@ -524,7 +534,7 @@ class AfpDialog_DiReport(wx.Dialog):
     def execute_Ausgabe(self, fresult):
         Afp_startFile(fresult, self.globals, self.debug)
     ## gernerate entry in archieve
-    def add_to_archiv(self):
+    def add_to_archiv(self, mailname=None):
         if not self.archivname: return
         new_data = {}
         new_data["Typ"] = self.label_Ablage.GetLabel()
@@ -626,7 +636,17 @@ class AfpDialog_DiReport(wx.Dialog):
                         self.list_Report.InsertItems(self.reportname, 0)
         self.choice_Bearbeiten.SetSelection(0)
         event.Skip()  
-    ## Eventhandler BUTTON - Cancel button pushed
+    ## Eventhandler CHECKBOX - EMail checkbox triggered
+    # @param event - event which initiated this action
+    def On_EMail(self,event):
+        if self.debug: print "AfpDialog_DiReport Event handler 'On_EMail'"
+        if self.check_EMail.IsChecked():
+            if not self.text_Bem.GetValue():
+                self.text_Bem.SetValue("per EMail")
+        else:
+            if self.text_Bem.GetValue() == "per EMail":
+                self.text_Bem.SetValue("")
+     ## Eventhandler BUTTON - Cancel button pushed
     # @param event - event which initiated this action
     def On_Rep_Abbr(self,event):
         if self.debug: print "AfpDialog_DiReport Event handler `On_Rep_Abbr'"

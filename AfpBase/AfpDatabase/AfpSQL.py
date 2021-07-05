@@ -356,7 +356,7 @@ class AfpSQL(object):
             if len(datarow) == flen:
                 value_clause =  (" ( %(items)s ) VALUES ( %(values)s );") %  {"items" : ",".join(felder), "values" : ",".join( ["%s"]*flen ) }
                 Befehl = "INSERT INTO "  +  datei + value_clause 
-                if self.debug: print "AfpSQL.insert:", Befehl, datarow
+                if self.debug: print "AfpSQL.write_insert:", Befehl, datarow
                 self.db_cursor.execute (Befehl, datarow)
                 self.db_lastrowid = self.db_cursor.lastrowid
             else:
@@ -389,10 +389,10 @@ class AfpSQLTableSelection(object):
     # @param feldnamen - names of columns, if not given they will be retrieved from database
     def  __init__(self, mysql, tablename, debug = False, unique_feldname = None, feldnamen = None):
         self.dbg = False # hardcode switch for storage logging
-        #if tablename == "BUCHUNG": debug = True
+        #if tablename == "ANMELD": debug = True
         if debug: 
-            print "AfpSQLTableSelection Konstruktor dbg On", tablename
-            print "AfpSQLTableSelection Konstruktor input", tablename, debug, unique_feldname, feldnamen
+            print "AfpSQLTableSelection Konstruktor dbg On:", tablename
+            print "AfpSQLTableSelection Konstruktor input:", tablename, debug, unique_feldname, feldnamen
             self.dbg = True # hardcoded switch for storage logging, for debug purpose during programming
         self.mysql = mysql      
         self.tablename = tablename
@@ -419,8 +419,11 @@ class AfpSQLTableSelection(object):
     def __del__(self):
         if self.debug: print "AfpSQLTableSelection Destruktor", self.tablename
     ## return an initialized copy of this TableSelection
-    def create_initialized_copy(self):
-        return AfpSQLTableSelection(self.mysql, self.tablename, self.debug, self.unique_feldname, self.feldnamen)
+    #@param  unique_fieldname, if given, unique fieldname differring from the original TableSelection
+    def create_initialized_copy(self, unique_fieldname=None):
+        if self.debug: print "AfpSQLTableSelection.create_initialized_copy:",  unique_fieldname
+        if unique_fieldname is None: unique_fieldname = self.unique_feldname
+        return AfpSQLTableSelection(self.mysql, self.tablename, self.debug, unique_fieldname, self.feldnamen)
    ## return an complete copy of this TableSelection
    # @param data - flag if data should be copied, default: True
    # @param mani - flag if manipulation data should be copied, default: False
@@ -723,6 +726,7 @@ class AfpSQLTableSelection(object):
         elif type(values) == dict:
             if feld in values: 
                 value = values[feld]  
+            if feld in originals:
                 original = originals[feld]  
         return original, value
     ## returns if the given manipulation data holds changed entries \n
@@ -830,6 +834,8 @@ class AfpSQLTableSelection(object):
     def spread_value(self, feldname, value):
         lgh = self.get_data_length()
         for row in range(0,lgh):
+            print "AfpSQLTableSelection.spread_value:", self.tablename, feldname, row, self.get_values(feldname, row)
+            if self.get_values(feldname, row)[0][0]: continue
             self.set_value(feldname, value, row)
         if self.select is None:
             #self.select =  feldname + " = " + Afp_toString(value)

@@ -596,6 +596,7 @@ def Afp_startProgramFile(programname, debug, filename, parameter = None):
     if parameter:
         befehl += " " + parameter
     if debug: print "Afp_startProgramFile:", befehl
+    #print "Afp_startProgramFile:", befehl, "Encoding:", sys.getfilesystemencoding()
     os.system(befehl)
     #subprocess.call("soffice -pt HP_Color_LaserJet *", shell=True)
     #subprocess.call("soffice --invisible --convert-to pdf filename)
@@ -632,7 +633,9 @@ def Afp_startProgramFile(programname, debug, filename, parameter = None):
 # @param tls - flag if starttls connection has to be used, port 587 will be used, if not given explicit in 'smtpport' DEFAULT: False
 # @param user - if given, username to be used for login
 # @param word - if given, password to be used for login (login will only be invoked if user and word are given)
-def Afp_sendOverSMTP(sender, recipients, subject, message, html_message, attachments, smtphost, smtpport = None, debug = False, tls = False, user = None, word = None):
+# @param dir - if given, directory, where sent mails should be stored
+def Afp_sendOverSMTP(sender, recipients, subject, message, html_message, attachments, smtphost, smtpport = None, debug = False, tls = False, user = None, word = None, dir = None):
+    fname = None
     if sender and recipients and smtphost and (message or html_message):
         port = 25
         if smtpport:
@@ -669,6 +672,20 @@ def Afp_sendOverSMTP(sender, recipients, subject, message, html_message, attachm
         if debug: print "Afp_sendOverSMTP: send mail"
         server.sendmail(sender, recipients, msg.as_string())
         server.quit()
+        if dir:
+            #print "Afp_sendOverSMTP dir:", dir 
+            if Afp_existsFile(dir):
+                monat = {"Jan":"01", "Feb":"02", "Mar":"03", "Apr":"04", "May":"05", "Jun":"06", "Jul":"07", "Aug":"08", "Sep":"09", "Okt":"10", "Nov":"11", "Dez":"12"}
+                split = msg['Date'].split()
+                date = split[3][2:] + monat[split[2]] + split[1] + "_" + split[4]
+                fname = "Mail_" + date + "_" + recipients[0]  + "_\"" +  subject.replace(" ", "_") + "\""  + ".msg"
+                fpath = dir + fname
+                #print "Afp_sendOverSMTP name:", fname, fpath
+                file = open(fpath, 'w')
+                file.write(str(msg))
+                file.close()
+            else:
+                print "WARNING: Afp_sendOverSMTP maildir does not exists, mail not stored!"
     else:
         text = "No"
         if  not sender: text += " originator address,"
@@ -682,6 +699,7 @@ def Afp_sendOverSMTP(sender, recipients, subject, message, html_message, attachm
         if text[-1] == ",": text = text[:-1]
         text += " delivered!"
         print "WARNING: Afp_sendOverSMTP Mail not send due to the lack of input!", text
+    return fname
         
 ##   class to hold cached database requests for multiple use
 class AfpArrayCache(object):

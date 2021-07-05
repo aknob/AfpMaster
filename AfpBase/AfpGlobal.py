@@ -37,7 +37,7 @@ import locale
 
 import AfpUtilities
 from AfpUtilities import *
-from AfpUtilities.AfpStringUtilities import Afp_toString, Afp_fromString, Afp_pathname, Afp_isIP4, Afp_isMailAddress
+from AfpUtilities.AfpStringUtilities import Afp_toString, Afp_fromString, Afp_pathname, Afp_isIP4, Afp_isMailAddress, Afp_isRootpath
 from AfpUtilities.AfpBaseUtilities import *
 import AfpBaseRoutines
 from AfpBaseRoutines import Afp_getModulInfo
@@ -91,6 +91,9 @@ def Afp_iniGlobalVars(settings, modul = None):
             settings["extradir"] =  settings["afpdir"] + "Extra" + settings["path-delimiter"]
         if not "scandir" in settings:
             settings["scandir"] = settings["homedir"]
+        if "maildir" in settings:
+            if not Afp_isRootpath(settings["maildir"]):
+                settings["maildir"] = settings["archivdir"] + settings["maildir"]
         # set default file handles (not needed for windows)
         if not "office" in settings:
             settings["office"] = "libreoffice"
@@ -399,7 +402,7 @@ class AfpGlobal(object):
     def skip_accounting(self):
         if self.get_value("skip-accounting"): return True
         else: return False
-    ## return if version is strict
+    ## return if version is strict (no python moduls are attached dynamically)
     def is_strict(self):
         if self.get_value("version") and "strict" in self.get_value("version"): return True
         else: return False

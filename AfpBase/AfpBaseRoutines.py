@@ -1211,7 +1211,7 @@ class AfpMailSender(object):
         self.htmltext = None
         self.attachments = []
         self.server = None
-        self.serverport = 25
+        self.serverport = None
         self.starttls = None
         self.user = None
         self.word = None
@@ -1305,7 +1305,8 @@ class AfpMailSender(object):
         self.starttls = tls
     ## deliver mail to smtp server
     def send_mail(self):
-        Afp_sendOverSMTP(self.sender, self.recipients, self.subject, self.message, self.htmltext,  self.attachments, self.server, self.serverport, self.debug, self.starttls, self.user, self.word)
+        if self.debug: self.view()
+        return Afp_sendOverSMTP(self.sender, self.recipients, self.subject, self.message, self.htmltext,  self.attachments, self.server, self.serverport, self.debug, self.starttls, self.user, self.word, self.globals.get_value("maildir"))
     ## view mailer details (for debug)
     def view(self):
         print "AfpMailSender server:", self.server

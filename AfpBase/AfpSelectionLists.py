@@ -124,9 +124,9 @@ class AfpSelectionList(object):
     ## return main index of this SelectionList
     def get_mainindex(self):
         return self.mainindex
-    ## return mayor type of this SelectionList, default: progran name read from globals
+    ## return mayor type of this SelectionList, default: program name read from globals
     def get_mayor_type(self):
-        print "AfpSelectionList.get_mayor_type:", self.get_globals().get_value("name")
+        #print "AfpSelectionList.get_mayor_type:", self.get_globals().get_value("name")
         return self.get_globals().get_value("name")
     ## set if intern date shoulkd be used for output
     # @param flag - if given, flag if value should be set to 'True'
@@ -380,15 +380,16 @@ class AfpSelectionList(object):
     # use set_row_to_selection_values to write manipulated values to the row again
     # @param selname - name of TableSelection 
     # @param row - index of row in TableSelection where data is retrieved
-    def get_selection_from_row(self, selname, row):
+    # @param unique - if given, unique fieldname of TableSelection to be created
+    def get_selection_from_row(self, selname, row, unique = None):
         sel = self.get_selection(selname)
-        selection = sel.create_initialized_copy()
+        selection = sel.create_initialized_copy(unique)
         if row is None:
             selection.new_data()
         else:
             rows = sel.get_values(None, row)         
             selection.set_data(rows)
-        #print "AfpSelectionList.get_selection_from_row:",selname, row, selection
+        #print "AfpSelectionList.get_selection_from_row:",selname, row, unique, selection
         return selection
     ## insert an empty row to a TableSelection
     # @param selname - name of TableSelection 
@@ -556,10 +557,16 @@ class AfpSelectionList(object):
         value = Afp_fromString(self.mainvalue)
         # mainindex filled into all depending selections
         for sel in self.selections:
-            if not sel == self.mainselection and self.selections[sel].data:
+            if not sel == self.mainselection and self.selections[sel].data and len(self.selects[sel]) > 1:
+                #print "AfpTableSelectionList.spread_mainvalue selects:", sel, self.selects
                 select = self.selects[sel][1]
-                #print "AfpTableSelectionList.spread_mainvalue select:", sel, select, self.selections[sel].data
+                #print "AfpTableSelectionList.spread_mainvalue select:", sel, select, #self.selections[sel].data
                 if source in select:
+                    if "AND" in select:
+                        split = select.split("AND")
+                        for  sp in split:
+                            if source in sp:
+                                select = sp
                     split = select.split("=")
                     target = split[0].strip()
                     if  "." in target: target = target.split(".")[0]
@@ -926,7 +933,7 @@ class AfpPaymentList(AfpSelectionList):
                     if KNr == self.get_value("KundenNr." + sel):
                         #print "AfpPaymentList.get_payment_text sel found:", sel, self.get_name(True, sel)
                         text += ": " + self.get_name(True, sel)
-            print "AfpPaymentList.get_payment_text out:", text
+            #print "AfpPaymentList.get_payment_text out:", text
             return text
     ## routine to retrieve payment data from SelectionList \n
     def get_payment_values(self):

@@ -650,7 +650,9 @@ class AfpDialog_EvTouristEdit(AfpDialog_EvClientEdit):
     ##  get a client object with given identnumber
     # overwritten from AfpDialog_EvEventEdit
     # @parm ANr - if given, identifier
+    # -                     if = True new empty client is delivered
     def get_client(self, ANr = None):
+        f ANr == True: return AfpEvTourist(self.data.globals)
         if ANr is None: ANr = self.data.get_value()
         return  AfpEvTourist(self.data.globals, ANr)
     ##  get text to be dispalyed in agent selection dialog and attribut value

@@ -304,6 +304,18 @@ class AfpEvent(AfpSelectionList):
                 sel.set_value("PreisNr", self.maxPreisNr, i)
             if ENr and not sel.get_values("EventNr", i)[0][0]: # if EventNr is not yet set
                 sel.set_value("EventNr", ENr, i)
+    ## clear all infos
+    # @param text - if given text indicating info to be cleared
+    def clear_all_infos(self, text = None):
+        texte = self.get_value_rows("ANMELD", "Info")
+        Anmeld = self.get_selection("ANMELD")
+        store = False
+        for i in range(len(texte)):
+            if texte[i] == text:
+                Anmeld.set_value("Info", "", i)
+                store = True
+        if store: Anmeld.store()
+        
     ## get all clients
     # @param check_preis - flag if only paying clients should be collected, default: True
     # @param is_cancel - flag which clients should be collected, default: False
@@ -366,7 +378,7 @@ class AfpEvent(AfpSelectionList):
     ## add client to event
     #@param data - data to be completed by event dependent values
     def add_client(self, data):
-        print "AfpEvent.add_client:", data
+        #print "AfpEvent.add_client:", data
         #self.lock_data("EVENT")
         self.lock_data()
         if not "RechNr" in data:
@@ -392,6 +404,7 @@ class AfpEvClient(AfpPaymentList):
         else: self.debug = globals.is_debug()
         self.finance = None
         self.new = False
+        self.bulk_data_set = False
         self.mainindex = "AnmeldNr"
         self.mainvalue = ""
         if sb:
@@ -460,6 +473,9 @@ class AfpEvClient(AfpPaymentList):
     ## client is connected to a separate invoice which has to be syncronised
     def is_invoice_connected(self):
         return self.get_RechNr_name_depricated() == "RechNr.RECHNG"
+    ## bulk data has been set
+    def has_bulk_set(self):
+        return self.bulk_data_set
     ## event is a tourists tour
     def event_is_tour(self):
         art = self.get_value("Art.EVENT")
@@ -542,7 +558,23 @@ class AfpEvClient(AfpPaymentList):
             self.set_value("Preis", preis)
             self.set_value("PreisNr", preisnr)
             self.create_selection("Preis", False)
-    ## extract basic price
+            self.add_optional_prices()
+    ## store complete SelectionList
+    # overwritten from SelectionList to handle bulk-data storage
+    def store(self):
+        if self.bulk_data_set and "RechNr" in self.selections:
+            # delete row to avoid double storage of actuel tablerow
+            #KNr = self.get_value("KundenNr")
+            #for i in range(self.get_value_length("RechNr")):
+                #print "AfpEvClient.store delete tablerow:", i, KNr, self.get_value_rows("RechNr", "KundenNr", i)[0][0]
+                #if KNr == self.get_value_rows("RechNr", "KundenNr", i)[0][0] :
+                    #self.delete_row("RechNr", i)
+                    #break
+            self.delete_selection("RechNr")
+        super(AfpEvClient, self).store()
+    ## extract basic price, 
+    # default: return first basic price
+    # may be overwirtten in devired class
     def get_basic_price(self):
         liste = self.get_value_rows("PREISE","Preis,PreisNr,Typ")
         #print "AfpEvClient.get_basic_price:", liste
@@ -550,6 +582,35 @@ class AfpEvClient(AfpPaymentList):
             if entry[2] == "Grund":
                 return entry[0], entry[1]
         return None, None
+    ## extract bulk price, 
+    #@param initial - flag if initial bulk price is catched or normal bulk price
+    # may be overwirtten in devired class 
+    def get_bulk_price(self, initial = False):
+        return self.get_basic_price()
+    ## optionally add extra prices depending of data
+    # may be overwirtten in devired class, if necessary
+    def add_optional_prices(self):
+        return
+    ## add bulk data to new SelectionList
+    # @param ids - list of ids to be added 
+    def add_new_bulk_ids(self, ids):
+        if ids and self.new:
+            self.bulk_data_set = True
+            preis, pnr = self.get_bulk_price(True)
+            self.set_value("Preis", preis)
+            self.set_value("ProvPreis", preis)
+            self.set_value("PreisNr", pnr)
+            self.delete_selection("Preis")
+            row = self.get_value_rows("ANMELD")[0]
+            RechNr = self.get_selection("RechNr")
+            RechNr.insert_row(None, row)
+            row = RechNr.get_data_length()
+            preis, pnr = self.get_bulk_price()
+            data = {"EventNr":self.get_value("EventNr"), "Zustand":self.get_value("Zustand"), "Anmeldung":self.get_value("Anmeldung"), "Preis":preis, "PreisNr":pnr, "ProvPreis":preis}
+            for id in ids:
+                data["KundenNr"] = id
+                RechNr.set_data_values(data, row)
+                row += 1
     ## return field to be increased to generate 'RechNr'  
     # may be overwritten in devired class
     def get_RechNr_name_depricated(self):

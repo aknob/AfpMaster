@@ -281,7 +281,7 @@ def AfpReq_FileName(dir = "", header = "", wild = "", open = False):
     ret = dialog.ShowModal()
     fname = dialog.GetPath()
     if ret == wx.ID_OK : Ok = True
-    return fname, Ok
+    return fname.encode("UTF-8"), Ok
 ## Pick dates from a calendar, returns None if Cancel is pushed, retuns array of datestrings if Ok is pushed
 # @param position - (x, y) position on screen for left, right corner or midpoint
 # @param olddates - string (or list of strings for multiuse) holding the actuel date
@@ -1289,21 +1289,20 @@ class AfpDialog_Auswahl(wx.Dialog):
         else:
             self.SetTitle(self.typ + " Sortierung: " + self.sortname)
         if text: self.label_Auswahl.SetLabel(text)
-        #if not value == "":
-        #    self.select = self.selectname  + " >= \"" + value + "\""
         self.select = self.selectname  + " >= \"" + value + "\""
         self.set_size()
         self.adjust_grid_rows()
-        while not where == self.where:
-            self.where = where
+        if where:
+            while not where == self.where:
+                self.where = where
+                self.Pop_grid()
+                if not self.grid_is_complete(): # grid not filled comletely
+                    if self.grid_is_empty():# nothing found, remove filter
+                        where = None
+                    else: # go for last entries
+                        self.On_Ausw_Last()
+        else:
             self.Pop_grid()
-            if not self.grid_is_complete(): # grid not filled comletely
-                if self.grid_is_empty():# nothing found, remove filter
-                    where = None
-                else: # go for last entries
-                    self.On_Ausw_Last
-        #self.select = "Name.ADRESSE >= \"Knoblauch\""
-        #print "AfpDialog_Auswahl.initialize select:", self.select,"value:", value, "name:", self.selectname, "possible:", self.selectname  + " >= \"" + value + "\""
     ## set size depending on different glabal variables
     def set_size(self, size = None):
         if size is None:
@@ -1315,14 +1314,14 @@ class AfpDialog_Auswahl(wx.Dialog):
     ## populate selection grid
     def Pop_grid(self, dynamic = False):
         limit = str(self.offset) + ","+ str(self.rows)      
-        #print "AfpDialog_Auswahl.Pop_grid:", self.feldlist, self.select, self.dateien, self.sortname, limit, self.where, self.link
+        #print "AfpDialog_Auswahl.Pop_grid dynamic:", self.feldlist, self.select, self.dateien, self.sortname, limit, self.where, self.link, dynamic
         if dynamic:
             if self.grid_data is None or len(self.grid_data) != self.rows:
                 self.grid_data = self.mysql.select(self.feldlist, self.select, self.dateien, self.sortname, limit, self.where, self.link)
             rows = self.grid_data
         else:
             rows = self.mysql.select(self.feldlist, self.select, self.dateien, self.sortname, limit, self.where, self.link)
-        #print "AfpDialog_Auswahl.Pop_grid:", self.feldlist, self.select, self.dateien, self.sortname, limit, self.where, self.link, rows
+        #print "AfpDialog_Auswahl.Pop_grid rows:", self.feldlist, self.select, self.dateien, self.sortname, limit, self.where, self.link, rows
         lgh = len(rows)
         self.ident = []
         #print "AfpDialog_Auswahl.Pop_grid lgh:", lgh, self.rows, self.cols, self.grid_auswahl.GetNumberRows(), self.grid_auswahl.GetNumberCols() 
@@ -1410,9 +1409,9 @@ class AfpDialog_Auswahl(wx.Dialog):
     def On_ReSize(self, event):
         height = self.GetSize()[1] - self.fixed_height
         self.new_rows = int(height/self.row_height)
-        #print "AfpDialog_Auswahl.Resize:", size, height, self.row_height, self.rows, self.new_rows
+        #print "AfpDialog_Auswahl.Resize:", height, self.row_height, self.rows, self.new_rows
         self.adjust_grid_rows()
-        self.Pop_grid(True)
+        if self.grid_data: self.Pop_grid(True)
         event.Skip()   
     ## event handler for the Left Mouse Click 
     def On_LClick(self, event): 

@@ -168,7 +168,23 @@ def Afp_toFloatString(data, no_strip = False, format = "8.2f"):
     string = ("%" + format)%(data)
     if no_strip: return string
     else: return string.strip()
-## analyse string and extract data from it
+## convert number of month into string
+# @param nr - number of month
+def Afp_toMonthString(nr):
+    if nr == 1: return "Januar"
+    elif nr == 2: return "Februar"
+    elif nr == 3: return "März".decode("UTF-8")
+    elif nr == 4: return "April"
+    elif nr == 5: return "Mai"
+    elif nr == 6: return "Juni"
+    elif nr == 7: return "Juli"
+    elif nr == 8: return "August"
+    elif nr == 9: return "September"
+    elif nr == 10: return "Oktober"
+    elif nr == 11: return "November"
+    elif nr == 12: return "Dezember"
+    return ""
+## analyse string and create data from it
 # @param string - string to be converted
 # - "xx.xx" or "xx,xx" -> float (x - digit)
 # - "dd.mm.yy[yy]"  -> date, short year will be mapped in actuel century

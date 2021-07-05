@@ -41,7 +41,7 @@ from AfpBase.AfpUtilities.AfpBaseUtilities import Afp_existsFile
 from AfpBase.AfpDatabase import *
 from AfpBase.AfpDatabase.AfpSQL import AfpSQL
 from AfpBase.AfpDatabase.AfpSuperbase import AfpSuperbase
-from AfpBase.AfpBaseRoutines import Afp_archivName, Afp_startFile, Afp_getBirthdayList
+from AfpBase.AfpBaseRoutines import Afp_archivName, Afp_startFile, Afp_getBirthdayList, Afp_getAge
 from AfpBase.AfpSelectionLists import Afp_orderSelectionLists
 from AfpBase.AfpBaseDialog import AfpReq_Info, AfpReq_Question, AfpReq_Text, AfpReq_Selection, AfpReq_Date, AfpReq_MultiLine,  AfpReq_FileName, AfpDialog
 from AfpBase.AfpBaseDialogCommon import AfpLoad_DiReport
@@ -67,7 +67,7 @@ def AfpEvVerein_closeYear(verein):
 def AfpEvVerein_exeStorno(verein):
     leftover = verein.execute_cancel()
     if leftover is None:
-        AfpReq_Info("Keine Kündigungen vorgemerkt,".decode("UTF-8"),"keine Kündignungen durchgeführt!".decode("UTF-8"),"Kündigungen umsetzen".decode("UTF-8"))
+        AfpReq_Info("Keine Kündigungen vorgemerkt,".decode("UTF-8"),"keine Kündigungen durchgeführt!".decode("UTF-8"),"Kündigungen umsetzen".decode("UTF-8"))
     elif not leftover:
         AfpReq_Info("Kündigungen umgesetzt!".decode("UTF-8"),"Keine Nacharbeiten nötig!".decode("UTF-8"),"Kündigungen umsetzen".decode("UTF-8"))
     else:
@@ -190,7 +190,7 @@ class AfpEvVerein(AfpEvent):
         deci = self.globals.get_value("decimals-in-rechnr","Event")
         if not deci: deci = 2
         RechNr = self.get_string_value("Kennung") + "-" + Afp_toIntString(Nr, deci)
-        print "AfpEvVerein.generate_RechNr RNr:", RechNr
+        #print "AfpEvVerein.generate_RechNr RNr:", RechNr
         return RechNr
 
 ## baseclass for member handling         
@@ -206,13 +206,34 @@ class AfpEvMember(AfpEvClient):
     def  __init__(self, globals, AnmeldNr = None, sb = None, debug = None, complete = False):
         AfpEvClient.__init__(self, globals, AnmeldNr, sb, debug, complete)
         self.listname="Member"
+        self.keptNr = None
         #  self.selects[name of selection]  [tablename,, select criteria, optional: unique fieldname]
         self.selects["TORT"] = [ "TORT","OrtsNr = Ab.ANMELD"] 
         self.selects["ANMELDATT"] = [ "ANMELDATT","AnmeldNr = AnmeldNr.ANMELD"] 
         self.selects["ARCHIV"] = [ "ARCHIV","Tab = \"ANMELD\" AND TabNr = AnmeldNr.ANMELD"] 
+        #self.selects["RechNrEx"] = [ ] 
+        #print "AfpEvMember Konstruktor RechNrEx:", self.get_selection("RechNrEx").data
         if complete: self.create_selections()
         if self.debug: print "AfpEvMember Konstruktor, AnmeldNr:", self.mainvalue
-    
+        
+    ## special selection (overwritten from AfpSelectionList) \n
+    # to handle the selection 'RechNrEx'  getting all entries of ANMELDEX for all rows in selection 'RechNr'
+    # @param selname - name of selection (in our case 'RechNrEx' is implemented)
+    # @param new - flag if a new empty list has to be created
+    def spezial_selection(self, selname, new = False):
+        Selection = None
+        if selname == "RechNrEx":
+            #print  self.selections["ADRESSE"].get_feldnamen()
+            feldnamen = self.selections["ANMELDEX"].get_feldnamen()
+            if new:
+                Selection = AfpSQLTableSelection(self.mysql, "ANMELDEX", self.debug, None, feldnamen) 
+                Selection.new_data()
+            else: 
+                Selection = AfpSQLTableSelection(self.mysql, "ANMELDEX", self.debug, None, feldnamen) 
+                ANrs = self.get_value_rows("RechNr","AnmeldNr")
+                
+        return Selection
+        
     ## execute cancel procedures if flagged \n
     # if more clients are involved, the appropriate RechNr is returned
     def execute_cancel(self):
@@ -220,6 +241,7 @@ class AfpEvMember(AfpEvClient):
         dat = Afp_addDaysToDate(self.get_value("InfoDat"), 31, "-")
         if self.get_value("Zustand") == "PreStorno" and self.get_globals().today() > dat:
             self.set_value("Zustand","Storno")
+            self.keptNr = False
             lgh = self.get_value_length("RechNr")
             if lgh > 1: 
                 rows = self.get_value_rows("RechNr","Zustand,AnmeldNr")
@@ -227,11 +249,21 @@ class AfpEvMember(AfpEvClient):
                     if row[0] == "Anmeldung": 
                         if AnNr is None:
                             AnNr = [row[1]]
+                            self.keptNr = row[1]
                         else:
                             AnNr.append(row[1])
         #print "AfpEvMember.execute_cancel:", self.get_name(), self.get_value(), self.get_value("Zustand"), self.get_value("InfoDat"), dat, AnNr, ReNr
         return AnNr    
 
+    ## store complete SelectionList
+    # overwritten from AfpEvClient to handle possible sepa-dd cancelation
+    def store(self):
+        super(AfpEvClient, self).store()
+        if not self.keptNr is None and self.finance_modul:
+            KNr = self.get_value("AgentNr")
+            if not KNr: KNr = self.get_value("KundenNr")
+            self.finance_modul.AfpFinance_swapSEPAMandat(self.globals, KNr, "ANMELD", self.get_value("AnmeldNr"), self.keptNr)
+            self.keptNr = None
     ## reset payment for new financial period
     def reset_payment(self):
         zahlung = self.get_value("Zahlung")
@@ -239,7 +271,7 @@ class AfpEvMember(AfpEvClient):
             diff = self.get_value("Preis") - zahlung
         else:
             diff = self.get_value("Preis")
-        if diff < 0: diff = 0.0
+        #f diff < 0: diff = 0.0
         print "AfpEvMember.reset_payment Zahlung:", self.get_name(), zahlung, diff
         rows = self.get_value_rows("ANMELDEX","NoPrv")
         print "AfpEvMember.reset_payment Rows:", rows
@@ -248,7 +280,7 @@ class AfpEvMember(AfpEvClient):
             if rows[i][0]: 
                 self.delete_row("ANMELDEX", i)
                 print "AfpEvMember.reset_payment Rows deleted:",i
-        if diff:
+        if diff > 0:
             jahr = Afp_toString(self.globals.today().year - 1)
             data = {"AnmeldNr": self.get_value(), "Bezeichnung": "Restbeitrag " + jahr, "Preis": diff, "NoPrv": 1}
             self.set_data_values(data, "ANMELDEX", -1)
@@ -256,7 +288,10 @@ class AfpEvMember(AfpEvClient):
         if zahlung is None or preis < 0.01:
             data = {"Preis": preis, "Extra": extra, "Zahlung": None, "ZahlDat":  None}
         else:
-            data = {"Preis": preis, "Extra": extra, "Zahlung": 0.0, "ZahlDat":  None} 
+            if diff < 0: 
+                data = {"Preis": preis, "Extra": extra, "Zahlung": -diff} 
+            else: 
+                data = {"Preis": preis, "Extra": extra, "Zahlung": 0.0, "ZahlDat":  None} 
         print "AfpEvMember.reset_payment new:", preis, extra, data
         self.set_data_values(data)
     ## generate price for actuel selections   
@@ -268,6 +303,70 @@ class AfpEvMember(AfpEvClient):
             ex += row[0]
         return preis + ex, ex
 
+    ## add disount if price-change is pro rata
+    # @param price - new yearly price to be reached
+    # @param initial_price - old yearly price given or None
+    # @param date - date on which change becomes active
+    def add_partitial_price(self, price, initial_price, date):
+        if date.month < 2: return
+        factor = (date.month-1)/12.0
+        initial = 0.0 
+        #print "AfpEvMember.add_partitial_price:", price, initial_price, date, factor
+        new = price*(1.0 - factor)
+        month = Afp_toMonthString(date.month)
+        text = "Beitragsfrei bis " +  month 
+        if initial_price:
+            initial = initial_price*factor
+            text = "Beitragsänderung im ".decode("UTF-8") +  month
+        new += initial
+        #print "AfpEvMember.add_partitial_price:", price, initial_price, month, factor, new, text, new-price
+        sel = self.get_selection("ANMELDEX")
+        rows = sel.get_values()
+        index = None
+        for row in rows:
+            # print "AfpEvMember.add_partitial_price row:",row[2], text, Afp_toString(row[2]) == text
+            if Afp_toString(row[2]) == text:
+                index = rows.index(row)
+                diff = row[3]
+        if index is None:
+            #changed_data = {"AnmeldNr": self.get_value("AnmeldNr"), "Preis": new - price, "Bezeichnung":text, "NoPrv":1}
+            changed_data = {"Preis": new - price, "Bezeichnung":text, "NoPrv":1}
+            sel.add_data_values(changed_data)
+        else:
+            changed_data = {"Preis": new - price, "Bezeichnung":text}
+            sel.set_data_values(changed_data, index)
+    ## add extra prices to registartion
+    #@param name - name of price to be added
+    #@param appendix - if given, text to be appended to name
+    def  add_extra_price(self, name, appendix = None):
+        name = name.decode("UTF-8")
+        if appendix:
+            text = name + " " + appendix
+        else:
+            text = name
+        datas = self.get_value_rows("PREISE")
+        nr = None
+        preis = None
+        for data in datas:
+            #print "AfpEvMember.add_extra_price:", Afp_toString(data[2]) , name           
+            if Afp_toString(data[2]) == text:
+                nr = data[1]
+                preis = data[5]
+                break
+        #print "AfpEvMember.add_extra_price:", nr, preis, text
+        if nr:
+            sel = self.get_selection("ANMELDEX")
+            rows = sel.get_values()
+            index = None
+            for row in rows:
+                if Afp_toString(row[2]) == name:
+                    index = rows.index(row)
+                    diff = row[3]
+            if index is None:
+                #changed_data = {"AnmeldNr": self.get_value("AnmeldNr"), "Preis": preis, "Bezeichnung":text, "NoPrv":1}
+                changed_data = {"Preis": preis, "Bezeichnung":text, "NoPrv":1}
+                sel.add_data_values(changed_data)
+       
     ## set family member price
     def set_family_price(self):
         preis = None
@@ -283,6 +382,34 @@ class AfpEvMember(AfpEvClient):
             self.set_value("Preis", preis)
             self.set_value("ProvPreis", preis)
             self.delete_selection("Preis")
+    ## extract bulk price, overwritten from AfpEvClient
+    #@param initial - flag if initial bulk price is ctched or normal bulk price
+    def get_bulk_price(self, initial = False):
+        datas = self.get_value_rows("PREISE")
+        for data in datas: 
+            if initial and data[2] == "Familie":
+                return data[5], data[1]
+            elif data[2] == "Familienmitglied":
+                return data[5], data[1]
+        return None, None
+   ## optionally add extra prices depending of data
+    # overwirtten from AfpEvClient
+    def add_optional_prices(self):
+        if self.new:
+            preis, pnr = self.get_bulk_price()
+            add = False
+            if self.get_value("PreisNr") != pnr:
+                self.add_partitial_price(self.get_value("Preis"), None, self.get_value("Anmeldung"))
+                self.add_extra_price("Schlüsselpfand")
+                add = True
+            if Afp_getAge(self.get_string_value("Geburtstag.ADRESSE"), True) >= 18:
+                self.add_extra_price("Aufnahmegebühr")
+                add = True
+            if add:
+                preis, extra = self.gen_price()
+                self.set_value("Preis", preis)
+                self.set_value("Extra", extra)
+                #print "AfpEvMember.add_optional_prices:", self.get_selection().data
     ## get attributs for a year
     # @param attribut - name of attribut to be extracted
     # @param period - if given, year for which the attributes have to be extracted, default: actuel year
@@ -787,13 +914,15 @@ class AfpEvScreen_Verein(AfpEvScreen):
         if self.finance_moduls and self.finance_moduls[0]:
             balances = self.finance_moduls[0].AfpFinanceBalances(self.globals)
             akt = Afp_fromString(balances.get_period())
+            print "AfpEvScreen_Verein.On_Abschluss balances generated:", akt
             if akt and Afp_isInteger(akt) and akt < self.globals.today().year:
                 Ok = AfpReq_Question("Das Jahr '" + Afp_toString(akt) + "' abschliessen und das Jahr '" + Afp_toString(self.globals.today().year) + "' eröffnen?".decode("UTF-8"),"", "Jahresabschluss")
                 if Ok: 
                     balances.switch_period()
         else:
             Ok = AfpReq_Question("Das aktuelle Jahr abschliessen und das neuen Zahlungsverpflichtungen erzeugen?" ,"", "Jahresabschluss")
-        if Ok:
+        print "AfpEvScreen_Verein.On_Abschluss Ok:", Ok
+        if Ok: 
             AfpEvVerein_closeYear(self.data)
             self.Reload()
             self.Pop_label()
@@ -864,8 +993,8 @@ class AfpEvScreen_Verein(AfpEvScreen):
     #  overwritten from AfpScreen
     # @param data - optional input of data for indirect use
     def On_ScreenZusatz(self, event, data = None):
-        if self.debug: print "AfpEvScreen_verein Event handler `On_ScreenZusatz'!"
-        print "AfpEvScreen_verein.On_ScreenZusatz:", self.grid_row_selected, self.slave_data, data
+        if self.debug: print "AfpEvScreen_Verein Event handler `On_ScreenZusatz'!"
+        #print "AfpEvScreen_Verein.On_ScreenZusatz:", self.grid_row_selected, self.slave_data, data
         if self.grid_row_selected:
             super(AfpEvScreen_Verein, self).On_ScreenZusatz(event, self.slave_data)
         else:
@@ -1044,21 +1173,13 @@ class AfpEvScreen_Verein(AfpEvScreen):
         if self.debug: print "AfpEvScreen_Verein.get_grid_rows typ:", typ
         if self.no_data_shown: return  rows
         if typ == "Customers" and self.data:
-            #filter = self.filtermap[self.combo_Filter.GetValue()].split("-")
             tmps = self.data.get_value_rows("ANMELD","IdNr,Zahlung,Preis,Info,Anmeldung,KundenNr,Zustand,AnmeldNr")
-            #print "AfpEvScreen_Verein.get_grid_rows tmps:", tmps 
-            #self.data.view()
             if tmps:			
                 for tmp in tmps:
-                    add = True
-                    #add = False
-                    #for i in range(1, len(filter)):
-                        #if tmp[6] == filter[i]:
-                            #add = True
-                    if add:
-                        adresse = AfpAdresse(self.globals, tmp[5])
-                        rows.append([Afp_toString(tmp[0]), adresse.get_string_value("Vorname"), adresse.get_string_value("Name"),  Afp_toString(tmp[4]), Afp_toString(tmp[2]), Afp_toString(tmp[1]), Afp_toString(tmp[3]), tmp[7]])
+                    adresse = AfpAdresse(self.globals, tmp[5])
+                    rows.append([Afp_toString(tmp[0]), adresse.get_string_value("Vorname"), adresse.get_string_value("Name"),  Afp_toString(tmp[4]), Afp_toString(tmp[2]), Afp_toString(tmp[1]), Afp_toString(tmp[3]), tmp[7]])
         if self.debug: print "AfpEvScreen_Verein.get_grid_rows rows:", rows 
+        #print "AfpEvScreen_Verein.get_grid_rows length:", len(rows) 
         return rows
 
  # end of class AfpEvScreen_Verein
@@ -1167,6 +1288,7 @@ class AfpDialog_EvMemberEdit(AfpDialog_EvClientEdit):
         super(AfpDialog_EvMemberEdit, self).__init__(self, *args, **kw)
         self.modifyWx()
         self.extra_provision_possible = False
+        self.extra_provision_default = 1
         self.storno = None
         self.stornodirect = False
         self.storno_adressstatus = None
@@ -1174,14 +1296,10 @@ class AfpDialog_EvMemberEdit(AfpDialog_EvClientEdit):
         self.stornodata = None
         self.stornofile = None
         self.initial_price = None
-        self.initial_price_factor = None
         
     ##  modify Wx objects defined in parent class
     def modifyWx(self):
-        self.label_Datum.Enable(False)
-        #self.text_Datum = wx.TextCtrl(self.panel, -1,  pos=(290,68), size=(95,18), name="Datum")
-        #self.vtextmap["Datum"] = "Anmeldung.ANMELD"
-        #self.text_Datum.Bind(wx.EVT_KILL_FOCUS, self.On_Check_Datum)
+        #self.label_Datum.Enable(False)
         self.combo_Ort.Show(True)
         self.combomap["Ort"] = "Ort.TORT"
         self.label_TAb.Show(True)
@@ -1191,6 +1309,7 @@ class AfpDialog_EvMemberEdit(AfpDialog_EvClientEdit):
         self.button_Agent.SetLabel("&Entsender")
         self.button_Storno.SetLabel("A&bmeldung")
         self.check_Mehrfach.SetLabel("&Familie")
+
     
     ## attaches data to this dialog overwritten from AfpDialog
     # @param data - AfpSelectionList which holds data to be filled into dialog wodgets 
@@ -1223,8 +1342,9 @@ class AfpDialog_EvMemberEdit(AfpDialog_EvClientEdit):
                 datum = self.data.get_value("InfoDat")
             self.data.add_to_Archiv({"Gruppe": "Abmeldung","Bem": Afp_toString(datum), "Extern": fname})
         super(AfpDialog_EvMemberEdit, self).store_data()
-        #if self.storno:
-            #self.event.add_client_count(-1)
+        if self.stornodirect:
+            self.event.add_client_count(-1)
+            self.event.store()
             
     ## set 'Storno' and 'PreStorno' values in data
     # @param data - data object, where values have to be set
@@ -1234,16 +1354,17 @@ class AfpDialog_EvMemberEdit(AfpDialog_EvClientEdit):
         if self.storno_adressstatus: data.set_value("Kennung.ADRESSE", self.storno_adressstatus)
         data.set_value("Zustand", self.zustand)
         data.set_value("InfoDat", self.storno)
-        if self.stornotext:  stext = " " + self.stornotext
-        else: stext = " Abmeldung"
-        data.set_value("Info",  Afp_toString(self.storno) + stext)
+        if self.stornotext: 
+            data.set_value("Info",  self.stornotext + " " + Afp_toString(self.storno))
+        else:
+            data.set_value("Info",  Afp_toString(self.storno) + " Abmeldung" )
         #print "AfpDialog_EvMemberEdit.set_Storno:", data, data.view()
         return data
         
     ## complete data before storing
     # @param data - data to be completed
     def complete_data(self, data): 
-        print "AfpDialog_EvMemberEdit.complete_data:", data
+        #print "AfpDialog_EvMemberEdit.complete_data:", data
         if not "IdNr" in data:
             IdNr= self.event.generate_IdNr() 
             data["IdNr"] = IdNr 
@@ -1262,48 +1383,19 @@ class AfpDialog_EvMemberEdit(AfpDialog_EvClientEdit):
             else: preisnr = self.data.get_value("PreisNr") 
             if not preisnr == row[3]:
                 self.preisnr = row[3]
-                if self.initial_price_factor is None:
-                    if not self.new:
-                        self.initial_price = self.data.get_value("Preis.Preis") 
-                    self.initial_price_factor = self.data.get_globals().today().month/12.0
+                if self.initial_price is None and not self.new:
+                    self.initial_price = self.data.get_value("Preis.Preis") 
                 select = "EventNr = " + ENr + " AND PreisNr = " + Afp_toString(self.preisnr)
                 self.data.get_selection("Preis").load_data(select)
                 preis = 0.0
                 if row[0]: preis = row[0]
-                self.add_partitial_price(preis)
+                self.data.add_partitial_price(preis, self.initial_price, self.data.get_globals().today())
         else:
             changed_data = {"AnmeldNr": self.data.get_value("AnmeldNr"), "Preis": row[0], "Bezeichnung":row[1], "NoPrv":row[2]}
             self.data.get_selection("ANMELDEX").add_data_values(changed_data)
         self.data.update_prices()
         self.Pop_label()
 
-    ## add rabat if price-change is pro rata
-    # @param preis - new yearly price to be reached
-    def add_partitial_price(self, preis):
-        initial = 0.0
-        new = preis*(1.0 - self.initial_price_factor)
-        month = Afp_toString(self.data.get_globals().today().month)
-        text = "Beitragsfrei bis Monat " +  month 
-        if self.initial_price:
-            initial = self.initial_price*self.initial_price_factor
-            text = "Beitragsänderung in Monat ".decode("UTF-8") +  month
-        new += initial
-        print "AfpDialog_EvMemberEdit.add_partitial_price:", preis, month, new, text
-        sel = self.data.get_selection("ANMELDEX")
-        rows = sel.get_values()
-        index = None
-        for row in rows:
-            print "AfpDialog_EvMemberEdit.add_partitial_price row:",row[2], text, Afp_toString(row[2]) == text
-            if Afp_toString(row[2]) == text:
-                index = rows.index(row)
-                diff = row[3]
-        if index is None:
-            changed_data = {"AnmeldNr": self.data.get_value("AnmeldNr"), "Preis": new - preis, "Bezeichnung":text, "NoPrv":1}
-            sel.add_data_values(changed_data)
-        else:
-            changed_data = {"Preis": new - preis, "Bezeichnung":text}
-            sel.set_data_values(changed_data, index)
-            
     ## check if 'family' id allowed for 'verein'-member
     def check_family(self):
         enable = False
@@ -1418,7 +1510,8 @@ class AfpDialog_EvMemberEdit(AfpDialog_EvClientEdit):
             changed = True
         else:
             if self.data.get_value("AgentNr") or self.agent:
-                Ok = AfpReq_Question("Anmeldung nicht mehr über " + agent + "?".decode("UTF-8"),"Eintrag löschen?".decode("UTF-8"), agent + " löschen?".decode("UTF-8"))
+                agent = self.label_Buero.GetLabel()
+                Ok = AfpReq_Question("Anmeldung nicht mehr über ".decode("UTF-8") + agent + "?","Eintrag löschen?".decode("UTF-8"), agent + " löschen?".decode("UTF-8"))
                 if Ok: 
                     if self.agent: self.agent = None
                     else: self.agent = False
@@ -1464,11 +1557,12 @@ class AfpDialog_EvMemberEdit(AfpDialog_EvClientEdit):
             return [True, True, False, False]
         return multi
 
-   
     ##  get a client object with given identnumber
     # overwritten from AfpDialog_EvEventEdit
     # @parm ANr - if given, identifier
+    # -                     if = True new empty client is delivered
     def get_client(self, ANr = None):
+        if ANr == True: return AfpEvMember(self.data.globals)
         if ANr is None: ANr = self.data.get_value()
         return  AfpEvMember(self.data.globals, ANr)
         

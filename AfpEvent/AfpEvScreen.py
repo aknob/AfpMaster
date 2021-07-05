@@ -478,7 +478,7 @@ class AfpEvScreen(AfpScreen):
         if not Client.is_new():
             prefix = "Event_Client " + Client.get_string_value("Zustand").strip()
             header = "Anmeldung"
-            archiv = "direkt"
+            archiv = ""
             if Client.get_value("AgentNr"):
                 if Client.event_is_tour():
                     header = "Reisebüro".decode("UTF-8")
@@ -524,7 +524,12 @@ class AfpEvScreen(AfpScreen):
                 KNr = AfpLoad_AdAusw(self.globals,"ADRESSE","NamSort","", None, text, True)
                 if KNr: 
                     data.set_new(ENr, KNr) 
-                    #  ---> hier weiter, evtl. Scan in Archiv einfügen
+                    if data.get_value("Bez.ADRESSE"):
+                        Bez = AfpAdresse(self.globals, KNr).get_selection("Bez").get_values("KundenNr")
+                        bulk = []
+                        for b in Bez:
+                            bulk.append(b[0])
+                        data.add_new_bulk_ids(bulk)
                     add = self.globals.get_value("add-registration-to-archive","Event")
                     if add:
                         client = AfpEv_addRegToArchiv(data, True)
@@ -582,11 +587,18 @@ class AfpEvScreen(AfpScreen):
                     name = AfpAdresse(self.globals, self.sb.get_value("KundenNr.ANMELD")).get_name()
                     text = Afp_toString(self.sb.get_value("Info.ANMELD"))
                     if not text: text = ""
-                    text, Ok = AfpReq_Text("Bitte Information für Anmeldung".decode("UTF-8"),  name+ " eingeben.", text, "Info")
+                    new_text, Ok = AfpReq_Text("Bitte Information für Anmeldung".decode("UTF-8"),  name+ " eingeben.", text, "Info")
                     if Ok:
-                        data = self.get_client(ANr)
-                        data.set_value("Info", text)
-                        data.store()
+                        Ok = False
+                        if text and new_text == "":
+                            Ok = AfpReq_Question("Alle Einträge mit dem Text '" + text + "' löschen?".decode("UTF-8"),"", "Einträge löschen?".decode("UTF-8"))
+                        if Ok:
+                            data = self.get_event()
+                            data.clear_all_infos(text)
+                        else:
+                            data = self.get_client(ANr)
+                            data.set_value("Info", new_text)
+                            data.store()
                         self.Reload()
         event.Skip()
       
@@ -807,5 +819,6 @@ class AfpEvScreen(AfpScreen):
                 for client in clients:
                     rows.append([client.get_string_value("Vorname.ADRESSE"), client.get_string_value("Name.ADRESSE"), client.get_string_value("RechNr"),  client.get_string_value("Name.TNAME"), client.get_string_value("Zahlung"),  client.get_string_value("Preis"),  client.get_string_value("Info"),  client.get_value("AnmeldNr")])
         if self.debug: print "AfpEvScreen.get_grid_rows rows:", rows 
+        print "AfpEvScreen.get_grid_rows_clients length:", typ, len(clients), len(rows)
         return rows
 # end of class AfpEvScreen

@@ -55,14 +55,14 @@ def AfpFinance_getZahlVorgang(globals, field = None, fvalue = None):
         names.append(sel)
         liste.append(selectors[sel].get_label())
     result = AfpReq_MultiLine("Übernahme der Daten aus einem Vorgang,".decode("UTF-8"), "die folgenden Vorgänge stehen zur Auswahl:".decode("UTF-8"), "Button", liste, "Vorgangsauswahl", 250)
-    print "AfpFinance_getZahlVorgang result:", result
+    #print "AfpFinance_getZahlVorgang result:", result
     ok = False 
     value = None    
     if result:
         selname = None
         for i in range(len(result)):
             if result[i]: selname = names[i]
-        selector = selectors[selname]
+        selector = selectors[selname] 
         if selector.is_editable():
              value = AfpLoad_PaySelectorAusw(selector)
              if value: ok = True
@@ -79,7 +79,7 @@ def AfpFinance_getZahlVorgang(globals, field = None, fvalue = None):
             #print "AfpFinance_getZahlVorgang ident:", liste, ident
             value,ok = AfpReq_Selection("Bitte " + text + " für Zahlung auswählen!","",liste, text + " für Zahlung", ident)
     client = None 
-    print "AfpFinance_getZahlVorgang OK:", ok, value
+    #print "AfpFinance_getZahlVorgang OK:", ok, value
     if ok and value:
         client = selector.get_client(value)
     return client
@@ -163,7 +163,7 @@ def AfpFinance_ObligationSelector(globals, debug = False):
     #felder = "Datum,ZahlBetrag,Betrag,Zahlung,Bem,Zustand,RechNr"
     felder = [["RechNr.VERBIND",10], ["Datum.VERBIND",20], ["ZahlBetrag.VERBIND",15], ["Bem.VERBIND",30], ["Name.Adresse",25], 
                   ["KundenNr.ADRESSE = KundenNr.VERBIND",None], ["RechNr.VERBIND",None]] # Ident column  
-    filter =  "(Zustand = \"Open\" OR Zustand = \"Static\")"
+    filter =  "( Zustand.VERBIND = \"Open\" OR Zustand.VERBIND = \"Static\" )"
     text = "Eingangsrechnung" 
     object = "AfpObligation"          
     #edit = None 
@@ -401,7 +401,7 @@ class AfpPaySelector(object):
     # @param value - value looked for in field
     def get_rows(self, field, value):
         if field and value:
-            print "AfpPaySelector.get_rows:", self.tablename, field, value, self.debug, self.felder, self.filter
+            #print "AfpPaySelector.get_rows:", self.tablename, field, value, self.debug, self.felder, self.filter
             #if self.indexfield != field:
             #    field = None
             #    value = None
@@ -892,7 +892,7 @@ class AfpDialog_PaySelectorAusw(AfpDialog_Auswahl):
 def AfpLoad_PaySelectorAusw(pselector, value=None):
     DiAusw = AfpDialog_PaySelectorAusw(pselector)
     text = "Bitte " + pselector.get_text() + " auswählen:".decode("UTF-8")   
-    DiAusw.initialize(pselector.globals, pselector.get_indexfield(), value, pselector. get_filter(), text)
+    DiAusw.initialize(pselector.globals, pselector.get_indexfield(), value, pselector.get_filter(), text)
     DiAusw.ShowModal()
     result = DiAusw.get_result()
     DiAusw.Destroy()

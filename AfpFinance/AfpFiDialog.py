@@ -817,7 +817,7 @@ class AfpDialog_FiBuchung(AfpDialog):
         index = self.get_selected_row()
         if not index is None:
             row = self.data.get_value_rows("Buchung", None, index)[0]
-            print "AfpDialog_FiBuchung.On_Adopt:", row
+            #print "AfpDialog_FiBuchung.On_Adopt:", row
             data = {}
             data["Datum"] = row[1]
             data["Soll"] = row[2]
@@ -910,7 +910,7 @@ class AfpDialog_FiBuchung(AfpDialog):
             data["Tab"] = client.get_mainselection()
             data["TabNr"] = client.get_value()
             # = [[KtNr, Betrag, Zusatz], ...]  hier weiter ->
-            print "AfpDialog_FiBuchung.On_Vorgang:", data
+            #print "AfpDialog_FiBuchung.On_Vorgang:", data
             self.Pop_entries(data)
         if event: event.Skip()
         
@@ -1188,7 +1188,7 @@ class AfpDialog_SEPA(AfpDialog):
                     rows.append(row)
         if rows:
             lgh = len(rows)
-            #print "AfpDialog_SEPA.Pop_Mandate rows:", lgh, self.rows, rows
+            print "AfpDialog_SEPA.Pop_Mandate rows:", lgh, self.rows, rows
             if lgh > self.rows:
                 self.adjust_grid_rows(lgh)
                 self.rows = lgh

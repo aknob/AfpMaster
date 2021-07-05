@@ -67,7 +67,7 @@ def AfpEv_addRegToArchiv(client, check=False):
             change = {"Eintrittsdatum": client.get_globals().today_string(), "Bemerkung":""}
             client = AfpAdresse_addFileToArchiv(client, "Anmeldung", fixed, change)
             # get entry
-            dat = client.get_selection("ARCHIV").get_mani_value("Datum")
+            dat = client.get_selection("ARCHIV").manipulation_get_value("Datum")
             print "AfpEv_addRegToArchiv:", dat
             client.set_value("Datum", dat)
             return client
@@ -970,8 +970,10 @@ class AfpDialog_EvClientEdit(AfpDialog):
         self.sameRechNr = None
         self.sameRechIndex = None
         self.sameRechData = None
+        self.merge_sameRechData = True
         self.zahl_data = None
         self.extra_provision_possible = True
+        self.extra_provision_default = 0 # 0: provision; 1: no provision
         #self.SetSize((500,430))
         self.SetSize((650,330))
         self.SetTitle("Anmeldung")
@@ -1254,6 +1256,8 @@ class AfpDialog_EvClientEdit(AfpDialog):
         self.event = data.get_event()
         if data.get_value("RechNr"): self.actuel_invnr = data.get_value("RechNr")
         super(AfpDialog_EvClientEdit, self).attach_data(data, new, editable)
+        if new and data.has_bulk_set() and self.sameRechData is None:
+            self.set_sameRechData("RechNr")
         if new: self.Populate()
     ## only allow OK-button to exit dialog for automatic new creation \n
     # set 'only OK' mode
@@ -1287,8 +1291,8 @@ class AfpDialog_EvClientEdit(AfpDialog):
                             if self.actuel_invnr:  dat["RechNr"] = self.actuel_invnr
                             self.complete_data(dat)
                             data.set_data_values(dat, "ANMELD")
-                            #print "AfpDialog_EvClientEdit.store_data completed:", dat
                         data.store()
+                        #print "AfpDialog_EvClientEdit.store_data stored:", data
                         changed = True
                     if not self.actuel_invnr: self.actuel_invnr = data.get_value("RechNr")
                     #print "AfpDialog_EvClientEdit.store_data data:", data.view()
@@ -1331,7 +1335,9 @@ class AfpDialog_EvClientEdit(AfpDialog):
         #print "AfpDialog_EvClientEdit.load_into_data changed:",self.new, self.change_preis, data
         if data or self.change_preis or self.new:
             if self.new or self.change_preis:
-                if self.preisnr: data["PreisNr"] = self.preisnr
+                if self.preisnr: 
+                    data["PreisNr"] = self.preisnr
+                    if not self.data.get_value("Zahlung"): data["Zahlung"] = 0.0
                 if self.preisprv: data["ProvPreis"] = self.preisprv
                 extra = Afp_floatString(self.label_Extra.GetLabel())
                 if extra != self.data.get_value("Extra"):
@@ -1355,7 +1361,7 @@ class AfpDialog_EvClientEdit(AfpDialog):
     ## complete data before storing
     # @param data - data to be completed      
     def complete_data(self, data):
-        print "AfpDialog_EvClientEdit.complete_data:", data
+        #print "AfpDialog_EvClientEdit.complete_data:", data
         IdNr = None
         if not "Zustand" in data:
             data["Zustand"] = AfpEvent_getZustandList()[-1]
@@ -1382,7 +1388,32 @@ class AfpDialog_EvClientEdit(AfpDialog):
         #ort = None
         #if row: ort = row[1]
         #self.combo_Ort.SetValue(Afp_toString(ort))
-
+     
+    ##  fill data from bulk-seletion into smaeRechData
+    # @param bulk_selection - name of selection where data should be taken from
+    def set_sameRechData(self, bulk_selection):
+        cnt = self.data.get_value_length(bulk_selection)
+        #print "AfpDialog_EvClientEdit.set_sameRechData input:", bulk_selection, cnt
+        self.sameRechData = [None] * cnt
+        for i in range(cnt):
+            if i == 0:
+                data = self.data
+            else:
+                #print "AfpDialog_EvClientEdit.set_sameRechData create:", i,  bulk_selection
+                table = self.data.get_selection_from_row(bulk_selection, i, "AnmeldNr")
+                data = self.get_client(True)
+                data.selections[data.mainselection] = table
+            data.add_optional_prices()
+            self.sameRechData[i] = data
+        self.sameRechIndex = 0
+        self.sameRechLoad = False
+        if self.merge_sameRechData == False:
+            to_data = self.sameRechData[self.sameRechIndex]
+            for data in self.sameRechData:
+                if data == to_data: continue
+                rows = data.get_value_rows("ANMELDEX")
+        print "AfpDialog_EvClientEdit.set_sameRechData:", bulk_selection, cnt, self.sameRechIndex, self.sameRechData
+        
     ## populate the 'Preise' list, \n
     # this routine is called from the AfpDialog.Populate
     def Pop_Preise(self):
@@ -1409,10 +1440,12 @@ class AfpDialog_EvClientEdit(AfpDialog):
             if liste: 
                 self.list_Alle.InsertItems(liste, 0)
         elif self.sameRechData:
+            liste = self.list_Alle.GetItems()
+            #print "AfpDialog_EvClientEdit.Pop_Alle:", self.sameRechData, liste, self.sameRechNr
             self.list_Alle.Clear()
-            liste = []
             for i in range(len(self.sameRechData)):
-                liste.append(self.data.get_sameRechLine(self.sameRechData[i].get_value("RechNr"), self.sameRechData[i].get_value("Preis"), self.sameRechData[i].get_value("Zahlung"), self.sameRechData[i].get_value("KundenNr")))
+                if self.sameRechData[i]:
+                    liste[i] =  self.data.get_sameRechLine(self.sameRechData[i].get_value("RechNr"), self.sameRechData[i].get_value("Preis"), self.sameRechData[i].get_value("Zahlung"), self.sameRechData[i].get_value("KundenNr"))
             self.list_Alle.InsertItems(liste, 0)
         #print "AfpDialog_EvClientEdit.Pop_Alle:", self.sameRechNr
 
@@ -1542,7 +1575,7 @@ class AfpDialog_EvClientEdit(AfpDialog):
                 res_row = AfpReq_MultiLine("Bitte Extrapreis und Bezeichnung manuell eingeben.", "", ["Text","Text","Check"], liste,"Eingabe Extrapreis")
                 if res_row: 
                     if len(res_row) < 3: 
-                        res_row.append(0)
+                        res_row.append(self.extra_provision_default)
                     else:
                         if res_row[2]: res_row[2] = 1
                         else: res_row[2] = 0
@@ -1618,6 +1651,7 @@ class AfpDialog_EvClientEdit(AfpDialog):
         index = self.list_Alle.GetSelections()[0]
         ANr = self.sameRechNr[index] 
         if self.data.get_value("AnmeldNr") != ANr or ((ANr is None or ANr == 0) and index != self.sameRechIndex):  
+            #print "AfpDialog_EvClientEdit.On_Anmeld_Alle:", index, self.sameRechIndex, self.sameRechNr, self.sameRechData
             if self.sameRechData and self.sameRechData[index]:
                 data = self.sameRechData[index]
             else:
@@ -1628,7 +1662,9 @@ class AfpDialog_EvClientEdit(AfpDialog):
                     data.copy_selections_from_data(self.data)
                 if data:
                     self.sameRechData[index] = data
+            if self.sameRechIndex is None: self.sameRechIndex = 0
             if data:
+                #print "AfpDialog_EvClientEdit.On_Anmeld_Alle data:", index, self.sameRechIndex, self.sameRechNr, self.sameRechData
                 if self.ort: self.data.delete_selection("TORT")
                 self.load_into_data(False)
                 if self.sameRechIndex is None:
@@ -1637,6 +1673,7 @@ class AfpDialog_EvClientEdit(AfpDialog):
                 else:
                     self.sameRechData[self.sameRechIndex] = self.data
                 self.sameRechLoad = False
+                #print "AfpDialog_EvClientEdit.On_Anmeld_Alle end:", index, self.sameRechIndex, self.sameRechNr, self.sameRechData
                 self.attach_data(data, data.is_new(), self.is_editable())
                 self.sameRechIndex = index
         event.Skip()
@@ -1784,8 +1821,10 @@ class AfpDialog_EvClientEdit(AfpDialog):
     def get_multiflags(self):
         return self.check_Mehrfach.GetValue()
     ##  get a client object with given identnumber
-    # @parm ANr - if given, identifier
+    # @parm ANr - if given, identifier, 
+    # -                     if = True new empty client is delivered
     def get_client(self, ANr = None):
+        if ANr == True: return AfpEvClient(self.data.globals)
         if ANr is None: ANr = self.data.get_value()
         return  AfpEvClient(self.data.globals, ANr)
     #

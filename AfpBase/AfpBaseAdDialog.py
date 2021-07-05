@@ -5,7 +5,7 @@
 # AfpBaseAdDialog module provides the dialogs and appropriate loader routines needed for address handling
 # it holds the calsses
 # - AfpDialog_AdAusw
-# - AfpDialog_AdAttAusw
+# - AfpDialog_AdAIndiAusw
 #
 #   History: \n
 #        06 Mai 2020 - add file to archiv dialog - Andreas.Knoblauch@afptech.de \n
@@ -370,37 +370,8 @@ class AfpDialog_AdAusw(AfpDialog_Auswahl):
         Ok = AfpLoad_DiAdEin(Adresse, search)
         return Ok
  
-## dialog for address selection from attribut \n 
-# selects an entry of the address table by choosing from the attribut (AdresAtt) table   
-class AfpDialog_AdAttAusw(AfpDialog_Auswahl):
-    ## initialise class
-    def __init__(self):
-        AfpDialog_Auswahl.__init__(self,None, -1, "", style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER)
-        self.typ = "Adressenauswahl"
-        self.datei = "ADRESATT"        
-        self.modul = "Adresse"
-        # remove 'Neu'-button from panel
-        #self.button_Neu.Destroy()
-    ## get the definition of the selection grid content \n
-    # overwritten for "Adressen-attribut" use
-    def get_grid_felder(self):  
-        Felder = [["Name.Adresse.Name",30], 
-                            ["Vorname.Adresse.Name", 20], 
-                            ["Strasse.Adresse",30], 
-                            ["Ort.Adresse",20], 
-                            ["KundenNr.AdresAtt = KundenNr.Adresse",None]] 
-        return Felder
-    
-    ## invoke the dialog for a new entry
-    def invoke_neu_dialog(self, globals, search, where):
-        #if search is None: search = "a"
-        attribut = where.split("=")[1].strip()[1:-1]  #[1:-1] needed as attribut is enclosed by " " in where phrase
-        text = "Bitte neue Adresse als '" + attribut + "' auswählen!".decode("UTF-8")
-        name, Ok = AfpAdresse_addAttributToAdresse(globals, attribut, search, text)
-        return Ok
-        
 ## dialog for indirect address selection \n 
-# selects an entry of the address table by choosing from the attribut (AdresAtt) table   
+# selects an entry of the address table by choosing from anothertable (currently used for  AdresAtt) 
 class AfpDialog_AdIndiAusw(AfpDialog_Auswahl):
     ## initialise class
     def __init__(self, datei):
@@ -439,7 +410,6 @@ def AfpLoad_AdAusw(globals, Datei, index, value = "", where = None, attribut_tex
         if Datei == "ADRESSE":
             DiAusw = AfpDialog_AdAusw()
         else:
-            #DiAusw = AfpDialog_AdAttAusw()
             DiAusw = AfpDialog_AdIndiAusw(Datei)
         #print "AfpLoad_AdAusw:", Datei, Index, value, where
         if attribut_text:
@@ -492,7 +462,6 @@ def AfpLoad_AdIndiAusw(globals, dateifeld, value, name="", where=None, attribut 
         if not attribut: attribut = " individuelle "
         if not name: ask = True
         else: ask = False
-        #print "AfpLoad_AdIndiAusw:", datei, index, name, where, attribut, ask
         result = AfpLoad_AdAusw(globals, datei, index, name, where, attribut, ask)
         return result
 
@@ -847,11 +816,10 @@ class AfpDialog_DiAdEin(AfpDialog):
     ## Eventhandler BUTTON - invoke dialog to change attributes
     def On_Adresse_Merk(self,event):
         if self.debug: print "Event handler `On_Adresse_Merk'"
-        #print "AfpDialog_DiAdEin.On_Adresse_Merk:", self.GetSize()
-        #return
         if self.new: self.store_database()
-        changed = AfpLoad_DiAdEin_SubMrk(self.data)
-        if changed:      
+        data = AfpLoad_DiAdEin_SubMrk(self.data)
+        if data: 
+            self.data = data
             self.choice_Edit.SetSelection(1)
             self.Set_Editable(True)
             self.change_data = True
@@ -955,6 +923,14 @@ class AfpDialog_DiAdEin_SubMrk(AfpDialog):
             return (self.changed_text or self.changes)
         else:
             return False
+    ## return data if content has changed
+    def get_changed_data(self):
+        data = None
+        if self.has_changed():
+            return self.data
+        else:
+            return None
+     
 
     ## Eventhandler LIST - double click in attribut list
     def On_DClick_Attribut(self,event):
@@ -1048,7 +1024,7 @@ def AfpLoad_DiAdEin_SubMrk(Adresse):
     DiAdMrk = AfpDialog_DiAdEin_SubMrk(None)
     DiAdMrk.attach_data(Adresse)
     DiAdMrk.ShowModal()
-    changed = DiAdMrk.has_changed()
+    data = DiAdMrk.get_changed_data()
     DiAdMrk.Destroy()
-    return changed
+    return data
    
