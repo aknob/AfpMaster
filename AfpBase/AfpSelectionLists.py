@@ -431,7 +431,7 @@ class AfpSelectionList(object):
         else:
             selname = sel
         selection = self.get_selection(selname, False)
-        #print "AfpSelectionList.get_value_rows:", selname, selection, self.selects
+        #print "AfpSelectionList.get_value_rows:", selname, selection, felder
         if selection is None:
             return None
         else:
@@ -550,7 +550,7 @@ class AfpSelectionList(object):
             self.get_selection(selname).unlock_data()
     ## propgate new mainvalue to the dependent TableSelections
     def spread_mainvalue(self):
-        #print "AfpTableSelectionList.spread_mainvalue"
+        #print "AfpSelectionList.spread_mainvalue"
         target = None
         # mainindex 
         source = self.mainindex + "." + self.mainselection
@@ -558,9 +558,9 @@ class AfpSelectionList(object):
         # mainindex filled into all depending selections
         for sel in self.selections:
             if not sel == self.mainselection and self.selections[sel].data and len(self.selects[sel]) > 1:
-                #print "AfpTableSelectionList.spread_mainvalue selects:", sel, self.selects
+                #print "AfpSelectionList.spread_mainvalue selects:", sel, self.selects
                 select = self.selects[sel][1]
-                #print "AfpTableSelectionList.spread_mainvalue select:", sel, select, #self.selections[sel].data
+                #print "AfpSelectionList.spread_mainvalue select:", sel, select, #self.selections[sel].data
                 if source in select:
                     if "AND" in select:
                         split = select.split("AND")
@@ -570,7 +570,7 @@ class AfpSelectionList(object):
                     split = select.split("=")
                     target = split[0].strip()
                     if  "." in target: target = target.split(".")[0]
-                    #print "AfpTableSelectionList.spread_mainvalue target:", sel, target, value
+                    #print "AfpSelectionList.spread_mainvalue target:", sel, target, value
                     if len(split) > 1 and "-" in split[1]:
                         self.selections[sel].spread_value(target, -value)
                     else:
@@ -578,7 +578,7 @@ class AfpSelectionList(object):
     ## sample newly created unique identifier value of dependent selection to the appropriate entries in the main selectrion
     # @param selname - name of TableSelection where new identifier has been created
     def resample_value(self, selname):
-        #print "AfpTableSelectionList.resample_value initiated:", selname, self.selects[selname]
+        #print "AfpSelectionList.resample_value initiated:", selname, self.selects[selname]
         target = None
         source = None 
         value = None 
@@ -588,13 +588,13 @@ class AfpSelectionList(object):
             if len(selarr) > 2:
                 source = selarr[2] + "." + selname
             target = selarr[1].split("=")[1].strip()
-            #print "AfpTableSelectionList.resample_value source:",source
+            #print "AfpSelectionList.resample_value source:",source
             if source:
                 split = source.split(".")
-                #print "AfpTableSelectionList.resample_value split:", source, split
+                #print "AfpSelectionList.resample_value split:", source, split
                 if self.get_selection(split[1]).is_last_inserted_id(split[0]):
                     value = self.get_value(source)
-                    #print "AfpTableSelectionList.resample_value executed:", source, target, value
+                    #print "AfpSelectionList.resample_value executed:", source, target, value
                     # uniqueindex filled back into mainselection
                     self.set_value(target, value)
     ## set a single value of individual TableSelection 
@@ -694,21 +694,21 @@ class AfpSelectionList(object):
     ## store complete SelectionList
     def store(self):
         self.store_preparation()
-        # look if filecopy is needed for archiv
-        if self.archiv_copy_needed: self.move_to_archiv()
         if self.mainselection:
             select = self.selections[self.mainselection]
-            if self.debug: print "AfpTableSelectionList.store mainselection:", self.mainselection
+            if self.debug: print "AfpSelectionList.store mainselection:", self.mainselection
             select.store()
             if self.new:
                 self.mainvalue = select.get_string_value(self.mainindex)
                 # spread mainvalue into selections
                 # self.spread_value()
                 self.spread_mainvalue()
-                if self.debug: print "AfpTableSelectionList.store new mainvalue spreaded to other selections:", self.mainvalue
-        #print "AfpTableSelectionList.store() selections 2:", self.selections
+                if self.debug: print "AfpSelectionList.store new mainvalue spreaded to other selections:", self.mainvalue
+        # look if filecopy is needed for archiv - invoke after spreading of new mainvalue
+        if self.archiv_copy_needed: self.move_to_archiv()
+        #print "AfpSelectionList.store() selections 2:", self.selections
         for sel in self.selections: 
-            if self.debug: print "AfpTableSelectionList.store:", sel,"ListNew:", self.new,"New:", self.selections[sel].new,"hasChanged:", self.selections[sel].has_changed(),"Select:", self.selections[sel].select,"\n", self.selections[sel].data
+            if self.debug: print "AfpSelectionList.store:", sel,"ListNew:", self.new,"New:", self.selections[sel].new,"hasChanged:", self.selections[sel].has_changed(),"Select:", self.selections[sel].select,"\n", self.selections[sel].data
             if not (sel == self.mainselection) and self.selections[sel].has_changed():
                 if self.selects[sel] == []:
                     self.spezial_save(sel)
@@ -718,7 +718,7 @@ class AfpSelectionList(object):
                 self.resample_value(sel)
         # second try to catch all spreaded values
         for sel in self.selections:
-            if self.debug: print "AfpTableSelectionList.store second try:",sel,"hasChanged:", self.selections[sel].has_changed() 
+            if self.debug: print "AfpSelectionList.store second try:",sel,"hasChanged:", self.selections[sel].has_changed() 
             if self.selections[sel].has_changed():
                 if self.selects[sel] == []:
                     self.spezial_save(sel)
@@ -752,13 +752,15 @@ class AfpSelectionList(object):
             #print "AfpSelectionList.add_to_Archiv:", new_data, self.archiv_copy_needed
             selection.set_data_values(new_data, row)
         else:
-            print "WARNING SelectionList.add_to_Archiv called but not implemented for", self.listname, "with selection",selname
+            print "WARNING SelectionList.add_to_Archiv called but not implemented for", self.listname, "with selection", selname
     # add missing data to archiv entry
     # @param data - dictionary where identifiers should be added
     def set_archiv_data(self, data):
         if not "Datum" in data: data["Datum"] = self.globals.today()
-        if not "Art" in data: data["Art"] = self.globals.get_value("name")
-        if not "Typ" in data: data["Typ"] = self.listname
+        if not "Art" in data: 
+            data["Art"] = self.globals.get_value("name")
+            if data["Art"][:3] == "Afp": data["Art"] = data["Art"][3:]
+        if not "Typ" in data: data["Typ"] = self.listname +" " +  Afp_toIntString(self.get_value())
         if not "KundenNr" in data: data["KundenNr"] = self.get_value("KundenNr")
         if not data["KundenNr"]:  data["KundenNr"] = self.get_value("KundenNr.ADRESSE")
         data = self.set_archiv_table(data)
@@ -770,10 +772,10 @@ class AfpSelectionList(object):
             modul = self.globals.get_value("name")
             if modul[:3] == "Afp": modul = modul[3:]
             fname = modul + "_" + self.get_listname() + "_" + self.get_string_value()
-            print "AfpSelectionList.move_to_archiv:", archivdir, modul, fname
+            #print "AfpSelectionList.move_to_archiv:", archivdir, modul, fname
             for entry in self.archiv_copy_needed:
                 row = self.get_value_rows(entry[0], "Gruppe,Bem,Extern",entry[1])[0]
-                print "AfpSelectionList.move_to_archiv row:", row
+                #print "AfpSelectionList.move_to_archiv row:", row
                 from_name = row[2]
                 ext = from_name.split(".")[-1]
                 to_name = fname + "_" + Afp_toString(row[0]) + "_" + Afp_stripSpaces(Afp_toString(row[1] )) + "_"
@@ -781,7 +783,7 @@ class AfpSelectionList(object):
                 while Afp_existsFile(archivdir + to_name + Afp_toIntString(cnt) + "." + ext):
                     cnt += 1
                 to_name += Afp_toIntString(cnt) + "." + ext
-                print "AfpSelectionList.move_to_archiv copy:", from_name, to_name
+                #print "AfpSelectionList.move_to_archiv copy:", from_name, to_name
                 Afp_copyFile(from_name, archivdir + to_name)
                 self.set_data_values({"Extern": to_name}, entry[0], entry[1])
     #
@@ -964,8 +966,9 @@ class AfpPaymentList(AfpSelectionList):
     def set_payment_values(self, payment, datum):
         self.set_value(self.payment_field , payment)
         self.set_value(self.payment_date , datum)
-    ## routine to retrieve splitting data for payment from SelectionList \n
+    ## routine to retrieve splitting data for desired payment from SelectionList \n
     # may be overwritten, default implementation: return None
+    # needed output: list of [accountNr, value, name of account]
     def get_splitting_values(self):
         return None        
     #    

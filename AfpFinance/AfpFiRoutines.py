@@ -70,7 +70,7 @@ def AfpFinance_SEPActTagInterpreter(globals, tags, datstring, konto, transfer, g
 # @param beleg - number of receipt
 # @param auszug - identifer of bank account receipt
 # @param flavour - flavour of analyse-routine
-# @param credit - flag if interpreter is used for a creditor payment, defaul: False
+# @param credit - flag if interpreter is used for a creditor payment, default: False
 def AfpFinance_SEPATagInterpreter(globals, tags, datstring, konto, transfer, gkonto, beleg, auszug,  flavour, credit = False):
     mysql = globals.get_mysql()
     #print "AfpFinance_SEPATagInterpreter:", datstring, konto, transfer, gkonto, auszug, flavour
@@ -88,9 +88,10 @@ def AfpFinance_SEPATagInterpreter(globals, tags, datstring, konto, transfer, gko
         typ = tag[0]
         if is_transaction:
             if typ == "InstdAmt":
-                accdata["Betrag"] = tag[2]
+                accdata["Betrag"] = Afp_fromString(tag[2])
             elif typ == "Nm":
                 accdata = AfpFinance_specialXMLTag(mysql, flavour, typ, tag[2], accdata)
+                #print "AfpFinance_SEPATagInterpreter add_direct_transaction Nm:", accdata
                 name = tag[2]
             #elif typ == "DtOfSgntr":
             #    accdata["Datum"] = tag[2]
@@ -99,6 +100,7 @@ def AfpFinance_SEPATagInterpreter(globals, tags, datstring, konto, transfer, gko
             elif typ == "MndtId":
                 if flavour == "Verein":
                     accdata = AfpFinance_specialXMLTag(mysql, flavour, typ, tag[2], accdata)
+                    #print "AfpFinance_SEPATagInterpreter add_direct_transaction MndtId:", accdata
                 else:
                     accdata["RechNr"] = tag[2]
             elif typ == "/DrctDbtTxInf" or typ == "/CdtTrfTxInf":
@@ -128,7 +130,9 @@ def AfpFinance_SEPATagInterpreter(globals, tags, datstring, konto, transfer, gko
         else:
             if typ == "DrctDbtTxInf":
                 is_transaction = True
-                accdata = {"Datum":datum, "BelegDatum":datum, "Konto": transfer, "Gegenkonto":gkonto, "Art":"Zahlung intern", "Beleg":beleg}
+                #accdata = {"Datum":datum, "BelegDatum":datum, "Konto": transfer, "Gegenkonto":gkonto, "Art":"Zahlung intern", "Beleg":beleg}
+                accdata = {"Datum":datum, "BelegDatum":datum, "Konto": transfer, "Gegenkonto":gkonto, "Art":"Zahlung intern", "Beleg":beleg, "Reference":auszug}
+                #print "AfpFinance_SEPATagInterpreter add_direct_transaction DrctDbtTxInf:", accdata
             elif typ == "CdtTrfTxInf":
                 is_transaction = True
                 accdata = {"Datum":datum, "BelegDatum":datum, "Konto": gkonto, "Gegenkonto":transfer, "Art":"Zahlung intern", "Beleg":beleg, "Reference":auszug}
@@ -184,10 +188,12 @@ def AfpFinance_specialXMLTag(mysql, typ, tag, value, accdata):
                     if r[-1] and r[-1] > 0.0: 
                         row = r
                         break
-            else:
+            elif rows:
                 row = rows[0]
+            else:
+                print "WARNING: AfpFinance_specialXMLTag Reference not found for", tag, value
             if row:
-                accdata["Reference"] = row[3]
+                if not "Reference" in accdata: accdata["Reference"] = row[3]
                 accdata["Tab"] = "Anmeld"
                 accdata["TabNr"] = row[0]
                 if row[2]:
@@ -633,7 +639,7 @@ class AfpSEPAdd(AfpSelectionList):
     def read_last_run(self):    
         rows = self.get_values("Datum.Execution")
         datum = None
-        print "AfpSEPAdd.read_last_run:", rows
+        #print "AfpSEPAdd.read_last_run:", rows
         for row in rows:
             if datum is None: datum = row[0]
             elif row[0] > datum: datum = row[0]
@@ -658,11 +664,17 @@ class AfpSEPAdd(AfpSelectionList):
         self.newsum = 0
         for row in rows:
             client = self.data.get_client(row[2])
-            if client.get_value(clientid) == EvNr:
+            payed = client.get_value("Zahlung") 
+            if payed is None: payed = 0.0
+            if client.get_value(clientid) == EvNr and payed < client.get_value(self.datafields["total"]):
                 self.client_bic[row[0]] = row[3]
                 self.client_iban[row[0]] = row[4]
-                print "AfpSEPAdd.gen_mandat_data amount:", row[2], row[3], row[4], client.get_value(self.datafields["regular"]), self.interval, self.datafields["regular"]
-                amount = client.get_value(self.datafields["regular"])/self.interval
+                #print "AfpSEPAdd.gen_mandat_data amount:", row[2], row[3], row[4], client.get_value(self.datafields["regular"]), self.interval, self.datafields["regular"]
+                value = client.get_value(self.datafields["regular"])
+                if not value: 
+                    value = 0.0
+                    print "AfpSEPAdd.gen_mandat_data ProvPreis not set for:", row[2], client.get_name()
+                amount = value/self.interval
                 first = not (self.lastrun and row[1] <=  self.lastrun)
                 #print "AfpSEPAdd.gen_mandat_data lastrun:", row[2], self.lastrun, row[1], first
                 #print "AfpSEPAdd.gen_mandat_data interval:", row[2], amount, first,self.is_first_in_year(), self.interval, self.actuel
@@ -1393,9 +1405,10 @@ class AfpFinanceTransactions(AfpSelectionList):
 class AfpFinanceSingleTransaction(AfpFinanceTransactions):
     ## initialize class
     # @param globals - global values including the mysql connection - this input is mandatory
+    # @param BuchNr - if given, identifier of  transactions
     # @param period - if given, period marker for transactions
-    def  __init__(self, globals, period = None):
-        AfpFinanceTransactions.__init__(self, globals, None, None, period)   
+    def  __init__(self, globals, BuchNr = None, period = None):
+        AfpFinanceTransactions.__init__(self, globals, BuchNr, None, period)   
         self.selects["ADRESSE"] = [ "ADRESSE","KundenNr =  KundenNr.BUCHUNG"] 
         self.selects["ARCHIV"] = [ "ARCHIV","KundenNr =  KundenNr.BUCHUNG"] 
         if self.debug: print "AfpFinanceSingleTransaction Konstruktor:", self.period
@@ -1426,6 +1439,8 @@ class AfpFinance(AfpFinanceTransactions):
         self.konto = None     
         self.transfer = None     
         self.accounts_set = None
+        self.data_absorbed = None
+        self.addressdata = []
         period = AfpFinance_setPeriod(period_input, globals, None, mandant)
         if parlist:
             if "BuchungsNr" in parlist:
@@ -1434,6 +1449,9 @@ class AfpFinance(AfpFinanceTransactions):
             elif "Auszug" in parlist:
                 self.auszug = parlist["Auszug"]
                 value = self.auszug
+                mainindex = "Reference"
+            elif "Stapel" in parlist:
+                value = parlist["Stapel"]
                 mainindex = "Reference"
             elif "VorgangsNr" in parlist:
                 value= parlist["VorgangsNr"]
@@ -1460,6 +1478,14 @@ class AfpFinance(AfpFinanceTransactions):
         self.selects["KTNR"] = [ "KTNR","NOT Typ = \"Debitor\" AND NOT Typ = \"Kreditor\""] 
         self.selects["AUSGABE"] = [ "AUSGABE","Modul = \"Finance\""] 
         self.selects["Mandant"] = [ "ADRESSE"," KundenNr = " + Afp_toString(mandant)] 
+        # only needed for "Konto" of "Gegenkonto"
+        if mainindex == "Konto" or mainindex == "Gegenkonto":
+            konto = Afp_toString(value)
+            self.selects["Konto"] = [ "KTNR"," KtNr = " + konto] 
+            self.selects["AUSZUG"][1] = "KtNr = " + konto + " AND Auszug = \"SALDO\" AND " + self.selects["AUSZUG"] [1]
+        elif mainindex == "Reference":
+            self.selects["AUSZUG"][1] = "Auszug = \"" + Afp_toString(value) + "\" AND " + self.selects["AUSZUG"] [1]
+            self.selects["Konto"] = [ "KTNR"," KtNr = KtNr.AUSZUG"] 
         #if value: self.set_main_selects_entry() 
         #print "AfpFinance.init set_auszug:", self.auszug
         if self.auszug:
@@ -1476,7 +1502,35 @@ class AfpFinance(AfpFinanceTransactions):
     ## destructor
     def __del__(self):    
         if self.debug: print "AfpFinance Destruktor" 
-
+    ## return if this SelectionList has changed    
+    # overwritten from AfpSelectionList
+    def has_changed(self):
+        return self.data_absorbed or super(AfpFinance, self).has_changed()
+    ## extract values from a single TableSelection and flavour it with addressdata \n
+    # overwritten from AfpSelectionList
+    # @param sel - if given name of TableSelection
+    # @param felder - column names to be retrieved
+    # @param row - index of row in TableSelection
+    def get_value_rows(self, sel = None, felder = None, row = -1):
+        rows = super(AfpFinance, self).get_value_rows(sel, felder, row) 
+        if sel == "BUCHUNG" and felder and row < 0:
+            if not self.addressdata: self.gen_addressdata()
+            if self.addressdata and len(self.addressdata) >= len(rows):
+                orig = self.get_selection("BUCHUNG").get_feldnamen()
+                #print "AfpFinance.get_value_rows orig:", orig
+                fields = felder.split(",")
+                for j in range(len(fields)):
+                    if fields[j] in orig: continue
+                    for i in range(len(rows)):
+                        rows[i][j] = self.addressdata[i].get_value(fields[j])
+            #print "AfpFinance.get_value_rows:", rows
+        return rows
+    ## attach all needed addressdata
+    def gen_addressdata(self):
+        for i in range(self.get_value_length("BUCHUNG")):
+            KNr = self.get_value_rows("Buchung","KundenNr", i)[0][0]
+            #print "AfpFinance.gen_addressdata KNr:", KNr
+            self.addressdata.append(AfpAdresse(self.get_globals(), KNr))
     ## set all available accouts
     def set_accounts(self):
         self.accounts_set = True
@@ -1589,9 +1643,13 @@ class AfpFinance(AfpFinanceTransactions):
         return self.auszug
     ## return accounting number of involved bank account
     def get_bank(self):
+        if not self.accounts_set:
+            self.set_accounts()
         return self.bank
     ## return accounting number of involved bank account
     def get_transfer(self):
+        if not self.accounts_set:
+            self.set_accounts()
         return self.transfer
     ## generate next receipt number
     def gen_next_rcptnr(self):
@@ -1643,10 +1701,67 @@ class AfpFinance(AfpFinanceTransactions):
         if self.is_cash(konto):
             sum*= -1
         return sum
-    ## absorb data from another AfpFinance object
-    def data_absorber(self, selname, object):
-        if type(self) == type(object) and object.get_value_length(selname):
-            self.get_selection(selname).data += object.get_selection(selname).data
+    ## absorb finance bookings from another AfpFinance object
+    # @param object - AfpFinance object where to absorb data
+    def booking_absorber(self, object):
+        #print "AfpFinance.booking_absorber:", type(self), type(object), object.get_value_length("BUCHUNG")
+        if type(self) == type(object) and object.get_value_length("BUCHUNG"):
+            if self.client_factory:
+                rows = object.get_value_rows("BUCHUNG", "Tab,TabNr,Art")
+                #print "AfpFinance.booking_absorber rows:", rows
+                splist = []
+                for i in range(len(rows)):
+                    row = rows[i]
+                    if row[0] and row[1] and row[2] != "Intern":
+                        client = self.get_client(row[1])
+                        split = client.get_splitting_values() 
+                        #print "AfpFinance.booking_absorber rows:", split, row[0], client.get_mainselection(), row[0] == client.get_mainselection(), client.get_listname()
+                        if split and row[0].upper() == client.get_mainselection().upper():
+                            for j in range(len(split)):
+                                split[j].append(i)
+                            splist += split
+                if splist:
+                    object.split_bookings(splist)
+            if object.get_value_length("BUCHUNG"):
+                self.get_selection("BUCHUNG").data += object.get_selection("BUCHUNG").data
+                self.data_absorbed = True
+    ## add split bookings to given booking row
+    # @param split_values - list of [accoutNr, value, name of account, rowNr] to be used in splitting
+    def split_bookings(self, split_values):
+        if self.debug: print "AfpFinance.split_booking:", split_values
+        #print "AfpFinance.split_booking:", split_values
+        add = 0
+        split_indices = []
+        for row in split_values:
+            split_indices.append(row[3])
+            if row[2]:
+                add += 1
+        if add:
+            data = self.get_selection("BUCHUNG").data
+            dlen = len(data)
+            data += [None]*add 
+            index = len(split_values)-1
+            new_i = dlen+add-1
+            for i in range(dlen-1, -1, -1):
+                if i == split_indices[index]:
+                    #print "AfpFinance.split_booking loop:", i, index, split_indices[index]
+                    while index >= 0 and i == split_indices[index]:
+                        #print "AfpFinance.split_booking while:", i, index, split_indices[index], split_values[index]
+                        values = split_values[index]
+                        row = Afp_copyArray(data[i])
+                        row[4] = values[0]
+                        row[7] = values[1] # possibly scaling needed
+                        if values[2]:
+                            row[5] = values[2]
+                            row[9] = Afp_toString(values[2]) +  " " + row[9]
+                        data[new_i] = row
+                        index -= 1
+                        new_i -=1
+                else:
+                    data[new_i] = data[i]
+                    new_i -= 1
+            #print "AfpFinance.split_booking data:", data
+            #self.get_selection("BUCHUNG").data = data   # not needed
 
 ## class to handle account balances
 class AfpFinanceBalances(AfpSelectionList):
@@ -1944,6 +2059,35 @@ class AfpFinanceExport(AfpSelectionList):
         if not self.information:
             self.information = self.get_globals().get_value(vname + ".info", "Finance")
         Export.write_to_file(fieldlist, self.information)
+
+## class holding sorted invoices
+class AfpBulkInvoices(AfpOrderedList):
+    ## initialize class
+    # @param globals - global values including the mysql connection - this input is mandatory
+    # @param index -if given, column where sorting should occur
+    # @param filter - if given, filter for sorted data on database
+    # @param debug - flag for debug information
+    def  __init__(self, globals, filter = None, index = None, debug = False):
+        if index is None: Index = "RechNr"
+        AfpOrderedList.__init__(self, globals, "BulkInvoices", index, filter, debug)
+        self.debug = debug
+        self.new = False
+        self.mainselection = "RECHNG"
+        self.set_main_selects_entry()
+        if not self.mainselection in self.selections:
+            self.create_selection(self.mainselection)   
+        #  self.selects[name of selection]  [tablename,, select criteria, optional: unique fieldname]
+        if self.debug: print "AfpBulkInvoices Konstruktor"
+    ## destructor
+    def __del__(self):    
+        if self.debug: print "AfpBulkInvoices Destruktor"
+    ## get client object
+    def get_client(self):
+        row = 0
+        if self.mainposition: row = self.mainposition
+        value = self.get_value_row("RECHNG","RechNr", row)[0]
+        client = AfpCommonInvoice(self.get_globals(), self.get_value_row("RECHNG","RechNr", row)[0])
+        return client
 
 ## class holding sorted obligations
 class AfpBulkObligations(AfpOrderedList):

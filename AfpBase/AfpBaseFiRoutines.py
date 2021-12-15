@@ -53,25 +53,31 @@ def AfpFinance_getNameFromKNr(mysql, KNr, rev=False):
 # @param netto - value where tax has to be added
 # @param halftax - if given, flag if half tax rate has to be used, at the moment: V,F -full rate, H- half rate
 def AfpFinance_addTax(globals, netto,  halftax=None):
+    if  globals.get_value("no-tax"):
+        return netto
     if halftax:
         rate = globals.get_value("half-tax")
+        if not rate: rate = 19    
     else:
         rate = globals.get_value("standard-tax")
-    if not rate: rate = 19
+        if not rate: rate = 19
     percent = netto/100.0
     return (100.0 + rate) *percent
 ## subtract tax from a given value
 # @param globals - global variables, including tax values
 # @param brutto - value where tax has to be sbstracted
 # @param halftax - if given, flag if half tax rate has to be used, at the moment: V,F -full rate, H- half rate
-def AfpFinance_stripTax(globals, brutto,  halftax=None):
+def AfpFinance_stripTax(globals, brutto,  halftax=None):    
+    if  globals.get_value("no-tax"):
+        return brutto
     if halftax:
         rate = globals.get_value("half-tax")
+        if not rate: rate = 19    
     else:
         rate = globals.get_value("standard-tax")
-    if not rate: rate = 19
-    percent = brutto/(100.0 + rate)
-    return 100.0 *percent
+        if not rate: rate = 19
+    one_percent = brutto/(100.0 + rate)
+    return 100.0 *one_percent
     
 ##class for payment in afp-modules
 class AfpZahlung(object):
@@ -409,6 +415,7 @@ class AfpCommonInvoice(AfpPaymentList):
         #  self.selects[name of selection]  [tablename,, select criteria, optional: unique fieldname]
         self.selects["ADRESSE"] = [ "ADRESSE","KundenNr = KundenNr.RECHNG"] 
         self.selects["FAHRTEN"] = [ "FAHRTEN","RechNr = RechNr.RECHNG"] 
+        self.selects["AUSGABE"] = [ "AUSGABE", "Modul = \"Finance\" AND Art = \"" + self.get_listname()  + "\" AND Typ = \"Common\""] 
         #self.selects["Original"] = [ Typ.RECHNG,"RechNr = TypNr.RECHNG"] 
         if complete: self.create_selections()
         # set payment related data
@@ -431,7 +438,7 @@ class AfpCommonInvoice(AfpPaymentList):
         else:
             data["KundenNr"] = self.get_value("KundenNr")
             keep.append("ADRESSE")
-        data["Zustand"] = "open"
+        data["Zustand"] = "Open"
         data["Datum"] = self.globals.today_string()
         #print data
         #print keep
@@ -450,8 +457,8 @@ class AfpCommonInvoice(AfpPaymentList):
         return zeile 
     ## switch 'Zustand' from open (open) to payed (closed) if necessary
     def set_zustand(self):
-        if self.get_value("Zustand") == "open" and self.get_value("Zahlung") >= self.get_value("ZahlBetrag"):
-            self.set_value("Zustand","closed")
+        if self.get_value("Zustand") == "Open" and self.get_value("Zahlung") >= self.get_value("ZahlBetrag"):
+            self.set_value("Zustand","Closed")
     ## routine to retrieve payment data from SelectionList \n
     #  overwritten, from AfpSelectionList
     def get_payment_values(self):
@@ -507,6 +514,7 @@ class AfpObligation(AfpPaymentList):
             self.create_selection(self.mainselection)   
         #  self.selects[name of selection]  [tablename,, select criteria, optional: unique fieldname]
         self.selects["ADRESSE"] = [ "ADRESSE","KundenNr = KundenNr.VERBIND"] 
+        self.selects["ARCHIV"] = [ "ARCHIV","TabNr = RechNr.VERBIND AND Tab = \"VERBIND\""] 
         if complete: self.create_selections()
         # set payment related data
         payment_values = {"outgoing":True, "cancel":"Zustand",  "cancel_value":"Storno", "price":"ZahlBetrag,Betrag", "text":"Bem"}
@@ -526,7 +534,7 @@ class AfpObligation(AfpPaymentList):
         else:
             data["KundenNr"] = self.get_value("KundenNr")
             keep.append("ADRESSE")
-        data["Zustand"] = "open"
+        data["Zustand"] = "Open"
         data["Datum"] = self.globals.today_string()
         #print data
         #print keep
@@ -536,8 +544,8 @@ class AfpObligation(AfpPaymentList):
             self.create_selection("ADRESSE", False)
    ## switch 'Zustand' from open (open) to payed (closed) if necessary
     def set_zustand(self):
-        if self.get_value("Zustand") == "open" and self.get_value("Zahlung") >= self.get_value("ZahlBetrag"):
-            self.set_value("Zustand","closed")
+        if self.get_value("Zustand") == "Open" and self.get_value("Zahlung") >= self.get_value("ZahlBetrag"):
+            self.set_value("Zustand","Closed")
     ## one line to hold all relevant values of this invoice to be displayed 
     def line(self):
         betrag, zahlung, dummy = self.get_payment_values()

@@ -408,8 +408,9 @@ def Afp_toDatetime(date, time, hightime = None):
 ## get age of input date
 # @param datum - string of birthdate for which age has to be determined
 # @param daysharp - flag if age has to be determinded day sharp or year sharp, default: False
-def Afp_getAge(datum, daysharp = False):
-    age = 0
+# @param default - default age returned, when no date is given, default: 1000
+def Afp_getAge(datum, daysharp = False, default = 1000):
+    age = default
     date = Afp_fromString(datum)
     if date:
         today = Afp_getToday()
@@ -824,11 +825,11 @@ class AfpImport(object):
         modulname =".".join(split)
         modulpath = self.globals.get_value("path-delimiter").join(split) + ".py"  
         self.modul = AfpPy_Import(modulname, modulpath)
-        print "AfpImport.create_object:", modulname, self.modul
+        #print "AfpImport.create_object:", modulname, self.modul
         if self.modul:
             befehl = "data = self.modul." + objname + "(self.globals)"
             exec befehl
-        print "AfpImport.create_object:", data
+        #print "AfpImport.create_object:", data
         return data
     ## extract xml tags from file
     def extract_xml_tags(self):

@@ -715,6 +715,7 @@ def Afp_getEndNumber(string, start=False):
         if test:
             if s.isdigit(): number += s
             else: test = False
+    if not start: number = reversed(number)
     return Afp_fromString(number)
 ## get sequence of word inthe order they occur in the string
 # @param string - string to be analysed
@@ -843,7 +844,7 @@ def Afp_splitMasked(string, limiter, mask):
 ## assure pathname to recognise wanted conventions for the path separator, \n
 #  used for either Unix "/" or Windows "\\" separator.
 # @param path - pathname to be checked
-# @param delimit - path separartor, defaul Unix
+# @param delimit - path separator, default Unix
 # @param file - flag if path is a filename (otherwise an addtional delimiter is added at end)
 def Afp_pathname(path, delimit = None, file = False):
     delimiter = "/"
@@ -863,9 +864,9 @@ def Afp_isRootpath(filename):
 ## check if given name holds a complete path (includig a root), \n
 # if not, given rootdir is added at the beginning of the name.
 # @param rootdir - rootpath to be added
-# @param filename - name to be checked
+# @param filename - name to be checked (may be None: rootdir is returned)
 def Afp_addRootpath(rootdir, filename):
-    if  Afp_isRootpath(filename):
+    if  filename and Afp_isRootpath(filename):
         # root already in filename, don't do anything
         composite = filename
     else:
@@ -875,7 +876,10 @@ def Afp_addRootpath(rootdir, filename):
                     rootdir += "\\"
                 else:
                     rootdir += "/"
-        composite = rootdir + filename
+        if filename:
+            composite = rootdir + filename
+        else:
+            composite = rootdir
     return composite
 
 ## countes the starting spaces in the string

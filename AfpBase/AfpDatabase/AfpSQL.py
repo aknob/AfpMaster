@@ -269,6 +269,7 @@ class AfpSQL(object):
         if not clauses[3] == "": Befehl += " ORDER BY "+ clauses[3] # order_clause 
         if not clauses[4] == "": Befehl += " LIMIT "+ clauses[4] # limit_clause 
         if self.debug: print "AfpSQL.select:",Befehl
+        #print "AfpSQL.select:",Befehl
         self.db_cursor.execute (Befehl)     
         rows = self.db_cursor.fetchall ()
         if self.debug: print "AfpSQL.select result:",rows
@@ -389,7 +390,7 @@ class AfpSQLTableSelection(object):
     # @param feldnamen - names of columns, if not given they will be retrieved from database
     def  __init__(self, mysql, tablename, debug = False, unique_feldname = None, feldnamen = None):
         self.dbg = False # hardcode switch for storage logging
-        #if tablename == "ANMELD": debug = True
+        #if tablename == "AUSZUG": debug = True
         if debug: 
             print "AfpSQLTableSelection Konstruktor dbg On:", tablename
             print "AfpSQLTableSelection Konstruktor input:", tablename, debug, unique_feldname, feldnamen
@@ -623,10 +624,11 @@ class AfpSQLTableSelection(object):
                 index = -1 - index
             elif values is None:
                 action = "delete"
-            if self.unique_feldname: index = 0
+            #if self.unique_feldname: index = 0
             if action == "delete":  # fill row into values to allow postprocessing, delete data row
                 originals = self.data[index]
                 del self.data[index]
+                print "AfpSQLTableSelection.manipulate_data deleted:", index, originals
             elif action == "replace" and typ == "dict":
                 originals = {}
                 for key in values:
@@ -834,7 +836,7 @@ class AfpSQLTableSelection(object):
     def spread_value(self, feldname, value):
         lgh = self.get_data_length()
         for row in range(0,lgh):
-            print "AfpSQLTableSelection.spread_value:", self.tablename, feldname, row, self.get_values(feldname, row)
+            #print "AfpSQLTableSelection.spread_value:", self.tablename, feldname, row, self.get_values(feldname, row)
             if self.get_values(feldname, row)[0][0]: continue
             self.set_value(feldname, value, row)
         if self.select is None:

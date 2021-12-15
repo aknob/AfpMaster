@@ -89,8 +89,8 @@ def Afp_iniGlobalVars(settings, modul = None):
             settings["antiquedir"] = settings["archivdir"]
         if not "extradir" in settings:
             settings["extradir"] =  settings["afpdir"] + "Extra" + settings["path-delimiter"]
-        if not "scandir" in settings:
-            settings["scandir"] = settings["homedir"]
+        if not "docdir" in settings:
+            settings["docdir"] = settings["homedir"]
         if "maildir" in settings:
             if not Afp_isRootpath(settings["maildir"]):
                 settings["maildir"] = settings["archivdir"] + settings["maildir"]

@@ -45,7 +45,7 @@ from AfpFinance.AfpFiRoutines import *
 # @param sepa - sepa data where SEPA mandat should be used for
 # @param client - client data where SEPA should be used for
 def AfpFinance_addSEPAdd(sepa, client):
-    dir = ""
+    dir = client.get_globals().get_value("docdir")
     fname, ok = AfpReq_FileName(dir, "SEPA Einzugsermächtigung für ".decode("UTF-8") + client.get_name() ,"", True)
     #print fname, ok
     if ok:
@@ -125,14 +125,23 @@ def AfpFinance_getSEPAct(globals, KNr, input = None):
 # @param period - actuel finance period
 # @param globals - global value, including mysql connection
 # @param data - data in which context this handling takes place
-def AfpFinance_handleStatements(globals, data):
+# @param statsel - flag if  statement selection should be used, default: True
+def AfpFinance_handleStatements(globals, data, statsel = True):
     res = None
     period = globals.get_string_value("actuel-transaction-period","Finance")
     if not period:
         period = Afp_toString(globals.today().year)
     ok = True
     while not ok == False:
-        ok, val = AfpFinance_selectStatement(globals.get_mysql(), period)
+        if statsel:
+            ok, val = AfpFinance_selectStatement(globals.get_mysql(), period)
+            typ = "Auszug"
+            dat = ""
+        else:
+            ok = None
+            val = None
+            typ = "Stapel"
+            dat = globals.today_string()
         #print "AfpFinance_handleStatements:", ok, val
         parlist = None
         if ok is None:
@@ -140,19 +149,21 @@ def AfpFinance_handleStatements(globals, data):
                 saldo = Afp_toString(val)
             else:
                 saldo = ""
-            liste = [["Periode:", period], ["Auszug:",""], ["Datum:",""], ["Anfangssaldo:",saldo]]
-            result = AfpReq_MultiLine( "Buchungseingabe für folgenden Auszug:", "", "Text", liste, "Auszug", 300)
+            liste = [["Periode:", period], [typ + ":",""], ["Datum:", dat], ["Anfangssaldo:", saldo]]
+            result = AfpReq_MultiLine( "Buchungseingabe für folgenden " + typ + ":", "", "Text", liste, typ, 300)
             parlist = None
             if result:
                 parlist = {}
                 if result[0]:
                     period = result[0]
                 if result[1]:
-                    parlist["Auszug"] = Afp_fromString(result[1])
+                    parlist[typ] = Afp_fromString(result[1])
                 if result[2]:
                     parlist["Datum"] = Afp_fromString(Afp_ChDatum(result[2]))
                 if result[3]:
                     parlist["Saldo"] = Afp_fromString(result[3])
+            else:
+                ok = False
         elif ok:
             parlist =  {"Auszug": val}
         if parlist:
@@ -455,7 +466,8 @@ class AfpDialog_FiBuchung(AfpDialog):
                 adresse = AfpAdresse(self.data.get_globals(), raw[8])
                 row = [raw[1], raw[2], raw[4], raw[7], raw[6], adresse.get_name(True), raw[9], raw[0]]
                 rows.append(row)
-        #print "AfpDialog_FiBuchung.Pop_Buchung rows:", rows, len(rows)
+        #print "AfpDialog_FiBuchung.Pop_Buchung rows:", rows, len(rows), self.rows
+        #self.data.view()
         if rows:
             lgh = len(rows)
             if lgh > self.rows or lgh > self.grid_buchung.GetNumberRows():
@@ -506,14 +518,19 @@ class AfpDialog_FiBuchung(AfpDialog):
                 if col < len(self.col_percents):
                     self.grid_buchung.SetColSize(col, self.col_percents[col]*grid_width/100)
     
-    ## execution in case the OK button ist hit - overwritten ifrom AfpDialog
+    ## execution in case the OK button ist hit - overwritten from AfpDialog
     def execute_Ok(self):
-        #print "AfpDialog_FiBuchung.execute_Ok:", self.data.has_changed()
+        print "AfpDialog_FiBuchung.execute_Ok:", self.data.has_changed()
+        Ok = False
         if self.data.has_changed():
+            text1 = "Auszug/Buchungsstapel wurde geändert,".decode("UTF-8")
+            text2 = "sollen die Daten in die Buchhaltung übernommen werden?".decode("UTF-8")
+            Ok  = AfpReq_Question(text1, text2,"Daten übernehmen?".decode("UTF-8"))
+        if Ok:
             if self.data.get_globals().get_value("additional-transaction-file","Finance"):
                 self.execute_Quit(True)
             clients = []
-            rows = self.data.get_value_rows("BUCHUNG", "BuchungsNr,Datum,Konto,Gegenkonto,Betrag,Tab,TabNr")
+            rows = self.data.get_value_rows("BUCHUNG", "BuchungsNr,Datum,Konto,Gegenkonto,Betrag,Tab,TabNr,Art")
             #print "AfpDialog_FiBuchung.execute_Ok rows:", rows
             for row in rows:
                 if row[0] or not row[5] or not row[6]: continue
@@ -529,7 +546,7 @@ class AfpDialog_FiBuchung(AfpDialog):
                     client = self.data.get_client(row[6])
                 if client.get_mainselection().lower() != row[5].lower():
                     client = None
-                if client:
+                if client and row[7] != "Intern":
                     zahl = client.get_payment_values()[1]
                     betrag = None
                     if row[2] in self.bank_accounts or row[2] == self.transfer:
@@ -539,6 +556,7 @@ class AfpDialog_FiBuchung(AfpDialog):
                     if betrag:
                         #print "AfpDialog_FiBuchung.execute_Ok client.set_payment:", zahl, type(zahl), betrag, type(betrag), row[1], client.get_name()
                         client.set_payment_values(zahl + betrag, row[1])
+                if client:
                     clients.append(client)
             self.data.store()
             #print "AfpDialog_FiBuchung.execute_Ok clients:", len(clients) 
@@ -803,6 +821,7 @@ class AfpDialog_FiBuchung(AfpDialog):
             if accdata["Konto"] == self.transfer:
                 beleg = None
             if beleg:
+                if Afp_isString(beleg): beleg = Afp_getEndNumber(beleg, True)
                 self.text_Beleg.SetValue(Afp_toString(beleg + 1))
             if not self.is_editable():
                 self.Set_Editable(True)
@@ -850,7 +869,7 @@ class AfpDialog_FiBuchung(AfpDialog):
             Storno = False
             if self.grid_ident[index]:
                 Storno = AfpReq_Question("Buchung ist schon eingetragen und kann nicht mehr gelöscht werden!".decode("UTF-8"), "Soll eine Stornierungsbuchung erstellt werden?".decode("UTF-8"), "Buchung stornieren?")
-            print "AfpDialog_FiBuchung.On_Delete: index", index, Storno
+            print "AfpDialog_FiBuchung.On_Delete index:", index, Storno
             if Storno:
                 self.gen_storno_transaction(index)
                 self.Pop_Buchung()
@@ -858,6 +877,8 @@ class AfpDialog_FiBuchung(AfpDialog):
                 self.data.delete_row("BUCHUNG", index)
                 self.grid_buchung.DeleteRows(index)
                 self.grid_ident.pop(index)
+                self.rows -= 1
+                #print "AfpDialog_FiBuchung.On_Delete data:", self.data.get_selection("BUCHUNG").data
             self.Pop_Auszug()
             if not self.is_editable():
                 self.Set_Editable(True)
@@ -942,7 +963,7 @@ class AfpDialog_FiBuchung(AfpDialog):
         if ok:
             datas = imp.read_from_file()   
             #print "AfpDialog_FiBuchung.On_Load Datas:", datas[0].view()
-            self.data.data_absorber("BUCHUNG", datas[0] )
+            self.data.booking_absorber(datas[0])
             self.Pop_Buchung()
             self.Pop_Auszug()
             BNr = self.data.gen_next_rcptnr()
@@ -1188,7 +1209,7 @@ class AfpDialog_SEPA(AfpDialog):
                     rows.append(row)
         if rows:
             lgh = len(rows)
-            print "AfpDialog_SEPA.Pop_Mandate rows:", lgh, self.rows, rows
+            #print "AfpDialog_SEPA.Pop_Mandate rows:", lgh, self.rows, rows
             if lgh > self.rows:
                 self.adjust_grid_rows(lgh)
                 self.rows = lgh

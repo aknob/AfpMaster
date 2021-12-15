@@ -457,6 +457,7 @@ class AfpAusgabe(object):
     ## evaluates a written condtion and returns the appropriate boolean value
     # @param inphrase - phrase which holds condition to be evaluated
     def evaluate_condition(self, inphrase):
+        #print "AfpAusgabe.evaluate_condition in:", inphrase
         splitphrase = inphrase.split("FUNCTION")
         phrase = splitphrase[0]
         condition = False
@@ -468,6 +469,7 @@ class AfpAusgabe(object):
         if "=" in phrase: 
             if "==" in phrase:sign = "=="
             else: sign += "="
+        #print "AfpAusgabe.evaluate_condition SIGN:", sign, "PHRASE:",phrase
         if sign: 
             split = phrase.split(sign)
             #print "AfpAusgabe.evaluate_condition split:", split, sign
@@ -475,7 +477,8 @@ class AfpAusgabe(object):
             if "(" in split[0] and ")" in split[0]: 
                 phrase = Afp_toQuotedString(self.execute_function(split[0]))
             elif self.in_values(split[0] ): 
-                phrase = Afp_toQuotedString(self.values[split[0]], True)
+                #print "AfpAusgabe.evaluate_condition values 0:", split[0], self.values[split[0]], type(self.values[split[0]])
+                phrase = Afp_toQuotedString(Afp_fromString(self.values[split[0]]), True)
             else: 
                 phrase = split[0].decode("UTF-8")
             phrase += sign
@@ -486,7 +489,8 @@ class AfpAusgabe(object):
             elif "(" in split[1] and ")" in split[1]: 
                 phrase = Afp_toQuotedString(self.execute_function(split[1]))
             elif self.in_values(split[1] ): 
-                phrase += Afp_toQuotedString(self.values[split[1]], True)
+                #print "AfpAusgabe.evaluate_condition values 1:", split[1], self.values[split[1]], type(self.values[split[1]])
+                phrase += Afp_toQuotedString(Afp_fromString(self.values[split[1]]), True)
             else: 
                 phrase += split[1].decode("UTF-8")
         else: 
@@ -630,11 +634,12 @@ class AfpAusgabe(object):
                 if "AS" in clause:
                     split = clause.split("AS")
                     datsels = split[0].strip()
-                    clause = ""
+                clause = ""
             else:
                 fields, netto = Afp_between(clause,"[","]")
                 clause = self.concat_line(fields, netto, True)
                 clause = clause.replace(":","and")
+                clause = clause.replace("!","or")
             clause = self.replace_html_tags(clause)
             #print "AfpAusgabe.while_input clause:", clause
             # get needed fieds from lines 
@@ -698,7 +703,7 @@ class AfpAusgabe(object):
     ## check if value exists in cache, possibly load value into cache
     # @param fieldname - name of database column to be loaded
     def in_values(self, fieldname):
-        #print "AfpAusgabe.in_values", fieldname
+        #print "AfpAusgabe.in_values", fieldname, fieldname in self.values,  fieldname in self.variables
         if fieldname in self.values:
             return True
         elif fieldname in self.variables:

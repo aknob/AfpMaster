@@ -302,6 +302,36 @@ class AfpAdresse(AfpSelectionList):
     def get_account(self, typ = "Debitor"):
         account = Afp_getIndividualAccount(self.globals.get_mysql(), self.get_value("KundenNr"), typ)
         return account
+    ## retrieve bank account(s) from database
+    # @param typ: if given, defines which kind of account is selected \n
+    # currently supported types are "SEPA" and "all"\n
+    # return [[BIC, IBAN], ...] or []
+    def get_bankaccounts(self, typ = None):
+        accounts = []
+        if typ == "SEPA" or typ == "all":
+            # Gruppe = BIC, Bem = IBAN
+            rows = self.get_values("ARCHIV", "Art,Gruppe,Bem")
+            if rows:
+                for row in rows:
+                    if row[0] == "SEPA-DD":
+                        accounts.append([row[1], row[2]])
+            if typ == "SEPA": return accounts
+        rows = self.get_values("ADRESATT", "Attribut,Tag,Action")
+        if rows:
+            for row in rows:
+                if row[0] == "Bankverbindung":
+                    vals = row[1].split(",")
+                    names = row[2].split(",")
+                    if len(vals) == len(names):
+                        account = [None, None]
+                        for name,val in names,vals:
+                            if name == "IBAN":  account[1] = val
+                            if name == "BIC":  account[0] = val
+                        if typ == "all":   
+                            accounts.append(account)
+                        else:
+                            return [account]
+        return accounts
 
 # database tables
 

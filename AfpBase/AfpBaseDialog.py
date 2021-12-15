@@ -265,7 +265,7 @@ def AfpReq_Selection(text1, text2, liste, header = "Auswahl", identify = None):
 ## Dialog for 'open' or save filename selection
 # @param dir - directory where dialog points to
 # @param header - header to be displayed on top ribbon of dialog
-# @param wild - wildcard to select entries from directory
+# @param wild - wildcard to select entries from directory, if  wild== None a directory will be selected
 # @param open - flag is 'open' dialog is used instead of 'save to' dialog
 def AfpReq_FileName(dir = "", header = "", wild = "", open = False):
     Ok = False
@@ -273,14 +273,20 @@ def AfpReq_FileName(dir = "", header = "", wild = "", open = False):
     if open:
         if not header: header = "Datei öffnen".decode("UTF-8")
         style = wx.FD_OPEN
-    else:
-        if not header:  "Datei speichern als"
+    elif not wild is None:
+        if not header:  header = "Datei speichern als"
         style = wx.FD_SAVE
-    if not wild: wild = "*.*"
-    dialog = wx.FileDialog(None , message=header, defaultDir=dir, wildcard=wild, style=style)
-    ret = dialog.ShowModal()
-    fname = dialog.GetPath()
-    if ret == wx.ID_OK : Ok = True
+    if wild == "": wild = "*.*"
+    if wild is None: 
+        if not header:  header = "Verzeichnis auswählen".decode("UTF-8")
+        fname = wx.DirSelector(message=header, defaultPath=dir)
+        fname = fname.strip()
+        if fname: Ok = True
+    else:
+        dialog = wx.FileDialog(None , message=header, defaultDir=dir, wildcard=wild, style=style)
+        ret = dialog.ShowModal()
+        fname = dialog.GetPath()
+        if ret == wx.ID_OK : Ok = True
     return fname.encode("UTF-8"), Ok
 ## Pick dates from a calendar, returns None if Cancel is pushed, retuns array of datestrings if Ok is pushed
 # @param position - (x, y) position on screen for left, right corner or midpoint
@@ -713,7 +719,9 @@ class AfpDialog(wx.Dialog):
         #if "flavour" in kw:    # parameter via kw
         #   self.flavour = kw["flavour"]
         #    del kw["flavour"]
-        super(AfpDialog, self).__init__(*args, **kw) 
+        #super(AfpDialog, self).__init__(*args, **kw) 
+        #super(AfpDialog, self).__init__(*args, style=wx.RESIZE_BORDER|wx.CAPTION|wx.MINIMIZE_BOX|wx.MAXIMIZE_BOX|wx.CLOSE_BOX, **kw) 
+        super(AfpDialog, self).__init__(*args, style=wx.RESIZE_BORDER|wx.DEFAULT_DIALOG_STYLE, **kw) 
         self.Ok = False
         self.new = False
         self.debug = False
@@ -830,7 +838,7 @@ class AfpDialog(wx.Dialog):
     ## routine for reloading data into display, \n
     # optional loading data from database before
     def re_load(self):
-        #print "re_load:", self.reload
+        #print "AfpDialog.re_load:", self.reload
         if self.reload: 
             if type(self.reload) == bool:
                selnames = self.data.get_selection_names()

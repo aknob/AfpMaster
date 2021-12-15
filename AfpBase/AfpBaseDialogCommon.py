@@ -454,7 +454,10 @@ class AfpDialog_DiReport(wx.Dialog):
                 self.send_mail(fresult)
     ## send document per mail
     def send_mail(self, fresult):
-        an = self.data.get_value("Mail.ADRESSE")
+        if self.datas:
+            an = None
+        else:
+            an = self.data.get_value("Mail.ADRESSE")
         fpdf = fresult[:-4] + ".pdf"
         if Afp_existsFile(fpdf):
             attach = fpdf
@@ -678,7 +681,8 @@ class AfpDialog_DiReport(wx.Dialog):
 # @param variables - dictionary of possible variable values used for output
 # @param header - if given, text displayed in header of dialog
 # @param prefix - if given, prefix for output name creation and archiv entry
-# @param archivtext - if given, different data for archiv
+# @param archivtext - if given, presetted text for archiv entry
+# @param archivdata - if given, different data for archiv entry
 def AfpLoad_DiReport(selectionlist, globals, variables = None, header = "", prefix = "", archivtext = None, archivdata = None):
     DiReport = AfpDialog_DiReport(None)
     DiReport.attach_data(selectionlist, globals, variables, header, prefix)

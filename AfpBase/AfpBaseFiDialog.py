@@ -36,8 +36,10 @@ import AfpDatabase
 from AfpDatabase import AfpSuperbase
 import AfpBaseDialog
 from AfpBaseDialog import *
+import AfpBaseDialogCommon
+from AfpBaseDialogCommon import AfpLoad_DiReport
 import AfpBaseAdDialog
-from AfpBaseAdDialog import AfpLoad_AdAusw
+from AfpBaseAdDialog import AfpLoad_AdAusw, AfpAdresse_addFileToArchiv
 import AfpBaseFiRoutines
 from AfpBaseFiRoutines import *
 
@@ -897,46 +899,6 @@ def AfpLoad_PaySelectorAusw(pselector, value=None):
     result = DiAusw.get_result()
     DiAusw.Destroy()
     return result    
-        
-## dialog for selection of invoice data \n
-# selects an entry from the RECHNG or VERBIND table
-class AfpDialog_simpleInvoiceAusw(AfpDialog_Auswahl):
-    ## initialise dialog
-    def __init__(self, flavour = None):
-        self.flavour = flavour
-        AfpDialog_Auswahl.__init__(self,None, -1, "", style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER)
-        self.typ = "Rechnungsauswahl"
-        self.datei = "RECHNG"
-        if self.flavour == "Obligation":
-            self.typ = "Eingangsrechnungsauswahl"
-            self.datei = "VERBIND"
-        
-    ## get the definition of the selection grid content \n
-    # overwritten for "Event" use
-    def get_grid_felder(self): 
-        if self.flavour == "Obligation":
-            Felder = [["Datum.VERBIND",20], 
-                                ["Betrag.VERBIND",15],
-                                ["ZahlBetrag.VERBIND",15],
-                                ["Bem.VERBIND",35],
-                                ["Zustand.VERBIND",15], 
-                                ["RechNr.VERBIND",None]] # Ident column
-        else:
-            Felder = [["Datum.RECHNG",15], 
-                                ["Betrag.RECHNG",10],
-                                ["ZahlBetrag.RECHNG",10],
-                                ["Bem.RECHNG",50],
-                                ["Zustand.RECHNG",15], 
-                                ["RechNr.RECHNG",None]] # Ident column
-        return Felder
-    ## invoke the dialog for a new entry \n
-    # overwritten for "Invoice" use
-    def invoke_neu_dialog(self, globals, eingabe, filter):
-        if self.flavour == "Obligation": 
-            data = AfpObligation(globals)
-        else:
-            data = AfpCommonInvoice(globals)
-        return AfpLoad_SimpleInvoice(data)      
  
 ## handling routine for common invoices
 # @param globals - global variables including database connection
@@ -973,8 +935,9 @@ def Afp_handleObligation(globals, where = None):
     
 ## class for simple Invoice dialog (incoming/outgoing)
 class AfpDialog_SimpleInvoice(AfpDialog):
-    def __init__(self, obligation = False):
-        self.oblig = obligation    
+    def __init__(self, obligation = False, skonto=False):
+        self.oblig = obligation   
+        self.skonto = obligation or skonto
         AfpDialog.__init__(self,None, -1, "")
         self.checked_box = []
         self.data_changed = False
@@ -1082,21 +1045,22 @@ class AfpDialog_SimpleInvoice(AfpDialog):
         self.line9_sizer.AddSpacer(5)        
         self.line9_sizer.Add(self.text_Bem,1,wx.EXPAND)
         self.line9_sizer.AddSpacer(5)           
-
-        self.label_TSkonto= wx.StaticText(self, -1, label="Prozent:".decode("UTF-8"), style=wx.ALIGN_RIGHT)
-        self.text_SkPro = wx.TextCtrl(self, -1,  name="SkPro")
-        self.textmap["SkPro"] = "SkPro._tmp"
-        self.text_SkPro.Bind(wx.EVT_SET_FOCUS, self.In_SkPro)
-        self.text_SkPro.Bind(wx.EVT_KILL_FOCUS, self.On_Skonto)
-        self.text_Skonto = wx.TextCtrl(self, -1,  name="Skonto")
-        self.textmap["Skonto"] = "Skonto"
-        self.text_Skonto.Bind(wx.EVT_KILL_FOCUS, self.On_Skonto)
-        self.line10_sizer =  wx.BoxSizer(wx.HORIZONTAL)
-        self.line10_sizer.Add(self.label_TSkonto,1,wx.EXPAND)
-        self.line10_sizer.AddSpacer(5)        
-        self.line10_sizer.Add(self.text_SkPro,1,wx.EXPAND)
-        self.line10_sizer.Add(self.text_Skonto,2,wx.EXPAND)
-        self.line10_sizer.AddSpacer(5)                  
+        
+        if self.skonto:
+            self.label_TSkonto= wx.StaticText(self, -1, label="Prozent:".decode("UTF-8"), style=wx.ALIGN_RIGHT)
+            self.text_SkPro = wx.TextCtrl(self, -1,  name="SkPro")
+            self.textmap["SkPro"] = "SkPro._tmp"
+            self.text_SkPro.Bind(wx.EVT_SET_FOCUS, self.In_SkPro)
+            self.text_SkPro.Bind(wx.EVT_KILL_FOCUS, self.On_Skonto)
+            self.text_Skonto = wx.TextCtrl(self, -1,  name="Skonto")
+            self.textmap["Skonto"] = "Skonto"
+            self.text_Skonto.Bind(wx.EVT_KILL_FOCUS, self.On_Skonto)
+            self.line10_sizer =  wx.BoxSizer(wx.HORIZONTAL)
+            self.line10_sizer.Add(self.label_TSkonto,1,wx.EXPAND)
+            self.line10_sizer.AddSpacer(5)        
+            self.line10_sizer.Add(self.text_SkPro,1,wx.EXPAND)
+            self.line10_sizer.Add(self.text_Skonto,2,wx.EXPAND)
+            self.line10_sizer.AddSpacer(5)
 
         self.label_TGesamt= wx.StaticText(self, -1, label="Zahlbetrag:".decode("UTF-8"), style=wx.ALIGN_RIGHT)
         self.text_ZahlBet = wx.TextCtrl(self, -1,  name="ZahlBet")
@@ -1131,10 +1095,14 @@ class AfpDialog_SimpleInvoice(AfpDialog):
         #self.panel_sizer.AddSpacer(5)    
         self.panel_sizer.Add(self.line8_sizer,0,wx.EXPAND)
         self.panel_sizer.AddSpacer(5)     
-        self.panel_sizer.Add(self.line9_sizer,1,wx.EXPAND)
-        self.panel_sizer.AddSpacer(5)      
-        self.panel_sizer.Add(self.line10_sizer,0,wx.EXPAND)
-        self.panel_sizer.AddSpacer(5)      
+        if self.skonto:
+            self.panel_sizer.Add(self.line9_sizer,1,wx.EXPAND)
+            self.panel_sizer.AddSpacer(5)
+            self.panel_sizer.Add(self.line10_sizer,0,wx.EXPAND)
+            self.panel_sizer.AddSpacer(5)  
+        else:
+            self.panel_sizer.Add(self.line9_sizer,2,wx.EXPAND)
+            self.panel_sizer.AddSpacer(5)
         self.panel_sizer.Add(self.line11_sizer,0,wx.EXPAND)
         self.panel_sizer.AddSpacer(5)  
         
@@ -1178,9 +1146,9 @@ class AfpDialog_SimpleInvoice(AfpDialog):
         self.setWx(self.button_sizer, [1, 0, 0], [1, 0, 1]) # set Edit and Ok widgets
 
         self.sizer.AddSpacer(10)
-        self.sizer.Add(self.panel_sizer,2,wx.EXPAND)
+        self.sizer.Add(self.panel_sizer,1,wx.EXPAND)
         self.sizer.AddSpacer(10)
-        self.sizer.Add(self.button_sizer,1,wx.EXPAND)
+        self.sizer.Add(self.button_sizer,0,wx.EXPAND)
         self.sizer.AddSpacer(10)   
         self.SetSizerAndFit(self.sizer)
         self.SetAutoLayout(1)
@@ -1199,37 +1167,47 @@ class AfpDialog_SimpleInvoice(AfpDialog):
             betrag = Afp_fromString(self.text_Betrag.GetValue())
         if betrag:
             percent = self.get_percent()
-            skonto = Afp_fromString(self.text_Skonto.GetValue())
-            zahl = Afp_fromString(self.text_ZahlBet.GetValue())
-            if percent and (name == "Betrag" or name == "Netto"  or name == "SkPro"):
-                skonto  = int(percent*betrag)/100.0
-            elif zahl and name == "ZahlBet" :
-                skonto = betrag - zahl
-            if skonto and (name == "Skonto" or name == "ZahlBet"):
-                initial = percent
-                percent = 100.0*skonto/betrag
-                if initial and percent and not Afp_isEps(percent - initial):
-                    percent = initial
-            if percent and skonto and name != "ZahlBet":
-                zahl = betrag - skonto
-            #print "AfpDialog_SimpleInvoice.set_payment_change:", percent, "% von ", betrag, "ist",  skonto, "bleiben zu zahlen", zahl
-            if percent:
-                self.text_SkPro.SetValue(Afp_toString(percent) + "%")
-                self.text_Skonto.SetValue(Afp_toFloatString(skonto))
-                self.text_ZahlBet.SetValue(Afp_toFloatString(zahl))
-                if not "Skonto" in self.changed_text: self.changed_text.append("Skonto")
-                if not "ZahlBet" in self.changed_text: self.changed_text.append("ZahlBet")
+            if not percent is None:
+                skonto = Afp_fromString(self.text_Skonto.GetValue())
+                if not skonto: skonto = 0.0
+                zahl = Afp_fromString(self.text_ZahlBet.GetValue())
+                if not zahl: zahl = 0.0
+                if percent and (name == "Betrag" or name == "Netto"  or name == "SkPro"):
+                    skonto  = int(percent*betrag)/100.0
+                elif zahl and name == "ZahlBet" :
+                    skonto = betrag - zahl
+                if skonto and (name == "Skonto" or name == "ZahlBet"):
+                    initial = percent
+                    percent = 100.0*skonto/betrag
+                    if initial and percent and not Afp_isEps(percent - initial):
+                        percent = initial
+                if percent and skonto and name != "ZahlBet":
+                    zahl = betrag - skonto
+                #print "AfpDialog_SimpleInvoice.set_payment_change:", percent, "% von ", betrag, "ist",  skonto, "bleiben zu zahlen", zahl
+                if percent:
+                    self.text_SkPro.SetValue(Afp_toString(percent) + "%")
+                    if skonto:
+                        self.text_Skonto.SetValue(Afp_toFloatString(skonto))
+                    else:
+                        self.text_Skonto.SetValue("")
+                    self.text_ZahlBet.SetValue(Afp_toFloatString(zahl))
+                    if not "Skonto" in self.changed_text: self.changed_text.append("Skonto")
+                    if not "ZahlBet" in self.changed_text: self.changed_text.append("ZahlBet")
             if name == "Betrag" or name == "Netto":
                 self.text_Betrag.SetValue(Afp_toFloatString(betrag))
+                if not "Betrag" in self.changed_text: self.changed_text.append("Betrag")
                 if not self.oblig:
                     if netto is None:
                         netto = AfpFinance_stripTax(self.data.get_globals(), betrag)
                     self.text_Netto.SetValue(Afp_toFloatString(netto))
                     if not "Netto" in self.changed_text: self.changed_text.append("Netto")
-                if not "Betrag" in self.changed_text: self.changed_text.append("Betrag")
+                    self.text_ZahlBet.SetValue(Afp_toFloatString(betrag))
+                    if not "ZahlBet" in self.changed_text: self.changed_text.append("ZahlBet")
     ## get percent value from textinput (may extract %'-sign)
     def get_percent(self):
-        valstring = self.text_SkPro.GetValue().strip()
+        valstring = None
+        if self.skonto:
+            valstring = self.text_SkPro.GetValue().strip()
         if valstring:
             if valstring[-1] == "%":
                 valstring = valstring[:-1].strip()
@@ -1259,25 +1237,33 @@ class AfpDialog_SimpleInvoice(AfpDialog):
     ## handle archiv entries of documents for obligations
     def handle_obligation_archiv(self):
         add = True
-        wanted = True
+        wanted = False
         art = self.data.get_globals().get_value("name")
         if art[:3] == "Afp": art = art[3:]
+        art = "Eingang " + art
         listname = self.data.get_listname()
-        rows = self.data.get_value_rows("ARCHIV","Art,Typ,Gruppe,Extern")
+        rows = self.data.get_value_rows("ARCHIV","Art,Typ,Gruppe,Datum,Extern")
         #print "AfpDialog_SimpleInvoice.handle_obligation_archiv:", rows
         if rows:
+            fpath = None
+            datum = Afp_fromString("1.1.1900") # assumtion: first entry not before 1.1.1900!
             for row in rows:
-                if row[0] == art and row[1] == listname and row[2] == "Rechnungseingang":
+                if row[0] == art and listname in row[1] and row[2] == "Rechnungseingang" and row[3] > datum:
+                    fpath = Afp_addRootpath(self.data.globals.get_value("archivdir"), row[4])
                     add = False
-                    fpath = Afp_addRootpath(self.data.globals.get_value("archivdir"), row[3])
-                    if Afp_existsFile(fpath):
-                        Afp_startFile(fpath,self.data.globals, self.debug)
-                    else:
-                        AfpReq_Info("Archiveintrag existiert, aber Datei ist nicht vorhanden!","")
+            if not add:
+                if Afp_existsFile(fpath):
+                    Afp_startFile(fpath,self.data.globals, self.debug)
+                    if  self.check_Dauer.GetValue() and ("Betrag" in self.changed_text or "ZahlBet" in self.changed_text):
+                        add = AfpReq_Question("Eingangsrechnung wurde geändert!".decode("UTF-8"), "Soll neue Eingangsrechnung eingescannt und angehängt werden?".decode("UTF-8"))
+                        wanted = True
+                else:
+                    AfpReq_Info("Archiveintrag existiert, aber Datei ist nicht vorhanden!","")
         if add:
-            wanted = AfpReq_Question("Bitte die Eingangsrechnung einscannen und die gescannte Datei auswählen!".decode("UTF-8"),"")
+            if not wanted:
+                wanted = AfpReq_Question("Bitte die Eingangsrechnung einscannen und die gescannte Datei auswählen!".decode("UTF-8"),"")
             if wanted:
-                fixed = {"Art": art, "Typ": listname, "Gruppe":"Rechnungseingang"}
+                fixed = {"Art":art, "Gruppe": "Rechnungseingang"}
                 change = {"Eingangsdatum": self.data.get_globals().today_string(), "Bemerkung":""}
                 data = AfpAdresse_addFileToArchiv(self.data, "Eingangsrechnung", fixed, change)
                 if data:
@@ -1293,7 +1279,7 @@ class AfpDialog_SimpleInvoice(AfpDialog):
             if value: data[field] = value
         if "Dauer" in self.checked_box:
             data = self.add_dauer_value(data)
-        print "AfpDialog_SimpleInvoice.execute_Ok:", data
+        print "AfpDialog_SimpleInvoice.execute_Ok:", self.changed_text, data
         if data:
             data = self.complete_data(data)
             self.data.set_data_values(data)
@@ -1308,7 +1294,7 @@ class AfpDialog_SimpleInvoice(AfpDialog):
             if not "ZahlBetrag" in data :
                 data["ZahlBetrag"] = data["Betrag"]
         if not "Zustand" in data and not self.data.get_value("Zustand"):
-            data["Zustand"] = "open"
+            data["Zustand"] = "Open"
         return data
         
     # Event Handlers 
@@ -1390,9 +1376,11 @@ class AfpDialog_SimpleInvoice(AfpDialog):
         
     ## event handler for button 'Original'    
     def On_Original(self,event):
-        print "Event handler `AfpDialog_SimpleInvoice.On_Original' not implemented!"
+        if self.debug: print "Event handler `AfpDialog_SimpleInvoice.On_Original'"
         if self.oblig:
             self.handle_obligation_archiv()
+        else:
+            print "Event handler `AfpDialog_SimpleInvoice.On_Original' not implemented!"
         event.Skip()
 
     ## event handler for checkbox 'Dauer'
@@ -1404,7 +1392,15 @@ class AfpDialog_SimpleInvoice(AfpDialog):
 
     ## event handler for button 'Drucken'
     def On_drucken(self,event):
-        print "Event handler `On_drucken' not implemented!"
+        if self.debug: print "Event handler `On_drucken'"
+        variables = {}
+        prefix = self.data.get_listname() + "_"
+        if self.oblig:
+            header = "Rechnungseingang"
+        else:
+            header = "Rechnungsausgang"
+        print "AfpDialog_SimpleInvoice.On_drucken:", header, self.data.view()
+        AfpLoad_DiReport(self.data, self.data.get_globals(), variables, header, prefix)
         event.Skip()
 
     ## dummy event handler for panel dialogs

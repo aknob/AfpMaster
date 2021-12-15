@@ -62,6 +62,7 @@ class AfpEvScreen(AfpScreen):
         self.typ = "Event"
         self.flavour = None
         #self.einsatz = None # to invoke import of 'Einsatz' modules in 'init_database'
+        self.special_agent_output = True
         self.slave_data = None
         #self.grid_rows["Customers"] = 12 
         self.grid_rows["Customers"] = 7
@@ -479,7 +480,7 @@ class AfpEvScreen(AfpScreen):
             prefix = "Event_Client " + Client.get_string_value("Zustand").strip()
             header = "Anmeldung"
             archiv = ""
-            if Client.get_value("AgentNr"):
+            if self.special_agent_output and Client.get_value("AgentNr"):
                 if Client.event_is_tour():
                     header = "Reisebüro".decode("UTF-8")
                 else:
@@ -591,7 +592,7 @@ class AfpEvScreen(AfpScreen):
                     if Ok:
                         Ok = False
                         if text and new_text == "":
-                            Ok = AfpReq_Question("Alle Einträge mit dem Text '" + text + "' löschen?".decode("UTF-8"),"", "Einträge löschen?".decode("UTF-8"))
+                            Ok = AfpReq_Question("Alle Einträge mit dem Text '".decode("UTF-8") + text + "' löschen?".decode("UTF-8"),"", "Einträge löschen?".decode("UTF-8"))
                         if Ok:
                             data = self.get_event()
                             data.clear_all_infos(text)

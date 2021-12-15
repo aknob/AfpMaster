@@ -38,7 +38,7 @@ import wx.grid
 import AfpBase
 from AfpBase import AfpBaseDialog, AfpBaseDialogCommon, AfpBaseRoutines, AfpBaseAdRoutines, AfpUtilities
 from AfpBase.AfpUtilities import AfpStringUtilities, AfpBaseUtilities
-from AfpBase.AfpUtilities.AfpStringUtilities import Afp_ArraytoString
+from AfpBase.AfpUtilities.AfpStringUtilities import Afp_ArraytoString, Afp_toQuotedString
 from AfpBase.AfpUtilities.AfpBaseUtilities import Afp_getMaxOfColumn
 from AfpBase.AfpBaseDialog import *
 from AfpBase.AfpBaseDialogCommon import *
@@ -53,7 +53,7 @@ from AfpBase.AfpBaseAdRoutines import *
 # - will be written from the back: last to 'Bem', second last to 'Gruppe', ..'Typ', .. 'Art';
 # - if 'datum' is found in a entry, this one is written to 'Datum'
 def AfpAdresse_addFileToArchiv(client, text = "Archiveintrag", fixed = None, changeable = None):
-    dir = client.get_globals().get_value("homedir")
+    dir = client.get_globals().get_value("docdir")
     fname, ok = AfpReq_FileName(dir, text + " für ".decode("UTF-8") + client.get_name() ,"", True)
     #print "AfpAdresse_addFileToArchiv:", fname, ok
     result = None
@@ -71,7 +71,7 @@ def AfpAdresse_addFileToArchiv(client, text = "Archiveintrag", fixed = None, cha
             if not chg == "Datum":
                 liste.append([chg, changeable[chg]])
         result = AfpReq_MultiLine(text + " mit der folgenden Datei erzeugen:".decode("UTF-8"), fname.decode("UTF-8"), "Text", liste, text, 500)
-        print "AfpAdresse_addFileToArchiv:", liste, result
+        #print "AfpAdresse_addFileToArchiv:", liste, result
     if ok and not result == False:
         entry = {}
         if fixed:
@@ -88,7 +88,7 @@ def AfpAdresse_addFileToArchiv(client, text = "Archiveintrag", fixed = None, cha
             if lgh > 3: entry["Art"] = result[-4]
         if not "Gruppe" in entry: entry["Gruppe"] = text
         entry["Extern"] = fname
-        print "AfpAdresse_addFileToArchiv entry:", entry
+        #print "AfpAdresse_addFileToArchiv entry:", entry
         client.add_to_Archiv(entry, True)
         return client
     return None
@@ -251,7 +251,7 @@ def AfpAdresse_spezialAttribut(name, attribut, text, tag, action, delete_button 
     #print "AfpAdresse_spezialAttribut:", attribut, type(attribut), tag, action, Ok
     if action:
         taglist = action.split(",")
-    if not taglist or len(taglist) == 1 and "Anmeld_" in taglist[0]:
+    if not taglist or (len(taglist) == 1 and "Anmeld_" in taglist[0]):
         taglist = AfpAdresse_getAttributTagList(attribut)
     #print "AfpAdresse_spezialAttribut taglist:", tag, taglist
     ind_text = -1
@@ -366,7 +366,7 @@ class AfpDialog_AdAusw(AfpDialog_Auswahl):
             KNr = self.ident[self.result_index]
             Adresse.set_new(KNr)
             search = None
-        print "AfpDialog_AdAusw.invoke_neu_dialog:", search, self.result_index, KNr
+        #print "AfpDialog_AdAusw.invoke_neu_dialog:", search, self.result_index, KNr
         Ok = AfpLoad_DiAdEin(Adresse, search)
         return Ok
  

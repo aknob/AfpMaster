@@ -58,10 +58,12 @@ class AfpAdScreen(AfpScreen):
         self.sb_master = "ADRESSE"
         self.sb_filter = ""
         self.data_objects = {}
-        self.archiv_rows = 10
+        self.grid_cols["Archiv"] = 5
+        self.grid_rows["Archiv"] = 10
         self.archiv_colnames = [["Datum","Art","Ablage","Fach","Bem."],["AnmeldNr","Datum","Veranstaltung","Preis","Zahlung"],["Zustand","Datum","Zielort","Art","Preis"],["RechNr","Datum","Text","Preis","Zahlung"],["RechNr","Datum","Text","Preis","Zahlung"],["Merkmal","Text","-","-","-"],["Name","Vorname","Strasse","Ort","Telefon"]]
         self.archiv_colname = self.archiv_colnames[0]
-        self.grid_cols["Archiv"] = 5
+        self.dynamic_grid_name = "Archiv"
+        self.dynamic_grid_col_percents = [20, 20, 20, 20, 20]
         # self properties
         self.SetTitle("Afp Adresse")
         self.SetSize((800, 600))
@@ -69,7 +71,9 @@ class AfpAdScreen(AfpScreen):
         self.SetForegroundColour(wx.Colour(20, 19, 18))
         self.SetFont(wx.Font(9, wx.DEFAULT, wx.NORMAL, wx.NORMAL, 0, "DejaVu Sans"))
         self.InitWx()
- 
+        self.Bind(wx.EVT_SIZE, self.On_ReSize)
+        if self.debug: print "AfpAdScreen Konstruktor"
+  
     ## initialize widgets
     def InitWx(self):
         #self.InitWx_panel()
@@ -242,7 +246,7 @@ class AfpAdScreen(AfpScreen):
         self.Bind(wx.EVT_COMBOBOX, self.On_Filter_Archiv, self.combo_Archiv)
         # GRID
         self.grid_archiv = wx.grid.Grid(self, -1, pos=(23,256) , size=(653, 264), name="Archiv")
-        self.grid_archiv.CreateGrid(self.archiv_rows, 5)
+        self.grid_archiv.CreateGrid(self.grid_rows["Archiv"], self.grid_cols["Archiv"])
         self.grid_archiv.SetRowLabelSize(3)
         self.grid_archiv.SetColLabelSize(18)
         self.grid_archiv.EnableEditing(0)
@@ -260,8 +264,8 @@ class AfpAdScreen(AfpScreen):
         self.grid_archiv.SetColSize(3, 130)
         self.grid_archiv.SetColLabelValue(4, self.archiv_colname[4])
         self.grid_archiv.SetColSize(4, 130)
-        for row in range(0,self.archiv_rows):
-            for col in range(0,5):
+        for row in range(0,self.grid_rows["Archiv"]):
+            for col in range(0,self.grid_cols["Archiv"]):
                 self.grid_archiv.SetReadOnly(row, col)
         self.gridmap.append("Archiv")
         self.grid_minrows["Archiv"] = self.grid_archiv.GetNumberRows()
@@ -372,7 +376,7 @@ class AfpAdScreen(AfpScreen):
         
         # GRID
         self.grid_archiv = wx.grid.Grid(panel, -1, pos=(23,256) , size=(653, 264), name="Archiv")
-        self.grid_archiv.CreateGrid(self.archiv_rows, 5)
+        self.grid_archiv.CreateGrid(self.grid_rows["Archiv"], self.grid_cols["Archiv"])
         self.grid_archiv.SetRowLabelSize(3)
         self.grid_archiv.SetColLabelSize(18)
         self.grid_archiv.EnableEditing(0)
@@ -390,8 +394,8 @@ class AfpAdScreen(AfpScreen):
         self.grid_archiv.SetColSize(3, 130)
         self.grid_archiv.SetColLabelValue(4, self.archiv_colname[4])
         self.grid_archiv.SetColSize(4, 130)
-        for row in range(0,self.archiv_rows):
-            for col in range(0,5):
+        for row in range(0,self.grid_rows["Archiv"]):
+            for col in range(0,self.grid_cols["Archiv"]):
                 self.grid_archiv.SetReadOnly(row, col)
         self.gridmap.append("Archiv")
         self.grid_minrows["Archiv"] = self.grid_archiv.GetNumberRows()
@@ -460,7 +464,7 @@ class AfpAdScreen(AfpScreen):
         if self.debug: print "Event handler `On_DClick_Archiv'!"
         index = event.GetRow()
         typ= self.combo_Archiv.GetValue()
-        print "AfpAdScreen.On_DClick_Archiv:", index, typ
+        #print "AfpAdScreen.On_DClick_Archiv:", index, typ
         if len(self.grid_id["Archiv"]) > index:
             value = Afp_fromString(self.grid_id["Archiv"][index])
             if typ == "Dokumente":
@@ -477,7 +481,6 @@ class AfpAdScreen(AfpScreen):
                 self.select_from_KNr(value)
             elif typ in self.data_objects:
                 self.data_objects[typ](self.globals, value)
-                
         event.Skip()
         
     ## Eventhandler MENU; BUTTON - select other address, either direkt or via attribut

@@ -562,14 +562,11 @@ class AfpEvClient(AfpPaymentList):
     ## store complete SelectionList
     # overwritten from SelectionList to handle bulk-data storage
     def store(self):
-        if self.bulk_data_set and "RechNr" in self.selections:
-            # delete row to avoid double storage of actuel tablerow
-            #KNr = self.get_value("KundenNr")
-            #for i in range(self.get_value_length("RechNr")):
-                #print "AfpEvClient.store delete tablerow:", i, KNr, self.get_value_rows("RechNr", "KundenNr", i)[0][0]
-                #if KNr == self.get_value_rows("RechNr", "KundenNr", i)[0][0] :
-                    #self.delete_row("RechNr", i)
-                    #break
+        #print "AfpEvClient.store:", self.bulk_data_set, "RechNr" in self.selections
+        #if self.bulk_data_set and "RechNr" in self.selections:
+        if "RechNr" in self.selections:
+            # delete row in 'RechNr' SelectionList to avoid double storage of actuel tablerow
+            # simple implementaion, never use 'RechNr' SelectionList for storage
             self.delete_selection("RechNr")
         super(AfpEvClient, self).store()
     ## extract basic price, 
@@ -611,6 +608,38 @@ class AfpEvClient(AfpPaymentList):
                 data["KundenNr"] = id
                 RechNr.set_data_values(data, row)
                 row += 1
+        print "AfpEvClient.add_new_bulk_ids:", self.bulk_data_set, ids
+    ## add extra prices to registration
+    #@param name - name of price to be added
+    #@param appendix - if given, text to be appended to name
+    def  add_extra_price(self, name, appendix = None):
+        name = name.decode("UTF-8")
+        if appendix:
+            text = name + " " + appendix
+        else:
+            text = name
+        datas = self.get_value_rows("PREISE")
+        nr = None
+        preis = None
+        for data in datas:
+            #print "AfpEvClient.add_extra_price:", Afp_toString(data[2]) , name           
+            if Afp_toString(data[2]) == name:
+                nr = data[1]
+                preis = data[5]
+                break
+        #print "AfpEvClient.add_extra_price:", self.get_name(), nr, preis, name, "TEXT:", text 
+        if nr:
+            sel = self.get_selection("ANMELDEX")
+            rows = sel.get_values()
+            add = True
+            for row in rows:
+                if Afp_toString(row[2]) == text:
+                    add = False
+                    break
+            if add:
+                changed_data = {"Preis": preis, "Bezeichnung": text, "NoPrv": 1}
+                sel.add_data_values(changed_data)
+ 
     ## return field to be increased to generate 'RechNr'  
     # may be overwritten in devired class
     def get_RechNr_name_depricated(self):
@@ -789,6 +818,7 @@ class AfpEvClient(AfpPaymentList):
     ## get splitting values for payment
     def get_splitting_values(self):
         splitting = None
+        #print "AfpEvClient.get_splitting_values:", self.get_name(), self.get_value("Extra")
         if self.get_value("Extra"):
             rows = self.get_value_rows("ANMELDEX", "Bezeichnung,Preis")
             if rows:
@@ -800,10 +830,11 @@ class AfpEvClient(AfpPaymentList):
                     if KtNr:
                         splitting.append([KtNr, row[1], row[0]])
                         sum += row[1]
-                if len(splitting) > 1 and self.get_value("Extra") == sum:
-                    splitting[0] = [self.get_value("ErloesKt.EVENT"), self.get_value("Preis") - sum, ""]
+                if len(splitting) > 1 and self.get_value("Extra") != sum:
+                    splitting[0] = [Afp_fromString(self.get_value("ErloesKt.EVENT")), self.get_value("Preis") - sum, ""]
                 else:
                     splitting = None
+        #print "AfpEvClient.get_splitting_values sum:", splitting 
         return splitting
     ## set all necessary values to keep track of the payments
     # @param payment - amount that has been payed

@@ -487,7 +487,7 @@ def Afp_swapDict(dict):
     for entry in dict:
         new_dict[dict[entry]] = entry
     return new_dict
-## add values to dicionary, if already present add new value to old
+## add values to dictionary, if already present add new value to old
 # @param dict - original dictionary
 # @param adddict - dictionary holding values to be added
 def Afp_addDict(dict, adddict):
@@ -564,10 +564,11 @@ def Afp_readLinesFromFile(filename, max = None):
         if max and cnt >= max: break
     fin.close()
     return lines
-## read filname from path
+## read filename from path
 # @param path - path to directory to be searched
 # @param filter - filter for filenames (e.g. "*.py")
-def Afp_readFileNames(path, filter):
+def Afp_readFileNames(path, filter = None):
+    if filter is None: filter = "*"
     liste = []
     for fname in glob.glob(path + filter):
         liste.append(fname)

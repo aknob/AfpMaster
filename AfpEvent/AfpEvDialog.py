@@ -68,7 +68,7 @@ def AfpEv_addRegToArchiv(client, check=False):
             client = AfpAdresse_addFileToArchiv(client, "Anmeldung", fixed, change)
             # get entry
             dat = client.get_selection("ARCHIV").manipulation_get_value("Datum")
-            print "AfpEv_addRegToArchiv:", dat
+            #print "AfpEv_addRegToArchiv:", dat
             client.set_value("Datum", dat)
             return client
         else:
@@ -970,7 +970,7 @@ class AfpDialog_EvClientEdit(AfpDialog):
         self.sameRechNr = None
         self.sameRechIndex = None
         self.sameRechData = None
-        self.merge_sameRechData = True
+        self.merge_sameRechData = False
         self.zahl_data = None
         self.extra_provision_possible = True
         self.extra_provision_default = 0 # 0: provision; 1: no provision
@@ -1292,13 +1292,14 @@ class AfpDialog_EvClientEdit(AfpDialog):
                             self.complete_data(dat)
                             data.set_data_values(dat, "ANMELD")
                         data.store()
-                        #print "AfpDialog_EvClientEdit.store_data stored:", data
+                        #print "AfpDialog_EvClientEdit.store_data sameRechNr stored:", data
                         changed = True
                     if not self.actuel_invnr: self.actuel_invnr = data.get_value("RechNr")
-                    #print "AfpDialog_EvClientEdit.store_data data:", data.view()
+                    #print "AfpDialog_EvClientEdit.store_data sameRechNr data:", data.view()
                 if new: self.event.store()
         elif changed:
             # store data
+            #print "AfpDialog_EvClientEdit.store_data stored:",self.data.get_name(),self.data.has_changed(), self.data.is_new() 
             self.data.store()
             # store count up number of event participants
             if self.new: 
@@ -1407,13 +1408,31 @@ class AfpDialog_EvClientEdit(AfpDialog):
             self.sameRechData[i] = data
         self.sameRechIndex = 0
         self.sameRechLoad = False
-        if self.merge_sameRechData == False:
-            to_data = self.sameRechData[self.sameRechIndex]
-            for data in self.sameRechData:
-                if data == to_data: continue
-                rows = data.get_value_rows("ANMELDEX")
-        print "AfpDialog_EvClientEdit.set_sameRechData:", bulk_selection, cnt, self.sameRechIndex, self.sameRechData
-        
+        if self.merge_sameRechData:
+            self.merge_extra_prices()
+    ## merge all extra prices into first 'sameRechData' dataset
+    # @param act - flag il all dataset should be merged or only actuel data is merged, default: all
+    def  merge_extra_prices(self, act=False):
+        if self.sameRechData and (act or len(self.sameRechData) > 1):
+            to_data = self.sameRechData[0] 
+            datas = []
+            if act:
+                datas.append(self.data)
+            else:
+                for data in self.sameRechData:
+                    if data == to_data: continue
+                    datas.append(data)
+            for data in datas:
+                rows = data.get_value_rows("ANMELDEX", "Bezeichnung")
+                name = data.get_name()                
+                #print "AfpDialog_EvClientEdit.merge_extra_prices move:", name, rows, "->", to_data.get_name()
+                for row in rows:
+                    to_data.add_extra_price(row[0].encode("UTF-8"), name)
+                data.delete_selection("ANMELDEX")
+                data.update_prices()
+                #print "AfpDialog_EvClientEdit.merge_extra_prices moved:", name, rows, "->", to_data.get_name()
+            to_data.update_prices()
+            if act: self.data = data
     ## populate the 'Preise' list, \n
     # this routine is called from the AfpDialog.Populate
     def Pop_Preise(self):
@@ -1443,6 +1462,9 @@ class AfpDialog_EvClientEdit(AfpDialog):
             liste = self.list_Alle.GetItems()
             #print "AfpDialog_EvClientEdit.Pop_Alle:", self.sameRechData, liste, self.sameRechNr
             self.list_Alle.Clear()
+            if len(liste) < len(self.sameRechData):
+                for i in range(len(liste), len(self.sameRechData)):
+                    liste.append(None)
             for i in range(len(self.sameRechData)):
                 if self.sameRechData[i]:
                     liste[i] =  self.data.get_sameRechLine(self.sameRechData[i].get_value("RechNr"), self.sameRechData[i].get_value("Preis"), self.sameRechData[i].get_value("Zahlung"), self.sameRechData[i].get_value("KundenNr"))
@@ -1503,7 +1525,7 @@ class AfpDialog_EvClientEdit(AfpDialog):
         
     ## Eventhandler LISTBOX: extra price is doubleclicked
     # @param event - event which initiated this action   
-    def On_Anmeld_Preise(self,event):
+    def On_Anmeld_Preise(self,event=None):
         if self.debug: print "AfpDialog_EvClientEdit Event handler `On_Anmeld_Preise'"
         index = self.list_Preise.GetSelections()[0] - 2
         if index < 0: 
@@ -1522,9 +1544,8 @@ class AfpDialog_EvClientEdit(AfpDialog):
             self.add_extra_preis_value(-extra)
             if not noPrv: self.add_prov_preis_value(-extra)
             self.change_preis = True
-        self.check_family()
         self.Pop_Preise()
-        event.Skip()
+        if event: event.Skip()
         
     ## select or generate new basic or extra price \n
     # the result is delivered in following order: 
@@ -1662,7 +1683,7 @@ class AfpDialog_EvClientEdit(AfpDialog):
                     data.copy_selections_from_data(self.data)
                 if data:
                     self.sameRechData[index] = data
-            if self.sameRechIndex is None: self.sameRechIndex = 0
+            #if self.sameRechIndex is None: self.sameRechIndex = 0
             if data:
                 #print "AfpDialog_EvClientEdit.On_Anmeld_Alle data:", index, self.sameRechIndex, self.sameRechNr, self.sameRechData
                 if self.ort: self.data.delete_selection("TORT")
@@ -1758,7 +1779,7 @@ class AfpDialog_EvClientEdit(AfpDialog):
         if ok:
             # check for changes in sameRechData, possibly ask for Cancel
             self.Anmeld_Neu(multi)
-            print "AfpDialog_EvClientEdit.On_Anmeld_Neu ok:", not multiflag, self.sameRechData, self.sameRechIndex
+            #print "AfpDialog_EvClientEdit.On_Anmeld_Neu ok:", not multiflag, self.sameRechData, self.sameRechIndex
             if not multiflag:
                 self.sameRechIndex = None
                 self.sameRechData = None
@@ -1772,7 +1793,7 @@ class AfpDialog_EvClientEdit(AfpDialog):
                 else:
                     if not client == True:
                         self.data = client
-        print "AfpDialog_EvClientEdit.On_Anmeld_Neu off:", self.sameRechData, self.sameRechIndex
+        #print "AfpDialog_EvClientEdit.On_Anmeld_Neu off:", self.sameRechData, self.sameRechIndex
         if event: event.Skip()  
     ## execute new client generation
     # @param multi - flag(s) for copying internal data    
@@ -1780,6 +1801,7 @@ class AfpDialog_EvClientEdit(AfpDialog):
         new_data = AfpEvClient_copy(self.data, multi)
         if new_data:
             self.new = True
+            #new_data.add_optional_prices()
             self.data = new_data
             self.Populate()
             self.choice_Edit.SetSelection(1)
