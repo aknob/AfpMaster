@@ -957,6 +957,7 @@ class AfpFinanceTransactions(AfpSelectionList):
     def  __init__(self, globals, value = None, mainindex="BuchungsNr", period = None):
         AfpSelectionList.__init__(self, globals, "BUCHUNG", globals.is_debug())
         #print "AfpFinanceTransactions Konstruktor:", value, mainindex, period
+        self.mainfilter = None
         self.set_period(period)
         self.transfer = None
         self.spread_key = True
@@ -971,8 +972,6 @@ class AfpFinanceTransactions(AfpSelectionList):
             self.mainvalue = ""
         self.mainindex = mainindex
         self.mainselection = "BUCHUNG"
-        if period and not mainindex == "Period":
-            self.mainfilter = "Period = \"" + self.period + "\""
         #print "AfpFinanceTransactions select entriy:", self.mainindex, self.mainselection, self.mainfilter, self.mainvalue, self.mainselection in self.selections
         self.set_main_selects_entry()
         if not self.mainselection in self.selections:
@@ -996,6 +995,8 @@ class AfpFinanceTransactions(AfpSelectionList):
         #print "AfpFinanceTransactions.set_main_selects_entry:",  self.mainindex, self.mainvalue  , self.period
         if self.mainindex and self.mainvalue:         
             self.selects[selname] = [selname, self.mainindex + " = " + self.mainvalue  + " AND Period = \"" + self.period + "\"", "BuchungsNr"]
+        elif self.mainfilter:
+            self.selects[selname] = [selname, self.mainfilter, "BuchungsNr"]
         else:
             self.selects[selname] = [selname, "Period = \"" + self.period + "\"", "BuchungsNr"]
         
@@ -1046,8 +1047,8 @@ class AfpFinanceTransactions(AfpSelectionList):
         if saldo: 
             self.set_value("StartSaldo.AUSZUG", saldo)
             self.set_value("EndSaldo.AUSZUG", saldo)
+        if ktnr: self.set_value("KtNr.AUSZUG", ktnr)
         self.set_value("Datum.AUSZUG", today)
-        self.set_value("KtNr.AUSZUG", ktnr)
         self.set_value("Period.AUSZUG", period)
         self.get_selection("AUSZUG").store()
         self.period = period
@@ -1435,6 +1436,7 @@ class AfpFinance(AfpFinanceTransactions):
         #print "AfpFinance.init:", period_input, parlist, mandant
         self.client_factory = None
         self.auszug = None
+        self.batch = None
         self.bank = None     
         self.konto = None     
         self.transfer = None     
@@ -1451,7 +1453,8 @@ class AfpFinance(AfpFinanceTransactions):
                 value = self.auszug
                 mainindex = "Reference"
             elif "Stapel" in parlist:
-                value = parlist["Stapel"]
+                self.batch = parlist["Stapel"]
+                value = self.batch
                 mainindex = "Reference"
             elif "VorgangsNr" in parlist:
                 value= parlist["VorgangsNr"]
@@ -1473,7 +1476,7 @@ class AfpFinance(AfpFinanceTransactions):
         if parlist and "Konto" in parlist and "Gegenkonto" in parlist:
             konto = Afp_toString(parlist["Konto"])
             gkonto = Afp_toString(parlist["Gegenkonto"])
-            self.get_selection("BUCHUNG").load_data("(Konto = " + konto + " OR Gegenkonto = " + gkonto + ") AND Period = \"" + self.period + "\"")
+            self.mainfilter ="(Konto = " + konto + " OR Gegenkonto = " + gkonto + ") AND Period = \"" + self.period + "\""
             self.konto = konto
         self.selects["KTNR"] = [ "KTNR","NOT Typ = \"Debitor\" AND NOT Typ = \"Kreditor\""] 
         self.selects["AUSGABE"] = [ "AUSGABE","Modul = \"Finance\""] 
@@ -1498,6 +1501,8 @@ class AfpFinance(AfpFinanceTransactions):
             #print "AfpFinance.init set_auszug:", self.auszug, ausdat, aussald
             self.set_auszug(self.auszug, ausdat, aussald, True)
             self.bank = self.get_value("KtNr.AUSZUG")
+        elif self.batch:
+            self.set_batch(self.batch)
         if self.debug: print "AfpFinance Konstruktor:", self.mainindex, self.mainvalue 
     ## destructor
     def __del__(self):    
@@ -1506,6 +1511,23 @@ class AfpFinance(AfpFinanceTransactions):
     # overwritten from AfpSelectionList
     def has_changed(self):
         return self.data_absorbed or super(AfpFinance, self).has_changed()
+
+    ## set identifier of statement of account (Auszug)
+    # @param batchname - identifier of batch-bookings for statement of account 
+    # @param datum, - if given, date of batch-bookings 
+    def set_batch(self, batchname, datum = None):  
+        today = self.globals.today()
+        if not datum: datum = today
+        batchname, period = self.extract_period(batchname)
+        self.set_value("Auszug.AUSZUG", batchname)
+        self.set_value("BuchDat.AUSZUG", datum) 
+        self.set_value("Datum.AUSZUG", today)
+        self.set_value("Period.AUSZUG", period)
+    ## overwritten 'store' of the AfpSelectionList, to take care of "AUSZUG" selection which is only a fake in this case.          
+    def store(self):
+        if self.batch:
+            self.delete_selection("AUSZUG")
+        super(AfpFinance, self).store()
     ## extract values from a single TableSelection and flavour it with addressdata \n
     # overwritten from AfpSelectionList
     # @param sel - if given name of TableSelection
@@ -1641,6 +1663,9 @@ class AfpFinance(AfpFinanceTransactions):
     ## return identierfier of statement of account, if available
     def get_auszug(self):
         return self.auszug
+    ## return identierfier of batch booking, if available
+    def get_batch(self):
+        return self.batch
     ## return accounting number of involved bank account
     def get_bank(self):
         if not self.accounts_set:

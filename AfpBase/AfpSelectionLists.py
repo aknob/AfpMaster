@@ -88,7 +88,6 @@ class AfpSelectionList(object):
         self.mainindex = None
         self.mainvalue = None
         self.mainselection = None
-        self.mainfilter = None
         self.selects = {}
         self.selections = {}
         self._tmp = None

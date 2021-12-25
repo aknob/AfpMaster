@@ -862,15 +862,18 @@ class AfpAusgabe(object):
         elif filename[-4:] == ".odt":
             # write zipped odt file
             if template and template[-4:] == ".odt":
-                Afp_copyFile(template, filename) 
-                odt_file = zipfile.ZipFile(filename,'a')
-                zip_info = 'content.xml'
-                # get zip_info from original "content.xml" entry to write and compress tempfile data
-                list = odt_file.infolist()
-                for entry in list:
-                    if entry.filename == 'content.xml':  zip_info = entry
-                odt_file.writestr(zip_info, self.tempfile.getvalue())              
+                #Afp_copyFile(template, filename) 
+                tmpl_file = zipfile.ZipFile(template,'r')
+                odt_file = zipfile.ZipFile(filename,'w')
+                # get zipinfo list from templatefile, look for "content.xml" entry to write and compress tempfile data into it
+                list = tmpl_file.infolist() 
+                for entry in list: 
+                    if entry.filename == 'content.xml': 
+                       odt_file.writestr(entry, self.tempfile.getvalue()) 
+                    else:
+                        odt_file.writestr(entry, tmpl_file.read(entry.filename))
                 odt_file.close()  
+                tmpl_file.close()  
 
 ## Main  program to be called from the commandline \n
 # call: AfpAusgabe.py -v -d /home/daten/Afp/pyAfp/Vorlagen/AnmeldungMehrfach_3_data.txt -t /home/daten/Afp/pyAfp/Vorlagen/empty.odt /home/daten/Afp/pyAfp/Vorlagen/AnmeldungMehrfach_3.fodt /tmp/AfpResult.odt \n

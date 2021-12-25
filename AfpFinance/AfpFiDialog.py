@@ -427,11 +427,14 @@ class AfpDialog_FiBuchung(AfpDialog):
     def reset_first_line(self):
         period = self.data.get_period()
         auszug = self.data.get_auszug()
+        batch = self.data.get_batch()
         if period:
             self.label_Label.SetLabel(self.label_Label.GetLabel() + " '" + period + "':")
         if auszug:
             self.text_Auszug.SetValue(auszug)
             self.text_Auszug.Enable(False)
+        elif batch: 
+            self.text_Auszug.SetValue(batch)
         
     ## set all available accouts
     def set_accounts(self):
