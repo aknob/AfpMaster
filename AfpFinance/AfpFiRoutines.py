@@ -953,8 +953,11 @@ def AfpFi_getFinanceTransactions(globals):
 class AfpFinanceTransactions(AfpSelectionList):
     ## initialize class
     # @param globals - global values including the mysql connection - this input is mandatory
-    # a new, clean object is created
-    def  __init__(self, globals, value = None, mainindex="BuchungsNr", period = None):
+    # @param value - if given, identifier for which this list is created, default: None - a new, clean object is created
+    # @param mainindex - main sort index for list, default: "BuchungsNr"
+    # @param period - if given, financial period, default: None - will be set automatically
+    # @param skip - flag if atumated creation should be skipped, default: False
+    def  __init__(self, globals, value = None, mainindex="BuchungsNr", period = None, skip = False):
         AfpSelectionList.__init__(self, globals, "BUCHUNG", globals.is_debug())
         #print "AfpFinanceTransactions Konstruktor:", value, mainindex, period
         self.mainfilter = None
@@ -974,7 +977,7 @@ class AfpFinanceTransactions(AfpSelectionList):
         self.mainselection = "BUCHUNG"
         #print "AfpFinanceTransactions select entriy:", self.mainindex, self.mainselection, self.mainfilter, self.mainvalue, self.mainselection in self.selections
         self.set_main_selects_entry()
-        if not self.mainselection in self.selections:
+        if not skip and not self.mainselection in self.selections:
             self.create_selection(self.mainselection)
         self.selects["AUSZUG"] = [ "AUSZUG","Period = \"" + self.period + "\""] 
         if self.debug: print "AfpFinanceTransactions Konstruktor:", self.mainindex, self.mainvalue 
@@ -992,11 +995,11 @@ class AfpFinanceTransactions(AfpSelectionList):
     def set_main_selects_entry(self):  
         selname = "BUCHUNG"
         self.mainselection= selname
-        #print "AfpFinanceTransactions.set_main_selects_entry:",  self.mainindex, self.mainvalue  , self.period
-        if self.mainindex and self.mainvalue:         
-            self.selects[selname] = [selname, self.mainindex + " = " + self.mainvalue  + " AND Period = \"" + self.period + "\"", "BuchungsNr"]
-        elif self.mainfilter:
+        #print "AfpFinanceTransactions.set_main_selects_entry:",  self.mainindex, self.mainvalue , self.period, self.mainfilter
+        if self.mainfilter:
             self.selects[selname] = [selname, self.mainfilter, "BuchungsNr"]
+        elif self.mainindex and self.mainvalue:         
+            self.selects[selname] = [selname, self.mainindex + " = " + self.mainvalue  + " AND Period = \"" + self.period + "\"", "BuchungsNr"]
         else:
             self.selects[selname] = [selname, "Period = \"" + self.period + "\"", "BuchungsNr"]
         
@@ -1471,17 +1474,18 @@ class AfpFinance(AfpFinanceTransactions):
         else:
             value = period_input
             mainindex = "Period"
-        #print "AfpFinance.init AfpFinanceTransactions:", value, mainindex, period
-        AfpFinanceTransactions.__init__(self, globals, value, mainindex, period)
+        #print "AfpFinance.init AfpFinanceTransactions:", value, mainindex, period, parlist
+        AfpFinanceTransactions.__init__(self, globals, value, mainindex, period, True)
         if parlist and "Konto" in parlist and "Gegenkonto" in parlist:
             konto = Afp_toString(parlist["Konto"])
             gkonto = Afp_toString(parlist["Gegenkonto"])
             self.mainfilter ="(Konto = " + konto + " OR Gegenkonto = " + gkonto + ") AND Period = \"" + self.period + "\""
             self.konto = konto
+            self.set_main_selects_entry() 
         self.selects["KTNR"] = [ "KTNR","NOT Typ = \"Debitor\" AND NOT Typ = \"Kreditor\""] 
         self.selects["AUSGABE"] = [ "AUSGABE","Modul = \"Finance\""] 
         self.selects["Mandant"] = [ "ADRESSE"," KundenNr = " + Afp_toString(mandant)] 
-        # only needed for "Konto" of "Gegenkonto"
+        # only needed for "Konto" or "Gegenkonto"
         if mainindex == "Konto" or mainindex == "Gegenkonto":
             konto = Afp_toString(value)
             self.selects["Konto"] = [ "KTNR"," KtNr = " + konto] 
@@ -1489,8 +1493,10 @@ class AfpFinance(AfpFinanceTransactions):
         elif mainindex == "Reference":
             self.selects["AUSZUG"][1] = "Auszug = \"" + Afp_toString(value) + "\" AND " + self.selects["AUSZUG"] [1]
             self.selects["Konto"] = [ "KTNR"," KtNr = KtNr.AUSZUG"] 
-        #if value: self.set_main_selects_entry() 
-        #print "AfpFinance.init set_auszug:", self.auszug
+        #print "AfpFinance.init selects:", self.selects, self.mainselection
+        if not self.mainselection in self.selections:
+            self.create_selection(self.mainselection)
+        #print "AfpFinance.init set_auszug:", self.auszug, self.mainfilter
         if self.auszug:
             ausdat = None
             aussald = None
@@ -1503,6 +1509,7 @@ class AfpFinance(AfpFinanceTransactions):
             self.bank = self.get_value("KtNr.AUSZUG")
         elif self.batch:
             self.set_batch(self.batch)
+        #print "AfpFinance Konstruktor:", self.mainindex, self.mainvalue 
         if self.debug: print "AfpFinance Konstruktor:", self.mainindex, self.mainvalue 
     ## destructor
     def __del__(self):    

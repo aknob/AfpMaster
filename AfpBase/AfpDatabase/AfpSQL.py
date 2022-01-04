@@ -390,7 +390,7 @@ class AfpSQLTableSelection(object):
     # @param feldnamen - names of columns, if not given they will be retrieved from database
     def  __init__(self, mysql, tablename, debug = False, unique_feldname = None, feldnamen = None):
         self.dbg = False # hardcode switch for storage logging
-        #if tablename == "AUSZUG": debug = True
+        #if tablename == "BUCHUNG": debug = True
         if debug: 
             print "AfpSQLTableSelection Konstruktor dbg On:", tablename
             print "AfpSQLTableSelection Konstruktor input:", tablename, debug, unique_feldname, feldnamen
@@ -408,7 +408,7 @@ class AfpSQLTableSelection(object):
         self.manipulation = []
         self.data = []
         self.afterburner = None
-        if self.debug: print "AfpSQLTableSelection Konstruktor", self.tablename
+        if self.debug: print "AfpSQLTableSelection Konstruktor", self, self.tablename
         if self.feldnamen is None:
             self.feldnamen = []
             db_cursor = self.mysql.get_cursor()
@@ -418,7 +418,7 @@ class AfpSQLTableSelection(object):
                 self.feldnamen.append(row[0])
     ## destructor
     def __del__(self):
-        if self.debug: print "AfpSQLTableSelection Destruktor", self.tablename
+        if self.debug: print "AfpSQLTableSelection Destruktor", self, self.tablename
     ## return an initialized copy of this TableSelection
     #@param  unique_fieldname, if given, unique fieldname differring from the original TableSelection
     def create_initialized_copy(self, unique_fieldname=None):

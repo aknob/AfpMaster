@@ -73,7 +73,7 @@ class AfpFiScreen(AfpScreen):
         self.dynamic_grid_col_percents = [12, 8, 10, 10, 10, 30, 20]
         self.dynamic_grid_col_labels = self.grid_col_labels[0]
         self.sort_choices_list = [["Auszug","Datum"],["Offen","Einzeln","Dauer","Beglichen","Jahr"]]
-        self.indexmap_list = [{"Auszug":"Auszug","Datum":"BuchDat"},{"Offen":"Zustand = \"Open\" OR Zustand = \"Static\"", "Einzeln": "Zustand = \"Open\"", "Beglichen":  "Zustand = \"Payed\"", "Dauer": "Zustand = \"Static\"","Jahr": None}]
+        self.indexmap_list = [{"Auszug":"Auszug","Datum":"BuchDat"},{"Offen":"Zustand = \"Open\" OR Zustand = \"Static\"", "Einzeln": "Zustand = \"Open\"", "Beglichen":  "Zustand = \"Closed\"", "Dauer": "Zustand = \"Static\"","Jahr": None}]
         self.sort_choices = self.sort_choices_list[0]
         self.indexmap = self.indexmap_list[0]
         self.sort_filter = "Zustand = \"Open\" OR Zustand = \"Static\""
@@ -645,7 +645,7 @@ class AfpFiScreen(AfpScreen):
     ## generate appropriate data object for the present screen, overwritten from AfpScreen
     def get_data(self):
         filter = self.combo_Filter.GetValue()
-        #print "AfpFiScreen.get_data:", filter, KtNr, self.get_period()
+        #print "AfpFiScreen.get_data:", filter, self.sb.get_value("KtNr"), self.get_period()
         if filter == "Journal": 
             return  AfpFinance(self.get_globals(), self.get_period(), None, self.get_mandant())
         elif filter == "Auszug":
