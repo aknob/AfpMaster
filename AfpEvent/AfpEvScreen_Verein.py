@@ -260,7 +260,7 @@ class AfpEvMember(AfpEvClient):
     # overwritten from AfpEvClient to handle possible sepa-dd cancelation
     def store(self):
         super(AfpEvMember, self).store()
-        if not self.keptNr is None and self.finance_modul:
+        if self.keptNr and self.finance_modul:
             KNr = self.get_value("AgentNr")
             if not KNr: KNr = self.get_value("KundenNr")
             self.finance_modul.AfpFinance_swapSEPAMandat(self.globals, KNr, "ANMELD", self.get_value("AnmeldNr"), self.keptNr)
@@ -272,15 +272,15 @@ class AfpEvMember(AfpEvClient):
             diff = self.get_value("Preis") - zahlung
         else:
             diff = self.get_value("Preis")
-        #f diff < 0: diff = 0.0
-        print "AfpEvMember.reset_payment Zahlung:", self.get_name(), zahlung, diff
+        #if diff < 0: diff = 0.0
+        #print "AfpEvMember.reset_payment Zahlung:", self.get_name(), zahlung, diff
         rows = self.get_value_rows("ANMELDEX","NoPrv")
-        print "AfpEvMember.reset_payment Rows:", rows
-        if rows: self.view()
+        #print "AfpEvMember.reset_payment Rows:", rows
+        #if rows: self.view()
         for i in range(len(rows)-1, -1, -1):
             if rows[i][0]: 
                 self.delete_row("ANMELDEX", i)
-                print "AfpEvMember.reset_payment Rows deleted:",i
+                #print "AfpEvMember.reset_payment Rows deleted:",i
         if diff > 0:
             jahr = Afp_toString(self.globals.today().year - 1)
             data = {"AnmeldNr": self.get_value(), "Bezeichnung": "Restbeitrag " + jahr, "Preis": diff, "NoPrv": 1}
@@ -293,7 +293,7 @@ class AfpEvMember(AfpEvClient):
                 data = {"Preis": preis, "Extra": extra, "Zahlung": -diff} 
             else: 
                 data = {"Preis": preis, "Extra": extra, "Zahlung": 0.0, "ZahlDat":  None} 
-        print "AfpEvMember.reset_payment new:", preis, extra, data
+        #print "AfpEvMember.reset_payment new:", preis, extra, data
         self.set_data_values(data)
     ## generate price for actuel selections   
     def gen_price(self):
@@ -1135,7 +1135,7 @@ class AfpEvScreen_Verein(AfpEvScreen):
             #print "AfpEvScreen_Verein.get_list_rows Preis:", preis, bez
             rows.append(preis + "  " + bez)
             if self.slave_data.get_value("Extra.ANMELD"):
-                if self.slave_data.get_value("Extra.ANMELD") == Afp_fromString(preis):
+                if self.slave_data.get_value("Extra.ANMELD") == self.slave_data.get_value("Preis.ANMELD"):
                     rows[0] = Afp_toString(0.0) + " " + bez
                 ex_row = self.slave_data.get_selection("ANMELDEX").get_values("Bezeichnung,Preis")
                 #print "AfpEvScreen_Verein.get_list_rows Extra:", ex_row

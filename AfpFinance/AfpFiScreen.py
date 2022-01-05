@@ -405,7 +405,7 @@ class AfpFiScreen(AfpScreen):
         index = self.indexmap[value]
         if typ == "Ausgang" or typ == "Eingang":
             if index  is None: index = self.setup_date_filter()
-            print "AfpFiScreen.On_Index:",value, typ, index
+            #print "AfpFiScreen.On_Index:",value, typ, index
             self.sort_filter = index
             self.sort_index = self.sort_choices.index(value)
             self.data = self.get_data()

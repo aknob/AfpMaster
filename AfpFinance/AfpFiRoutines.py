@@ -170,7 +170,7 @@ def AfpFinance_swapSEPAMandat(globals, KNr, tab, tabnr, newtabnr = None):
             else:
                selection.set_value("Typ", "Inaktiv", i)
     if chg: selection.store()
-    print "AfpFinance_swapSEPAMandat stored:", chg, KNr, tabnr, newtabnr
+    #print "AfpFinance_swapSEPAMandat stored:", chg, KNr, tabnr, newtabnr
     return chg
 ## routine for special handling of xml-tags for this flavour
 # @param mysql - link to databese

@@ -628,7 +628,7 @@ class AfpSQLTableSelection(object):
             if action == "delete":  # fill row into values to allow postprocessing, delete data row
                 originals = self.data[index]
                 del self.data[index]
-                print "AfpSQLTableSelection.manipulate_data deleted:", index, originals
+                #print "AfpSQLTableSelection.manipulate_data deleted:", index, originals
             elif action == "replace" and typ == "dict":
                 originals = {}
                 for key in values:
