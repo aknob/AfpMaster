@@ -561,6 +561,8 @@ class AfpDialog_FiBuchung(AfpDialog):
                         client.set_payment_values(zahl + betrag, row[1])
                 if client:
                     clients.append(client)
+            if self.data.get_batch():
+                self.data.update_sums()
             self.data.store()
             #print "AfpDialog_FiBuchung.execute_Ok clients:", len(clients) 
             if clients: 

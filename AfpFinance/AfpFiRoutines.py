@@ -36,6 +36,7 @@ import AfpBase
 from AfpBase.AfpSelectionLists import AfpSelectionList, AfpOrderedList
 from AfpBase.AfpBaseRoutines import *
 from AfpBase.AfpUtilities.AfpStringUtilities import Afp_getEndNumber
+from AfpBase.AfpUtilities.AfpBaseUtilities import Afp_isEps
 from AfpBase.AfpAusgabe import AfpAusgabe
 from AfpBase.AfpBaseAdRoutines import AfpAdresse, AfpAdresse_getKNrFromSingleName
  
@@ -1485,6 +1486,9 @@ class AfpFinance(AfpFinanceTransactions):
         self.selects["KTNR"] = [ "KTNR","NOT Typ = \"Debitor\" AND NOT Typ = \"Kreditor\""] 
         self.selects["AUSGABE"] = [ "AUSGABE","Modul = \"Finance\""] 
         self.selects["Mandant"] = [ "ADRESSE"," KundenNr = " + Afp_toString(mandant)] 
+        self.selects["Salden"] = [ "AUSZUG","Auszug = \"SALDO\" AND Period = \"" + self.period + "\""] 
+        self.selects["Balances"] = [ "KTNR","KtName = \"SALDO\""] 
+        self.selects["Journal"] = [ "BUCHUNG","Period = \"" + self.period + "\""] 
         # only needed for "Konto" or "Gegenkonto"
         if mainindex == "Konto" or mainindex == "Gegenkonto":
             konto = Afp_toString(value)
@@ -1518,7 +1522,12 @@ class AfpFinance(AfpFinanceTransactions):
     # overwritten from AfpSelectionList
     def has_changed(self):
         return self.data_absorbed or super(AfpFinance, self).has_changed()
-
+    ## return if saldo entries have been made  and perios is closed 
+    def period_is_closed(self):
+        if self.get_value_length("Salden"):
+            return True
+        else:
+            return False
     ## set identifier of statement of account (Auszug)
     # @param batchname - identifier of batch-bookings for statement of account 
     # @param datum, - if given, date of batch-bookings 
@@ -1697,17 +1706,53 @@ class AfpFinance(AfpFinanceTransactions):
         return nr
     ## generate bank-account sum
     def get_salden(self):
-        start = 0.0
-        end = 0.0
-        rows = self.get_value_rows("AUSZUG","Auszug,StartSaldo,EndSaldo,KtNr")
+        need_new = False
+        start = self.get_value("StartSaldo.AUSZUG")
+        end = self.get_value("EndSaldo.AUSZUG")
+        if start is None and end is None: need_new = True
+        #print "AfpFinance.get_salden EndSaldo Auszug:", start, end, need_new
+        if not start: start = 0.0
+        if not end: end = 0.0
+        #rows = self.get_value_rows("AUSZUG","Auszug,StartSaldo,EndSaldo,KtNr")
         konto = Afp_fromString(self.konto)
-        for row in rows:
-            if row[0] == "SALDO" and row[3] == konto:
-                start = row[1]
-                end = row[2]
+        #for row in rows:
+            #if row[0] == "SALDO" and row[3] == konto:
+                #start = row[1]
+                #end = row[2]
         sum = self.gen_sum(konto)
-        #print "AfpFinance.get_salden:", sum
+        if sum is None: 
+            sum = 0.0
+            need_new = False
+        if need_new or Afp_isEps(end - start - sum):
+            if need_new:
+                min = None
+                max = None
+                dati = self.get_value_rows("BUCHUNG", "Datum")
+                for dat in dati:
+                    if min is None or dat[0] < min: min = dat[0]
+                    if max is None or dat[0] > max: max = dat[0]
+                new_data = {"Auszug": "SALDO", "Period": self.period, "KtNr": self.konto, "StartSaldo": 0.0, "EndSaldo": start + sum, "BuchDat": min, "Datum": max}
+                self.set_data_values(new_data, "AUSZUG", -1)
+            else:
+                self.set_value("EndSaldo.AUSZUG", start + sum)
+            self.get_selection("AUSZUG").store()
+            print "AfpFinance.get_salden EndSaldo resetted:", konto, end, "->", start + sum, "new database entry created:",  need_new
+            salden = self.gen_balance_salden(self.get_konto_typ(konto))
+            changed = self.set_balance_salden(salden)
+            if changed:
+                self.get_selection("Salden").store()
+                print "AfpFinance.get_salden Balance resetted:", salden
         return start, start + sum
+    ## get typ of bank account from TableSelection 'KTNR'
+    # @param ktnr - accountnumber to be checked
+    def get_konto_typ(self, ktnr):
+        typ = None
+        rows = self.get_value_rows("KTNR","KtNr,Typ")
+        for row in rows:
+            if row[0] == ktnr:
+                typ = row[1]
+                break
+        return typ
     ## generate bank-account sum
     def gen_bank_sum(self):
         start = 0.0
@@ -1715,6 +1760,7 @@ class AfpFinance(AfpFinanceTransactions):
             start = self.get_value("StartSaldo.Auszug")
             if not start: start = 0.0
         sum = self.gen_sum(self.bank)
+        if sum is None: sum = 0.0
         sum += start
         if self.auszug:
             self.set_value("EndSaldo.Auszug", sum) 
@@ -1724,15 +1770,99 @@ class AfpFinance(AfpFinanceTransactions):
     # @param konto - accountnumber to be summerized
     def gen_sum(self, konto):
         #print "AfpFinance.gen_sum:", self.view()
-        sum = 0.0
+        sum = None
         rows = self.get_value_rows("BUCHUNG","Konto,Gegenkonto,Betrag")   
         for row in rows:
             betrag = Afp_fromString(row[2])
-            if row[0] == konto: sum -= betrag
-            elif row[1] == konto: sum += betrag
-        if self.is_cash(konto):
+            if row[0] == konto or row[1] == konto:
+                if sum is None: sum = 0.0
+                if row[0] == konto: sum -= betrag
+                else: sum += betrag
+        #print "AfpFinance.gen_sum Buchung:", konto, sum, self.mainindex, self.mainvalue, Afp_fromString(self.mainvalue) == konto
+        if not (self.mainindex == "Period" or (self.mainindex == "Konto" and Afp_fromString(self.mainvalue) == konto)):
+            rows = self.get_value_rows("Journal","Konto,Gegenkonto,Betrag")   
+            for row in rows:
+                betrag = Afp_fromString(row[2])
+                if row[0] == konto or row[1] == konto:
+                    if sum is None: sum = 0.0
+                    if row[0] == konto: sum -= betrag
+                    else: sum += betrag
+            #print "AfpFinance.gen_sum Journal:", sum
+        if self.is_cash(konto) and sum:
             sum*= -1
         return sum
+    ## update account sums, if SALDO entries have already been created
+    def update_sums(self):
+        saldi = None
+        konten = None
+        if self.get_value_length("Salden"):
+            saldi = self.get_selection("Salden").get_values("KtNr")
+            for i in range(len(saldi)):
+                saldi[i] = saldi[i][0]
+            #saldi = self.get_values("KtNr.Salden")
+        print "AfpFinance.update_sums Saldi:", saldi
+        #self.view()
+        if saldi:
+            konten = []
+            rows = self.get_value_rows("BUCHUNG", "Konto,Gegenkonto")
+            if rows:
+                for row in rows:
+                    if not row[0]  in konten:
+                        konten.append(row[0])
+                    if not row[1]  in konten:
+                        konten.append(row[1])
+        print "AfpFinance.update_sums Konten:", konten
+        if konten:
+            for ktnr in konten:
+                if ktnr in saldi:
+                    sum = self.gen_sum(ktnr)
+                    if sum is None: sum = 0.0
+                    ind = saldi.index(ktnr)
+                    start = self.get_value_rows("Salden", "StartSaldo", ind)[0][0]
+                    if not start: start= 0.0
+                    self.set_data_values({"EndSaldo": start + sum}, "Salden", ind)
+                    print "AfpFinance.update_sums set data:", ktnr, sum, start + sum
+            salden = self.gen_balance_salden()
+            for sald in salden:
+                if sald in saldi:
+                    self.set_data_values({"EndSaldo": salden[sald]}, "Salden", saldi.index(sald))
+                    print "AfpFinance.update_sums set balance:", sald, salden[sald ]
+    ## generate balance account sums
+    # @param only_typ - if given, only the sum of this typ of accounts is created
+    def gen_balance_salden(self, only_typ = None):
+        rows = self.get_value_rows("Balances","KtNr,Bezeichnung,Typ")
+        typs = {}
+        salden = {}
+        for row in rows:
+            split = row[2].split(",")
+            t_added = False
+            if only_typ in split:
+                for sp in split:
+                    typs[sp] = row[0]
+                    t_added = True
+                salden[row[0]] =  0.0
+        rows = self.get_value_rows("Salden")
+        for sald in rows:
+            typ = self.get_konto_typ(sald[-1])
+            if typ and typ in typs and not typs[typ] == sald[-1]:
+                if sald[3]:
+                    salden[typs[typ]] += sald[4] - sald[3]
+                else:
+                    salden[typs[typ]]+= sald[4]
+                #print "AfpFinance.gen_balance_salden add:", sald[-1], sald[4], sald[3], typs[typ],  salden[typs[typ]]
+        return salden
+    ## update balance account sums
+    # @param salden - dictionary with account-numbers and sums to be resetted
+    def set_balance_salden(self, salden):
+        changed = False
+        rows = self.get_value_rows("Salden", "KtNr,EndSaldo")
+        for ktnr in salden:
+            for row in rows:
+                if row[0] == ktnr and Afp_isEps(row[1] - salden[ktnr]) :
+                    self.set_data_values({"EndSaldo": salden[ktnr]}, "Salden", rows.index(row))
+                    changed = True
+                    #print "AfpFinance.set_balance_salden resetted:", ktnr, salden[ktnr]
+        return changed
     ## absorb finance bookings from another AfpFinance object
     # @param object - AfpFinance object where to absorb data
     def booking_absorber(self, object):
