@@ -1778,8 +1778,9 @@ class AfpFinance(AfpFinanceTransactions):
                 if sum is None: sum = 0.0
                 if row[0] == konto: sum -= betrag
                 else: sum += betrag
+                #print "AfpFinance.gen_sum added:", betrag, sum
         #print "AfpFinance.gen_sum Buchung:", konto, sum, self.mainindex, self.mainvalue, Afp_fromString(self.mainvalue) == konto
-        if not (self.mainindex == "Period" or (self.mainindex == "Konto" and Afp_fromString(self.mainvalue) == konto)):
+        if not (self.mainindex == "Period" or self.mainindex == "Reference" or (self.mainindex == "Konto" and Afp_fromString(self.mainvalue) == konto)):
             rows = self.get_value_rows("Journal","Konto,Gegenkonto,Betrag")   
             for row in rows:
                 betrag = Afp_fromString(row[2])
@@ -1787,9 +1788,11 @@ class AfpFinance(AfpFinanceTransactions):
                     if sum is None: sum = 0.0
                     if row[0] == konto: sum -= betrag
                     else: sum += betrag
+                    #print "AfpFinance.gen_sum Journal added:", betrag, sum
             #print "AfpFinance.gen_sum Journal:", sum
         if self.is_cash(konto) and sum:
-            sum*= -1
+            sum*= -1 
+        #print "AfpFinance.gen_sum sum:", sum
         return sum
     ## update account sums, if SALDO entries have already been created
     def update_sums(self):
@@ -1865,7 +1868,8 @@ class AfpFinance(AfpFinanceTransactions):
         return changed
     ## absorb finance bookings from another AfpFinance object
     # @param object - AfpFinance object where to absorb data
-    def booking_absorber(self, object):
+    # @param splitting - flag if split-bookings should be invoked
+    def booking_absorber(self, object, splitting=False):
         #print "AfpFinance.booking_absorber:", type(self), type(object), object.get_value_length("BUCHUNG")
         if type(self) == type(object) and object.get_value_length("BUCHUNG"):
             if self.client_factory:
@@ -1874,7 +1878,7 @@ class AfpFinance(AfpFinanceTransactions):
                 splist = []
                 for i in range(len(rows)):
                     row = rows[i]
-                    if row[0] and row[1] and row[2] != "Intern":
+                    if splitting and row[0] and row[1] and row[2] != "Intern":
                         client = self.get_client(row[1])
                         split = client.get_splitting_values() 
                         #print "AfpFinance.booking_absorber rows:", split, row[0], client.get_mainselection(), row[0] == client.get_mainselection(), client.get_listname()

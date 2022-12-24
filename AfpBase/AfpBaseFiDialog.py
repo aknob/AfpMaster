@@ -165,7 +165,7 @@ def AfpFinance_ObligationSelector(globals, debug = False):
     #felder = "Datum,ZahlBetrag,Betrag,Zahlung,Bem,Zustand,RechNr"
     felder = [["RechNr.VERBIND",10], ["Datum.VERBIND",20], ["ZahlBetrag.VERBIND",15], ["Bem.VERBIND",30], ["Name.Adresse",25], 
                   ["KundenNr.ADRESSE = KundenNr.VERBIND",None], ["RechNr.VERBIND",None]] # Ident column  
-    filter =  "( Zustand.VERBIND = \"Open\" OR Zustand.VERBIND = \"Static\" )"
+    filter =  "( Zustand = \"Open\" OR Zustand = \"Static\" )"
     text = "Eingangsrechnung" 
     object = "AfpObligation"          
     #edit = None 
@@ -336,7 +336,7 @@ class AfpPaySelector(object):
                 if self.tablename in entry[0] and not entry[1] is None:
                     result += "," + entry[0] .split(".")[0]
             result += "," + self.felder[-1][0].split(".")[0]
-            print "AfpPaySelector.get_felder:", result[1:]
+            #print "AfpPaySelector.get_felder:", result[1:]
             if result: result = result[1:]
         return result
     ## identify payment columns
@@ -913,9 +913,15 @@ def Afp_handleCommonInvoice(globals, where = None):
     ReNr = AfpLoad_PaySelectorAusw(pselector)
     Ok = False
     if ReNr:
+        Ok = AfpLoad_SimpleInvoice_fromReNr(globals, ReNr)
+    return Ok 
+## load simple invoice dialog for common invoice with given invoice number
+# @param globals - global variables including database connection
+# @param ReNr - invoice number of invoice to be loaded
+def AfpLoad_SimpleInvoice_fromReNr(globals, ReNr):
         data = AfpCommonInvoice(globals, ReNr)
         Ok = AfpLoad_SimpleInvoice(data)
-    return Ok  
+        return Ok
 ## handling routine for obligations
 # @param globals - global variables including database connection
 # @param where - if given, filter for search in table
@@ -932,7 +938,14 @@ def Afp_handleObligation(globals, where = None):
         data = AfpObligation(globals, ReNr)
         Ok = AfpLoad_SimpleInvoice(data)
     return Ok  
-    
+ ## load simple invoice dialog for obligation with given invoice number
+# @param globals - global variables including database connection
+# @param VbNr - invoice number of obligation to be loaded
+def AfpLoad_Obligation_fromVbNr(globals, VbNr):
+        data = AfpObligation(globals, VbNr)
+        Ok = AfpLoad_SimpleInvoice(data)
+        return Ok
+   
 ## class for simple Invoice dialog (incoming/outgoing)
 class AfpDialog_SimpleInvoice(AfpDialog):
     def __init__(self, obligation = False, skonto=False):
@@ -1203,6 +1216,8 @@ class AfpDialog_SimpleInvoice(AfpDialog):
                     if not "Netto" in self.changed_text: self.changed_text.append("Netto")
                     self.text_ZahlBet.SetValue(Afp_toFloatString(betrag))
                     if not "ZahlBet" in self.changed_text: self.changed_text.append("ZahlBet")
+            if name == "ZahlBet":
+                    if not "ZahlBet" in self.changed_text: self.changed_text.append("ZahlBet")
     ## get percent value from textinput (may extract %'-sign)
     def get_percent(self):
         valstring = None
@@ -1252,18 +1267,19 @@ class AfpDialog_SimpleInvoice(AfpDialog):
                     fpath = Afp_addRootpath(self.data.globals.get_value("archivdir"), row[4])
                     add = False
             if not add:
-                if Afp_existsFile(fpath):
-                    Afp_startFile(fpath,self.data.globals, self.debug)
-                    if  self.check_Dauer.GetValue() and ("Betrag" in self.changed_text or "ZahlBet" in self.changed_text):
-                        add = AfpReq_Question("Eingangsrechnung wurde geändert!".decode("UTF-8"), "Soll neue Eingangsrechnung eingescannt und angehängt werden?".decode("UTF-8"))
-                        wanted = True
-                else:
-                    AfpReq_Info("Archiveintrag existiert, aber Datei ist nicht vorhanden!","")
+                if  self.check_Dauer.GetValue() and ("Betrag" in self.changed_text or "ZahlBet" in self.changed_text):
+                    add = AfpReq_Question("Eingangsrechnung wurde geändert!".decode("UTF-8"), "Soll neue Eingangsrechnung eingescannt und angehängt werden?".decode("UTF-8"))
+                    wanted = True
+                if not add:
+                    if Afp_existsFile(fpath):
+                        Afp_startFile(fpath,self.data.globals, self.debug)
+                    else:
+                        AfpReq_Info("Archiveintrag existiert, aber Datei ist nicht vorhanden!","")
         if add:
             if not wanted:
                 wanted = AfpReq_Question("Bitte die Eingangsrechnung einscannen und die gescannte Datei auswählen!".decode("UTF-8"),"")
             if wanted:
-                fixed = {"Art":art, "Gruppe": "Rechnungseingang"}
+                fixed = {"Art": art, "Gruppe": "Rechnungseingang"}
                 change = {"Eingangsdatum": self.data.get_globals().today_string(), "Bemerkung":""}
                 data = AfpAdresse_addFileToArchiv(self.data, "Eingangsrechnung", fixed, change)
                 if data:

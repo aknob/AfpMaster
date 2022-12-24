@@ -1125,7 +1125,7 @@ class AfpSuperbase(object):
         datei.set_values([wert],[feldname])
     ## display data in console - for debug purpose only
     # @param DateiFeld - list of "column.table" of the actuel index (row) \n
-    #  - None: display all data of the cuurent index in the curren table
+    #  - None: display all data of the current index in the current table
     def view(self, DateiFeld=None):
         if DateiFeld is None:
             self.CurrentFile.CurrentIndex.print_values()

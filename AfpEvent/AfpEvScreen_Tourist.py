@@ -113,7 +113,7 @@ class AfpEvTourist(AfpEvClient):
     # overwritten from AfpEvClient
     def get_event(self):
         ENr = self.get_value("EventNr.EVENT")
-        return AfpTour(self.get_globals(), ENr)
+        return AfpEvTour(self.get_globals(), ENr)
     ## return specific identification string to be used in dialogs \n
     # - overwritten from AfpSelectionList
     def get_identification_string(self):
@@ -578,7 +578,7 @@ class AfpDialog_EvTourEdit(AfpDialog_EventEdit):
         self.text_Kst.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
         self.label_TZeit.SetLabel("&Ende")
         self.vtextmap["Zeit"] = "Ende.EVENT"
-        elf.choicemap["COrt"] = "Name.TName"
+        self.choicemap["COrt"] = "Name.TName"
     
     ## fill in available route data
     # overwritten from AfpDialog_EventEdit
@@ -652,7 +652,7 @@ class AfpDialog_EvTouristEdit(AfpDialog_EvClientEdit):
     # @parm ANr - if given, identifier
     # -                     if = True new empty client is delivered
     def get_client(self, ANr = None):
-        f ANr == True: return AfpEvTourist(self.data.globals)
+        if ANr == True: return AfpEvTourist(self.data.globals)
         if ANr is None: ANr = self.data.get_value()
         return  AfpEvTourist(self.data.globals, ANr)
     ##  get text to be dispalyed in agent selection dialog and attribut value

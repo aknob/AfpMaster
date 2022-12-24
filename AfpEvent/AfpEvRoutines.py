@@ -201,7 +201,7 @@ class AfpEvent(AfpSelectionList):
     # - [1] == True: agent or transfer route should be kept 
     # - [2] == True: prices should be kept 
     # - [3] == True: internal text should be kept 
-    # - the rest of the data is kept if copy != [flag, flag, flag]
+    # - the rest of the data is kept if copy != [flag, flag, flag, flag]
     def set_new(self, copy = None):
         self.new = True
         data = {}
@@ -354,7 +354,7 @@ class AfpEvent(AfpSelectionList):
     def generate_RechNr(self, Nr=None):
         RechNr = None
         if self.get_value("AgentNr.EVENT"):
-            Extern = AfpExternNr(self.get_globals(),"Monat", None, self.debug)
+            Extern = AfpExternNr(self.get_globals(),"Month", None, self.debug)
             RechNr = Extern.get_number_string()
         else: 
             if Nr is None:
@@ -383,7 +383,8 @@ class AfpEvent(AfpSelectionList):
         self.lock_data()
         if not "RechNr" in data:
             if "IdNr" in data: IdNr = data["IdNr"]
-            else: IdNr = None
+            else: IdNr = None 
+            #print "AfpEvent.add_client IdNr:", IdNr
             data["RechNr"]  = self.generate_RechNr(IdNr)
         self.add_client_count()
         return data
@@ -638,6 +639,8 @@ class AfpEvClient(AfpPaymentList):
                     break
             if add:
                 changed_data = {"Preis": preis, "Bezeichnung": text, "NoPrv": 1}
+                ANr = self.get_value()
+                if ANr: changed_data["AnmeldNr"] = ANr
                 sel.add_data_values(changed_data)
  
     ## return field to be increased to generate 'RechNr'  
@@ -692,7 +695,7 @@ class AfpEvClient(AfpPaymentList):
                 RechNr = self.get_string_value("Kennung.EVENT") + "-" + RNr
                 print "AfpEvClient.generate_RechNr RNr:", typ, RNr, RechNr, self.get_name()
         elif typ == "Nummer.ExternNr":
-            Extern = AfpExternNr(self.get_globals(),"Monat", None, self.debug)
+            Extern = AfpExternNr(self.get_globals(),"Month", None, self.debug)
             RechNr = Extern.get_number_string()
         else:
             self.add_invoice()
@@ -813,7 +816,7 @@ class AfpEvClient(AfpPaymentList):
         name = AfpAdresse(self.get_globals(), KNr).get_name()
         return Afp_toString(RNr) + Afp_toFloatString(preis).rjust(10) + Afp_toFloatString(zahl).rjust(10) + "  " + name
     #
-    #  overritten from SelectionList
+    #  overwritten from SelectionList
     #
     ## get splitting values for payment
     def get_splitting_values(self):
@@ -824,9 +827,14 @@ class AfpEvClient(AfpPaymentList):
             if rows:
                 splitting = [None]
                 sum = 0.0
-                for row in rows:
+                for row in rows: 
+                    #print "AfpEvClient.get_splitting_values row:", row
                     KtNr = Afp_getSpecialAccount(self.get_mysql(), row[0], "Bezeichnung")
-                    if not KtNr: KtNr = Afp_getSpecialAccount(self.get_mysql(), "Gebühr ".decode("UTF-8") + row[0], "Bezeichnung")
+                    if not KtNr: 
+                        if " " in row[0]:
+                            KtNr = Afp_getSpecialAccount(self.get_mysql(), Afp_getWords(Afp_toString(row[0]))[0], "Bezeichnung")
+                        else:
+                            KtNr = Afp_getSpecialAccount(self.get_mysql(), "Gebühr ".decode("UTF-8") + Afp_toString(row[0]), "Bezeichnung")
                     if KtNr:
                         splitting.append([KtNr, row[1], row[0]])
                         sum += row[1]

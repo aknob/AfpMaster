@@ -704,9 +704,9 @@ def Afp_getOrderlistOfTable(mysql, datei, keep = None, indirect = None, special 
 class AfpExternNr(AfpSQLTableSelection):
     ## initialize AfpExternNr class
     # @param globals - global values including the mysql connection - this input is mandatory
-    # @param typ - typ of number generation
-    # @param data - if given additional data for creation type
-    # @param typ - typ of number generation
+    # @param typ - Typ of number generation, at the moment possible are: 'Month', 'Count'
+    # @param data - if given, prefix for string creation for type 'Count'
+    # @param debug - if given, debug flag
     def  __init__(self, globals, Typ = None, data = None, debug = None):
         if debug: self.debug = debug
         else: self.debug = globals.is_debug()
@@ -714,7 +714,7 @@ class AfpExternNr(AfpSQLTableSelection):
         self.typ = Typ
         self.prefix = ""
         self.separator = ""
-        if Typ == "Monat":
+        if Typ == "Month":
             tp = type(data)
             if tp == datetime.date or tp == datetime.datetime:
                 day = data
@@ -726,8 +726,8 @@ class AfpExternNr(AfpSQLTableSelection):
             self.prefix = jahr + mon
             self.separator = "."
         elif Typ == "Count":
-            if data: self.prefix == data
-        if self.debug: print "AfpExternNr Konstruktor"
+            if data: self.prefix = data
+        if self.debug: print "AfpExternNr Konstruktor", self.typ, self.prefix,  self.separator
     ## destuctor
     def __del__(self):    
         if self.debug: print "AfpExternNr Destruktor"

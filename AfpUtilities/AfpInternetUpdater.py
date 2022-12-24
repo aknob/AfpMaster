@@ -947,6 +947,8 @@ class AfpCalendarEntries(object):
         
     ## get event rows to populate grid
     def get_events(self):
+        #print "AfpCalendarEntries.get_events entries:" , len(self.entries), self.entries
+        #print "AfpCalendarEntries.get_events keys:" ,self.entries.keys()
         rows = []
         for entry in sorted(self.entries.keys()):
             rows.append([Afp_toString(entry), Afp_toString(self.entries[entry])])

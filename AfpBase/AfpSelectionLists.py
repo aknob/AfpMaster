@@ -772,12 +772,14 @@ class AfpSelectionList(object):
             if modul[:3] == "Afp": modul = modul[3:]
             fname = modul + "_" + self.get_listname() + "_" + self.get_string_value()
             #print "AfpSelectionList.move_to_archiv:", archivdir, modul, fname
+            print "AfpSelectionList.move_to_archiv:", self.archiv_copy_needed
             for entry in self.archiv_copy_needed:
+                if len(entry) < 1: continue
                 row = self.get_value_rows(entry[0], "Gruppe,Bem,Extern",entry[1])[0]
                 #print "AfpSelectionList.move_to_archiv row:", row
                 from_name = row[2]
                 ext = from_name.split(".")[-1]
-                to_name = fname + "_" + Afp_toString(row[0]) + "_" + Afp_stripSpaces(Afp_toString(row[1] )) + "_"
+                to_name = fname + "_" + Afp_replaceUml(Afp_toString(row[0])) + "_" + Afp_replaceUml(Afp_stripSpaces(Afp_toString(row[1] ))) + "_"
                 cnt = 1
                 while Afp_existsFile(archivdir + to_name + Afp_toIntString(cnt) + "." + ext):
                     cnt += 1
@@ -851,7 +853,7 @@ class AfpPaymentList(AfpSelectionList):
         self.price_fields = ["Preis"]
         self.payment_field = "Zahlung"
         self.payment_date = "ZahlDat"
-        self.payment_text_field = None
+        self.payment_text_fields = None
         self.account_field = "Kontierung"
         self.personal_account = None
         self.cancel_field = "Zustand"
@@ -881,7 +883,7 @@ class AfpPaymentList(AfpSelectionList):
         if  "price" in data: self.price_fields = self.set_field_list(data["price"])
         if  "payment" in data: self.payment_field = data["payment"]
         if  "date" in data: self.payment_date = data["date"]
-        if  "text" in data: self.payment_text_field = data["text"]
+        if  "text" in data: self.payment_text_fields = data["text"]
         if  "cancel" in data: self.cancel_field = data["cancel"]
         if  "cancel_value" in data: self.cancel_value = data["cancel_value"]
         
@@ -920,8 +922,13 @@ class AfpPaymentList(AfpSelectionList):
         else: return self.get_value(self.account_field)
     ## retrieve payment text
     def get_payment_text(self):
-        if self.payment_text_field: 
-            return self.get_value(self.payment_text_field)
+        if self.payment_text_fields:
+            text = None
+            split = self.payment_text_fields.split(",")
+            for sp in split:
+                if text: text += " " + self.get_value(sp)
+                else: text = self.get_value(sp)
+            return text
         else:
             text = "Zahlung"
             KNr = self.get_payer()

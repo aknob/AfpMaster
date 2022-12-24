@@ -177,6 +177,10 @@ class AfpAdresse(AfpSelectionList):
     # @param KundenNr - if given, KundenNr address from where main data should be delivered   
     def set_new(self, KundenNr):
         self.new = True
+        self._tmp = None
+        if KundenNr and KundenNr != self.get_value("KundenNr"): 
+            self.set_value("ParentNr._tmp", KundenNr)
+        print "AfpAdresse.set_new:", KundenNr, self._tmp 
         data = {}
         keep = []
         self.clear_selections(keep)
@@ -186,6 +190,7 @@ class AfpAdresse(AfpSelectionList):
             data["Strasse"] =  Adresse.get_value("Strasse")
             data["Plz"]  = Adresse.get_value("Plz")
             data["Ort"]  = Adresse.get_value("Ort")
+            data["Telefon"]  = Adresse.get_value("Telefon")
             self.set_data_values(data,"ADRESSE")   
         #print "AfpAdresse.set_new:", KundenNr 
         #self.view()
@@ -225,6 +230,7 @@ class AfpAdresse(AfpSelectionList):
         if selname == "Bez": 
             selection = self.selections[selname]
             lgh = selection.get_data_length()
+            #print "AfpAdresse.spezial_save data:", lgh, selection.data
             if lgh > 0:
                 KNr = int(self.mainvalue)
                 bez_lgh = len(self.spezial_bez)
@@ -234,15 +240,26 @@ class AfpAdresse(AfpSelectionList):
                     if KundenNr in self.spezial_bez: 
                         index = self.spezial_bez.index(KundenNr)
                         self.spezial_bez[index] = None
-                    #print "AfpAdresse.spezial_save KNr:", selection.get_values("KundenNr", i)
-                    KNr = int(selection.get_values("KundenNr", i)[0][0])
-                    self.mysql.write_update("ADRESSE", ["Bez"], [KNr], "KundenNr = " + Afp_toString(KundenNr), True)
+                    #print "AfpAdresse.spezial_save KNr:", KundenNr, i, selection.get_values("KundenNr", i)
+                    KN = selection.get_values("KundenNr", i)[0][0]
+                    if KN:
+                        KNr = int(KN)
+                        self.mysql.write_update("ADRESSE", ["Bez"], [KNr], "KundenNr = " + Afp_toString(KundenNr), True)
                 if KNr in self.spezial_bez: 
                     index = self.spezial_bez.index(KNr)
                     self.spezial_bez[index] = None
                 self.mysql.write_update("ADRESSE", ["Bez"], [self.mainvalue], "KundenNr = " + Afp_toString(KNr))
             for KNr in self.spezial_bez:
                 if KNr: self.mysql.write_update("ADRESSE", ["Bez"], ["0"], "KundenNr = " + Afp_toString(KNr))
+    ## add a connection to "Bez" selection \n
+    # @param KNr - adress identifier for connection
+    def add_connection(self, KNr):
+        KNr = int(KNr)
+        rows = self.get_mysql().select("*","KundenNr = " + Afp_toString(KNr), "ADRESSE") 
+        mani = [None, rows[0]]       
+        self.get_selection("Bez").manipulate_data([mani])
+        #print "AfpAdresse.add_connection:", self.get_selection("Bez").data
+ 
     ## get complete address of name in one line \n
     # @param no_firstname - flag is first name should be skipped for output
     def get_address_line(self, no_firstname = False):

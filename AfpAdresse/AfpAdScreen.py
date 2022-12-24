@@ -47,6 +47,7 @@ from AfpBase.AfpBaseDialogCommon import  AfpReq_Information, Afp_editMail
 from AfpBase.AfpBaseScreen import AfpScreen
 from AfpBase.AfpBaseAdRoutines import AfpAdresse_StatusStrings, AfpAdresse_StatusMap, AfpAdresse
 from AfpBase.AfpBaseAdDialog import AfpLoad_DiAdEin_fromSb, AfpLoad_AdAusw
+from AfpBase.AfpBaseFiDialog import AfpLoad_SimpleInvoice_fromReNr, AfpLoad_Obligation_fromVbNr
 
 ## Class_Adresse shows Window Adresse and handles interactions
 class AfpAdScreen(AfpScreen):
@@ -60,7 +61,7 @@ class AfpAdScreen(AfpScreen):
         self.data_objects = {}
         self.grid_cols["Archiv"] = 5
         self.grid_rows["Archiv"] = 10
-        self.archiv_colnames = [["Datum","Art","Ablage","Fach","Bem."],["AnmeldNr","Datum","Veranstaltung","Preis","Zahlung"],["Zustand","Datum","Zielort","Art","Preis"],["RechNr","Datum","Text","Preis","Zahlung"],["RechNr","Datum","Text","Preis","Zahlung"],["Merkmal","Text","-","-","-"],["Name","Vorname","Strasse","Ort","Telefon"]]
+        self.archiv_colnames = [["Datum","Art","Ablage","Fach","Bem."],["AnmeldNr","Datum","Veranstaltung","Preis","Zahlung"],["Zustand","Datum","Zielort","Art","Preis"],["RechNr","Datum","Text","Preis","Zahlung"],["RechNr","Datum","Text","Preis","Zahlung"],["Merkmal","Text","-","-","-"],["Datum","Buchung","Betrag","Text","Periode"],["Name","Vorname","Strasse","Ort","Telefon"]]
         self.archiv_colname = self.archiv_colnames[0]
         self.dynamic_grid_name = "Archiv"
         self.dynamic_grid_col_percents = [20, 20, 20, 20, 20]
@@ -76,11 +77,6 @@ class AfpAdScreen(AfpScreen):
   
     ## initialize widgets
     def InitWx(self):
-        #self.InitWx_panel()
-        self.InitWx_sizer()
-       
-    ## initialize widgets with sizer
-    def InitWx_sizer(self):
         # set up sizer strukture
         self.sizer =wx.BoxSizer(wx.HORIZONTAL)
         
@@ -293,113 +289,6 @@ class AfpAdScreen(AfpScreen):
         
         self.dynamic_grid_sizer = self.grid_panel_sizer
         #self.Bind(wx.EVT_ACTIVATE, self.On_Activate)
-        
-    ## initialize widgets on panel        
-    def InitWx_panel(self):
-        panel = self.panel
-      
-        # BUTTON
-        self.button_Auswahl = wx.Button(panel, -1, label="Aus&wahl", pos=(692,50), size=(77,50), name="BAuswahl")
-        self.Bind(wx.EVT_BUTTON, self.On_Adresse_AuswErw, self.button_Auswahl)
-        self.button_Bearbeiten = wx.Button(panel, -1, label="&Bearbeiten", pos=(692,110), size=(77,50), name="Bearbeiten")
-        self.Bind(wx.EVT_BUTTON, self.On_Adresse_AendF, self.button_Bearbeiten)
-        self.button_Voll = wx.Button(panel, -1, label="&Volltext", pos=(692,170), size=(77,50), name="BVoll")
-        self.Bind(wx.EVT_BUTTON, self.On_Ad_Volltext, self.button_Voll)
-        self.button_Voll.Enable(False)
-       
-        self.button_Dokument = wx.Button(panel, -1, label="&Dokument", pos=(692,256), size=(77,50), name="BDokument")
-        self.Bind(wx.EVT_BUTTON, self.On_Adresse_Doku, self.button_Dokument)
-        self.button_Dokument.Enable(False)
-        self.button_Doppelt = wx.Button(panel, -1, label="Do&ppelte", pos=(692,338), size=(77,50), name="Doppelt")
-        self.Bind(wx.EVT_BUTTON, self.On_Adresse_Doppelt, self.button_Doppelt)
-        self.button_Listen = wx.Button(panel, -1, label="&Listen", pos=(692,405), size=(77,50), name="Listen")
-        self.Bind(wx.EVT_BUTTON, self.On_Adresse_Listen, self.button_Listen)
-        self.button_Listen.Enable(False)        
-        self.button_Ende = wx.Button(panel, -1, label="Be&enden", pos=(692,470), size=(77,50), name="Ende")
-        self.Bind(wx.EVT_BUTTON, self.On_Ende, self.button_Ende)
-
-        # COMBOBOX
-        self.combo_Filter_Merk = wx.ComboBox(panel, -1, value="", pos=(529,16), size=(150,20), choices=[], style=wx.CB_DROPDOWN, name="Filter_Merk")
-        self.Bind(wx.EVT_COMBOBOX, self.On_Filter_Merk, self.combo_Filter_Merk)
-        
-        self.combo_Archiv = wx.ComboBox(panel, -1, value="Dokumente", pos=(23,236), size=(186,20), choices=["Dokumente","Merkmale","Beziehungen"], style=wx.CB_DROPDOWN, name="Archivtyp")
-        #self.combo_Archiv = wx.ComboBox(panel, -1, value="Rechnungs-Ausgang", pos=(23,236), size=(186,20), choices=["Dokumente","Anmeldungen","Mietfahrten","Rechnungs-Ausgang","Rechnungs-Eingang"], style=wx.CB_DROPDOWN, name="Archiv")
-        self.Bind(wx.EVT_COMBOBOX, self.On_Filter_Archiv, self.combo_Archiv)
-        
-        # LABEL
-        self.label_Adresse = wx.StaticText(panel, -1, label="Adresse:", pos=(36,55), size=(115,16), name="LAdresse")
-        self.label_Tel = wx.StaticText(panel, -1, label="Telefon:", pos=(36,154), size=(46,16), name="LTel")
-        self.label_Fax = wx.StaticText(panel, -1, label="Fax:", pos=(36,188), size=(27,16), name="LFax")
-        self.label_Mail = wx.StaticText(panel, -1, label="E-Mail:", pos=(36,205), size=(42,16), name="LMail")
-        
-        # TEXTBOX
-        self.text_Vorname = wx.TextCtrl(panel, -1, "", pos=(35,78), size=(217,18), style=wx.TE_READONLY, name="Vorname")
-        self.textmap["Vorname"] = "Vorname.ADRESSE"
-        self.text_Name = wx.TextCtrl(panel, -1,value="", pos=(35,95), size=(217,18), style=wx.TE_READONLY, name="Name")
-        self.textmap["Name"] = "Name.ADRESSE"
-        
-        self.text_Strasse = wx.TextCtrl(panel, -1,value="", pos=(35,112), size=(271,18), style=wx.TE_READONLY, name="Strasse")
-        self.textmap["Strasse"] = "Strasse.ADRESSE"
-        
-        self.text_Plz = wx.TextCtrl(panel, -1,value="", pos=(35,129), size=(53,18), style=wx.TE_READONLY, name="Plz")
-        self.textmap["Plz"] = "Plz.ADRESSE"
-        self.text_Ort = wx.TextCtrl(panel, -1,value="", pos=(91,129), size=(215,18), style=wx.TE_READONLY, name="Ort")
-        self.textmap["Ort"] = "Ort.ADRESSE"
-        
-        self.text_Telefon = wx.TextCtrl(panel, -1,value="", pos=(89,154), size=(215,18), style=wx.TE_READONLY, name="Telefon")
-        self.textmap["Telefon"] = "Telefon.ADRESSE"
-        self.text_Tel2 = wx.TextCtrl(panel, -1,value="", pos=(89,171), size=(215,18), style=wx.TE_READONLY, name="Tel2")
-        self.textmap["Tel2"] = "Tel2.ADRESSE"
-        self.text_Fax = wx.TextCtrl(panel, -1,value="", pos=(89,188), size=(215,18), style=wx.TE_READONLY, name="Fax")
-        self.textmap["Fax"] = "Fax.ADRESSE"
-        self.text_Mail = wx.TextCtrl(panel, -1,value="", pos=(89,205), size=(215,18), style=0, name="Mail")
-        self.textmap["Mail"] = "Mail.ADRESSE"
-        
-        self.text_Bem = wx.TextCtrl(panel, -1,value="", pos=(379,137), size=(297,18), style=wx.TE_READONLY, name="Bem")
-        self.textmap["Bem"] = "Bem.ADRESSE"
-        self.text_BemExt = wx.TextCtrl(panel, -1,value="", pos=(462,52), size=(214,84), style=0, name="BemExt")
-        self.textmap["BemExt"] = "BemExt.ADRESSE"
-        
-        self.text_Geschlecht = wx.TextCtrl(panel, -1,value="", pos=(166,57), size=(24,18), style=wx.TE_READONLY, name="Geschlecht")
-        self.textmap["Geschlecht"] = "Geschlecht.ADRESSE"
-        self.text_Anrede = wx.TextCtrl(panel, -1,value="", pos=(203,57), size=(27,18), style=wx.TE_READONLY, name="Anrede")
-        self.textmap["Anrede"] = "Anrede.ADRESSE"
-        
-        self.text_MerkT_Archiv = wx.TextCtrl(panel, -1,value="", pos=(689,18), size=(80,18), style=0, name="MerkT_Archiv")
-
-        # OPTIONBUTTON
-        self.choice_Status = wx.Choice(panel, -1, pos=(377,52), size=(77,18), choices=["Passiv", "Aktiv", "Neutral", "Markiert", "Inaktiv"],  name="RStatus")
-        self.choice_Status.SetSelection(0)
-        #self.choice_Status.Enable(False)
-        self.Bind(wx.EVT_CHOICE, self.On_CStatus, self.choice_Status)
-        self.choicemap = AfpAdresse_StatusMap()
-        
-        # GRID
-        self.grid_archiv = wx.grid.Grid(panel, -1, pos=(23,256) , size=(653, 264), name="Archiv")
-        self.grid_archiv.CreateGrid(self.grid_rows["Archiv"], self.grid_cols["Archiv"])
-        self.grid_archiv.SetRowLabelSize(3)
-        self.grid_archiv.SetColLabelSize(18)
-        self.grid_archiv.EnableEditing(0)
-        self.grid_archiv.EnableDragColSize(0)
-        self.grid_archiv.EnableDragRowSize(0)
-        self.grid_archiv.EnableDragGridSize(0)
-        self.grid_archiv.SetSelectionMode(wx.grid.Grid.wxGridSelectRows)
-        self.grid_archiv.SetColLabelValue(0, self.archiv_colname[0])
-        self.grid_archiv.SetColSize(0, 130)
-        self.grid_archiv.SetColLabelValue(1, self.archiv_colname[1])
-        self.grid_archiv.SetColSize(1, 130)
-        self.grid_archiv.SetColLabelValue(2, self.archiv_colname[2])
-        self.grid_archiv.SetColSize(2, 130)
-        self.grid_archiv.SetColLabelValue(3, self.archiv_colname[3])
-        self.grid_archiv.SetColSize(3, 130)
-        self.grid_archiv.SetColLabelValue(4, self.archiv_colname[4])
-        self.grid_archiv.SetColSize(4, 130)
-        for row in range(0,self.grid_rows["Archiv"]):
-            for col in range(0,self.grid_cols["Archiv"]):
-                self.grid_archiv.SetReadOnly(row, col)
-        self.gridmap.append("Archiv")
-        self.grid_minrows["Archiv"] = self.grid_archiv.GetNumberRows()
-        self.Bind(wx.grid.EVT_GRID_CMD_CELL_LEFT_DCLICK, self.On_DClick_Archiv, self.grid_archiv)
 
     ## compose address specific menu parts
     def create_specific_menu(self):
@@ -455,6 +344,8 @@ class AfpAdScreen(AfpScreen):
             choices.append("Rechnungs-Ausgang")
         if "VERBIND" in tables:
             choices.append("Rechnungs-Eingang")
+        if "Finance" in mods and "BUCHUNG" in tables:
+            choices.append("Finanzbuchungen")
         if choices:
             for choice in choices:
                 self.combo_Archiv.Append(choice)
@@ -467,18 +358,23 @@ class AfpAdScreen(AfpScreen):
         #print "AfpAdScreen.On_DClick_Archiv:", index, typ
         if len(self.grid_id["Archiv"]) > index:
             value = Afp_fromString(self.grid_id["Archiv"][index])
+            print "AfpAdScreen.On_DClick_Archiv Archiv:", typ, index, value
             if typ == "Dokumente":
                 fpath = Afp_addRootpath(self.globals.get_value("archivdir"), value)
                 if not Afp_existsFile(fpath):
                      fpath = Afp_addRootpath(self.globals.get_value("antiquedir"), value)
                 if Afp_existsFile(fpath):
-                    Afp_startFile(fpath,self.globals, self.debug)
+                    Afp_startFile(fpath,self.globals, self.debug, True)
                 else:
                     print "WARNING: File not found in archiv:", fpath
             elif typ == "Merkmale":
                 print "AfpAdScreen.On_DClick_Archiv: Merkmal clicked"
             elif typ == "Beziehungen":
                 self.select_from_KNr(value)
+            elif typ == "Rechnungs-Eingang":
+                AfpLoad_Obligation_fromVbNr(self.globals, value)
+            elif typ == "Rechnungs-Ausgang":
+                AfpLoad_SimpleInvoice_fromReNr(self.globals, value)
             elif typ in self.data_objects:
                 self.data_objects[typ](self.globals, value)
         event.Skip()
@@ -498,7 +394,8 @@ class AfpAdScreen(AfpScreen):
                 value = values[1]
                 attrib = values[0]
             else: 
-                value = values[0]
+                #value = values[0]
+                value = values[0].split()[0]
         auswahl = AfpLoad_AdAusw(self.globals, self.sb_master, index, value, where, attrib, True)
         if not auswahl is None:
             KNr = int(auswahl)
@@ -626,7 +523,7 @@ class AfpAdScreen(AfpScreen):
         map = AfpAdresse_StatusMap()
         index = map[status]
         self.choice_Status.SetSelection(index)
-        if self.debug: print "AfpAdScreen Population routine`Pop_choice_status'", choice
+        if self.debug: print "AfpAdScreen Population routine`Pop_choice_status:'", status, index
     ## populate attribut filter with entries from database table
     def Pop_Filter_Merk(self):
         if self.debug:  print "AfpAdScreen Population routine`Pop_Filter_Merk'"      
@@ -649,12 +546,12 @@ class AfpAdScreen(AfpScreen):
         KNr = self.sb.get_value("KundenNr")
         if self.sb_master == "ADRESATT":
             self.sb.select_key(KNr,"KundenNr","ADRESSE")
-        #print "set_current_record",self.sb_master, KNr
+        #print "AfpAdScreen.set_current_record:",self.sb, self.data,self.sb_master, KNr
         self.Pop_choice_status()
         return  
     ## set initial record to be shown, when screen opens the first time
     #overwritten from AfpScreen) 
-    # @param origin -  initial data, if Integer, KNr is assumed else, string where to find the data
+    # @param origin -  initial data, if Integer, KNr is assumed, else string, where to find the data
     def set_initial_record(self, origin = None):
         if Afp_isInteger(origin):
             KNr = origin
@@ -705,22 +602,33 @@ class AfpAdScreen(AfpScreen):
                 # rows = self.mysql.select_strings("RechNr.ANMELD,Anmeldung,Zielort.REISEN,Preis.ANMELD,Zahlung.ANMELD,AnmeldNr",select,"ANMELD REISEN")
                 select += " and EventNr.EVENT = EventNr.ANMELD"
                 rows = self.mysql.select_strings("RechNr.ANMELD,Anmeldung,Bez.EVENT,Preis.ANMELD,Zahlung.ANMELD,AnmeldNr",select,"ANMELD EVENT")
+                rows = rows[::-1] # reverse list
             elif typ == "Mietfahrten":
                 self.archiv_colname = self.archiv_colnames[2]
                 rows = self.mysql.select_strings("Zustand,Abfahrt,Zielort,Art,Preis,FahrtNr",select,"FAHRTEN")
+                rows = rows[::-1] # reverse list
             elif typ == "Rechnungs-Ausgang":
                 self.archiv_colname = self.archiv_colnames[3]
                 rows = self.mysql.select_strings("RechNr,Datum,Bem,Betrag,Zahlung,RechNr",select,"RECHNG")
+                rows = rows[::-1] # reverse list
             elif typ == "Rechnungs-Eingang":
                 self.archiv_colname = self.archiv_colnames[4]
                 select += " and RechNr > 0"
                 rows = self.mysql.select_strings("ExternNr,Datum,Bem,Betrag,Zahlung,RechNr",select,"VERBIND") 
+                rows = rows[::-1] # reverse list
             elif typ == "Merkmale":
                 self.archiv_colname = self.archiv_colnames[5]
                 rows = self.mysql.select_strings("Attribut,AttText,Tag,Attribut",select,"ADRESATT") 
                 rows = self.split_tag_rows(rows)
-            elif typ == "Beziehungen":
+            elif typ == "Finanzbuchungen":
                 self.archiv_colname = self.archiv_colnames[6]
+                raws = self.mysql.select_strings("Datum,Konto,Gegenkonto,Betrag,Bem,Period,BuchungsNr",select,"BUCHUNG") 
+                rows = []
+                for raw in raws:
+                    rows.append([Afp_toString(raw[0]), raw[1] + " - " + raw[2], raw[3], raw[4], raw[5], raw[6]])
+                rows = rows[::-1] # reverse list
+            elif typ == "Beziehungen":
+                self.archiv_colname = self.archiv_colnames[7]
                 rows = []
                 stack = [int(KundenNr)]
                 if self.sb.get_value("Bez.ADRESSE"):

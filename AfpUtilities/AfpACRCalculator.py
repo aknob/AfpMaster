@@ -4,9 +4,15 @@
 # AfpACRCalculator provides calculation and simulation for the ACR process
 # of the Dassult Systèmes Deutschland GmbH
 # it holds the classes:
+#       AfpACRCalculator - class to control the compete calculation
+#       AfpACRRanges - class to handle wage ranges for the different types
+#       AfpACRPerson - class to handle all person specific data
+#       AfpACRPeopleManager - class to handle all involved persons
+#       AfpACRBooster - class to handle booster exceptions
 #
 #
 #   History: \n
+#        23 Feb. 2022 - add different booster and killer possibillities - Andreas.Knoblauch@afptech.de
 #        17 Mar. 2021 - add exclusion criteria due to OTE - Andreas.Knoblauch@afptech.de
 #        02 Mar. 2020 - add fixed budget surcharge - Andreas.Knoblauch@afptech.de
 #        21 Jan   2019 - adaption for additionally file formats - Andreas.Knoblauch@afptech.de
@@ -18,7 +24,7 @@
 #  AfpTechnologies (afptech.de)
 #
 #    BusAfp is a software to manage coach and travel acivities
-#    Copyright (C) 1989 - 2021 afptech.de (Andreas Knoblauch)
+#    Copyright (C) 1989 - 2022 afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -49,7 +55,7 @@ from AfpBase.AfpUtilities.AfpStringUtilities import Afp_fromString, Afp_toString
 # @param ref_str - string holding reference value for simulation
 # @param focal_str - string holding focal value for simulation
 # @param part - parttime flag - fte-factor should be used for calculation instead of full OTE
-# @param check -flag if matrices check should be performed and displayed (to confirm calculation-path)
+# @param check - flag if matrices check should be performed and displayed (to confirm calculation-path)
 # @param display - different keywords to allow output of different aspects of the data and the calculation
 # @param debug - flag for debug-modus
 def AfpACRCalculator_main(conffile, datafile, rangefile, budget_str, ref_str, focal_str, part, check, display, debug):
@@ -75,13 +81,19 @@ def AfpACRCalculator_main(conffile, datafile, rangefile, budget_str, ref_str, fo
     if config["DATA_FILE_NAME"] and config["RANGE_FILE_NAME"]:
         data = Afp_importCSVLines(config["DATA_FILE_NAME"])
         range_lines = Afp_importCSVLines(config["RANGE_FILE_NAME"])
+    boosters = None
     if data and range_lines:
         if debug: print "AfpACRCalculator_main: data", len(data), "lines and ranges",len(range_lines)," lines read!"
         ranges = AfpACRRanges(range_lines, config["RANGE_COLUMN_MAP"], debug)
         people = AfpACRPeopleManager(data, config["DATA_COLUMN_MAP"], debug)
         people.set_positioning(ranges)
         people.set_performance(config["DATA_PERFORMANCE_MAP"])
-        people.set_promotion(config["DATA_PROMOTION_LIST"])
+        if "DATA_PROMOTION_LIST" in config:
+            print "AfpACRCalculator.main: DATA_PROMOTION_LIST deprecated, please use DATA_BOOSTER_MAP!"
+            people.set_promotion(config["DATA_PROMOTION_LIST"])
+        if "DATA_BOOSTER_MAP" in config:
+            boosters = Afp_getBoostersFromConfig(config["DATA_BOOSTER_MAP"], debug)
+            people.set_boosters(boosters)
         if "DATA_INVALID_LIST" in config or "ELIGIBLE_RELATIV_OTE_FACTOR" in config or "ELIGIBLE_OTE_MAXIMUM" in config: 
             if "DATA_INVALID_LIST" in config: data_list = config["DATA_INVALID_LIST"]
             else: data_list = None
@@ -97,6 +109,7 @@ def AfpACRCalculator_main(conffile, datafile, rangefile, budget_str, ref_str, fo
         Calculator.set_spreadmap(config["MATRIX_SPREAD_MAP"])
         Calculator.set_manager(config["MATRIX_MANAGER_FACTOR"], config["MATRIX_MANAGER_MAP"], config["MATRIX_MANAGER_FOCAL"])
         Calculator.set_promomap(config["MATRIX_PROMOTION_PREMIUM"])
+        Calculator.set_boostermaps(boosters)
         Calculator.set_calcflags(config["CALC_USE_FOCAL_FOR_RANGE"], config["CALC_SKIP_SPREAD_ZEROS"])
         if "MATRIX_ACR" in config:
             Calculator.set_acr_matrix(config["MATRIX_ACR"])
@@ -141,14 +154,28 @@ def Afp_ReadConfig(filename):
         config["CONFIG_FILE_NAME"] = filename
     return config
  
- ## convert string to int, omit points
- # @param string - string to be converted
+## generate dictionary of AfpACRMatrixBooster objects from config dictionary
+# @param string - string to be converted
+def Afp_getBoostersFromConfig(config, debug = False):
+    boosters = {}
+    for name in config:
+        conf = config[name]
+        if "Matrix" in conf:
+            boosters[name] = AfpACRMatrixBooster(conf["Typ"], conf["Value"], conf["List"], conf["Matrix"], debug)
+        else:
+            boosters[name] = AfpACRMatrixBooster(conf["Typ"], conf["Value"], conf["List"], None, debug)
+    if boosters: return boosters
+    else: return None
+## convert string to int, omit points
+# @param string - string to be converted
 def Afp_toInt(string):
-    string = string.split()[0] # remove everything behind a space (e.g. €)
-    split = string.split(".")
-    string = ""
-    for sp in split:
-        string += sp
+    if string:
+        string = string.split()[0] # remove everything behind a space (e.g. €)
+        split = string.split(".")
+        string = ""
+        for sp in split:
+            string += sp
+        if "," in string: string = string.split(",")[0]
     if string and string.isdigit():
         return int(string)
     else:
@@ -246,7 +273,7 @@ def Afp_getDiff(string):
     val2 = Afp_fromString(split[-1])
     return val2 - val1
 
-## class to handle the calculations of the whole ACR process
+ ## class to handle the calculations of the whole ACR process
 class AfpACRCalculator(object):
     ## initialize AfpACRCalculator class
     # @param people - AfpACRPeopleManager object holding all involved persons
@@ -265,6 +292,7 @@ class AfpACRCalculator(object):
         self.spread = 2.0
         self.spread_threshold = 0.5
         self.promo = 2.0
+        self.boosters = {"PROMO": AfpACRMatrixBooster("+", 2.0, ["True"])}
         self.use_focal_as_base = False
         self.skip_spread_zeros = False
         self.acr_matrix = None
@@ -298,8 +326,10 @@ class AfpACRCalculator(object):
         self.focal_matrix = None
         ## focal value (mid value of matrix)
         self.focal_value = None
-        ## reference matrix holding the focal points of the ranges - used for simulation
+        ## matrix holding the promotion values of the ranges - used for calculation and simulation
         self.promo_matrix = None
+        ## holding the different booster matrices - used for calculation and simulation
+        self.booster_matrices = None
         ## result matrix, holding manager ranges in each field
         self.matrix = None
         ## result over all increase
@@ -362,6 +392,10 @@ class AfpACRCalculator(object):
             self.promo = promo
         elif Afp_checkMatrix(promo, n, m):
             self.promomap = promo
+    ## set booster values
+    # @param boosters - dictionary holding all values to create all boostermatrices
+    def set_boostermaps(self, boosters):
+        self.boosters = boosters
     ## set calculation flags
     # @param use_focal - flag,if focal value should be used to generate manager ranges
     # @param skip_zeros - flag, if zero fields in matrix should be skipped in calculation
@@ -376,7 +410,7 @@ class AfpACRCalculator(object):
     def set_acr_matrix(self, matrix ):
         self.acr_matrix = matrix
         self.check_acr = True
-        print "AfpACRCalculator.set_acr_matrix:", self.acr_matrix
+        #print "AfpACRCalculator.set_acr_matrix:", self.acr_matrix
         n = len(matrix)
         m = len(matrix[0])
         mat= Afp_initMatrix(n, m, 0.0)
@@ -396,7 +430,7 @@ class AfpACRCalculator(object):
             self.ote_leftover , self.ote_matrix = self.people.get_matrix_sums(False)
         else:
             self.ote_leftover , self.ote_matrix = self.people.get_matrix_sums()
-        promo_sum = self.gen_promotion_sum()
+        promo_sum = self.gen_boosted_sum()
         if debug: 
             print "AfpACRCalculator.calculate_focal_matrix ote matrix:", self.ote_leftover, self.ote_matrix
             print "AfpACRCalculator.calculate_focal_matrix spreadmap:", self.spreadmap, "PROMO:", self.promo, promo_sum, promo_sum/self.promo
@@ -431,8 +465,16 @@ class AfpACRCalculator(object):
                             checksum +=   (self.focal_value*self.spreadmap[i][j]*self.ote_matrix[i][j])/100
                 print "AfpACRCalculator.calculate_focal_matrix checksum:", checksum, "+" , reduce, "=", checksum + reduce, self.budget
             self.generate_focal_matrix()
-    ## gerneate promotion ote sum
+    ## generate increase sum over all boosters (inclusive promotions)
     # @param fte - flag if if full time equivalent data should be used for ote  calculation
+    def gen_boosted_sum(self, fte = True):
+        sum = self.gen_promotion_sum(fte)
+        if self.boosters:
+            for boost in self.boosters:
+                sum += self.gen_booster_sum(boost, fte)
+        return sum
+    ## generate promotion increase sum
+    # @param fte - flag if if full time equivalent data should be used for sum calculation
     def gen_promotion_sum(self, fte = True):
         promo = 0.0
         if self.promomap:
@@ -442,9 +484,26 @@ class AfpACRCalculator(object):
             for i in range(m):
                 for j in range(n):
                     promo += matrix[i][j] * self.promomap[i][j]/100
-        if self.promo:
+        elif self.promo:
             promo = self.people.get_promotion_sum(fte)*self.promo/100
         return promo
+    ## generate booster increase sum
+    # @param boost - name of used booster
+    # @param fte - flag if if full time equivalent data should be used for sum calculation
+    def gen_booster_sum(self, boost, fte = True):
+        sum = 0.0
+        if boost in self.boosters:
+            booster = self.boosters[boost]
+            if booster.get_matrix():
+                matrix = self.people.get_booster_matrix(fte)
+                n = self.people.get_matrix_length(0)
+                m = self.people.get_matrix_length(1)
+                for i in range(m):
+                    for j in range(n):
+                        sum += matrix[i][j] * booster.get_matrix()[i][j]/100
+            elif booster.get_value():
+                sum += self.people.get_booster_sum(boost, fte)*booster.get_value()/100
+        return sum
     ## generate one reference value from a focal value respecting manager range
     # @param focal - focal value
     # @param first - first index in matrix 
@@ -554,6 +613,19 @@ class AfpACRCalculator(object):
         if matrix:
             if self.debug: print "AfpACRCalculator.generate_promo_matrix:\n", self.promo_matrix,"\n", matrix
             self.promo_matrix = matrix
+    ## generate booster matrices \n
+    def generate_booster_matrices(self):
+        if self.boosters:
+            if self.use_focal_as_base:
+                from_matrix = self.focal_matrix
+            else:
+                from_matrix = self.reference_matrix
+            self.booster_matrices = {}
+            for name in self.boosters:
+                self.booster_matrices[name] = self.boosters[name].gen_boosted_matrix(from_matrix)
+        if self.debug: print "AfpACRCalculator.generate_booster_matrices:", self.booster_matrices
+        #print "AfpACRCalculator.generate_booster_matrices from:", from_matrix
+        #print "AfpACRCalculator.generate_booster_matrices:", self.booster_matrices
     ## simulate distribution for given reference or focal value \n
     # spreadmap will be used on focal value
     # @param ref - new reference value
@@ -567,15 +639,17 @@ class AfpACRCalculator(object):
             self.focal_value = focal
         if focal or self.focal_matrix is None:
             self.generate_focal_matrix()
-        if focal or self.reference_matrix is None or self.promo_matrix is None or self.matrix is None:
+        if focal or self.reference_matrix is None or self.promo_matrix is None or self.booster_matrices is None or self.matrix is None:
             if focal or self.reference_matrix is None:
                 self.generate_reference_matrix()
             if focal or self.matrix is None:
                 self.generate_acr_matrix()
             if focal or self.promo_matrix is None:
                 self.generate_promo_matrix()
+            if focal or self.booster_matrices is None:
+                self.generate_booster_matrices()
         # set ote proposals for all
-        self.people.set_ote_proposals(self.focal_matrix, self.promo_matrix)    
+        self.people.set_ote_proposals(self.focal_matrix, self.promo_matrix, self.booster_matrices)    
     ## check increase   
     def check_increase(self):
         if self.check_matrix:
@@ -746,7 +820,8 @@ class AfpACRCalculator(object):
         if typ == "HELP" or typ == "help":
              print "Data output, possible types:"
              print "MATRIX: spreadmap, managermap, ote matrix, referencevalue, referencematrix, focalvalue, focalmatrix, promotion matrix"
-             print "MATRIX type: display matrix of 'type'"
+             print "MATRIX type: display matrix of 'type', possible types:"
+             print "            'Focalvalues', 'Referenzvalues', 'Spread', 'Managerrange', 'ACR - Average,Distribution,Given', 'PROMO', 'PROMO - Focalvalues', 'OTE - Average,Distribution', Persons - Count,Percent'"
              print "CHECK_RANGE: People outside manager range"
         if typ is None or typ == "MATRIX":
             print "AfpACRCalculator.view spreadmap:", self.spreadmap
@@ -774,10 +849,18 @@ class AfpACRCalculator(object):
             matrix = self.get_matrix(ident)
             if not matrix: matrix = "not found!"
             print "AfpACRCalculator.view", typ + ":", matrix
-        elif typ == "CHECK RANGE":
-            martix = self.matrix
+        elif "CHECK_RANGE" == typ[:11]:
+            add = None
+            flag = False
+            if len(typ) > 11:
+                split = typ.split()
+                if len(split) > 2 and split[2].strip() == "%":
+                    flag = True
+                if len(split) > 1:
+                    add = Afp_fromString(split[1].strip())
+            matrix = self.matrix
             if self.acr_display: matrix = self.acr_display
-            self.people.acr_outside_range(matrix, self.promo)
+            self.people.acr_outside_range(matrix, self.boosters, add, flag)
         else:
             self.people.view(typ)
 
@@ -888,9 +971,11 @@ class AfpACRPerson(object):
     # - values["CLG"]- actuel career level grade
     # - values["DAIT"] - actuel dait grade
     # - values["PERF"] - actuel performance grade
+    # - values["ACR-OTE"] - result OTE value for  ACR, if given
+    # - values["ACR"] - result increase value for  ACR, if given
+    # other values needed for boosters or killers, p.e.:
     # - values["PROMO"] - promotion
     # - values["VALID"] - validation value, if given
-    # - values["ACR"] - result value for  ACR, if given
     # @param debug - flag for debug information
     def  __init__(self, nr, values, debug = False):
         if debug: print "AfpACRPerson._init:", nr, values
@@ -912,14 +997,24 @@ class AfpACRPerson(object):
         self.perf_indicator = values["PERF"]
         self.promo_indicator = values["PROMO"]
         self.validation_indicator = None
-        if "VALID" in values: self.validation_indicator = values["VALID"]
-        self.acr = None
+        if "VALID" in values: self.validation_indicator = values["VALID"].strip()
+        self.acr_ote = None
+        if "ACR-OTE" in values: self.acr_ote = Afp_toInt(values["ACR-OTE"])
+        self.acr = None 
         if "ACR" in values: self.acr = Afp_toInt(values["ACR"])
+        #print "AfpACRPerson.init ACR:", self.acr, "ACR" in values, values["ACR"], Afp_toInt(values["ACR"])
+        # look for other needed columns
+        value_names = ["ID", "NAME", "FAMILY", "OTE", "FTE", "CLG", "DAIT", "PERF", "ACR-OTE", "ACR"]
+        self.columns = {}
+        for name in values:
+            if not name in value_names:
+                self.columns[name] = values[name]
         # generated values
         self.positioning = None
         self.range_target = None
         self.performance = None
         self.promotion = False
+        self.booster = None
         self.eligible = True
         # result values
         self.percentage = None
@@ -928,6 +1023,7 @@ class AfpACRPerson(object):
         self.OTE_increase = None
         self.new_ote = None
         self.new_OTE = None
+        #print "AfpACRPerson.init columns:", self.columns
     ## return if person holds all data for a valid computation
     def is_valid(self):
         return self.OTE and self.ote and not self.positioning is None and not self.performance is None
@@ -936,6 +1032,34 @@ class AfpACRPerson(object):
     ## return if person is valid and has the eligibillity 
     def is_eligible(self):
         return self.is_valid() and self.eligible 
+    ## return if person is valid and has the eligibillity 
+    def is_boosted(self):
+        return not (self.booster is None) 
+    ## return if person is valid and has been promoted
+    def is_promoted(self):
+        return self.is_valid() and self.promotion 
+    ## return if person is valid and has been promoted
+    #@param clg - clg-part of grade to be checked
+    #@param dait - dait-part of-grade to be checked
+    def is_grade(self, clg, dait):
+        if clg == self.clg:
+            if dait == self.dait or ( "1" in dait and self.dait == "D") or ("2" in dait and self.dait == "A") or ("3" in dait and self.dait == "I") or ("4" in dait and self.dait == "T"):
+                return True
+        return False
+    ## check if person meets the requirements
+    #@param id - id to be checked
+    #@param ote - ote to be checked
+    #@param clg - clg-part of grade to be checked
+    #@param dait - dait-part of-grade to be checked
+    #@param job - job family to be checked
+    def check(self, id, ote=None, clg=None, dait=None, job=None):
+        check = True
+        if id: check = check & (self.get_id() == id)
+        if ote: check = check & (self.get_ote() == ote)
+        if clg and dait: check = check & self.is_grade(clg, dait)
+        if job: check = check & (self.family == job)
+        return check
+
     ## set fte as factor if percentage is given
     # @param fte - string holding the fte value
     def set_fte(self, fte):
@@ -973,18 +1097,32 @@ class AfpACRPerson(object):
             print "AfpACRPerson WARNING \"", self.perf_indicator, "\" not in given performance indicators for " + self.name + "!"
         return self.performance
     ## set promotion flag
-    # @param promolist - list holding entris which flag the promotion
+    # @param promolist - list holding entries which flag the promotion
     def set_promotion(self, promolist):
-        #print "AfpACRPerson.set_promotion:", self.promo_indicator, self.promo_indicator in promolist
+        print "AfpACRPerson.set_promotion:", self.promo_indicator, self.promo_indicator in promolist
         if self.promo_indicator in promolist or self.promo_indicator == "TRUE":
             self.promotion = True
+    ## set booster name
+    # @param boosters - dictionary of all possible booster objects to boost percentage
+    def set_booster(self, boosters):
+        if boosters:
+            for boost in boosters:
+                if boost in self.columns and boosters[boost].is_applicable(self.columns[boost]):
+                    self.booster = boost
+                    break
+        if self.id == 425:
+            print "AfpPerson.set_booster:", self.booster, self.id, boost in self.columns, self.columns[boost], boosters[boost].is_applicable(self.columns[boost])
+        #print "AfpPerson.set_booster:", self.booster, boosters, boost in self.columns, self.columns[boost], boosters[boost].is_applicable(self.columns[boost])
     ## set validation flag
     # @param invalidlist - list holding entries which flag this person not eligible
     # @param max_ote_factor - if given, maximal factor of salaryrange midpoint beeng eligible
     # @param max_ote - if given, maximum OTE beeing eligible for acr
     def set_eligibillity(self, invalidlist, max_ote_factor = None, max_ote = None):
+        #if self.validation_indicator.strip(): 
+        #    print "AfpACRPerson.set_eligibillity:", self.id, self.name, self.validation_indicator.strip()
+        #    print "AfpACRPerson.set_eligibillity:", invalidlist, self.validation_indicator in invalidlist
         if invalidlist and self.validation_indicator and self.validation_indicator in invalidlist:
-            #print "AfpACRPerson.set_eligibillity:", self.validation_indicator
+            #print "AfpACRPerson.set_eligibillity FALSE:", self.id, self.name, self.validation_indicator
             self.eligible = False
         if max_ote_factor:
             mid = (self.range_target[0] + self.range_target[1])/2.0
@@ -992,12 +1130,15 @@ class AfpACRPerson(object):
                 self.eligible = False
         if max_ote and self.OTE > max_ote:
             self.eligible = False
+        # don't allow performance below plan
+        if self.get_performance() == -1:
+            self.eligible = False
     ## set ote proposal
     # @param percent - proposed increase percentage
-    # @param promo - proposed increase percentage for promotion
+    # @param promo - if given, proposed increase percentage for promotion (boosting)
     def set_proposal(self, percent, promo = None):
         self.percentage = percent
-        if promo and self.promotion: 
+        if promo: 
             self.percentage = promo
             self.promo_increase =  self.OTE*(promo - percent)/100
         self.increase = self.ote*self.percentage/100
@@ -1040,6 +1181,9 @@ class AfpACRPerson(object):
     ## get promotion
     def get_promotion(self):
         return self.promotion
+    ## get booster
+    def get_booster(self):
+        return self.booster
     ## get positioning
     def get_positioning(self):
         return self.positioning
@@ -1076,26 +1220,33 @@ class AfpACRPerson(object):
     def get_acr_increase(self, fte = True):
         inc = None
         if self.acr:
-            if fte:  inc = float(self.acr - self.OTE)
-            else:  inc =  float(self.acr - self.OTE)*self.fte
+            if fte: inc = self.acr
+            else: inc = self.acr*self.fte
+        elif self.acr_ote:
+            if fte:  inc = float(self.acr_ote - self.OTE)
+            else:  inc =  float(self.acr_ote - self.OTE)*self.fte
         if inc is None: inc = 0.0
         return inc
     ## get result acr increase percent value
     # @param fte - flag if full time increase should be returned
-    def get_acr_percent(self, fte = True):
+    # @param red - manual reduction of used invrease
+    def get_acr_percent(self, fte = True, red = None):
         inc = self.get_acr_increase(fte)
+        if red: inc -= red
         percent = 0.0
         if inc:
-            if fte: percent = 100*inc/self.OTE
-            else:  percent = 100*inc/(self.OTE*self.fte)
+            if fte: percent = 100.0*inc/self.OTE
+            else:  percent = 100.0*inc/(self.OTE*self.fte)
         return int(percent*100)/100.0
     ## get row data for grids
     def get_row(self):
         promo = "No"
         if self.promotion: promo = "Yes"
+        if self.booster: promo = self.booster
         percent = Afp_toString(self.percentage)
         increase = Afp_toString(self.OTE_increase)
         if self.acr:
+            #print "AfpACRPerson.get_row acr:", self.acr, self.get_acr_increase()
             increase += "  " + Afp_toString(self.get_acr_increase())
             if self.ote:
                 percent += "  " + Afp_toString(self.get_acr_percent())
@@ -1103,14 +1254,16 @@ class AfpACRPerson(object):
     ## show data
     # @param typ - indicator what should be shown
     def view(self, typ = None):
+        if self.debug:  print "AfpACRPerson.view:", typ
         if typ == "HELP" or typ == "help":
-            print "Output per Person, possible types:"
+            print "\nOutput per person, possible types:"
             print "None or ALL: Id, Name, Jobfamily, OTE, FTE-factor, CLG, DAIT, positioning, performance, promotion, percentage of increase, new OTE"
             print "ACR:         Id, Name, planned percentage of increase, planned OTE increase, planned new OTE, real percentage, real increase, real new OTE, difference of increase"
             print "OTE:         Id, Name, FTE-factor, fulltime OTE, parttime OTE, percentage of increase, new fultime OTE, new parttime OTE"
             print "increase:    Id, Name, increase, percentage of increase"
             print "position:    Id, Name, OTE, positioning, target range"
             print "performance: Id, Name, result of performance review, performance, promotin indicator, promotion flag"
+            print "DIFF:        Id, Name, OTE, 'DIFF:', difference of given ACR-value to computed ACR-result"
         if typ == "performance":
             print "AfpACRPerson.view performance:", self.get_id(), self.name, self.perf_indicator, self.performance, "PROMO:", self.promo_indicator, self.promotion
         elif typ == "position":
@@ -1123,14 +1276,74 @@ class AfpACRPerson(object):
             inc = self.get_acr_increase()
             res = self.get_acr_percent()
             print "AfpACRPerson.view ACR result:", self.get_id(), self.name, self.OTE, "PLANNED:", Afp_toString(self.percentage), Afp_toString(self.OTE_increase), Afp_toString(self.new_OTE), "RESULT:", Afp_toString(res), Afp_toString(inc), Afp_toString(self.acr), "DIFF:", Afp_toString(inc - self.OTE_increase)
+        elif typ[:4] == "DIFF":
+            limit = None
+            if len(typ) > 4:
+                limit = Afp_toInt(typ[4:])
+            inc = self.get_acr_increase()
+            diff = inc - self.OTE_increase
+            if limit is None or diff > limit or -diff > limit:
+                print "AfpACRPerson.view ACR difference:", self.get_id(), self.name, self.OTE, "DIFF:", Afp_toString(diff)
         elif typ is None or typ == "ALL":
             print "AfpACRPerson.view:", self.get_id(), self.name, self.family, self.OTE, self.fte, self.clg, self.dait, self.positioning, self.performance, self.promotion, self.percentage, self.new_OTE
 
+## class to handle different booster possibillities for each person
+class AfpACRMatrixBooster(object):
+    ## initialize AfpACRMatrixBooster class
+    # @param typ - typ of booster, possible types are '+' and '*'
+    # @param value - value of booster to be applied
+    # @param list - list of column values to allow use of this booster
+    # @param matrix - if given, matrix for different booster values
+    # @param debug - flag for debug information
+    def  __init__(self, typ, value, list, matrix = None, debug = False):
+        self.typ = typ
+        self.value = value
+        self.list = list
+        self.matrix = matrix
+        self.debug = debug
+        if self.debug: print "AfpACRMatrixBooster Konstruktor:", self.typ, self.value, self.list, self.matrix
+    ## get given typ
+    def get_typ(self):
+        return self.typ
+    ## get given value
+    def get_value(self):
+        return self.value
+    ## get given conditions
+    def get_list(self):
+        return self.list
+    ## get given matrix
+    def get_matrix(self):
+        return self.matrix
+    ## apply booster on given value
+    # @param in_matrix - matrix to be manipulated
+    def gen_boosted_matrix(self, in_matrix):
+        n = len(in_matrix)
+        m = len(in_matrix[0])
+        matrix = Afp_initMatrix(n, m, 0.0)
+        for i in range(n):
+            for j in range(m):
+                if Afp_validMatrixField(i, j, self.matrix):
+                    if self.typ == "*":
+                        matrix[i][j] = in_matrix[i][j]*self.matrix[i][j]
+                    else:
+                        matrix[i][j] = in_matrix[i][j]+self.matrix[i][j]
+                else:
+                    if self.typ == "*":
+                        matrix[i][j] = in_matrix[i][j]*self.value
+                    else:
+                        matrix[i][j] = in_matrix[i][j]+self.value
+        return matrix
+    ## check if this booster is applicable for the given column enty
+    # @param colval - value to be checked against booster list
+    def is_applicable(self, colval):
+        if self.list and colval.strip() in self.list:
+            return True
+        else:
+            return False
 ## class to handle data of all involved persons
 class AfpACRPeopleManager(object):
     ## initialize AfpACRPeopleManager class
-    # @param data - lines read from data file
-    # @param colmap - dictionary for used column indices
+    # @param data - lines read fro  for used column indices
     # @param debug - flag for debug information
     def  __init__(self, data, colmap, debug = False):
         self.debug = debug
@@ -1148,13 +1361,13 @@ class AfpACRPeopleManager(object):
     #@param colmap - original mappig
     #@param colmap_data - indices of mapfields in row
     def extract_cols(self, row, colmap, colmap_data):
-        #print "AfpACRPeopleManager.extract_cols", row
         cols = {}
         for col in colmap: 
             if col in colmap_data:
                 cols[col] = row[colmap_data[col]].decode('iso8859_15')
             else:
                 cols[col] = ""
+        #print "AfpACRPeopleManager.extract_cols cols:", cols
         return cols
     ## set person values from read lines
     # @param data - lines read from data file
@@ -1183,6 +1396,7 @@ class AfpACRPeopleManager(object):
             cols = self.extract_cols(Afp_splitMasked(data[i], ",", "\""), colmap, colmap_data)
             if merge: cols = self.add_data_for_entry(count, cols, no_promo)
             if Afp_holdsValues(cols):
+                #print "AfpACRPeopleManager.set_persons cols:",i, cols
                 person = AfpACRPerson(count, cols, self.debug)
                 persons.append(person)
                 count += 1
@@ -1217,27 +1431,44 @@ class AfpACRPeopleManager(object):
         percent = 100.0 *(cnt+below)/count
         print "AfpACRPeopleManager.ote_above_rangemid used faktor:", fac, "People above, below:", cnt, below, "Percentage above, above-below:", Afp_toString(percab), Afp_toString(percent)
     ## display all acr value given outside manager range
-    # @param matrix -matrix holding actuel manager ranges
-    # @param promo -additional value for promotion
-    def acr_outside_range(self, matrix, promo):
+    # @param matrix - matrix holding actuel manager ranges
+    # @param boosters - if given, possible increase boosters
+    # @param add - if given, value that had been added to increase
+    # @param precent_flag - if given, flag if value i9s givfen in percents
+    def acr_outside_range(self, matrix, boosters = None,  add = None, percent_flag = False):
         found = False
         for person in self.persons:
-            if person.is_eligible():
-                i = self.get_matrix_index(1, person.get_performance())
-                j = self.get_matrix_index(0, person.get_positioning())
-            else:
-                i = self.get_matrix_length(1)/2
-                j = self.get_matrix_length(0)/2
+            if not person.is_eligible(): continue
+            i = self.get_matrix_index(1, person.get_performance())
+            j = self.get_matrix_index(0, person.get_positioning())
             split = matrix[i][j].split("-")
             min = Afp_fromString(split[0].strip())
             max = Afp_fromString(split[1].strip()) 
-            if person.get_promotion():
-                min += promo
-                max += promo
+            promo = 0
+            if boosters and person.is_boosted():
+                boost = person.get_booster()
+                if boost in boosters:
+                    bmat = boosters[boost].get_matrix()
+                    if bmat:
+                        promo = bmat[i][j]
+                    else:
+                        promo = boosters[boost].get_value()
+                    min += promo
+                    max += promo
+            percent = 0
+            if add:
+                percent = add
+                if not percent_flag:
+                    percent = (add*100.0)/person.get_ote()
+                min += percent
+                max += percent
             acr = person.get_acr_percent()
-            if acr < min or acr > max:
+            if acr < (min - 0.01) or acr > max:
                 found = True
-                print "AfpACRPeopleManager.acr_outside_range:", person.get_id(), person.get_name(), person.get_promotion(), Afp_toString(acr), "outside range ", Afp_toString(min),  Afp_toString(max)
+                if add:
+                    print "AfpACRPeopleManager.acr_outside_range:", person.get_id(), person.get_name(), Afp_toString(add), Afp_toString(percent), Afp_toString(promo), Afp_toString(acr), "OUTSIDE RANGE ", Afp_toString(min),  Afp_toString(max)
+                else:
+                    print "AfpACRPeopleManager.acr_outside_range:", person.get_id(), person.get_name(), Afp_toString(promo), Afp_toString(acr), "OUTSIDE RANGE ", Afp_toString(min),  Afp_toString(max)
         if not found:
             print "AfpACRPeopleManager.acr_outside_range: no persons found outside range!"
    ## set positioning due to input ranges
@@ -1263,9 +1494,14 @@ class AfpACRPeopleManager(object):
     ## set promotion flag due to input indicators
     # @param promolist - list holding all positiv promotion indicators
     def set_promotion(self, promolist):
-        #print "ACRPeopleManager promotionlist:", promolist
         for person in self.persons:
             person.set_promotion(promolist)
+    ## set booster name if applicable
+    # @param boosters - dictionary holding all booster values
+    def set_boosters(self, boosters):
+        #print "ACRPeopleManager.set_boosters:", boosters
+        for person in self.persons:
+            person.set_booster(boosters)
     ## set invalid flag due to input indicators
     # @param  invalidlist - list holding entries which flag this person not eligible
     # @param max_ote_factor - if given, maximal factor of salaryrange midpoint beeng eligible
@@ -1277,17 +1513,23 @@ class AfpACRPeopleManager(object):
     ## set ote increase proposals
     # @param matrix - list holding all increase percentages
     # @param pmatrix - list holding all increase percentage for promotions
-    def set_ote_proposals(self, matrix, pmatrix):
+    # @param bmatrices - dictionary holding lists holding all increase percentage for the different boosters
+    def set_ote_proposals(self, matrix, pmatrix, bmatrices = None):
         self.rounded = 0.0
         for person in self.persons:
             if person.is_eligible():
                 i = self.get_matrix_index(1, person.get_performance())
                 j = self.get_matrix_index(0, person.get_positioning())
                 p = matrix[i][j]
-                pp = pmatrix[i][j]
+                pp = None
+                if person.get_promotion(): pp = pmatrix[i][j]
+                if bmatrices:
+                    boost = person.get_booster()
+                    if boost:
+                        pp = bmatrices[boost][i][j]
             else:
                 p = 0.0
-                pp = 0.0
+                pp = None
             #print "AfpACRPeopleManager.set_ote_proposals:", i, j, person.get_name(),  person.is_eligible(), "PERF:",person.get_performance(), "POS:", person.get_positioning(), p, pp
             person.set_proposal(p, pp)
             if self.round: self.rounded += person.set_rounded_proposals(self.round)
@@ -1300,20 +1542,31 @@ class AfpACRPeopleManager(object):
     ## get name from person given by other indicators
     # @param nr - number of line
     # @param cols - values to be set in this line
-    # @param promo - flag if promotion should also be tranfered
+    # @param promo - flag if promotion should also be transfered
     def add_data_for_entry(self, nr, cols, promo = False):
         id = nr
         if "ID" in cols:
             id = Afp_toInt(cols["ID"])
+        ote = None
+        clg = None
+        dait = None
+        job = None
+        if "OTE" in cols and "CLG" in cols and "DAIT" in cols and "FAMILY" in cols:
+            ote = Afp_toInt(cols["OTE"])
+            clg = Afp_fromString(cols["CLG"])
+            dait = Afp_fromString(cols["DAIT"])
+            job = Afp_fromString(cols["FAMILY"])
+        # if "ID" is not applicable also other values p.e. "OTE" may be used
         found = False
         for person in self.persons:
-            if person.get_id() == id:
+            #if person.check(id):
+            if person.check(None, ote, clg, dait):
                 cols["NAME"] = person.get_name()
                 if promo and person.get_promotion():
                     cols["PROMO"] = "TRUE"
                 found = True
                 break
-        if not found: print "AfpACRPerson WARNINGI D:", id, ", name not found during merge!"
+        if not found: print "AfpACRPerson WARNING:\"", id, ote, clg, dait, "\", name not found during merge!"
         return cols
     ## get ranges for distribution matrix
     def get_matrix_range(self):
@@ -1354,6 +1607,19 @@ class AfpACRPeopleManager(object):
                 else:
                     sum += person.get_ote(fte)
         return sum
+    ## generate booster ote sum
+    # @param boost - name of booster to be respected
+    # @param fte - flag if fulltime ote should be used
+    # @param inc - flag if increase should be used instead of ote
+    def get_booster_sum(self, boost, fte = True, inc = False):
+        sum = 0.0
+        for person in self.persons:
+            if person.get_booster() == boost and person.is_eligible():
+                if inc:
+                    sum += person.get_increase(fte, True)
+                else:
+                    sum += person.get_ote(fte)
+        return sum
    ## generate increase sum
     # @param fte - flag if fulltime increase should be used
     # @param all - flag if all persons should be counted or only valid persons count
@@ -1389,7 +1655,7 @@ class AfpACRPeopleManager(object):
         sum = 0.0
         matrix = Afp_initMatrix(self.get_matrix_length(0), self.get_matrix_length(1), 0.0)
         for person in self.persons:
-            if person.get_promotion():
+            if person.get_promotion() and person.is_eligible():
                 i = self.get_matrix_index(1, person.get_performance())
                 j = self.get_matrix_index(0, person.get_positioning())
                 if inc:
@@ -1436,9 +1702,13 @@ class AfpACRPeopleManager(object):
     def view(self, typ = None):
         if typ == "HELP" or typ == "help":
             print "PEOPLE ABOVE [ALL] factor:     number of people and percentage of people above range-midpoint*'factor'"
-            if len(self.persons):
+            if len(self.persons): 
                 self.persons[0].view(typ)
-        elif "PEOPLE" in typ:
+            print "\nResult output after person output:"
+            print "DIFF:        ACR difference SUMS: sum, absolut sum; Min/Max: minimum and maximum value; Average: average value of differences"   
+        else:
+            print "AfpACRPeopleManager.view:", typ
+        if "PEOPLE" in typ:
             if typ[:12] == "PEOPLE ABOVE":
                 fac = None
                 list = False
@@ -1450,6 +1720,24 @@ class AfpACRPeopleManager(object):
                 if fstrg:
                     fac = Afp_numericString(fstrg, None)
                 self.ote_above_rangemid(fac, list)
+        elif typ[:4] == "DIFF":
+            sum = 0
+            suma = 0
+            cnt = 0
+            maxa = 0
+            min = 0
+            max = 0
+            for person in self.persons:
+                person.view(typ)
+                diff = person.get_acr_increase() - person.OTE_increase
+                sum += diff
+                if diff < 0: suma -= diff
+                else: suma += diff
+                cnt += 1
+                if diff < min: min = diff
+                if diff > max: max = diff
+            aver = suma/cnt
+            print "AfpACRPeopleHandler.view ACR difference SUMS:", sum, suma, "Min/Max:", min, max, "Average:", aver
         else:
             for person in self.persons:
                 person.view(typ)
@@ -1526,12 +1814,15 @@ if __name__ == "__main__":
         print "          DATA section:"
         print "               DATA_FILE_NAME, as option -d"
         print "               DATA_COLUMN_MAP, mapping of the file columns to the following indicators:"
-        print "                                NAME, FAMILY, OTE, FTE, CLG, DAIT, PERF, PROMO, VALID"
+        print "                                NAME, FAMILY, OTE, FTE, CLG, DAIT, PERF, ACR-OTE, ACR, PROMO, VALID"
         print "                               p.e: 'DATA_COLUMN_MAP = {\"NAME\":\"Name\",\"OTE\":\"Gehalt\"}'"
         print "               DATA_PERFORMANCE_MAP, mapping of the PERF column values to the relativ matrix indices"
         print "                               p.e: 'DATA_PERFORMANCE_MAP = {\"Below\":-1, \"Achieved\":0, \"Exceed\":1}'"
-        print "               DATA_PROMOTION_LIST, list of the PROMO column values to indicate promotion"
+        print "               DATA_PROMOTION_LIST, (deprecated use DATA_BOOSTER_MAP) list of the PROMO column values to indicate promotion"
         print "                               p.e: 'DATA_PROMOTION_LIST = [\"Promotion\",\"promoted\"]'"
+        print "               DATA_BOOSTER_MAP, dictionary of booster data (replaces DATA_PROMOTION_LIST), CAUTION: key values must also occur in the DATA_COLUMN_MAP"
+        print "                               p.e: 'DATA_BOOSTER_MAP = {\"PROMO\": {\"Typ\": \"+\", \"Value\": 2, \"List\": [\"x1\", ...], \"Matrix\": [[0, 0, 0], [2, 2, 2], [3, 3, 3]]}, ... }'"
+        print "                                     Typ: + or *, Value or Matrix must be given, List: holding values in column to initiate this booster"
         print "   ELIGIBILITY section:" 
         print "               DATA_INVALID_LIST,  list of VALID column values to indicate this entry is NOT eligible"
         print "                               p.e: 'DATA_INVALID_LIST = [\"Termination\", \"Individual agreement\"]'"
@@ -1549,10 +1840,10 @@ if __name__ == "__main__":
         print "               MATRIX_MANAGER_MAP, map how the manager range is applied over the result matrix (p.e. for a 3x3 matrix)"
         print "                               p.e: 'MATRIX_MANAGER_MAP = [[0.25, 0.25, 0.25], [None, None, None], [None, None, 1.0]]'"
         print "               MATRIX_MANAGER_FOCAL, percentage of manager range to generate focal values"
-        print "               MATRIX_PROMOTION_PREMIUM, promotion premium percentage or matrix of promotion premium percentages"
+        print "               MATRIX_PROMOTION_PREMIUM, (deprecated, is included in DATA_BOOSTER_MAP) promotion premium percentage or matrix of promotion premium percentages"
         print "                               p.e: 'MATRIX_PROMOTION_PREMIUM = 2.0,'"
         print "                               p.e: 'MATRIX_PROMOTION_PREMIUM = [[2.0, 2.0, 2.0], [2.0, 2.0, 2.0], [2.0, 2.0, 2.0]]'"
         print "   CALCULATION section:" 
         print "               CALC_USE_FOCAL_FOR_RANGE  = 1, use focal value to calculate manager-range instead of reference value"
-        print "               CALC_SKIP_SPREAD_ZEROS, skp = 1, focal simulation/calculation for 0.0 fields in spreadmap (lower than plan column)"
+        print "               CALC_SKIP_SPREAD_ZEROS = 1, skip focal simulation/calculation for 0.0 fields in spreadmap (lower than plan column)"
         print

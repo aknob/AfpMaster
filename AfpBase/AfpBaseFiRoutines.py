@@ -517,7 +517,7 @@ class AfpObligation(AfpPaymentList):
         self.selects["ARCHIV"] = [ "ARCHIV","TabNr = RechNr.VERBIND AND Tab = \"VERBIND\""] 
         if complete: self.create_selections()
         # set payment related data
-        payment_values = {"outgoing":True, "cancel":"Zustand",  "cancel_value":"Storno", "price":"ZahlBetrag,Betrag", "text":"Bem"}
+        payment_values = {"outgoing":True, "cancel":"Zustand",  "cancel_value":"Storno", "price":"ZahlBetrag,Betrag", "text":"ExternNr,Bem"}
         self.set_payment_data(payment_values)
         if self.debug: print "AfpObligation Konstruktor, RechNr:", self.mainvalue
     ## destructor

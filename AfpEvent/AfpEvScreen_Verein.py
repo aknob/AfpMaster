@@ -7,6 +7,7 @@
 # - AfpEvScreen_Verein
 #
 #   History: \n
+#        25 Aug. 2022 - add main Verein type sampling all members - Andreas.Knoblauch@afptech.de
 #        10 Apr. 2019 - integrate all devired flavour classes into one deck - Andreas.Knoblauch@afptech.de
 #        10 Jan 2019 - inital code generated - Andreas.Knoblauch@afptech.de
 
@@ -16,7 +17,7 @@
 #  AfpTechnologies (afptech.de)
 #
 #    BusAfp is a software to manage coach and travel activities
-#    Copyright© 1989 - 2021 afptech.de (Andreas Knoblauch)
+#    Copyright© 1989 - 2023 afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -75,9 +76,9 @@ def AfpEvVerein_exeStorno(verein):
             client = AfpEvMember(verein.get_globals(), left)
             ok = AfpLoad_EvMemberEdit(client, True, True)
 
-## baseclass for club handling         
+## baseclass for club handling, section of the club         
 class AfpEvVerein(AfpEvent):
-    ## initialize AfpEvent class
+    ## initialize AfpEvVerein class
     # @param globals - global values including the mysql connection - this input is mandatory
     # @param EventNr - if given and sb == None, data will be retrieved this database entry
     # @param sb - if given data will  be retrieved from the actuel AfpSuperbase data
@@ -94,17 +95,28 @@ class AfpEvVerein(AfpEvent):
             print "AfpEvVerein Konstruktor, Agent:", Name, KNr
             self.set_value("AgentNr.EVENT", KNr)
             self.set_value("AgentName.EVENT", Name)
-        # overwrite ARCHIV
+        if self.is_main_section():
+            ev_select = "" # first shot, propably sampling all entries with the same agent would be the right way
+        else:
+            ev_select = "EventNr = EventNr.EVENT AND "
+       # overwrite ARCHIV
         days = globals.get_value("show-archiv-interval-Verein","Event")
         if not days: days = 365
         past = Afp_toInternDateString(Afp_addDaysToDate(globals.today(), days, "-"))
         self.selects["ARCHIV"] = [ "ARCHIV","TabNr = EventNr.EVENT AND Tab = \"EVENT\" AND Datum >= \"" + past + "\""] 
         self.selects["AUSGABE"] = [ "AUSGABE","Modul = \"Event\" AND Art = Art.EVENT"] 
-        self.selects["Anmeldung"] = [ "ANMELD","EventNr = EventNr.EVENT AND Zustand = \"Anmeldung\"","AnmeldNr"] 
-        self.selects["PreStorno"] = [ "ANMELD","EventNr = EventNr.EVENT AND Zustand = \"PreStorno\"","AnmeldNr"] 
+        self.selects["Anmeldung"] = [ "ANMELD", ev_select + "Zustand = \"Anmeldung\"","AnmeldNr"] 
+        self.selects["PreStorno"] = [ "ANMELD", ev_select + "Zustand = \"PreStorno\"","AnmeldNr"] 
         self.selects["Verein"] = [ "ADRESATT","KundenNr = AgentNr.EVENT AND Attribut = \"Verein\""] 
         if complete: self.create_selections()
         if self.debug: print "AfpEvVerein Konstruktor, EventNr:", self.mainvalue
+        
+    ## decide, if this section represents the whole club
+    def is_main_section(self):
+        bez =  self.get_value("Bez")
+        if bez and "Gesamtverein" in bez:
+            return True
+        return False
 
     ## execute cancel action for all prepared member
     def execute_cancel(self):
@@ -159,22 +171,52 @@ class AfpEvVerein(AfpEvent):
     
     ## generate identification number (membership number for "Verein")  
     def generate_IdNr(self):
-        # ToDo: for different 'Sparten' in 'Verein' look for already given id
-        #self.lock_data("EVENT")
-        self.lock_data()
-        IdNr = self.get_value("RechNr") + 1
-        self.set_value("RechNr", IdNr)
-        print "AfpEvVerein.generate_IdNr IdNr:", IdNr
-        #tag = self.get_value("Tag.Verein")
-        #Extern = AfpExternNr(self.get_globals(),"Count", tag, self.debug)
-        #IdNr = Extern.get_number()
+        old = False
+        #old = True
+        if old:
+            self.lock_data()
+            IdNr = self.get_value("RechNr") + 1
+            self.set_value("RechNr", IdNr)
+        else:
+            tag = self.get_value("Tag.Verein")
+            Extern = AfpExternNr(self.get_globals(),"Count", tag, self.debug)
+            IdNr = Extern.get_number()
+        print "AfpEvVerein.generate_IdNr IdNr:", old, tag, IdNr
         return IdNr
-
-    ## decide whether this event may holds a route insted of the location
+        
+    ## internal routine to set the  filter on ANMELD selection
+    # - overwritten from AfpEvent
+    # @param values - list of filter values to be applied on selection 
+    def set_anmeld_filter(self, values = None):
+        if self.is_main_section():
+            filter = ""
+        else:
+            filter = "EventNr = EventNr.EVENT"
+        if values:
+            inner = ""
+            for val in values:
+                if "=" in val or">" in val or "<" in val:
+                    filter += " AND " + val
+                else:
+                    inner += " OR Zustand = \"" + val + "\""
+            filter += " AND (" + inner[4:] + ")"
+        if len(filter)  > 4 and filter[:5] == " AND ": filter = filter[5:]
+        #print "AfpVerein.set_anmeld_filter:", filter
+        self.selects["ANMELD"] = [ "ANMELD",filter,"AnmeldNr"] 
+    ## clear current SelectionList to behave as a newly created List 
+    # - overwritten from AfpEvent
+    # @param copy -  flag if a copy should be created or flags which data should be kept during creation of a copy
+    def set_new(self, copy = None):
+        print  "AfpEvVerein.set_new old:", self.view()
+        if copy == True:
+            copy = [False, True, False, False]
+        super(AfpEvVerein, self).set_new(copy)
+        print  "AfpEvVerein.set_new new:", self.view()
+    ## decide whether this event may hold a route insted of the location
     # - overwritten from AfpEvent
     def has_route(self):
         return True
-      ## return specific identification string to be used in dialogs \n
+    ## return specific identification string to be used in dialogs \n
     # - overwritten from AfpEvent
     def get_identification_string(self):
         return "Verein '" +  self.get_string_value("AgentName") + "', Sparte "  +  self.get_string_value("Bez") + " mit " + self.get_string_value("Anmeldungen") + " Mitgliedern"
@@ -187,6 +229,7 @@ class AfpEvVerein(AfpEvent):
     # overwritten from AfpEvent
     # @param Nr - if given, this counter will be used to generate RechNr-string
     def generate_RechNr(self, Nr=None):
+        print "AfpEvVerein.generate_RechNr Nr:", Nr
         if Nr is None: Nr = self.generate_IdNr()
         deci = self.globals.get_value("decimals-in-rechnr","Event")
         if not deci: deci = 2
@@ -209,6 +252,7 @@ class AfpEvMember(AfpEvClient):
         self.listname="Member"
         self.keptNr = None
         #  self.selects[name of selection]  [tablename,, select criteria, optional: unique fieldname]
+        self.selects["PREISE"] = [ "PREISE","EventNr = EventNr.ANMELD OR EventNr = 0"] 
         self.selects["TORT"] = [ "TORT","OrtsNr = Ab.ANMELD"] 
         self.selects["ANMELDATT"] = [ "ANMELDATT","AnmeldNr = AnmeldNr.ANMELD"] 
         self.selects["ARCHIV"] = [ "ARCHIV","Tab = \"ANMELD\" AND TabNr = AnmeldNr.ANMELD"] 
@@ -473,6 +517,7 @@ class AfpEvScreen_Verein(AfpEvScreen):
         self.white = wx.Colour(255, 255, 255)
         AfpEvScreen.__init__(self, debug)
         self.flavour = "Verein"
+        self.members_complete = "0"
         self.special_agent_output = False
         self.SetTitle("Afp Verein")
         self.grid_sort_rows = {} # enable sorting 
@@ -826,6 +871,12 @@ class AfpEvScreen_Verein(AfpEvScreen):
             Label.SetLabel(value)
             #print "AfpEvScreen_Verein.Pop_label:",  entry, "=", value.strip(), "Flags:", is_slave, len(value.strip()) > 0 and is_slave
             if len(value.strip()) > 0 and is_slave: Label.SetBackgroundColour(self.white)
+    ## population routine for special treatment 
+    # - overwritten from AfpScreen
+    #  to reload labels after grid loading (cause grid sets number of rows)
+    def Pop_special(self):
+        if self.data.is_main_section():
+            self.label_Anmeldungen.SetLabel(self.members_complete)
 
     ## Eventhandler Menu - handle SEPA creditor transfer debit
     def On_SEPAct(self,event):
@@ -877,13 +928,14 @@ class AfpEvScreen_Verein(AfpEvScreen):
                 self.load_direct(None, ANr)
                 self.Pop_label()
         else:
-            name = self.data.get_name(True, "Agent")
-            filter = "Attribut = \"Verein\""
-            auswahl = AfpLoad_AdAusw(self.globals, "ADRESATT", "AttName", name, filter, "Bitte Verein auswählen, der bearbeitet werden soll.".decode("UTF-8"))
-            if not auswahl is None:
-                self.clubnr = int(auswahl)
-                self.set_current_record()
-                self.Populate()
+            super(AfpEvScreen_Verein, self).On_Ausw()
+            #name = self.data.get_name(True, "Agent")
+            #filter = "Attribut = \"Verein\""
+            #auswahl = AfpLoad_AdAusw(self.globals, "ADRESATT", "AttName", name, filter, "Bitte Verein auswählen, der bearbeitet werden soll.".decode("UTF-8"))
+            #if not auswahl is None:
+            #   self.clubnr = int(auswahl)
+            #    self.set_current_record()
+            #    self.Populate()
         if event: event.Skip()
 
     ## Eventhandler BUTTON - close current financial year and open new year
@@ -943,7 +995,6 @@ class AfpEvScreen_Verein(AfpEvScreen):
         if event:
             self.Reload()
             event.Skip()
-
     #
     # (overwritten from AfpEvScreen) 
     #
@@ -1153,10 +1204,16 @@ class AfpEvScreen_Verein(AfpEvScreen):
         if self.no_data_shown: return  rows
         if typ == "Customers" and self.data:
             tmps = self.data.get_value_rows("ANMELD","IdNr,Zahlung,Preis,Info,Anmeldung,KundenNr,Zustand,AnmeldNr")
-            if tmps:			
+            if tmps:
+                KNrs = []
                 for tmp in tmps:
+                    if self.data.is_main_section() and tmp[5] in KNrs: continue
+                    KNrs.append(tmp[5])
                     adresse = AfpAdresse(self.globals, tmp[5])
                     rows.append([Afp_toString(tmp[0]), adresse.get_string_value("Vorname"), adresse.get_string_value("Name"),  Afp_toString(tmp[4]), Afp_toString(tmp[2]), Afp_toString(tmp[1]), Afp_toString(tmp[3]), tmp[7]])
+            if self.data.is_main_section() and self.combo_Filter.GetValue() == "Mitglieder": 
+                self.members_complete = Afp_toString(len(rows))
+                #print "AfpEvScreen_Verein.get_grid_rows Anmeldungen:", len(rows) 
         if self.debug: print "AfpEvScreen_Verein.get_grid_rows rows:", rows 
         #print "AfpEvScreen_Verein.get_grid_rows length:", len(rows) 
         return rows

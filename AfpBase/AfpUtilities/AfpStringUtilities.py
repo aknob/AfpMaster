@@ -828,10 +828,12 @@ def Afp_split(in_string, limiters):
 # @param limiter - limiter where string has to be split
 # @param mask - sign between which limiter will be ignored
 def Afp_splitMasked(string, limiter, mask):
+    #print "Afp_splitMasked string:", string, limiter, mask
     masked = string.split(mask)
     result = []
     lgh = len(masked)
     for i in range(lgh):
+        if masked[i].strip() == limiter: continue
         if i%2 == 0:
             if masked[i]:
                 if i > 0 and masked[i][0] == limiter: masked[i] = masked[i][1:]
@@ -839,6 +841,7 @@ def Afp_splitMasked(string, limiter, mask):
                 result += masked[i].split(limiter)
         else:
             result += [masked[i]]
+    #print "Afp_splitMasked result:", result
     return result   
     
 ## assure pathname to recognise wanted conventions for the path separator, \n

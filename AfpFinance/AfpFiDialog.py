@@ -547,7 +547,7 @@ class AfpDialog_FiBuchung(AfpDialog):
                             break
                 if not client:
                     client = self.data.get_client(row[6])
-                if client.get_mainselection().lower() != row[5].lower():
+                if client and client.get_mainselection().lower() != row[5].lower():
                     client = None
                 if client and row[7] != "Intern":
                     zahl = client.get_payment_values()[1]
@@ -805,6 +805,8 @@ class AfpDialog_FiBuchung(AfpDialog):
                         accdata["Betrag"] = split[1]
                         if split[2]: accdata["Bem"] = Afp_toString(split[2]) + " " + bem
                         else: accdata["Bem"] = bem
+                        if accdata["Art"] == "Zahlung": accdata["Art"] = "Zahlung intern"
+                        if self.debug:  print "AfpDialog_FiBuchung.On_Add split:", accdata
                         self.data.add_direct_transaction(accdata)
             self.Pop_Buchung()
             self.Pop_Auszug()
@@ -954,6 +956,7 @@ class AfpDialog_FiBuchung(AfpDialog):
             imp = AfpImport(globals,fname, self.debug)
             header = imp.get_file_header()
             ident = self.identify_file_header(header)
+            split_data = False
             if "SEPA" in ident:
                 if not (datum and beleg and auszug):
                     AfpReq_Info(ident + " Datei gewählt, bitte Buchungsdatum, Belegnummer und Auzug angeben!".decode("UTF-8"),"Lesevorgang wird abgebrochen.", "Info")
@@ -965,10 +968,11 @@ class AfpDialog_FiBuchung(AfpDialog):
                     else:
                         para = "\"" + datum + "\", " + Afp_toString(self.bank) + ", " + Afp_toString(self.transfer) + ", " + Afp_toString(self.revenue_accounts[0]) + ", " + beleg + ", \"" + auszug + "\", \"Verein\"" 
                     imp.customise(valid_tags, value_tags, interpreter, para)
+                split_data = True
         if ok:
             datas = imp.read_from_file()   
             #print "AfpDialog_FiBuchung.On_Load Datas:", datas[0].view()
-            self.data.booking_absorber(datas[0])
+            self.data.booking_absorber(datas[0], split_data)
             self.Pop_Buchung()
             self.Pop_Auszug()
             BNr = self.data.gen_next_rcptnr()

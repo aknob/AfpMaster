@@ -80,7 +80,7 @@ class AfpScreen(wx.Frame):
         self.grid_sort_col = {}
         self.grid_sort_desc = {}
         self.grid_sort_rows = None # sorting turned off by default
-        #self.grid_sort_rows = {}  # use this line in devired screen to turm it on
+        #self.grid_sort_rows = {}  # use this line in devired screen to turn it on
         # dynamic grid handling during resizing
         self.dynamic_grid_name= None
         self.dynamic_grid_col_percents = None

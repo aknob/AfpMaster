@@ -472,6 +472,7 @@ class AfpDialog_DiAdEin(AfpDialog):
         self.choicevalues = {}
         AfpDialog.__init__(self,None, -1, "")
         self.lock_data = True
+        self.bulk_nrs = None
         self.SetSize((452,447))
         self.SetTitle("Adresse")
       
@@ -631,10 +632,13 @@ class AfpDialog_DiAdEin(AfpDialog):
         self.line12_sizer = wx.BoxSizer(wx.HORIZONTAL)        
         self.button_Merk = wx.Button(self, -1, label="Mer&kmale",  name="Merk")
         self.Bind(wx.EVT_BUTTON, self.On_Adresse_Merk, self.button_Merk)
+        self.check_Mehrfach = wx.CheckBox(self, -1, label="&Mehrfach", name="Mehrfach", style=wx.ALIGN_RIGHT)
         self.line12_sizer.AddSpacer(10)
         self.line12_sizer.AddStretchSpacer(self.left_weight)
         self.line12_right = wx.BoxSizer(wx.HORIZONTAL)
         self.line12_right.Add(self.button_Merk,1,wx.EXPAND)
+        self.line12_right.AddSpacer(10)
+        self.line12_right.Add(self.check_Mehrfach,1,wx.EXPAND)
         self.setWx(self.line12_right, [3, 0, 0], [0, 0, 0])        
         self.line12_sizer.AddSpacer(10) 
         self.line12_sizer.Add(self.line12_right,self.right_weight,wx.EXPAND)
@@ -745,9 +749,34 @@ class AfpDialog_DiAdEin(AfpDialog):
             self.changed_text.append(self.text_Name_Adresse.GetName())
     ## execution in case the OK button ist hit (overwritten from AfpDialog)
     def execute_Ok(self):
-        self.store_database()
+        loop = self.check_Mehrfach.GetValue()
+        if loop:
+            loop = AfpReq_Question("Einen weitere verbundene Adresse eingeben?","","Mehrfacheingabe Adresse?")
+        if self.bulk_nrs and not loop:
+            print "AfpDialog_DiAdEin.execute_Ok use bulk:", self.bulk_nrs 
+            for nr in self.bulk_nrs:
+                self.data.add_connection(nr)
+        self.store_database(loop)
+        self.no_loop = True
+        if loop:
+            print "AfpDialog_DiAdEin.execute_Ok looping" 
+            self.new = True
+            self.no_loop = False
+            KNr = self.data.get_value("KundenNr")
+            if KNr:
+                if self.bulk_nrs is None:
+                    nr = self.data.get_value("ParentNr._tmp")
+                    if nr:
+                        self.bulk_nrs = [nr]
+                    else:
+                        self.bulk_nrs = []
+                self.data.set_new(KNr)
+                self.bulk_nrs.append(KNr)
+                self.Populate()
+            print "AfpDialog_DiAdEin.execute_Ok set bulk_nrs:" , self.bulk_nrs
     ## local routine to execute database storage
-    def store_database(self):
+    # @param loop - flag if parts of data should be kept for next loop
+    def store_database(self, loop=False):
         self.Ok = False
         data = {}
         for entry in self.changed_text:
@@ -767,7 +796,7 @@ class AfpDialog_DiAdEin(AfpDialog):
         if self.Ok:
             self.data.store()
             self.new = False               
-        self.changed_text = []
+        if not loop: self.changed_text = []
     ## complete data if necessary
     # @param data - data dictionary to be completed to ashure necessary datafields to be set
     def complete_data(self, data):
@@ -861,6 +890,33 @@ class AfpDialog_DiAdEin_SubMrk(AfpDialog):
     ## initialize wx widgets of dialog  \n
     # calls setWx to handle Edit and Ok widgets and events
     def InitWx(self):
+        self.InitWx_panel()
+        
+    ## initialize wx widgets of dialog with panel\n
+    # calls setWx to handle Edit and Ok widgets and events
+    def InitWx_panel(self):
+        panel = wx.Panel(self, -1)
+        self.list_attribut = wx.ListBox(panel, -1, pos=(8,2) , size=(170, 80), name="Attribut")
+        self.listmap.append("Attribut")
+        self.Bind(wx.EVT_LISTBOX_DCLICK, self.On_DClick_Attribut, self.list_attribut)
+        self.button_Ad_Attribut = wx.Button(panel, -1, label="Mer&kmal", pos=(8,86), size=(100,32), name="Ad_Attribut")
+        self.Bind(wx.EVT_BUTTON, self.On_Ad_Merkmal, self.button_Ad_Attribut)      
+        self.list_verbindung = wx.ListBox(panel, -1, pos=(180,2) , size=(170, 80), name="Verbindung")
+        self.listmap.append("Verbindung")
+        self.Bind(wx.EVT_LISTBOX_DCLICK, self.On_DClick_Verbindung, self.list_verbindung)
+        self.button_Ad_Attr_Verbind = wx.Button(panel, -1, label="&Verbindung", pos=(250,86), size=(100,32), name="Ad_Attr_Verbind")
+        self.Bind(wx.EVT_BUTTON, self.On_Ad_Verbindung, self.button_Ad_Attr_Verbind)
+        self.choice_Status = wx.Choice(panel, -1, pos=(124,86), size=(100,32), choices=AfpAdresse_StatusStrings(),  name="CStatus")
+        self.Bind(wx.EVT_CHOICE, self.On_CStatus, self.choice_Status)
+        self.choicemap["CStatus"] = "Kennung.ADRESSE"
+        self.text_Ad_Attr_Bem = wx.TextCtrl(panel, -1, value="", pos=(8,126), size=(342,26), style=0, name="Ad_Attr_Bem")
+        self.textmap["Ad_Attr_Bem"] = "Bem.ADRESSE"
+        self.text_Ad_Attr_Bem.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
+        self.button_Ad_Attr_Bemerk = wx.Button(panel, -1, label="&Bemerkung", pos=(8,158), size=(100,32), name="Ad_Attr_Bemerk")
+        self.Bind(wx.EVT_BUTTON, self.On_Ad_Bem, self.button_Ad_Attr_Bemerk)
+        self.setWx(panel, [129, 158, 100, 32], [250, 158, 100, 32]) # set Edit and Ok widgets
+
+    def InitWx_sizer(self):
         panel = wx.Panel(self, -1)
         self.list_attribut = wx.ListBox(panel, -1, pos=(8,2) , size=(170, 80), name="Attribut")
         self.listmap.append("Attribut")
@@ -1003,10 +1059,7 @@ class AfpDialog_DiAdEin_SubMrk(AfpDialog):
         #text = "Bitte Adresse auswählen die mit der aktuellen in verbunden werden soll."
         auswahl = AfpLoad_AdAusw(self.data.get_globals(), "ADRESSE", "NamSort", name)
         if not auswahl is None:
-            KNr = int(auswahl)
-            rows = self.data.get_mysql().select("*","KundenNr = " + Afp_toString(KNr), "ADRESSE") 
-            mani = [None, rows[0]]       
-            self.data.get_selection("Bez").manipulate_data([mani])
+            self.data.add_connection(auswahl)
             self.changes = True
             self.Pop_Verbindung()
             # print KNr

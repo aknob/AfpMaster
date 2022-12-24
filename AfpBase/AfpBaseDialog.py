@@ -11,6 +11,7 @@
 # - AfpDialog - dialog base class
 #
 #   History: \n
+#        27 Okt. 2022 - add 'no_loop'-option in On_Button_Ok of AfpDialog 
 #        22 Dez. 2018 - allow flavours in AfpDialog 
 #        27 Jan. 2017 - allow grids in AfpDialog 
 #        05 May 2016 - allow typ list in AfpReq_MultiLine 
@@ -745,6 +746,7 @@ class AfpDialog(wx.Dialog):
         self.editcolor = (255,255,255)
         #self.editcolor = (240,240,240)
         self.no_readonly = True
+        self.no_loop = True
         self.InitWx()
 
     ## routine to be called from initWx in devired class
@@ -1043,7 +1045,7 @@ class AfpDialog(wx.Dialog):
             self.execute_Quit()
             if self.debug: print "Event handler `AfpDialog.On_Button_Ok' quit!"
         event.Skip()
-        self.EndModal(wx.ID_OK)
+        if self.no_loop: self.EndModal(wx.ID_OK)
           
 ## Base class for dialog for the commen unrestricted selection of data from a database table \n
 # the following routines must be supplied in the derived class: \n

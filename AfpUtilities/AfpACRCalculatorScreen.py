@@ -17,7 +17,7 @@
 #  AfpTechnologies (afptech.de)
 #
 #    BusAfp is a software to manage coach and travel acivities
-#    Copyright (C) 1989 - 2021 afptech.de (Andreas Knoblauch)
+#    Copyright (C) 1989 - 2022 afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -80,7 +80,7 @@ class AfpACRScreen(AfpScreen):
         # for internal use
         self.used_modul = None
         self.col_percents =  [20 ,15, 10, 5, 5, 5, 5, 5, 5, 10, 15]
-        self.col_labels = ["Name","Family","OTE","FTE","CLG", "DAIT","-=+", "MyC", "Promo", "%", "Increase"]
+        self.col_labels = ["Name","Family","OTE","FTE","CLG", "DAIT","-=+", "MyC", "Boost", "%", "Increase"]
         self.cols = len(self.col_labels)
         self.matrix_types = ["ACR - Result", "Referenzvalues","Focalvalues","PROMO - Focalvalues","Spread","PROMO","Managerrange", "OTE - Distribution","Persons - Count","Persons - Percent","OTE - Average", "ACR - Distribution", "ACR - Average","ACR - Given"]
         self.matrix_typ = None
@@ -257,8 +257,8 @@ class AfpACRScreen(AfpScreen):
         self.lower_sizer.Add(self.button_open,0,wx.EXPAND)
         self.lower_sizer.AddStretchSpacer(1)
         self.lower_sizer.Add(self.label_Rep,0,wx.EXPAND)
-        self.lower_sizer.Add(self.text_Rep,2,wx.EXPAND)
-        self.lower_sizer.AddStretchSpacer(4)
+        self.lower_sizer.Add(self.text_Rep,4,wx.EXPAND)
+        self.lower_sizer.AddStretchSpacer(2)
         self.lower_sizer.Add(self.button_sim,0,wx.EXPAND)
         self.lower_sizer.AddStretchSpacer(1)
         self.lower_sizer.Add(self.button_calc,0,wx.EXPAND)
@@ -363,7 +363,6 @@ class AfpACRScreen(AfpScreen):
                 for conf in config:
                     self.config[conf] = config[conf]
             if self.debug: print "AfpACRScreen.activate_config:", self.config
-            #print "AfpACRScreen.activate_config:", "DATA_INVALID_LIST" in self.config, self.config
             new = False
             if "RANGE_FILE_NAME" in self.config and self.config["RANGE_FILE_NAME"]:
                 range_lines = Afp_importCSVLines(self.config["RANGE_FILE_NAME"])
@@ -378,10 +377,15 @@ class AfpACRScreen(AfpScreen):
                 else:
                     self.people = AfpACRPeopleManager(data, self.config["DATA_COLUMN_MAP"], self.debug)
                 new = True
+            boosters = None
             if new and self.ranges:
                 self.people.set_positioning(self.ranges)
                 self.people.set_performance(self.config["DATA_PERFORMANCE_MAP"])
-                self.people.set_promotion(self.config["DATA_PROMOTION_LIST"])
+                if "DATA_PROMOTION_LIST" in self.config:
+                    self.people.set_promotion(self.config["DATA_PROMOTION_LIST"])     
+                if "DATA_BOOSTER_MAP" in self.config:
+                    boosters = Afp_getBoostersFromConfig(self.config["DATA_BOOSTER_MAP"], debug)
+                    self.people.set_boosters(boosters)
                 if "DATA_INVALID_LIST" in self.config or "ELIGIBLE_RELATIV_OTE_FACTOR" in self.config or "ELIGIBLE_OTE_MAXIMUM" in self.config: 
                     if "DATA_INVALID_LIST" in self.config: data_list = self.config["DATA_INVALID_LIST"]
                     else: data_list = None
@@ -400,7 +404,8 @@ class AfpACRScreen(AfpScreen):
                 self.calculator.set_spreadmap(self.config["MATRIX_SPREAD_MAP"])
                 self.calculator.set_manager(self.config["MATRIX_MANAGER_FACTOR"], self.config["MATRIX_MANAGER_MAP"], self.config["MATRIX_MANAGER_FOCAL"])
                 self.calculator.set_calcflags(self.config["CALC_USE_FOCAL_FOR_RANGE"], self.config["CALC_SKIP_SPREAD_ZEROS"])
-                self.calculator.set_promomap(config["MATRIX_PROMOTION_PREMIUM"])
+                self.calculator.set_promomap(self.config["MATRIX_PROMOTION_PREMIUM"])
+                self.calculator.set_boostermaps(boosters)
                 if "MATRIX_ACR" in self.config:
                     self.calculator.set_acr_matrix(self.config["MATRIX_ACR"])
                 rows = self.people.get_matrix_length(0)
@@ -421,49 +426,50 @@ class AfpACRScreen(AfpScreen):
     def open_file(self, typ=None):
         config = {}
         if typ is None:
-            liste = ["Configuration File","Data File","Market Range File"]
+            liste = [["Configuration File", False], ["Data File", False], ["Market Range File", False]]
             res = AfpReq_MultiLine("Please select which file should be (re)selected!","", "Check", liste, "File Selection")
             if res:
                 typ = ""
-                if res[0]: typ += " config"
-                if res[1]: typ += " data"
-                if res[2]: typ += " ranges"
+                if res[0]: 
+                    typ += " config"
+                else:
+                    if res[1]: typ += " data"
+                    if res[2]: typ += " ranges"
             else:
                 return config
+        dir = ""
+        if  self.config: # assuming all files in same directory
+            if  "DATA_FILE_NAME" in self.config: 
+                dir = Afp_extractPath(self.config[ "DATA_FILE_NAME"])
+            elif  "RANGE_FILE_NAME" in self.config: 
+                dir = Afp_extractPath(self.config[ "RANGE_FILE_NAME"])
         if typ is None or "config" in typ:
-            name, ok = AfpReq_FileName("","Open Configuration File","*.cfg",True)
+            name, ok = AfpReq_FileName(dir,"Open Configuration File","*.cfg",True)
             if ok:
                 self.config = None
                 self.confname = name
                 config = Afp_ReadConfig(name)
         if ((typ is None or "config" in typ) and not "DATA_FILE_NAME" in config) or  "data" in typ:
-            if  self.config and  "DATA_FILE_NAME" in self.config: 
-                dir = Afp_extractPath(self.config[ "DATA_FILE_NAME"])
-            else: 
-                dir = ""
             #dir = "/home/daten/Afp/pyAfp/Import"
             print "AfpACRScreen.open_file data dir:", dir
             name, ok = AfpReq_FileName(dir,"Open People Data File","*.csv",True)
             if ok: 
                 config ["DATA_FILE_NAME"] = name
-                line = Afp_toString(Afp_importCSVLines(name, True)[0])
-                #line = line.encode('iso8859_15')
-                print "AfpACRScreen.open_file data line:", line, "&" in line
-                if self.config and "DATA_COLUMN_MAP" in self.config:
+                active = False
+                if active and self.config and "DATA_COLUMN_MAP" in self.config:
+                    line = Afp_toString(Afp_importCSVLines(name, True)[0])
+                    #line = line.encode('iso8859_15')
+                    print "AfpACRScreen.open_file data line:", line[:-1], "&" in line
                     liste = Afp_getArrayfromDict(self.config["DATA_COLUMN_MAP"])
                     vals = AfpReq_MultiLine("Please select columns where entries should be read from!",line,"Text", liste, "Column Selection")
                     print "AfpACRScreen.open_file columns:", vals
-                # hier weiter -> Spalten zuordnen
+                    # hier weiter -> Spalten zuordnen - ist zur Zeit nicht nötig, da Topologie der Daten immer gleich bleibt
         if (typ is None and not "RANGE_FILE_NAME" in config) or "ranges" in typ:
-            if self.config and "RANGE_FILE_NAME" in self.config:
-                dir = Afp_extractPath(self.config[ "RANGE_FILE_NAME"])
-            else: 
-                dir = ""
             print "AfpACRScreen.open_file ranges dir:", dir
             name, ok = AfpReq_FileName(dir,"Open Market Ranges File","*.csv",True)
             if ok: 
                 config ["RANGE_FILE_NAME"] = name
-                # hier weiter -> Spalten zuordnen
+                # hier weiter -> Spalten zuordnen - ist zur Zeit nicht nötig, da Topologie der Daten immer gleich bleibt
         if self.debug: print "AfpACRScreen.open_file:", config
         return config
     ## populate complete screen      

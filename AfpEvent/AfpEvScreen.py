@@ -445,7 +445,7 @@ class AfpEvScreen(AfpScreen):
         event.Skip()
 
     ## Eventhandler BUTTON - selection
-    def On_Ausw(self,event):
+    def On_Ausw(self,event = None):
         if self.debug: print "AfpEvScreen Event handler `On_Ausw'"
         #self.sb.set_debug()
         index = self.sb.identify_index().get_name()
@@ -470,7 +470,7 @@ class AfpEvScreen(AfpScreen):
                 self.set_current_record()
             self.Populate()
         #self.sb.unset_debug()
-        event.Skip()
+        if event: event.Skip()
 
     ## Eventhandler BUTTON, MENU - document generation
     def On_Documents(self, event=None):
@@ -526,11 +526,13 @@ class AfpEvScreen(AfpScreen):
                 if KNr: 
                     data.set_new(ENr, KNr) 
                     if data.get_value("Bez.ADRESSE"):
-                        Bez = AfpAdresse(self.globals, KNr).get_selection("Bez").get_values("KundenNr")
-                        bulk = []
-                        for b in Bez:
-                            bulk.append(b[0])
-                        data.add_new_bulk_ids(bulk)
+                        ok = AfpReq_Question("Verbundene Adressen gefunden,", "alle Beteiligten gemeinsam anmelden?", "Mehrfachanmeldung")
+                        if ok:
+                            Bez = AfpAdresse(self.globals, KNr).get_selection("Bez").get_values("KundenNr")
+                            bulk = []
+                            for b in Bez:
+                                bulk.append(b[0])
+                            data.add_new_bulk_ids(bulk)
                     add = self.globals.get_value("add-registration-to-archive","Event")
                     if add:
                         client = AfpEv_addRegToArchiv(data, True)
