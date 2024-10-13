@@ -798,7 +798,7 @@ class AfpSelectionList(object):
         if not "Art" in data: 
             data["Art"] = self.globals.get_value("name")
             if data["Art"][:3] == "Afp": data["Art"] = data["Art"][3:]
-        if not "Typ" in data: data["Typ"] = self.listname +" " +  Afp_toIntString(self.get_value())
+        if not "Typ" in data: data["Typ"] = self.get_listname_translation()
         if not "KundenNr" in data: data["KundenNr"] = self.get_value("KundenNr")
         if not data["KundenNr"]:  data["KundenNr"] = self.get_value("KundenNr.ADRESSE")
         data = self.set_archiv_table(data)
@@ -821,17 +821,24 @@ class AfpSelectionList(object):
                 if len(entry) > 2:
                     to_name = entry[2]
                 else:
-                    to_name = fname + "_" + Afp_replaceUml(Afp_toString(row[0])) + "_" + Afp_replaceUml(Afp_stripSpaces(Afp_toString(row[1] ))) + "_"
+                    to_name = fname + "_" + Afp_replaceUml(Afp_toString(row[0])) + "_"
+                    if row[1] and not "." in row[1]:
+                       to_name += Afp_replaceUml(Afp_stripSpaces(Afp_toString(row[1] ))) + "_"
                 cnt = 1
                 while Afp_existsFile(archivdir + to_name + Afp_toIntString(cnt) + "." + ext):
                     cnt += 1
                 to_name += Afp_toIntString(cnt) + "." + ext
-                #print "AfpSelectionList.move_to_archiv copy:", from_name, to_name
+                #print ("AfpSelectionList.move_to_archiv copy:", from_name, to_name)
                 Afp_copyFile(from_name, archivdir + to_name)
                 self.set_data_values({"Extern": to_name}, entry[0], entry[1])
+            self.archiv_copy_needed = []
     #
     # routines which may be overwritten in devired class, if necessary
     #
+    ## return the translated listname to be used in dialogs \n
+    # - may be overwritten in devired class, default implemetation: return listname
+    def get_listname_translation(self):
+        return self.get_listname()
     ## routine for preparation of data before storing
     # may be overwritten, if special handling is necessary
     def store_preparation(self):
@@ -873,7 +880,7 @@ class AfpSelectionList(object):
         print("AfpSelecxtionList.add_payment_data not implemented for list:", self.listname)
         return paymentdata
      
-   ## return specific identification string to be used in dialogs \n
+    ## return specific identification string to be used in dialogs \n
     # - should be overwritten in devired class
     def get_identification_string(self):
         return ""

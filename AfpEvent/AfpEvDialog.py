@@ -42,37 +42,52 @@ from AfpEvent.AfpEvRoutines import *
 
 ## Routine to select the registration scan and add it into the archiv
 # @param client - SelectionList where file should be added to archive
-# @param check - flag if archiv should be checked for entry
-# @param fname - if given, name of file to be integrated inro archiv
+# @param option  - option for scans and handling, available types: 
+#                           None - registration (sign in)  is used
+#                           "check" in option: check if document exists
+#                           "exit" in option:  use sign off
+# @param fname - if given, name of file to be integrated into archiv
 #                         - else: file has to be selected during integration
-def AfpEv_addRegToArchiv(client, check=False, fname = None):
+#def AfpEv_addRegToArchiv(client, check=False, fname = None):
+def AfpEv_addRegToArchiv(client, option=None, fname = None, Bem = ""): 
     needed = True
     wanted = True
+    doctyp = "Anmeldung"
+    gruppe = "Anmeldung"
+    if option and "exit" in option: 
+        doctyp = "Kündigung"
+        gruppe = "Abmeldung"
     art = client.get_globals().get_value("name")
     if art[:3] == "Afp": art = art[3:]
-    listname = client.get_listname()
-    if check:
+    typ = client.get_listname_translation()
+    datum = client.get_globals().today()
+    if option and "check" in option:
         rows = client.get_value_rows("ARCHIV","Art,Typ,Gruppe")
-        #print "AfpEv_addRegToArchiv:", rows
         if rows:
             for row in rows:
-                if row[0] == art and row[1] == listname and row[2] == "Anmeldung":
+                if row[0] == art and row[1] == typ and row[2] == gruppe:
                     needed = False
+        print ("AfpEv_addRegToArchiv check:", rows, art, typ, gruppe, needed)
     if needed:
         if fname is None:
-            wanted = AfpReq_Question("Bitte die Anmeldung einscannen und die gescannte Datei auswählen!","")
+            wanted = AfpReq_Question("Bitte die " + doctyp + " von " + client.get_name(), "einscannen und die gescannte Datei auswählen!")
         else:
+            dat = Afp_dateString(fname)
+            if dat: datum = dat
             wanted = True
         print ("AfpEv_addRegToArchiv wanted:", wanted)
         if wanted:
-            fixed = {"Art": art, "Typ": listname, "Gruppe":"Anmeldung"}
-            change = {"Eintrittsdatum": client.get_globals().today_string(), "Bemerkung":""}
-            client = AfpAdresse_addFileToArchiv(client, "Anmeldung", fixed, change, fname)
-            if client:
-                # get entry
-                dat = client.get_selection("ARCHIV").manipulation_get_value("Datum")
-                #print "AfpEv_addRegToArchiv:", dat
-                client.set_value("Anmeldung", dat)
+            fixed = {"Art": art, "Typ": typ, "Gruppe": gruppe}
+            change = {"Eingangsdatum": Afp_toString(datum), "Bemerkung": Bem}
+            client = AfpAdresse_addFileToArchiv(client, doctyp, fixed, change, fname)
+            if client: 
+                if gruppe == "Abmeldung":
+                    dat = client.get_selection("ARCHIV").manipulation_get_value("Bemerkung")
+                else:
+                    # get entry
+                    dat = client.get_selection("ARCHIV").manipulation_get_value("Datum")
+                    #print "AfpEv_addRegToArchiv:", dat
+                    client.set_value("Anmeldung", dat)
             return client
         else:
             return None
@@ -1835,7 +1850,7 @@ class AfpDialog_EvClientEdit(AfpDialog):
                 self.sameRechData = None
             add = self.data.get_globals().get_value("add-registration-to-archive","Event")
             if self.new and add:
-                client = AfpEv_addRegToArchiv(self.data, True)
+                client = AfpEv_addRegToArchiv(self.data, "check")
                 if client is None:
                     if add == "mandatory": 
                         print("AfpDialog_EvClientEdit.On_Anmeld_Neu: skip new dialog")

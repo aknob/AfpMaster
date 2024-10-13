@@ -158,6 +158,10 @@ class AfpEvTourist(AfpEvClient):
     def get_event(self):
         ENr = self.get_value("EventNr.EVENT")
         return AfpEvTour(self.get_globals(), ENr)
+    ## return the translated listname to be used in dialogs \n
+    # - overwritten from AfpSelectionList
+    def get_listname_translation(self):
+        return "Teilnehmer"
     ## return specific identification string to be used in dialogs \n
     # - overwritten from AfpSelectionList
     def get_identification_string(self):

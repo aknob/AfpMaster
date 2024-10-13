@@ -398,11 +398,12 @@ class AfpSQLTableSelection(object):
     # @param feldnamen - names of columns, if not given they will be retrieved from database
     def  __init__(self, mysql, tablename, debug = False, unique_feldname = None, feldnamen = None):
         self.dbg = False # hardcode switch for storage logging
-        #if tablename == "BUCHUNG": debug = True
+        #if tablename == "PREISE": debug = True
         if debug: 
             print("AfpSQLTableSelection Konstruktor dbg On:", tablename)
             print("AfpSQLTableSelection Konstruktor input:", tablename, debug, unique_feldname, feldnamen)
             self.dbg = True # hardcoded switch for storage logging, for debug purpose during programming
+            #mysql.debug = True
         self.mysql = mysql      
         self.tablename = tablename
         self.feldnamen = feldnamen
@@ -568,7 +569,7 @@ class AfpSQLTableSelection(object):
             self.data = list(map(list, data)) 
     ## attach empty data
     # @param empty - flag if data should be comletely empty (true) or if one empty row should be inserted (false)
-    # @param no_criteria - flag if selection criteria should be spread into new row (false) or not (trus)
+    # @param no_criteria - flag if selection criteria should be spread into new row (false) or not (true)
     def new_data(self, empty = False, no_criteria = False):
         self.new = True
         self.data = []
@@ -841,6 +842,9 @@ class AfpSQLTableSelection(object):
         for row in rows:
             lines.append(Afp_ArraytoLine(row))
         return lines
+    ## retrieve complete data of this table selection
+    def get_data(self):
+        return self.data
     ## spread values of given column to column holding indicators for all rows
     # @param feldname - column name from where to get the value
     # @param indicator - column name where indeicators are found

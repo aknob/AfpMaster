@@ -155,6 +155,7 @@ def Afp_toIntString(data, lgh = 3):
 # @param format - format of data in string
 def Afp_toFloatString(data, no_strip = False, format = "8.2f"):
     if data is None: return ""
+    if type(data) == str: data = Afp_fromString(data)
     string = ("%" + format)%(data)
     if no_strip: return string
     else: return string.strip()
@@ -237,6 +238,7 @@ def Afp_fromString(string):
             elif len(split[0]) > 1 and split[0][0] == "-" and split[0][1:].isdigit():
                 left =  - int(split[0][1:])
             right = 0
+            if split[1] == "-": split[1] = "00"
             if split[1].isdigit(): right = int(split[1])
             if (not left == 0 or Afp_isZeroString(split[0])) and (right > 0 or Afp_isZeroString(split[1])):
                 data = float(split[0] + "." + split[1])

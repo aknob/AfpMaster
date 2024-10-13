@@ -285,6 +285,12 @@ class AfpAdresse(AfpSelectionList):
                 self.mysql.write_update("ADRESSE", ["Bez"], [self.mainvalue], "KundenNr = " + Afp_toString(KNr))
             for KNr in self.spezial_bez:
                 if KNr: self.mysql.write_update("ADRESSE", ["Bez"], ["0"], "KundenNr = " + Afp_toString(KNr))
+    ## initialize data assumen to be not NULL\n
+    def complete_data(self):
+        if not self.get_value("Vorname"): self.set_value("Vorname","")
+        if not self.get_value("Kennung"): self.set_value("Kennung",0)
+        if not self.get_value("Geschlecht"): self.set_value("Geschlecht","n")
+        if not self.get_value("Anrede"): self.set_value("Anrede","Sie")
     ## add a connection to "Bez" selection \n
     # @param KNr - address identifier for connection
     def add_connection(self, KNr):

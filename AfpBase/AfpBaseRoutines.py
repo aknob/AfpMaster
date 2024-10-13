@@ -752,7 +752,7 @@ class AfpExternNr(AfpSQLTableSelection):
             Nr = 1
             self.add_row([self.typ, self.prefix, Nr, self.typ+self.prefix])
         elif lgh > 1:
-            print("WARNING: AfpExternNr.gen_number datalength not 1 but:", lgh)
+            print("WARNING: AfpExternNr.get_number datalength not 1 but:", lgh)
         else:
             Nr = self.get_value("Nummer") + 1
             self.set_value("Nummer", Nr)
@@ -768,7 +768,27 @@ class AfpExternNr(AfpSQLTableSelection):
         if Nr:
             ExtNr = self.prefix + self.separator + Afp_toString(Nr)
         return ExtNr
-          
+    ## store given value into database
+    def set_number(self, Nr):
+        self.select = "Typ = \"" + self.typ + "\" AND Pre = \"" + self.prefix + "\""
+        #print("AfpExternNr.set_number select:", self.select)
+        self.lock_data()
+        self.load_data(self.select)
+        lgh = self.get_data_length()
+        if lgh > 1:
+            print("WARNING: AfpExternNr.set_number datalength not 1 but:", lgh)
+        else:
+            if lgh == 0:
+                self.add_row([self.typ, self.prefix, Nr, self.typ+self.prefix])
+                self.store()
+            else: 
+                act = self.get_value("Nummer")
+                print("AfpExternNr.set_number nummer:", act, "->", Nr)
+                if Nr > act:
+                    self.set_value("Nummer", Nr)
+                    self.store()
+        self.unlock_data()
+
 ##  class to import files into Afp-Objects
 class AfpImport(object):
     ## initialize AfpImport class

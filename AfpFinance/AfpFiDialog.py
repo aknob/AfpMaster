@@ -56,7 +56,11 @@ def AfpFinance_addSEPAdd(client, fname = None, sepa = None ):
         if ok:
             Afp_startFile(fname, client.get_globals(), client.is_debug(), True)
         else:
-            fname = None
+            ok = AfpReq_Question("Keine Datei ausgewählt,", "SEPA Mandat trotzdem erzeugen?")
+            if ok:
+                fname = "No-Scan.txt"
+            else:
+                fname = None
     if fname:
         date = Afp_dateString(fname)
         liste = [["Erteilungsdatum:", Afp_toString(date)],  ["BIC:",""], ["IBAN:",""]]
@@ -1835,8 +1839,8 @@ class AfpDialog_SEPA(AfpDialog):
     def execute_Quit(self):
         if self.debug: print ("AfpDialog_SEPA.execute_Quit:", self.data.has_changed())
         print ("AfpDialog_SEPA.execute_Quit:", self.data.has_changed(), self.xml_sepa_type, )
-        self.data.view()
-        self.data.transactions[0].view()
+        #self.data.view()
+        #self.data.transactions[0].view()
         self.Ok = False
         if self.xml_sepa_type == "SEPA-CT" and self.data.has_changed(): 
             text1 = "Beim Verlassen gehen die geänderten Daten verloren,"

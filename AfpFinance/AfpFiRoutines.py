@@ -589,7 +589,8 @@ class AfpSEPAdd(AfpSelectionList):
         self.selects["Kreditor"] = [ "ADRESATT","Attribut = \"SEPA Kreditor ID\" AND KundenNr = " + data.get_string_value("KundenNr.ADRESSE")] 
         self.selects["Konto"] = [ "ADRESATT","Attribut = \"Bankverbindung SEPA\" AND KundenNr = " + data.get_string_value("KundenNr.ADRESSE")] 
         self.selects["Mandat"] = [ "ARCHIV","Art = \"SEPA-DD\" AND Typ = \"Aktiv\" AND Tab = \"" + self.ctable + "\""] 
-        self.selects["Execution"] = [ "ARCHIV","Art = \"Lastschrift Erst\" AND Gruppe = \"XML-Datei\" AND Tab = \"" + self.mainselection + "\""] 
+        #self.selects["Execution"] = [ "ARCHIV","Art = \"Lastschrift Erst\" AND Gruppe = \"XML-Datei\" AND Tab = \"" + self.mainselection + "\""] 
+        self.selects["Execution"] = [ "ARCHIV","Art = \"Lastschrift Erst\" AND Tab = \"" + self.mainselection + "\""] 
         if self.debug: print("AfpSEPAdd Konstruktor:", self.mainindex, self.mainvalue) 
     ## destructor
     def __del__(self):    

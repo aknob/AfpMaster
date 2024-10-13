@@ -50,7 +50,7 @@ from AfpBase.AfpBaseFiDialog import AfpLoad_DiFiZahl
 
 from AfpEvent.AfpEvScreen import AfpEvScreen
 from AfpEvent.AfpEvRoutines import *
-from AfpEvent.AfpEvDialog import AfpDialog_EventEdit, AfpDialog_EvClientEdit, AfpLoad_EvClientEdit
+from AfpEvent.AfpEvDialog import AfpDialog_EventEdit, AfpDialog_EvClientEdit, AfpLoad_EvClientEdit, AfpEv_addRegToArchiv
 
 ## routine to execute prepared cancellations
 # @param verein - AfpEvVerein object to be worked on
@@ -399,6 +399,22 @@ class AfpEvVerein(AfpEvent):
             IdNr = Extern.get_number()
         #print("AfpEvVerein.generate_IdNr IdNr:",  old, tag, IdNr)
         return IdNr
+    ## reset maximal given identification number (needed for extern input)
+    # @param id - given identification number
+    def set_max_IdNr(self, id):
+        old = False
+        #old = True
+        if old:
+            self.lock_data()
+            last = self.get_value("RechNr")
+            if id > last:
+                self.set_value("RechNr", id)
+        else:
+            tag = self.get_value("Tag.Verein")
+            Extern = AfpExternNr(self.get_globals(),"Count", tag, self.debug)
+            #Extern = AfpExternNr(self.get_globals(),"Count", tag, True)
+            Extern.set_number(id)
+       
         
     ## internal routine to set the  filter on ANMELD selection
     # - overwritten from AfpEvent
@@ -620,7 +636,7 @@ class AfpEvMember(AfpEvClient):
         return False
     ## add disount if price-change is pro rata
     # @param price - new yearly price to be reached
-    # @param initial_price - old yearly price given or None
+    # @param initial_price - old yearly price given (if price changes during the year) or None
     # @param date - date on which change becomes active
     def add_partitial_price(self, price, initial_price, date):
         if date.month < 2: return
@@ -652,26 +668,44 @@ class AfpEvMember(AfpEvClient):
             changed_data = {"Preis": new - price, "Bezeichnung":text}
             sel.set_data_values(changed_data, index)   
             
-    ## add SEPA Direct Debit mandate 
+    ## add SEPA Direct Debit mandate or replace filename
     # @param fname - name of scan of mandat
     # @param datum - date when mandat has been signed
     # @param bic - BIC of client account for which mandat has been signed
     # @param iban - IBAN of client account for which mandat has been signed
-    def add_sepa_data(self, fname, datum, bic, iban):
-        if Afp_existsFile(fname) and datum and bic and iban:
-            fresult = "SEPA" + "_Adresse_" + self.get_string_value("KundenNr") + "_"
-            added = {}
-            added["Art"] = "SEPA-DD"
-            added["Typ"] = "Aktiv"
-            added["Datum"] = datum
-            added["Gruppe"] = bic
-            added["Bem"] = iban
-            added["Extern"] = fname
-            if self.get_value("AgentNr"):
-                added["KundenNr"] = self.get_value("AgentNr")
-            self.add_to_Archiv(added, True, fresult)
-            #added = self.set_archiv_data(added)
-            #self.set_data_values(added, "SEPA", -1)
+    def add_sepa_data(self, fname, datum = None, bic = None, iban = None):
+        if (Afp_existsFile(fname) or Afp_existsFile(self.get_globals().get_value("archivdir") + fname)) and ((datum and bic and iban) or (self.get_value("Extern.Sepa") and self.get_value("Extern.Sepa")[:7] == "No-Scan")):
+            if self.get_globals().get_value("path-delimiter") in fname:
+                ext = fname.split(".")[-1]
+                max = 1
+                fpath = None
+                fresult = None
+                while not fpath:
+                    if max < 10:  null = "0"
+                    else:  null = ""
+                    fresult = "SEPA" + "_Adresse_" + self.get_string_value() + "_" + null + str(max) + "." + ext 
+                    fpath = Afp_addRootpath(self.get_globals().get_value("archivdir"), fresult)
+                    if Afp_existsFile(fpath):
+                        max+= 1
+                        fpath = None
+                if self.debug: print("AfpSEPAdd.add_sepa_data copy file:", fname, "to",  fpath)
+                Afp_copyFile(fname, fpath)
+                fname = fresult
+            #print("AfpSEPAdd.add_sepa_data fname:", fname, datum, bic, iban)
+            if datum and bic and iban:
+                added = {}
+                added["Art"] = "SEPA-DD"
+                added["Typ"] = "Aktiv"
+                added["Datum"] = datum
+                added["Gruppe"] = bic
+                added["Bem"] = iban
+                added["Extern"] = fname
+                if self.get_value("AgentNr"):
+                    added["KundenNr"] = self.get_value("AgentNr")
+                #self.add_to_Archiv(added, False, fresult)
+                self.add_to_Archiv(added)
+            elif fname:
+                self.set_value("Extern.Sepa", fname)
         else:
             print("WARNING: SEPA mandat not all data supplied:", fname, datum, bic, iban)
             
@@ -695,6 +729,21 @@ class AfpEvMember(AfpEvClient):
             self.delete_selection("ANMELDEX")
             self.add_optional_prices()
         #print "AfpMember.set_family_price out:", self.get_value("PreisNr"), self.get_value("Preis"), self.get_value("Extra")
+    ## get next possible resign date 
+    # @param rdat - if given date of resignment
+    def get_resign_date(self, rdat=None):
+        if rdat is None:
+            rdat = self.get_globals().today()
+        interval= self.get_globals().get_value("resign-interval", "Event")
+        if not interval: interval = 12
+        period= self.get_globals().get_value("resign-period", "Event")
+        if not period: period = 90
+        p_end = Afp_addDaysToDate(rdat, period)
+        date = Afp_lastIntervalDate(p_end, interval)
+        datum = Afp_toString(date)
+        print ("AfpMember.get_resign_date:", interval, period, rdat, p_end, date, datum, type(rdat))
+        #self.get_globals().view()
+        return datum
     ## extract bulk price, overwritten from AfpEvClient
     #@param initial - flag if initial bulk price is catched or normal bulk price
     def get_bulk_price(self, initial = False):
@@ -872,6 +921,10 @@ class AfpEvMember(AfpEvClient):
             splitting = self.scale_splitting(amount, splitting)
         #print "AfpEvMember.get_splitting_values sum:", splitting 
         return splitting
+    ## return the translated listname to be used in dialogs \n
+    # - overwritten from AfpSelectionList
+    def get_listname_translation(self):
+        return "Mitglied"
     ## return specific identification string to be used in dialogs \n
     # - overwritten from AfpSelectionList
     def get_identification_string(self):
@@ -968,7 +1021,7 @@ class AfpEvScreen_Verein(AfpEvScreen):
         # COMBOBOX
         self.combo_Filter = wx.ComboBox(self, -1, value="Mitglieder", size=(164,20), choices=["Kandidaten","Mitglieder","Basismitglieder","Beitragszahler","Zahlung offen","Abgemeldet","Ausgetreten"], style=wx.CB_DROPDOWN, name="Filter")
         self.Bind(wx.EVT_COMBOBOX, self.On_Filter, self.combo_Filter)
-        self.filtermap = {"Mitglieder":"Verein Anmeldung PreStorno","Beitragszahler":"Verein Anmeldung PreStorno Preis>=0.01","Zahlung offen":"Verein Anmeldung PreStorno Preis>Zahlung","Basismitglieder":"Verein Anmeldung","Kandidaten":"Verein Reservierung","Abgemeldet":"Verein PreStorno","Ausgetreten":"Verein Storno"}
+        self.filtermap = {"Mitglieder":"Verein Anmeldung PreStorno","Beitragszahler":"Verein Anmeldung PreStorno Preis>=0.01","Zahlung offen":"Verein Anmeldung PreStorno Preis>Zahlung","Basismitglieder":"Verein Anmeldung","Kandidaten":"Verein PreAnmeld","Abgemeldet":"Verein PreStorno","Ausgetreten":"Verein Storno"}
         self.combo_PayFilter = wx.ComboBox(self, -1, value="", size=(120,20), choices=["","SEPA","Retoure","Rechnung"], style=wx.CB_DROPDOWN, name="PayFilter")
         self.Bind(wx.EVT_COMBOBOX, self.On_Filter, self.combo_PayFilter)
         self.payfiltermap = {"SEPA":"ZahlArt LIKE 'SEPA-Mandat%'","Retoure":"ZahlArt='Retoure'","Rechnung":"ZahlArt='Rechnung'"}
@@ -1868,21 +1921,14 @@ class AfpDialog_EvMemberEdit(AfpDialog_EvClientEdit):
                 if self.sameRechIndex is None: # only needed to invoke possible sameRechData storage
                     self.sameRechIndex = 0
         if self.stornofile:
-            ext = self.stornofile.split(".")[-1]
-            count = 0
-            target = None
-            while target is None or Afp_existsFile(target):
-                count += 1
-                fname = "Verein_Abmeldung_" + self.data.get_string_value("AnmeldNr") + "_" + Afp_toIntString(count) + "." + ext
-                target = Afp_addPath(self.data.get_globals().get_value("archivdir"), fname)
-            Afp_copyFile(self.stornofile, target)
-            datum = self.storno
             if self.storno:
                 datum = self.storno
             else:
                 datum = self.data.get_value("InfoDat")
-            self.data.add_to_Archiv({"Gruppe": "Abmeldung","Bem": Afp_toString(datum), "Extern": fname})
-            self.change_preis = True # assure data to be stored
+            data = AfpEv_addRegToArchiv(self.data, "exit", self.stornofile, Afp_toString(datum))
+            if data and not data == True: 
+                self.data = data
+                self.change_preis = True # assure data to be stored
         if self.zustand and self.zustand != "Storno" and self.zustand != self.data.get_value("Zustand"): 
             if self.data.get_value("Abmeldung"):
                 self.data.set_value("Abmeldung", None)
@@ -1941,24 +1987,10 @@ class AfpDialog_EvMemberEdit(AfpDialog_EvClientEdit):
                     enable = True
         self.check_Mehrfach.Enable(enable)
         
-    ## get next possible resign date 
-    # @param rdat - if given date of resignment
-    def get_resign_date(self, rdat=None):
-        if rdat is None:
-            rdat = self.data.get_globals().today()
-        interval= self.data.get_globals().get_value("resign-interval", "Event")
-        if not interval: interval = 12
-        period= self.data.get_globals().get_value("resign-period", "Event")
-        if not period: period = 90
-        p_end = Afp_addDaysToDate(rdat, period)
-        date = Afp_lastIntervalDate(p_end, interval)
-        datum = Afp_toString(date)
-        #print ("AfpDialog_EvMemberEdit.get_resign_date:", interval, period, rdat, p_end, date, datum)
-        return datum
     ## resign from the club
     # @param onlyfile - flag for file selection only, default: False
     def resign(self, onlyfile = False):
-        dat = self.get_resign_date()
+        dat = self.data.get_resign_date()
         if onlyfile:
             text1 = "Abmeldung von " + self.data.get_name() +  " von '" + self.data.get_value("Bez.EVENT") + "' der " + self.data.get_value("Name.Veranstalter") + " aussuchen?"
         else:
@@ -1977,7 +2009,7 @@ class AfpDialog_EvMemberEdit(AfpDialog_EvClientEdit):
                 if fname:
                     sdat = Afp_dateString(fname)
                     if sdat:
-                        dat = self.get_resign_date(sdat)
+                        dat = self.data.get_resign_date(sdat)
                 if self.sameRechNr:
                     liste = [["Austrittsdatum",dat]]
                     if not self.sameRechData:

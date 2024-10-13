@@ -894,7 +894,7 @@ class AfpEvClient(AfpPaymentList):
         if self.is_invoice_connected():
             self.set_value("Zahlung.RECHNG", payment)
             self.set_value("ZahlDat.RECHNG", datum)
-    ## extract payment relevant data from SelectionList for 'Finance' modul, overwritten from AfpSelectionList
+    ## extract payment relevant data from SelectionList for 'Finance' modul, overwritten from AfpPaymentList
     # has to return the account number this payment has to be charged ("Gegenkonto")
     # @param paymentdata - payment data dictionary to be modified and returned
     def add_payment_data(self, paymentdata):
@@ -902,6 +902,10 @@ class AfpEvClient(AfpPaymentList):
         paymentdata["GktName"] = self.get_value("AgentName.EVENT")
         #print "AfpEvent.add_payment_data:", paymentdata
         return paymentdata
+    ## return the translated listname to be used in dialogs \n
+    # - overwritten from AfpSelectionList
+    def get_listname_translation(self):
+        return "Kunde"
     ## return specific identification string to be used in dialogs \n
     # - overwritten from AfpSelectionList
     def get_identification_string(self):

@@ -213,7 +213,7 @@ def Afp_addMonthToDate(date, nmonth, sign = None, day=None):
 ## return the last date of interval where given date belongs to
 # @param date - given date
 # @param interval - interval length in month
-# @param previous - if given, flag if end of preivous interval should be determined
+# @param previous - if given, flag if end of previous interval should be determined
 def Afp_lastIntervalDate(date, interval, previous = False):
         month = date.month
         year = date.year
@@ -606,6 +606,7 @@ def Afp_genHomeDir():
 # @param fromFile - file to be copied
 # @param toFile - destination
 def Afp_copyFile(fromFile, toFile):
+    #print ("Afp_copyFile:", fromFile, toFile)
     shutil.copyfile(fromFile, toFile) 
 ## delete a file
 # @param filename - file to be deleted

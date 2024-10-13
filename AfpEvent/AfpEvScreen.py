@@ -542,7 +542,7 @@ class AfpEvScreen(AfpScreen):
                                 bulk.append(b[0])
                             data.add_new_bulk_ids(bulk)
                     if add:
-                        client = AfpEv_addRegToArchiv(data, True, fname)
+                        client = AfpEv_addRegToArchiv(data, "check", fname)
                         if client is None:
                             if add == "mandatory": 
                                 data = None
