@@ -7,6 +7,7 @@
 # - AfpScreen - screen base class
 #
 #   History: \n
+#        24 Okt. 2024 - adaption to python 3.12 - Andreas.Knoblauch@afptech.de \n
 #        30 Dez. 2021 - conversion to python 3 - Andreas.Knoblauch@afptech.de \n
 #        20 Okt. 2019 - enable grid sort mechnismn - Andreas.Knoblauch@afptech.de \n
 #        31 Jan. 2018 - enable tagged value evaluation for textfields - Andreas.Knoblauch@afptech.de \n
@@ -302,7 +303,7 @@ class AfpScreen(wx.Frame):
                     if self.dynamic_grid_col_labels:
                         grid.SetColLabelValue(col, self.dynamic_grid_col_labels[col])
                     if percents and col < len(percents):
-                        grid.SetColSize(col, percents[col]*width/100)
+                        grid.SetColSize(col, int(percents[col]*width/100))
     ## change color of a grid column or reset marked color
     # @param name - name of grid
     # @param index - if given, index of column to be marked
@@ -621,10 +622,9 @@ def Afp_loadScreen(globals, modulname, sb = None, origin = None, pos = None):
         modname = "Afp" + name + "." + screen + flavour
         #print("Afp_loadScreen modname:", modname)
         pyModul =  Afp_importPyModul(modname, globals)
-        #print("Afp_loadScreen pyModul:", pyModul)
         pyBefehl = "Modul = pyModul." + screen + flavour + "()"
-        #print("Afp_loadScreen exec:", pyBefehl)
         local = locals()
+        #print("Afp_loadScreen exec:", pyBefehl, local)
         exec(pyBefehl, {}, local)
         Modul = local["Modul"]
         #print("Afp_loadScreen Modul:", Modul, local)
