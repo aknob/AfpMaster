@@ -893,7 +893,7 @@ class AfpEvMember(AfpEvClient):
                 for row in rows: 
                     #print ("AfpEvMember.get_splitting_values row:", row)
                     KtNr = None
-                    if row[2] or "Sparte" in row[0]: # Sparte detected
+                    if row[2] or "Abteilung" in row[0]: # Sparte detected
                         #print("AfpEvMember.get_splitting_values: Sparte detected!") 
                         if Afp_isEps(row[1]): # only split, if price is set
                             snr = row[2]

@@ -5,6 +5,7 @@
 # AfpFiDialog module provides classes and routines needed for user interaction of finance handling and accounting,\n
 #
 #   History: \n
+#        19 Okt. 2024 - direct use of prupose in AfpDialog_SEPA- Andreas.Knoblauch@afptech.de \n
 #        30 Dez. 2021 - conversion to python 3 - Andreas.Knoblauch@afptech.de \n
 #        13 June 2020 - add incoming and outgoing invoice dialog- Andreas.Knoblauch@afptech.de
 #        10 July 2019 - add direct accounting dialog- Andreas.Knoblauch@afptech.de
@@ -1817,8 +1818,12 @@ class AfpDialog_SEPA(AfpDialog):
     def execute_Ok(self):
         #print "AfpDialog_SEPA.execute_Ok:", self.xml_data_loaded, self.clients, self.newclients
         if  self.xml_data_loaded:
-            #ok = AfpReq_Question("SEPA xml-Dateien werden erzeugt", "und entsprechend im Archiv abgelegt!","SEPA xml-Dateien erzeugen!")
-            bem, ok = AfpReq_Text("SEPA xml-Dateien werden erzeugt und entsprechend im Archiv abgelegt!", "Bitte Bezeichnung eingeben (kann auch leer bleiben).", "", "SEPA xml-Dateien erzeugen!")
+            if self.purpose:
+                bem = self.purpose
+                ok = True
+            else:
+                #ok = AfpReq_Question("SEPA xml-Dateien werden erzeugt", "und entsprechend im Archiv abgelegt!","SEPA xml-Dateien erzeugen!")
+                bem, ok = AfpReq_Text("SEPA xml-Dateien werden erzeugt und entsprechend im Archiv abgelegt!", "Bitte Bezeichnung eingeben (kann auch leer bleiben).", "", "SEPA xml-Dateien erzeugen!")
             if ok:
                 if self.clients or self.newclients: 
                     self.data.set_clients(self.clients, self.newclients)

@@ -569,7 +569,7 @@ class AfpFiScreen(AfpScreen):
                     if self.search_indices: index = self.search_indices[index]
                     #beleg, ref = self.data.get_value_rows("BUCHUNG", "Beleg,Reference", index)[0][0]
                     beleg, ref, vnr = self.data.get_value_rows("BUCHUNG", "Beleg,Reference,VorgangsNr", index)[0] 
-                    #print("AfpFiScreen.On_modify:", beleg, ref, vnr)
+                    print("AfpFiScreen.On_modify:", beleg, ref, vnr)
                     if vnr:
                         changed = AfpLoad_FiBuchung(self.data.get_globals(), self.data.get_period(), {"VorgangsNr": vnr, "no_strict_accounting": None})
                     else:

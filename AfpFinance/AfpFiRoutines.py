@@ -506,7 +506,10 @@ class AfpSEPAct(AfpSelectionList):
     
     ## get filepathes to created SEPA xml-files
     def get_filepathes(self): 
-        return self.targetdir + self.output_file + ".xml"
+        if self.output_file:
+            return self.targetdir + self.output_file + ".xml"
+        else:
+            return None
 
     ## set identification data for archive \n
     # do nothing - overwritten from AfpSelectionList
@@ -1527,7 +1530,7 @@ class AfpFinance(AfpFinanceTransactions):
         else:
             value = period_input
             mainindex = "Period"
-        print ("AfpFinance.init AfpFinanceTransactions:", value, mainindex, period, parlist)
+        #print ("AfpFinance.init AfpFinanceTransactions:", value, mainindex, period, parlist)
         AfpFinanceTransactions.__init__(self, globals, value, mainindex, period, True)
         self.selects["KTNR"] = [ "KTNR","NOT Typ = \"Debitor\" AND NOT Typ = \"Kreditor\""] 
         self.selects["AUSGABE"] = [ "AUSGABE","Modul = \"Finance\""] 
@@ -1558,7 +1561,7 @@ class AfpFinance(AfpFinanceTransactions):
             self.mainfilter ="Period = \"" + self.period + "\" AND (Konto = " + konto + " OR Gegenkonto = " + gkonto + ")"
             self.konto = konto
             self.set_main_selects_entry() 
-        print ("AfpFinance.init set_auszug:", self.auszug, self.mainfilter, self.konto)
+        #print ("AfpFinance.init set_auszug:", self.auszug, self.mainfilter, self.konto)
         if self.auszug:
             ausdat = None
             aussald = None
