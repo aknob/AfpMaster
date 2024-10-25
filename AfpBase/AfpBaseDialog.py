@@ -11,6 +11,7 @@
 # - AfpDialog - dialog base class
 #
 #   History: \n
+#        24 Okt. 2024 - adaption to python 3.12 - Andreas.Knoblauch@afptech.de \n
 #        30 Dez. 2022 - conversion to python 3 - Andreas.Knoblauch@afptech.de \n
 #        27 Okt. 2022 - add 'close_dialog'-option in On_Button_Ok of AfpDialog 
 #        22 Dez. 2018 - allow flavours in AfpDialog 
@@ -1289,7 +1290,7 @@ class AfpDialog_Auswahl(wx.Dialog):
             for col in range(self.cols):  
                 self.grid_auswahl.SetColLabelValue(col, self.col_labels[col])
                 if col < len(self.col_percents):
-                    self.grid_auswahl.SetColSize(col, self.col_percents[col]*grid_width/100)
+                    self.grid_auswahl.SetColSize(col, int(self.col_percents[col]*grid_width/100))
     ## initialisation of  the dialog \n
     # set up grid, attach data
     # @param globals - global variables including database connection

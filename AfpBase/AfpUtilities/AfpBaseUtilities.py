@@ -6,6 +6,7 @@
 # it does not hold any classes
 #
 #   History: \n
+#        24 Okt. 2024 - adaption to python 3.12 - Andreas.Knoblauch@afptech.de \n
 #        29 Dez. 2021 - conversion to python 3 - Andreas.Knoblauch@afptech.de \n
 #        20 Jan. 2015 - add array cache - Andreas.Knoblauch@afptech.de \n
 #        19 Okt. 2014 - adapt package hierarchy - Andreas.Knoblauch@afptech.de \n
@@ -30,7 +31,7 @@
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>. 
 #
 
-import imp
+import importlib
 import sys
 import os.path
 import os
@@ -390,7 +391,8 @@ def Afp_coverString(word, uncover=False):
 # @param modul - name of standard modul to be checked
 def AfpPy_checkModule(modul):
     try:
-        imp.find_module(modul)
+        #imp.find_module(modul)
+        importlib.util.find_spec(modul)
         return True
     except ImportError:
         return False
@@ -408,12 +410,8 @@ def AfpPy_Import(modul, path=None):
         pass
     try:
         #print("AfpPy_Import find:", modul, path)
-        if path:
-            fp, pathname, description = imp.find_module(modul, [path])
-        else:
-            fp, pathname, description = imp.find_module(modul)
-        #print("AfpPy_Import load:", fp, pathname, description)
-        mod = imp.load_module(modul, fp, pathname, description)   
+        if path: modul = path + modul
+        mod = importlib.import_module(modul)
     except:
         if path:
             print("ERROR: dynamic modul " + modul + " not found!")

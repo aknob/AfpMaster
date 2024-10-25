@@ -6,6 +6,7 @@
 # no display and user interaction in this modul.
 #
 #   History: \n
+#        24 Okt. 2024 - correct SEPAct.get_filepathes - Andreas.Knoblauch@afptech.de \n
 #        30 Dez. 2021 - conversion to python 3 - Andreas.Knoblauch@afptech.de \n
 #        23 Dez. 2019 - move financial routines into selection list- Andreas.Knoblauch@afptech.de \n
 #        27 Feb. 2019 - add SEPA direct debit handling - Andreas.Knoblauch@afptech.de \n
@@ -505,8 +506,11 @@ class AfpSEPAct(AfpSelectionList):
         self.add_all_archives(self.output_file, bem)
     
     ## get filepathes to created SEPA xml-files
-    def get_filepathes(self): 
-        return self.targetdir + self.output_file + ".xml"
+    def get_filepathes(self):
+        if self.output_file:
+            return self.targetdir + self.output_file + ".xml"
+        else:
+            return None
 
     ## set identification data for archive \n
     # do nothing - overwritten from AfpSelectionList
