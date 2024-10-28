@@ -31,7 +31,6 @@
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>. 
 #
 
-import importlib
 import sys
 import os.path
 import os
@@ -44,6 +43,8 @@ import tzlocal
 #import logging
 import shutil
 import glob
+import importlib
+from importlib.machinery import SourceFileLoader
 # for email sending
 import smtplib
 import email
@@ -402,21 +403,38 @@ def AfpPy_checkModule(modul):
 # @param path - path to modul to be imported
 def AfpPy_Import(modul, path=None):
     mod = None
-    pathname = None
+    filename = None
     #print("AfpPy_Import wanted:", modul, path)
     try:
         return sys.modules[modul]
     except KeyError:
         pass
     try:
-        #print("AfpPy_Import find:", modul, path)
-        if path: modul = path + modul
-        mod = importlib.import_module(modul)
+        if path: 
+            filename = path + modul
+            mod = importlib.import_module(filename)
+        else:
+            mod = importlib.import_module(modul)
     except:
-        if path:
+        if filename:   
+            if not (filename[-3:] == ".py" or filename[-3:] == ".PY"):
+                filename += ".py"
+            try:
+                #loader = importlib.machinery.SourceFileLoader(modul, filename)
+                loader = SourceFileLoader(modul, filename)
+                spec = importlib.util.spec_from_file_location(modul, filename, loader=loader)
+                mod = importlib.util.module_from_spec(spec)
+                # The module is always executed and not cached in sys.modules.
+                # Uncomment the following line to cache the module.
+                # sys.modules[mod.__name__] = mod
+                loader.exec_module(mod)
+            except:
+                if filename:
+                    print("ERROR: dynamic modul " + modul + " not found!")
+                    if Afp_existsFile(filename):
+                        print("WARNING: File \"" + filename + "\" exists, propably a syntax problem.")
+        else:
             print("ERROR: dynamic modul " + modul + " not found!")
-            if pathname and Afp_existsFile(pathname):
-                print("WARNING: File \"" + pathname + "\" exists, propably a syntax problem.")
     return mod
 
 ## import data of extern file and return it

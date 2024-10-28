@@ -791,6 +791,7 @@ class AfpEvMember(AfpEvClient):
     ## get first aktiv sepa mandat
     # @param felder - if given fields to be extracted from aktiv sepa row
     def get_aktiv_sepa(self, felder=None):
+        row = None
         for i in range(self.get_value_length("ARCHIV")):
             row = self.get_value_rows("ARCHIV", "Art,Typ", i)[0]
             if row[0] == "SEPA-DD" and row[1] == "Aktiv":

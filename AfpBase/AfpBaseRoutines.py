@@ -268,7 +268,7 @@ def Afp_startExtraProgram(filepath, globals, data, debug = False):
     split = filepath.split(globals.get_value("path-delimiter"))
     modul = split[-1]
     path = filepath[:-len(modul)]
-    modul = modul.split(".")[0]
+    modul = modul.split(".")[0] 
     pymodul = AfpPy_Import(modul, path)
     if pymodul:
         pymodul.AfpExtra(globals, data, debug)
