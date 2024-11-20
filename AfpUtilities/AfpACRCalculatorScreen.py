@@ -8,6 +8,7 @@
 #
 #
 #   History: \n
+#        20 Nov. 2024 - changes for python 3.12 - Andreas.Knoblauch@afptech.de 
 #        30 Dez. 2021 - conversion to python 3 - Andreas.Knoblauch@afptech.de 
 #        02 Mar. 2020 - add fixed budget surcharge - Andreas.Knoblauch@afptech.de
 #        29 May 2018 - add result processing - Andreas.Knoblauch@afptech.de
@@ -302,7 +303,7 @@ class AfpACRScreen(AfpScreen):
         for col in range(self.cols):  
             self.grid_auswahl.SetColLabelValue(col,self.col_labels[col])
             if col < len(self.col_percents):
-                self.grid_auswahl.SetColSize(col,self.col_percents[col]*self.grid_width/100)
+                self.grid_auswahl.SetColSize(col,int(self.col_percents[col]*self.grid_width/100))
     ## adjust matrix sizes
     # @param rows - new number of rows
     # @param cols - new number of columns

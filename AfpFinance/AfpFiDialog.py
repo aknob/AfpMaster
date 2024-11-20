@@ -5,7 +5,8 @@
 # AfpFiDialog module provides classes and routines needed for user interaction of finance handling and accounting,\n
 #
 #   History: \n
-#        19 Okt. 2024 - direct use of prupose in AfpDialog_SEPA- Andreas.Knoblauch@afptech.de \n
+#        20 Nov. 2024 - changes for python 3.12 - Andreas.Knoblauch@afptech.de 
+#        19 Okt. 2024 - direct use of purpose in AfpDialog_SEPA - Andreas.Knoblauch@afptech.de \n
 #        30 Dez. 2021 - conversion to python 3 - Andreas.Knoblauch@afptech.de \n
 #        13 June 2020 - add incoming and outgoing invoice dialog- Andreas.Knoblauch@afptech.de
 #        10 July 2019 - add direct accounting dialog- Andreas.Knoblauch@afptech.de
@@ -688,7 +689,7 @@ class AfpDialog_FiBuchung(AfpDialog):
             for col in range(self.cols):  
                 self.grid_buchung.SetColLabelValue(col, self.col_labels[col])
                 if col < len(self.col_percents):
-                    self.grid_buchung.SetColSize(col, self.col_percents[col]*int(grid_width/100))
+                    self.grid_buchung.SetColSize(col, int(self.col_percents[col]*grid_width/100))
     
    ## check if changes are grave for this accounting entry
     def changes_are_grave(self):
@@ -1807,7 +1808,7 @@ class AfpDialog_SEPA(AfpDialog):
             for col in range(self.cols):  
                 self.grid_mandate.SetColLabelValue(col, self.col_labels[self.col_label_index][col])
                 if col < len(self.col_percents):
-                    self.grid_mandate.SetColSize(col, self.col_percents[col]*grid_width/100)
+                    self.grid_mandate.SetColSize(col, int(self.col_percents[col]*grid_width/100))
     
     ## execution in case the OK button ist hit - overwritten from AfpDialog
     def execute_Ok(self):

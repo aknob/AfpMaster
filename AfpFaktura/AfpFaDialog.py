@@ -5,6 +5,7 @@
 # AfpInDialog module provides the dialogs and appropriate loader routines needed for invoicehandling
 #
 #   History: \n
+#        20 Nov. 2024 - changes for python 3.12 - Andreas.Knoblauch@afptech.de 
 #        30 Dez. 2021 - conversion to python 3 - Andreas.Knoblauch@afptech.de \n
 #        22 Nov. 2016 - inital code generated - Andreas.Knoblauch@afptech.de \n
 
@@ -279,7 +280,7 @@ class AfpDialog_FaCustomSelect(AfpDialog):
         self.grid_auswahl.EnableDragGridSize(0)
         self.grid_auswahl.SetSelectionMode(wx.grid.Grid.GridSelectRows)   
         for col in range(self.cols):
-            self.grid_auswahl.SetColSize(col, self.col_percents[col]*4.9) # 5 = 500/100
+            self.grid_auswahl.SetColSize(col, int(self.col_percents[col]*4.9)) # 5 = 500/100
             for row in range(self.rows):
                 self.grid_auswahl.SetReadOnly(row, col)
         self.Bind(wx.grid.EVT_GRID_CMD_CELL_LEFT_DCLICK, self.On_DClick, self.grid_auswahl)

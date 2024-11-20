@@ -10,6 +10,7 @@
 
 #
 #   History: \n
+#        20 Nov. 2024 - changes for python 3.12 - Andreas.Knoblauch@afptech.de 
 #        30 Dez. 2021 - conversion to python 3 - Andreas.Knoblauch@afptech.de
 #        16 Jul. 2021 - inital code generated - Andreas.Knoblauch@afptech.de
 
@@ -1433,8 +1434,8 @@ class AfpDialog_calEvents(AfpDialog):
             for col in range(self.cols):  
                 self.grid_events.SetColLabelValue(col, self.col_labels[col])
                 if col < len(self.col_percents):
-                    self.grid_events.SetColSize(col, self.col_percents[col]*grid_width/100)
-    ## deselect all selectde grid rows
+                    self.grid_events.SetColSize(col, int(self.col_percents[col]*grid_width/100))
+    ## deselect all selected grid rows
     def grid_deselect(self):
         indices = self.grid_events.GetSelectedRows()
         if indices:
