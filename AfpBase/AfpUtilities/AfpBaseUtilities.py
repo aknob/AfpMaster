@@ -163,6 +163,9 @@ def Afp_distributeCents(value, count):
 # @param sec - number of seconds to sleep, may be floatingpoint
 def Afp_wait(sec):
     time.sleep(sec)
+## return minimum date
+def Afp_minDate():
+    return datetime.date.min
 ## return today
 def Afp_getToday():
     return datetime.date.today()

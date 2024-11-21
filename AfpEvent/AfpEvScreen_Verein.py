@@ -36,7 +36,7 @@ import wx
 import wx.grid
 
 from AfpBase.AfpUtilities.AfpStringUtilities import *
-from AfpBase.AfpUtilities.AfpBaseUtilities import Afp_existsFile, Afp_lastIntervalDate
+from AfpBase.AfpUtilities.AfpBaseUtilities import Afp_existsFile, Afp_lastIntervalDate, Afp_minDate
 from AfpBase.AfpDatabase.AfpSQL import AfpSQL
 from AfpBase.AfpDatabase.AfpSuperbase import AfpSuperbase
 from AfpBase.AfpBaseRoutines import Afp_archivName, Afp_startFile, Afp_getBirthdayList, Afp_getAge
@@ -789,18 +789,25 @@ class AfpEvMember(AfpEvClient):
         #print "AfpEvMember.set_period:", self.selects["ANMELDATT"], self.get_selection("ANMELDATT").data
         
     ## get first aktiv sepa mandat
-    # @param felder - if given fields to be extracted from aktiv sepa row
-    def get_aktiv_sepa(self, felder=None):
-        row = None
+    # @param felder - if given, fields to be extracted from aktiv sepa row
+    # @param all - if given and no active mandat available, return lastest inactive mandat
+    def get_aktiv_sepa(self, felder=None, all=False):
+        lgh = 9
+        if felder: lgh = len(felder.split(","))
+        res = [None]*lgh
+        #row = None
         for i in range(self.get_value_length("ARCHIV")):
-            row = self.get_value_rows("ARCHIV", "Art,Typ", i)[0]
-            if row[0] == "SEPA-DD" and row[1] == "Aktiv":
-                if felder:
-                    row = self.get_value_rows("ARCHIV", felder, i)[0]
-                else:
-                    row = rows[i]
-                break
-        return row
+            row = self.get_value_rows("ARCHIV", "Art,Typ,Datum", i)[0]
+            dat = Afp_minDate()
+            if row[0] == "SEPA-DD":
+                if row[1] == "Aktiv" or (all and row[2] > dat):
+                    if felder:
+                        res = self.get_value_rows("ARCHIV", felder, i)[0]
+                    else:
+                        res = rows[i]
+                    if all: dat = row[2]
+                if row[1] == "Aktiv": break
+        return res
     ## deaktivate all sepa mandats
     def deactivate_sepa(self):
         # don't use SEPA SelectionList, as it is overwritten by ARCHIV
