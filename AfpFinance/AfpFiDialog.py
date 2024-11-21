@@ -126,7 +126,7 @@ def AfpFinance_getSEPAct(globals, KNr, input = None):
     result = None
     while result is None: 
         result = AfpReq_MultiLine( "Neue Überweisung, bitte Daten eingeben:", "", "Text", liste, "Überweisung", 350, "Vorgang")
-        print ("AfpFinance_getSEPAct result:", result)
+        #print ("AfpFinance_getSEPAct result:", result)
         if result is None: # Vorgang button pressed
             selectors = AfpFinance_get_ZahlSelectors(globals, False)  
             #print "AfpFinance_getSEPAct selectors:", selectors
@@ -309,12 +309,12 @@ class AfpDialog_FiBuchung(AfpDialog):
     def __init__(self, *args, **kw):   
         self.cols = 7
         self.rows = 10
+        self.col_percents = [13, 10, 10, 15, 10, 21, 21]
+        self.col_labels = ["Datum","Soll","Haben","Betrag","Beleg", "Name", "Bem"]
         AfpDialog.__init__(self,None, -1, "")
         self.active = False
         self.grid_ident = None
         self.grid_indices = None
-        self.col_percents = [13, 10, 10, 15, 10, 21, 21]
-        self.col_labels = ["Datum","Soll","Haben","Betrag","Beleg", "Name", "Bem"]
         self.strict_accounting = True  # don't allow bookings to be overwritten, use a reverse entry
         self.client_factories = None
         self.revenue_accounts = None
@@ -478,14 +478,9 @@ class AfpDialog_FiBuchung(AfpDialog):
         #self.grid_buchung.EnableDragColSize(0)
         self.grid_buchung.EnableDragRowSize(0)
         self.grid_buchung.EnableDragGridSize(0)
-        self.grid_buchung.SetSelectionMode(wx.grid.Grid.GridSelectRows)   
-        self.grid_buchung.SetColLabelValue(0, "Datum")
-        self.grid_buchung.SetColLabelValue(1, "Soll")
-        self.grid_buchung.SetColLabelValue(2, "Haben")
-        self.grid_buchung.SetColLabelValue(3, "Betrag")
-        self.grid_buchung.SetColLabelValue(4, "Beleg")
-        self.grid_buchung.SetColLabelValue(5, "Name")
-        self.grid_buchung.SetColLabelValue(6, "Bem")
+        self.grid_buchung.SetSelectionMode(wx.grid.Grid.GridSelectRows) 
+        for col in range(self.cols):
+            self.grid_buchung.SetColLabelValue(col, self.col_labels[col])
         for row in range(self.rows):
             for col in range(self.cols):
                 self.grid_buchung.SetReadOnly(row, col)
@@ -693,7 +688,7 @@ class AfpDialog_FiBuchung(AfpDialog):
             for col in range(self.cols):  
                 self.grid_buchung.SetColLabelValue(col, self.col_labels[col])
                 if col < len(self.col_percents):
-                    self.grid_buchung.SetColSize(col, self.col_percents[col]*grid_width/100)
+                    self.grid_buchung.SetColSize(col, self.col_percents[col]*int(grid_width/100))
     
    ## check if changes are grave for this accounting entry
     def changes_are_grave(self):
@@ -1602,9 +1597,9 @@ class AfpDialog_SEPA(AfpDialog):
         self.sizer_box = wx.StaticBox(self, label="Mandate", size=(60, 212))
         self.right_sizer = wx.StaticBoxSizer(self.sizer_box, wx.VERTICAL)
         self.right_sizer.AddStretchSpacer(2)      
-        self.right_sizer.Add(self.button_Minus,0,wx.EXPAND)        
-        self.right_sizer.AddStretchSpacer(1) 
         self.right_sizer.Add(self.button_Plus,0,wx.EXPAND)               
+        self.right_sizer.AddStretchSpacer(1) 
+        self.right_sizer.Add(self.button_Minus,0,wx.EXPAND)        
         self.right_sizer.AddStretchSpacer(2) 
         
         self.grid_mandate = wx.grid.Grid(self, -1, style=wx.FULL_REPAINT_ON_RESIZE, name="Mandate")
@@ -1668,7 +1663,7 @@ class AfpDialog_SEPA(AfpDialog):
         self.textmap.pop("BIC")
         self.textmap.pop("IBAN")
         self.textmap.pop("Anz")
-        self.button_Load.Enable(False)
+        #self.button_Load.Enable(False)
         self.label_Anz.SetLabel("")
         self.label_Folge.SetLabel("Summe:")
         self.sizer_box.SetLabel("Zahlung")
@@ -1699,7 +1694,7 @@ class AfpDialog_SEPA(AfpDialog):
         if self.xml_sepa_type == "SEPA-CT":
             #print "AfpDialog_SEPA.Pop_Mandate SEPA-CT:", self.data.debit_IBAN, self.data.debit_BIC
             if self.data.debit_IBAN:
-                self.text_IBAN .SetValue(self.data.debit_IBAN)
+                self.text_IBAN.SetValue(self.data.debit_IBAN)
             if self.data.debit_BIC:
                 self.text_BIC.SetValue(self.data.debit_BIC)
         rows = []
@@ -1816,7 +1811,7 @@ class AfpDialog_SEPA(AfpDialog):
     
     ## execution in case the OK button ist hit - overwritten from AfpDialog
     def execute_Ok(self):
-        #print "AfpDialog_SEPA.execute_Ok:", self.xml_data_loaded, self.clients, self.newclients
+        print ("AfpDialog_SEPA.execute_Ok:", self.xml_data_loaded, self.clients, self.newclients, self.xml_sepa_type, self.data.has_changed())
         if  self.xml_data_loaded:
             if self.purpose:
                 bem = self.purpose
@@ -1843,11 +1838,11 @@ class AfpDialog_SEPA(AfpDialog):
     ## execution in case the Quit button ist hit -  overwritten from AfpDialog
     def execute_Quit(self):
         if self.debug: print ("AfpDialog_SEPA.execute_Quit:", self.data.has_changed())
-        print ("AfpDialog_SEPA.execute_Quit:", self.data.has_changed(), self.xml_sepa_type, )
+        print ("AfpDialog_SEPA.execute_Quit:", self.data.has_changed(), self.xml_sepa_type, self.filled_rows, self.grid_ident)
         #self.data.view()
         #self.data.transactions[0].view()
         self.Ok = False
-        if self.xml_sepa_type == "SEPA-CT" and self.data.has_changed(): 
+        if self.xml_sepa_type == "SEPA-CT" and self.grid_ident: 
             text1 = "Beim Verlassen gehen die geänderten Daten verloren,"
             text2 = "sollen sie in einer XML-Datei zwischengespeichert werden?"
             Ok  = AfpReq_Question(text1, text2,"Daten geändert")
@@ -1989,14 +1984,28 @@ class AfpDialog_SEPA(AfpDialog):
 
    ## Event handler to generate and load data for SEPA xml file into dialog
     def On_Load(self, event=None):
-        if self.debug: print("AfpDialog_SEPA Event handler `On_Load'")
-        ok = self.data.prepare_xml()
-        if ok: self.clients, self.newclients = self.data.get_clients()
-        #print ("AfpDialog_SEPA.On_Load:", ok, self.newclients, self.clients)
-        if self.clients or self.newclients:
-            self.client_value_field = self.data.get_client_fieldname("actuel")
-            self.xml_data_loaded = True
-            self.SetBackgroundColour(self.xml_background)
+        if self.debug: print("AfpDialog_SEPA Event handler `On_Load'") 
+        refresh = False
+        if self.xml_sepa_type == "SEPA-CT":
+            print ("AfpDialog_SEPA.On_load type: SEPA-CT")
+            # add here xml-import from saved file        
+            dir = self.data.get_globals().get_value("homedir")
+            fname, ok = AfpReq_FileName(dir , "Bitte XML Importfile auswählen!", "*.xml", True)
+            if ok and fname:
+                imp = AfpImport(self.data.get_globals(), fname, None, self.debug)
+                datas = imp.read_from_file()            
+                self.data.booking_absorber(datas[0], False)
+                refresh = True
+        else:
+            ok = self.data.prepare_xml()
+            if ok: self.clients, self.newclients = self.data.get_clients()
+            #print ("AfpDialog_SEPA.On_Load:", ok, self.newclients, self.clients)
+            if self.clients or self.newclients:
+                self.client_value_field = self.data.get_client_fieldname("actuel")
+                self.xml_data_loaded = True
+                self.SetBackgroundColour(self.xml_background)
+                refresh = True
+        if refresh:
             self.col_label_index = 1
             self.Pop_Mandate()
             self.Pop_sums()

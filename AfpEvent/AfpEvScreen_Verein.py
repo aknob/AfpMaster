@@ -1020,9 +1020,9 @@ class AfpEvScreen_Verein(AfpEvScreen):
         self.button_sizer.AddSpacer(20)
      
         # COMBOBOX
-        self.combo_Filter = wx.ComboBox(self, -1, value="Mitglieder", size=(164,20), choices=["Kandidaten","Mitglieder","Basismitglieder","Beitragszahler","Zahlung offen","Abgemeldet","Ausgetreten"], style=wx.CB_DROPDOWN, name="Filter")
+        self.combo_Filter = wx.ComboBox(self, -1, value="Mitglieder", size=(164,20), choices=["Kandidaten","Gäste","Mitglieder","Basismitglieder","Beitragszahler","Zahlung offen","Abgemeldet","Ausgetreten"], style=wx.CB_DROPDOWN, name="Filter")
         self.Bind(wx.EVT_COMBOBOX, self.On_Filter, self.combo_Filter)
-        self.filtermap = {"Mitglieder":"Verein Anmeldung PreStorno","Beitragszahler":"Verein Anmeldung PreStorno Preis>=0.01","Zahlung offen":"Verein Anmeldung PreStorno Preis>Zahlung","Basismitglieder":"Verein Anmeldung","Kandidaten":"Verein PreAnmeld","Abgemeldet":"Verein PreStorno","Ausgetreten":"Verein Storno"}
+        self.filtermap = {"Mitglieder":"Verein Anmeldung PreStorno","Beitragszahler":"Verein Anmeldung PreStorno Preis>=0.01","Zahlung offen":"Verein Anmeldung PreStorno Preis>Zahlung","Basismitglieder":"Verein Anmeldung","Kandidaten":"Verein PreAnmeld","Gäste":"Verein Gast","Abgemeldet":"Verein PreStorno","Ausgetreten":"Verein Storno"}
         self.combo_PayFilter = wx.ComboBox(self, -1, value="", size=(120,20), choices=["","SEPA","Retoure","Rechnung"], style=wx.CB_DROPDOWN, name="PayFilter")
         self.Bind(wx.EVT_COMBOBOX, self.On_Filter, self.combo_PayFilter)
         self.payfiltermap = {"SEPA":"ZahlArt LIKE 'SEPA-Mandat%'","Retoure":"ZahlArt='Retoure'","Rechnung":"ZahlArt='Rechnung'"}
@@ -1911,6 +1911,9 @@ class AfpDialog_EvMemberEdit(AfpDialog_EvClientEdit):
         self.check_family()
         self.check_finance_moduls()
 
+    ## set possible entries for 'Zustand'-list in dialog \n
+    def get_ZustandList(self):
+        return ["Reservierung","Gast","Anmeldung"]
     ## read values from dialog and invoke writing into data         
     def store_data(self):
         if self.storno:

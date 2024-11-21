@@ -1061,7 +1061,9 @@ class AfpDialog(wx.Dialog):
         editable = self.is_editable()
         if not editable: self.re_load()
         self.Set_Editable(editable)
-        if self.no_readonly or self.choice_Edit.GetCurrentSelection() == 2: self.EndModal(wx.ID_CANCEL)
+        if self.no_readonly or self.choice_Edit.GetCurrentSelection() == 2: 
+            self.execute_Quit()
+            self.EndModal(wx.ID_CANCEL)
         event.Skip()
     ## Eventhandler BUTTON - Ok button pushed
     # @param event - event which initiated this action

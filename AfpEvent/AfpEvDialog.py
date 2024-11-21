@@ -1209,7 +1209,7 @@ class AfpDialog_EvClientEdit(AfpDialog):
         
         # BUTTONs
         self.button_sizer = wx.BoxSizer(wx.VERTICAL)          
-        self.choice_Zustand = wx.Choice(self, -1,  choices= [""] + AfpEvent_getZustandList() ,  name="CZustand")      
+        self.choice_Zustand = wx.Choice(self, -1,  choices= [""] + self.get_ZustandList() ,  name="CZustand")      
         #self.choicemap["CZustand"] = "Zustand.ANMELD"
         self.Bind(wx.EVT_CHOICE, self.On_CZustand, self.choice_Zustand)  
         self.button_Agent = wx.Button(self, -1, label="&Vermittler", name="Agent")
@@ -1272,7 +1272,9 @@ class AfpDialog_EvClientEdit(AfpDialog):
             self.Set_Editable(True)
             self.choice_Edit.SetSelection(1)
             self.choice_Edit.Enable(False)
-            
+    ## set possible entries for 'Zustand'-list in dialog \n
+    def get_ZustandList(self):
+        return ["Reservierung","Anmeldung"]
     ## return if changes have been made in the dialog
     def has_changed(self):
        return self.changed_text or self.ort or not self.agent is None or self.zustand or self.change_preis or self.new
@@ -1373,7 +1375,7 @@ class AfpDialog_EvClientEdit(AfpDialog):
     def complete_data(self, data):
         #print "AfpDialog_EvClientEdit.complete_data:", data
         if not "Zustand" in data:
-            data["Zustand"] = AfpEvent_getZustandList()[-1]
+            data["Zustand"] = self.get_ZustandList()[-1]
         if not "Ab" in data:
             data["Ab"] = 0
         if self.actuel_invnr: data["RechNr"] = self.actuel_invnr

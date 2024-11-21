@@ -429,10 +429,9 @@ def AfpPy_Import(modul, path=None):
                 # sys.modules[mod.__name__] = mod
                 loader.exec_module(mod)
             except:
-                if filename:
-                    print("ERROR: dynamic modul " + modul + " not found!")
-                    if Afp_existsFile(filename):
-                        print("WARNING: File \"" + filename + "\" exists, propably a syntax problem.")
+                print("ERROR: dynamic modul " + modul + " not found!")
+                if Afp_existsFile(filename):
+                    print("WARNING: File \"" + filename + "\" exists, propably a syntax problem.")
         else:
             print("ERROR: dynamic modul " + modul + " not found!")
     return mod

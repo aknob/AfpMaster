@@ -446,7 +446,7 @@ class AfpSEPAct(AfpSelectionList):
         for i in range(len(raws)):
             adresse = AfpAdresse(self.get_globals(), raws[i][0])
             #print ("AfpSEPAct.get_transaction_rows row:", raws[i][1], raws[i][2], type(raws[i][1]), type(raws[i][2]))
-            row = [adresse.get_name(True), self.transaction_BIC[i], self.transaction_IBAN[i], Afp_toFloatString(raws[i][1]), raws[i][2]]
+            row = [adresse.get_name(True), self.transaction_BIC[i], self.transaction_IBAN[i], Afp_toFloatString(raws[i][1]), raws[i][2], i]
             rows.append(row)
         return rows
     ## generate SEPA Creditor Transfer XML-file from data
@@ -1170,6 +1170,7 @@ class AfpFinanceTransactions(AfpSelectionList):
                 val =  rows[0][0]
                 if Afp_isString(val):
                     val = Afp_fromString(val)
+                    if Afp_isString(val): val = 0
                     rows[0][0] = val
                 for row in rows:
                     #if Afp_intString(row[0]) > val: val = Afp_intString(row[0])
@@ -1866,9 +1867,9 @@ class AfpFinance(AfpFinanceTransactions):
             nr = 0
         else:
             nr = 0.0
-            integer = self.bank - self.main_bankaccount
-            if integer > 9: # should be scaled for factor 1000 ...
-                integer = self.bank - (int(self.bank/100) * 100)
+            #integer = self.bank - self.main_bankaccount
+            #if integer > 9: # should be scaled for factor 1000 ...
+            integer = self.bank - (int(self.bank/100) * 100)
             nr += integer
         print ("AfpFinance.gen_first_rcptnr nr:", nr, self.bank, self.main_bankaccount)
         return nr
@@ -1900,7 +1901,7 @@ class AfpFinance(AfpFinanceTransactions):
             nr += 1
         elif Afp_isNumeric(nr):
             nr += 0.001
-        #print "AfpFinance.gen_next_rcptnr:", nr,  Afp_isNumeric(nr)
+        #print ("AfpFinance.gen_next_rcptnr:", nr,  Afp_isNumeric(nr))
         return nr
     ## generate bank-account sum
     def get_salden(self):
@@ -2067,6 +2068,11 @@ class AfpFinance(AfpFinanceTransactions):
                     changed = True
                     #print "AfpFinance.set_balance_salden resetted:", ktnr, salden[ktnr]
         return changed
+    ## remove transactions, that are already recorded in database
+    # @para filter - filter to be handled in an 'if' statement, default: 'BuchungsNr' - already recorded bookings
+    def remove_bookings(self, filter = "BuchungsNr"):
+        print ("AfpFinance.remove_bookings:", filter)
+
     ## absorb finance bookings from another AfpFinance object
     # @param object - AfpFinance object where to absorb data
     # @param splitting - flag if split-bookings should be invoked

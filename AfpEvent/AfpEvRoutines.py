@@ -56,10 +56,6 @@ def AfpEvent_isTour(art):
     elif art == "Fremd" or art == "Eigen" or art == "Reise" or art == "Touristik":
         return True
     return False
- ## available 'Zustand' values are set here \n
-# This is the definition routine for all available 'Zustand' values
-def AfpEvent_getZustandList():
-    return ["Reservierung","Anmeldung"]
 ## return 'Zustand' values where financial transaction are needed \n
 # This is the definition routine for the above 'Zustand' values
 def AfpEvent_getTransactionList():
