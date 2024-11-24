@@ -612,7 +612,7 @@ def Afp_selectSameKundenNr(mysql, table, KNr, debug = False, felder = None, filt
 # @param field  - field to be returned, default: 'KtNr'
 def Afp_getSpecialAccount(mysql, ident, index = "KtName", field = "KtNr"):
     rows = mysql.select(field, index + " = \"" + ident + "\"","KTNR")
-    print ("Afp_getSpecialAccount:", ident,  index, field, index + " = \"" + ident + "\"", rows)
+    #print ("Afp_getSpecialAccount:", ident,  index, field, index + " = \"" + ident + "\"", rows)
     if rows: return rows[0][0]
     else: return 0
 ##  get individual account from 'KtNr' table

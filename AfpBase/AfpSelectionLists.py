@@ -9,6 +9,7 @@
 # - AfpOrderedList
 #
 #   History: \n
+#        24 Nov. 2024 - AfpPaymentList.get_account: always check if output ist numeric - Andreas.Knoblauch@afptech.de \n
 #        30 Dez. 2021 - conversion to python 3 - Andreas.Knoblauch@afptech.de \n
 #        21 Dez. 2020 - separated from AfpBaseRoutines and AfpOrderedList implemented- Andreas.Knoblauch@afptech.de
 
@@ -964,12 +965,13 @@ class AfpPaymentList(AfpSelectionList):
     ## routine to retrieve account number to book payment
     def get_account(self):
         #print ("AfpPaymentList.get_account:",  self.account_field,  self.get_value(self.account_field))
-        if self.account_field: return self.get_value(self.account_field)
-        else: 
+        if self.account_field: 
             KtNr = self.get_value(self.account_field)
-            if not (Afp_isNumeric(KtNr)):
-                KtNr = Afp_getSpecialAccount(self.get_mysql(),  Afp_getStartLetters(KtNr))
-            return KtNr
+        else:
+            KtNr = "ERL"
+        if not (Afp_isNumeric(KtNr)):
+            KtNr = Afp_getSpecialAccount(self.get_mysql(),  Afp_getStartLetters(KtNr))
+        return KtNr
     ## retrieve payment text
     def get_payment_text(self):
         if self.payment_text_fields:
