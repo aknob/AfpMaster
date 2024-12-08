@@ -774,9 +774,8 @@ class AfpEvScreen(AfpScreen):
     # @param origin - string where to find initial data
     def set_initial_record(self, origin = None):
         ENr = 0
-        ANr = 0
-        #self.sb.set_debug()     
-        self.sb.CurrentIndexName("KundenNr","ADRESSE")
+        ANr = 0    
+        #self.sb.CurrentIndexName("KundenNr","ADRESSE")
         self.sb.CurrentIndexName("EventNr","ANMELD")   
         self.sb.CurrentIndexName("EventNr","EVENT") 
         if origin == "Adresse":
@@ -784,24 +783,20 @@ class AfpEvScreen(AfpScreen):
             self.sb.CurrentIndexName("KundenNr","ANMELD") 
             self.sb.select_key(KNr, "KundenNr","ANMELD")
             if self.sb.get_value("KundenNr.ANMELD") == KNr: ANr = self.sb.get_value("AnmeldNr.ANMELD")
-            print ("AfpEvScreen.set_initial_record Adresse:", KNr, ANr, self.sb.get_value("KundenNr.ADRESSE"), self.sb.get_value("KundenNr.ANMELD"), self.sb.get_value("AnmeldNr.ANMELD"))
         elif origin:
             #ENr = self.sb.get_value("Reise.ADRESSE")
             ENr = self.globals.get_value("EventNr", origin)
         if ENr is None: ENr = 0
         # only for testing: in real life startdate  date + 14 should be selected
         #if ENr == 0: ENr = 2213
-        #print ("AfpEvScreen.set_initial_record:", ENr, ANr, origin)
         if ENr or ANr:
             self.load_direct(ENr, ANr)
-            print ("AfpEvScreen.set_initial_record direct:", ENr, ANr)
-            self.Reload()
         else:
             #self.sb.select_last() # fallback
             self.sb.select_first() # fallback
             self.On_Index()
             self.sb.select_current()
-        #print "AfpEvScreen.set_initial_record initial record set:", self.sb.get_value()
+        #self.set_current_record() # needed?
         return
     ## check if slave exists
     def slave_exists(self):

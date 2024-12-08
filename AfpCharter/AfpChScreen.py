@@ -489,6 +489,7 @@ class AfpChScreen(AfpScreen):
         #self.sb.select_key(FNr, "FahrtNr","FAHRTEN")      
         self.sb.CurrentIndexName("Abfahrt","FAHRTEN")
         self.sb.select_last() # for tests
+        self.set_current_record() # needed?
         return
     ## supply list of graphic object where keydown events should not be traced.
     def get_no_keydown(self):

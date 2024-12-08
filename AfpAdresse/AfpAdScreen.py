@@ -624,7 +624,8 @@ class AfpAdScreen(AfpScreen):
             self.sb.select_key(KNr,"KundenNr","ADRESSE")
             self.sb.set_index("NamSort","ADRESSE","KundenNr")
             self.sb.CurrentIndexName("NamSort","ADRESSE")
-        self.Pop_Filter_Merk()
+        self.Pop_Filter_Merk()        
+        self.set_current_record() # needed?
         return
     ## get identifier of graphical objects, 
     # where the keydown event should not be catched

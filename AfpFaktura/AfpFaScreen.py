@@ -1341,6 +1341,7 @@ class AfpFaScreen(AfpEditScreen):
             self.sb.CurrentIndexName("RechNr","RECHNG")
             self.sb.select_key(ReNr)
         self.index = "RechNr"
+        self.set_current_record() # needed?
         return
     ## get identifier of graphical objects, 
     # where the keydown event should not be catched

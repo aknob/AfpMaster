@@ -7,6 +7,7 @@
 # - AfpScreen - screen base class
 #
 #   History: \n
+#        26 Nov. 2024 - add set_initial_gridrow - Andreas.Knoblauch@afptech.de \n
 #        24 Okt. 2024 - adaption to python 3.12 - Andreas.Knoblauch@afptech.de \n
 #        30 Dez. 2021 - conversion to python 3 - Andreas.Knoblauch@afptech.de \n
 #        20 Okt. 2019 - enable grid sort mechnismn - Andreas.Knoblauch@afptech.de \n
@@ -17,7 +18,7 @@
 #  AfpTechnologies (afptech.de)
 #
 #    BusAfp is a software to manage coach and travel activities
-#    Copyright© 1989 - 2023 afptech.de (Andreas Knoblauch)
+#    Copyright© 1989 - 2025 afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -103,6 +104,7 @@ class AfpScreen(wx.Frame):
         self.globals = globals
         self.create_menubar()
         self.create_modul_buttons()
+        self.initialize_sizer()
         # set header
         self.SetTitle(globals.get_host_header())
         # shortcuts for convienence
@@ -130,8 +132,9 @@ class AfpScreen(wx.Frame):
         for datei in dateien:
             self.sb.open_datei(datei)
         self.set_initial_record(origin)
-        self.set_current_record()
+        #self.set_current_record() # if needed, to be integrated into set_initial_record
         self.Populate()
+        self.set_initial_gridrow()
         # Keyboard Binding
         self.no_keydown = self.get_no_keydown()
         self.Bind(wx.EVT_KEY_DOWN, self.On_KeyDown)
@@ -219,9 +222,6 @@ class AfpScreen(wx.Frame):
                             self.button_modules[mod].SetBackgroundColour(self.buttoncolor)
                         self.modul_button_sizer.AddSpacer(10)
                         self.modul_button_sizer.Add(self.button_modules[mod] ,0,wx.EXPAND)
-            self.SetSizerAndFit(self.sizer)
-            self.SetAutoLayout(1)
-            self.sizer.Fit(self)
         else: # use direct postioning on the panel
             if modules:
                 cnt = 0               
@@ -234,8 +234,15 @@ class AfpScreen(wx.Frame):
                         self.button_modules[mod].SetBackgroundColour(self.actuelbuttoncolor)
                     else:
                         self.button_modules[mod].SetBackgroundColour(self.buttoncolor)
-
-    ## dump database with available 'Extra'-program
+    ## fit sizer into screen
+    def initialize_sizer(self):
+        if self.sizer:
+            #self.SetSizerAndFit(self.sizer)
+            self.SetSizer(self.sizer)
+            #self.SetAutoLayout(1)
+            self.sizer.Fit(self)
+      
+   ## dump database with available 'Extra'-program
     def dump_database(self):
         prog = self.globals.get_value("extradir") + self.globals.get_value("auto-dump-sql-tables")
         if Afp_existsFile(prog):
@@ -581,6 +588,11 @@ class AfpScreen(wx.Frame):
     # may be used to initialise the empty database, when the program is called the first time
     # @param origin - string where to find initial data
     def set_initial_record(self, origin = None):
+        return
+    ## set initial gridrow to be selected, when screen opens the first time
+    # needed to assure cross-screen selection (origin in set_initial_record)
+    # default - empty, should be overwritten to assure consistant data on frist screen when the program is called
+    def set_initial_gridrow(self):
         return
     ## get identifier of graphical objects, 
     # where the keydown event should not be catched

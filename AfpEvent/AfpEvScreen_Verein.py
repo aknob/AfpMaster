@@ -947,6 +947,7 @@ class AfpEvScreen_Verein(AfpEvScreen):
     def __init__(self, debug = None):
         #self.einsatz = None # to invoke import of 'Einsatz' modules in 'init_database'
         self.clubnr = None
+        self.auswname = None
         self.finance_moduls = None
         self.active = False
         self.filter_kept = True
@@ -1269,7 +1270,15 @@ class AfpEvScreen_Verein(AfpEvScreen):
                     verein.set_data_values(data, "Verein", -1)
         ok = self.load_event_edit(verein)
         return ok
-        
+    ## select gridrow holding the indicated entry 
+    # @param id - client identifier
+    def select_current_gridrow(self, id):
+        if id and "Customers" in self.grid_id and id in  self.grid_id["Customers"]:
+            self.grid_row_selected = True
+            index = self.grid_id["Customers"].index(id)
+            self.grid_custs.SelectRow(index)
+            self.grid_custs.MakeCellVisible(index, 0)
+        return
     ## deselect the current selected gridrow
     def deselect_current_gridrow(self):
         if self.grid_row_selected:
@@ -1393,9 +1402,12 @@ class AfpEvScreen_Verein(AfpEvScreen):
             value = self.data.get_value("EventNr") # all events of this agent are needed
             name = ""
             filter = None
-            if self.slave_exists():
+            ok = True
+            if self.auswname:
+                name =  self.auswname
+                self.auswname = None
+            elif self.slave_exists():
                 name = self.slave_data.get_value("Name.ADRESSE")
-                ok = True
             else:
                 name, ok = AfpReq_Text("Mitglied wird gesucht,","bitte Namen eingeben!", name, "Mitgliedssuche")
             knr = None
@@ -1414,14 +1426,10 @@ class AfpEvScreen_Verein(AfpEvScreen):
                 if not filter ==  self.combo_Filter.GetValue():
                     self.combo_Filter.SetValue(filter)
                     self.On_Filter()
-                grid_id = self.grid_id["Customers"]
-                if grid_id and ANr in grid_id:
-                    self.grid_row_selected = True
-                    index = grid_id.index(ANr)
-                    self.grid_custs.SelectRow(index)
-                    self.grid_custs.MakeCellVisible(index, 0)
                 self.load_direct(None, ANr)
+                self.select_current_gridrow(ANr)
                 self.Pop_label()
+                self.Reload()
         else:
             super(AfpEvScreen_Verein, self).On_Ausw(event)
         if event: event.Skip()
@@ -1518,12 +1526,10 @@ class AfpEvScreen_Verein(AfpEvScreen):
     # @param ANr - if given, will overwrite ENr, number of client entry (AnmeldNummer)
     def load_direct(self, ENr, ANr = None):
         AfpEvScreen.load_direct(self, ENr, ANr)
-        if ANr: 
+        if ANr:
             self.slave_data = self.get_client(ANr)
         else:
             self.slave_data = None
-        #print "AfpEvScreen_Verein.load_direct:", ENr, ANr, self.slave_data
-   
     ## switch to other modul screen
     # @param modul - name of modul to switch to
     def SwitchModulScreen(self, modul):
@@ -1661,7 +1667,7 @@ class AfpEvScreen_Verein(AfpEvScreen):
             #self.sb.CurrentIndexName("Kennung","EVENT")
         self.data = self.get_event() 
         #print ("AfpEvScreen_Verein.set_current_record: ", ini, self.sb_master, self.sb.CurrentFile.name, self.sb.get_value("AnmeldNr.ANMELD"))
-        if self.sb_master == "Anmeld" or self.grid_row_selected and not self.no_data_shown:
+        if self.grid_row_selected and not self.no_data_shown:
             self.slave_data = self.get_client()
         else:
             self.slave_data = None
@@ -1672,11 +1678,24 @@ class AfpEvScreen_Verein(AfpEvScreen):
         return
 
     ## set initial record to be shown, when screen opens the first time
-    #(overwritten from AfpEvScreen) 
+    # (overwritten from AfpEvScreen) 
     # @param origin - string where to find initial data
     def set_initial_record(self, origin = None):
         self.clubnr = 1
+        if origin == "Adresse": 
+            self.auswname = self.sb.get_value("Name.ADRESSE")
+            origin = ""
         AfpEvScreen.set_initial_record(self, origin)
+        return
+    ## set initial gridrow to be selected, when screen opens the first time
+    # (overwritten from AfpScreen) 
+    def set_initial_gridrow(self):
+        if self.slave_exists():
+            ANr = self.slave_data.get_value()
+            if Afp_isString(ANr):
+                ANr = Afp_fromString(ANr)
+            self.select_current_gridrow(ANr)
+            #wx.CallAfter(self.select_current_gridrow, ANr)
         return
     ## check if slave exists
     def slave_exists(self):
