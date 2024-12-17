@@ -1523,8 +1523,10 @@ class AfpDialog_EvClientEdit(AfpDialog):
                 if add:
                     client = AfpEv_addRegToArchiv(self.data)
                     if client is None:
-                        show = False
-                        self.choice_Zustand.SetSelection(0)
+                        ok = AfpReq_Question("Kein Anmeldungsdokument ausgewählt,","Person trotzdem anmelden?")
+                        if not ok:
+                            show = False
+                            self.choice_Zustand.SetSelection(0)
                     elif not client == True:
                         self.data = client
             if show:
