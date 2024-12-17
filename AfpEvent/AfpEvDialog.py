@@ -67,7 +67,7 @@ def AfpEv_addRegToArchiv(client, option=None, fname = None, Bem = ""):
             for row in rows:
                 if row[0] == art and row[1] == typ and row[2] == gruppe:
                     needed = False
-        print ("AfpEv_addRegToArchiv check:", rows, art, typ, gruppe, needed)
+        #print ("AfpEv_addRegToArchiv check:", rows, art, typ, gruppe, needed)
     if needed:
         if fname is None:
             wanted = AfpReq_Question("Bitte die " + doctyp + " von " + client.get_name(), "einscannen und die gescannte Datei auswählen!")
@@ -75,7 +75,7 @@ def AfpEv_addRegToArchiv(client, option=None, fname = None, Bem = ""):
             dat = Afp_dateString(fname)
             if dat: datum = dat
             wanted = True
-        print ("AfpEv_addRegToArchiv wanted:", wanted)
+        #print ("AfpEv_addRegToArchiv wanted:", wanted)
         if wanted:
             fixed = {"Art": art, "Typ": typ, "Gruppe": gruppe}
             change = {"Eingangsdatum": Afp_toString(datum), "Bemerkung": Bem}
@@ -1517,9 +1517,23 @@ class AfpDialog_EvClientEdit(AfpDialog):
         zustand =  self.choice_Zustand.GetStringSelection()
         original = self.data.get_value("Zustand")
         if zustand and not (zustand == original):
-            self.zustand = zustand
-            label = original + " -> " + self.zustand
-            self.label_Zustand.SetLabel(label)
+            show = True
+            if zustand == "Anmeldung":
+                add = self.data.get_globals().get_value("add-registration-to-archive","Event")
+                if add:
+                    client = AfpEv_addRegToArchiv(self.data)
+                    if client is None:
+                        ok = AfpReq_Question("Kein Anmeldungsdokument ausgewählt,","Person trotzdem anmelden?")
+                        if not ok:
+                            show = False
+                            self.choice_Zustand.SetSelection(0)
+                    elif not client == True:
+                        self.data = client
+            if show:
+                self.zustand = zustand
+                label = original + " -> " + self.zustand
+                self.label_Zustand.SetLabel(label)
+                self.Set_Editable(True)
         else:
             self.zustand = None
             self.label_Zustand.SetLabel(original)

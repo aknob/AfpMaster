@@ -880,7 +880,7 @@ class AfpEvClient(AfpPaymentList):
                     splitting = None
         if amount and splitting:
             splitting = self.scale_splitting(amount, splitting)
-        #print "AfpEvClient.get_splitting_values sum:", splitting 
+        print ("AfpEvClient.get_splitting_values sum:", splitting) 
         return splitting
     ## set all necessary values to keep track of the payments
     # @param payment - amount that has been payed

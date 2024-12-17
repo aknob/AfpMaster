@@ -1111,7 +1111,7 @@ class AfpDialog_FiBuchung(AfpDialog):
                 splitting =  [[accdata["Gegenkonto"], accdata["Betrag"], "", "extra"]]
             else:
                 splitting =  [[accdata["Konto"], accdata["Betrag"], "", "extra"]]
-        #print("AfpDialog_FiBuchung.On_Add splitting:", splitting, self.values)
+        print("AfpDialog_FiBuchung.On_Add splitting:", splitting, self.values)
         if  splitting:
             betrag = accdata["Betrag"]
             if deduct: betrag -= deduct[1]
@@ -1337,13 +1337,13 @@ class AfpDialog_FiBuchung(AfpDialog):
                 zahlung = 0.0
                 if not preis:
                     preis, zahlung, dat = client.get_payment_values()
-            #print("AfpDialog_FiBuchung.On_Vorgang:", selected, preis, zahlung)
             if zahlung:
                 data["Betrag"] = preis - zahlung
             else:
                 data["Betrag"]  = preis
             splitting =  client.get_splitting_values()
             if splitting: data["xxx-Split"] = splitting
+            print("AfpDialog_FiBuchung.On_Vorgang splitting:", splitting)
             if client.is_canceled(): 
                 data["Betrag"] *= -1
             if self.read_account(self.combo_Soll) == self.transfer:
@@ -1363,7 +1363,7 @@ class AfpDialog_FiBuchung(AfpDialog):
             data["Tab"] = client.get_mainselection()
             data["TabNr"] = client.get_value()
             # = [[KtNr, Betrag, Zusatz], ...]  
-            #print ("AfpDialog_FiBuchung.On_Vorgang:", data)
+            print ("AfpDialog_FiBuchung.On_Vorgang:", data)
             if self.text_Betrag.GetValue():
                 data.pop("Betrag")
             if self.text_Text.GetValue():
