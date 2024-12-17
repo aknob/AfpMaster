@@ -11,14 +11,15 @@
 # - AfpDialog - dialog base class
 #
 #   History: \n
+#        16 Dez. 2024 - add event.Skip() to On_KillFocus method to avoid focus problem on windows - Andreas.Knoblauch@afptech.de \n
 #        24 Okt. 2024 - adaption to python 3.12 - Andreas.Knoblauch@afptech.de \n
 #        30 Dez. 2022 - conversion to python 3 - Andreas.Knoblauch@afptech.de \n
 #        27 Okt. 2022 - add 'close_dialog'-option in On_Button_Ok of AfpDialog 
 #        22 Dez. 2018 - allow flavours in AfpDialog 
 #        27 Jan. 2017 - allow grids in AfpDialog 
-#        05 May 2016 - allow typ list in AfpReq_MultiLine 
+#        05 May  2016 - allow typ list in AfpReq_MultiLine
 #        10 Apr. 2016 - add 'keepeditable' flag to AfpDialog 
-#                              - add 'comboboxes' to populate and set_editable  - Andreas.Knoblauch@afptech.de \n
+#                     - add 'comboboxes' to populate and set_editable  - Andreas.Knoblauch@afptech.de \n
 #        05 Mar. 2015 - move screen base class to separate file - Andreas.Knoblauch@afptech.de \n
 #        26 Feb. 2015 - move common dialogs to AfpBaseDialogCommon - Andreas.Knoblauch@afptech.de \n
 #        19 Okt. 2014 - adapt package hierarchy - Andreas.Knoblauch@afptech.de \n
@@ -29,7 +30,7 @@
 #  AfpTechnologies (afptech.de)
 #
 #    BusAfp is a software to manage coach and travel activities
-#    Copyright© 1989 - 2023 afptech.de (Andreas Knoblauch)
+#    Copyright© 1989 - 2025 afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -1054,7 +1055,8 @@ class AfpDialog(wx.Dialog):
             elif name in self.vtextmap:
                 value = self.data.get_string_value(self.vtextmap[name])
             if (not value and object.GetValue()) or (value != object.GetValue()):
-                if not name in self.changed_text: self.changed_text.append(name)    
+                if not name in self.changed_text: self.changed_text.append(name)
+        if event: event.Skip()
     ## Eventhandler CHOICE - handle event of the 'edit','read' or 'quit' choice
     # @param event - event which initiated this action
     def On_CEdit(self,event):
