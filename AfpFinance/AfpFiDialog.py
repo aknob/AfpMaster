@@ -1011,7 +1011,7 @@ class AfpDialog_FiBuchung(AfpDialog):
     ## filling data from row into entry fields
     # @param row - row fromvalues to be adopted and fillet into the data fields
     def adopt_row(self, row):
-        print ("AfpDialog_FiBuchung.adopt_row row:", row)
+        #print ("AfpDialog_FiBuchung.adopt_row row:", row)
         data = {}
         data["Datum"] = row[1]
         data["Soll"] = row[2]
@@ -1111,7 +1111,7 @@ class AfpDialog_FiBuchung(AfpDialog):
                 splitting =  [[accdata["Gegenkonto"], accdata["Betrag"], "", "extra"]]
             else:
                 splitting =  [[accdata["Konto"], accdata["Betrag"], "", "extra"]]
-        print("AfpDialog_FiBuchung.On_Add splitting:", splitting, self.values)
+        #print("AfpDialog_FiBuchung.On_Add splitting:", splitting, self.values)
         if  splitting:
             betrag = accdata["Betrag"]
             if deduct: betrag -= deduct[1]
@@ -1262,13 +1262,13 @@ class AfpDialog_FiBuchung(AfpDialog):
         if index is None:
             if self.data.has_import_queued():
                 res = AfpReq_MultiLine("   < vorherige Zeile", "   > nächste Zeile", "Button", ["<",">"], "Datenimport Direktwahl")
-                print ("AfpDialog_FiBuchung.On_Adopt:", res)
+                #print ("AfpDialog_FiBuchung.On_Adopt:", res)
                 if res:
                     self.import_line = None
                     if res[0]: self.data.set_previous_import_line()
                     self.set_entries_from_import()
         else:
-            print ("AfpDialog_FiBuchung.On_Adopt Index:", index, self.grid_indices[index], self.data.get_value_length("Buchung"))
+            #print ("AfpDialog_FiBuchung.On_Adopt Index:", index, self.grid_indices[index], self.data.get_value_length("Buchung"))
             row = self.data.get_value_rows("Buchung", None, self.grid_indices[index])[0]
             self.adopt_row(row)
             if not self.keep_import_line is None:
@@ -1343,7 +1343,7 @@ class AfpDialog_FiBuchung(AfpDialog):
                 data["Betrag"]  = preis
             splitting =  client.get_splitting_values()
             if splitting: data["xxx-Split"] = splitting
-            print("AfpDialog_FiBuchung.On_Vorgang splitting:", splitting)
+            #print("AfpDialog_FiBuchung.On_Vorgang splitting:", splitting)
             if client.is_canceled(): 
                 data["Betrag"] *= -1
             if self.read_account(self.combo_Soll) == self.transfer:
@@ -1363,7 +1363,7 @@ class AfpDialog_FiBuchung(AfpDialog):
             data["Tab"] = client.get_mainselection()
             data["TabNr"] = client.get_value()
             # = [[KtNr, Betrag, Zusatz], ...]  
-            print ("AfpDialog_FiBuchung.On_Vorgang:", data)
+            #print ("AfpDialog_FiBuchung.On_Vorgang:", data)
             if self.text_Betrag.GetValue():
                 data.pop("Betrag")
             if self.text_Text.GetValue():
@@ -1381,7 +1381,7 @@ class AfpDialog_FiBuchung(AfpDialog):
         globals = self.data.get_globals()
         dir = globals.get_value("archivdir")
         fname, ok = AfpReq_FileName(dir , "Bitte XML Importfile auswählen!", "*.xml;*.csv", True)
-        #print("AfpDialog_FiBuchung.On_Load File:", ok, fname)
+        print("AfpDialog_FiBuchung.On_Load File:", ok, fname)
         if ok and fname and (fname[-4:] == ".csv" or fname[-4:] == ".CSV"):
             toDat = self.data.get_value("BuchDat.AUSZUG")
             if datum: fromDat = Afp_fromString(datum)

@@ -36,7 +36,7 @@ import wx
 import wx.grid
 
 from AfpBase.AfpUtilities.AfpStringUtilities import *
-from AfpBase.AfpUtilities.AfpBaseUtilities import Afp_existsFile, Afp_lastIntervalDate, Afp_minDate
+from AfpBase.AfpUtilities.AfpBaseUtilities import Afp_existsFile, Afp_lastIntervalDate, Afp_minDate, Afp_addDaysToDate
 from AfpBase.AfpDatabase.AfpSQL import AfpSQL
 from AfpBase.AfpDatabase.AfpSuperbase import AfpSuperbase
 from AfpBase.AfpBaseRoutines import Afp_archivName, Afp_startFile, Afp_getBirthdayList, Afp_getAge
@@ -51,26 +51,7 @@ from AfpBase.AfpBaseFiDialog import AfpLoad_DiFiZahl
 from AfpEvent.AfpEvScreen import AfpEvScreen
 from AfpEvent.AfpEvRoutines import *
 from AfpEvent.AfpEvDialog import AfpDialog_EventEdit, AfpDialog_EvClientEdit, AfpLoad_EvClientEdit, AfpEv_addRegToArchiv
-
-## routine to execute prepared cancellations
-# @param verein - AfpEvVerein object to be worked on
-def AfpEvVerein_closeYear(verein):
-    verein.reset_payment()
-    AfpEvVerein_exeStorno(verein)
     
-## routine to execute prepared cancellations
-# @param verein - AfpEvVerein object to be worked on
-# @param refdat - if given: referencedate to which the cancellation should me executed
-def AfpEvVerein_exeStorno(verein, refdat = None):
-    leftover = verein.execute_cancel(refdat)
-    if leftover is None:
-        AfpReq_Info("Keine Kündigungen vorgemerkt,","keine Kündigungen durchgeführt!","Kündigungen umsetzen")
-    elif not leftover:
-        AfpReq_Info("Kündigungen umgesetzt!","Keine Nacharbeiten nötig!","Kündigungen umsetzen")
-    else:
-        for left in leftover:
-            client = AfpEvMember(verein.get_globals(), left)
-            ok = AfpLoad_EvMemberEdit(client, True, True)
 ## service function to determine adjacent 'Sparte' to given pricenumber
 # @param mysql - database connection
 # @param PNr - price number to determine chapter of club
@@ -164,7 +145,7 @@ class AfpEvVerein(AfpEvent):
         self.auxilary = None
         self.section_PriceToEvent = None
         self.section_PriceInRows = None
-        self.special_filter = {"ANMELD": "(Zustand = \"Anmeldung\" OR Zustand = \"PreStorno\")","Anmeldung": "Zustand = \"Anmeldung\"", "PreStorno": "Zustand = \"PreStorno\""}
+        self.special_filter = {"ANMELD": "(Zustand = \"Anmeldung\" OR Zustand = \"PreStorno\")","Anmeldung": "Zustand = \"Anmeldung\"", "PreStorno": "Zustand = \"PreStorno\"", "PreAnmeld": "Zustand = \"PreAnmeld\""}
         if not self.get_value("AgentNr") and sb:
             KNr = sb.get_value("KundenNr.ADRESSE")
             Name = sb.get_value("Name.ADRESSE")
@@ -180,6 +161,7 @@ class AfpEvVerein(AfpEvent):
         self.selects["AUSGABE"] = [ "AUSGABE","Modul = \"Event\" AND Art = Art.EVENT"] 
         self.selects["Anmeldung"] = [ "ANMELD", "EventNr = EventNr.EVENT AND " + self.special_filter["Anmeldung"],"AnmeldNr"]  
         self.selects["PreStorno"] = [ "ANMELD", "EventNr = EventNr.EVENT AND " + self.special_filter["PreStorno"],"AnmeldNr"] 
+        self.selects["PreAnmeld"] = [ "ANMELD", "EventNr = EventNr.EVENT AND " + self.special_filter["PreAnmeld"],"AnmeldNr"] 
         self.selects["Verein"] = [ "ADRESATT","KundenNr = AgentNr.EVENT AND Attribut = \"Verein\""] 
         self.selects["Sparten"] = [ "PREISE",""] 
         Art = self.get_value("Art")
@@ -192,6 +174,8 @@ class AfpEvVerein(AfpEvent):
             self.selects["Anmeldung"] = [ ] 
             self.delete_selection("PreStorno")
             self.selects["PreStorno"] = [ ] 
+            self.delete_selection("PreAnmeld")
+            self.selects["PreAnmeld"] = [ ] 
             if not self.mainselection in self.selections:
                 self.create_selection(self.mainselection) 
         if complete: self.create_selections()
@@ -255,9 +239,9 @@ class AfpEvVerein(AfpEvent):
             if not self.is_main_section(): self.auxilary = True
             else: self.auxilary = len(self.get_mysql().select("EventNr", None, "EVENT")) > 1
         return self.auxilary
-
+                 
     ## execute cancel action for all prepared member
-    # @param refdat - if given: referencedate to which the cancellation should me executed
+    # @param refdat - if given: referencedate to which the cancellation should be executed
     def execute_cancel(self, refdat = None):
         leftover = None
         rows = self.get_value_rows("PreStorno", "AnmeldNr,InfoDat,Abmeldung") 
@@ -304,6 +288,22 @@ class AfpEvVerein(AfpEvent):
                 self.store()
         return leftover
         
+   ## execute registration for all candidate entries 
+    # @param refdat - if given: referencedate, which the registration should be executed
+    def execute_candidates(self, refdat = None):
+        rows = self.get_value_rows("PreAnmeld", "AnmeldNr, Anmeldung") 
+        #print("AfpEvVerein.execute_candidates rows:", refdat, rows)
+        if rows:
+            cnt = 0
+            for row in rows:
+                if refdat and row[1] > refdat: continue
+                client = self.get_client(row[0])
+                cnt += 1
+                client.set_value("Zustand", "Anmeldung")
+                client.store()
+                print("AfpEvVerein.execute_candidates client:", client.get_name(), "->", client.get_value("Zustand"))
+            self.add_client_count(cnt)
+            
     ## reset payment for new financial period
     def reset_payment(self):
         rows = self.get_value_rows("Anmeldung", "AnmeldNr")
@@ -566,7 +566,7 @@ class AfpEvMember(AfpEvClient):
         else:
             diff = self.get_value("Preis")
         #if diff < 0: diff = 0.0
-        #print("AfpEvMember.reset_payment Zahlung:", self.get_name(), zahlung, diff)
+        print("AfpEvMember.reset_payment Zahlung:", self.get_name(), zahlung, diff)
         rows = self.get_value_rows("ANMELDEX","NoPrv")
         #print("AfpEvMember.reset_payment Rows:", rows)
         #if rows: self.view()
@@ -1250,6 +1250,19 @@ class AfpEvScreen_Verein(AfpEvScreen):
             dat = Afp_addDaysToDate(self.globals.today(), interval)
             AfpReq_Info("Geburtstagsliste bis zum " + Afp_toString(dat) + "! \n", text[:-1], "Geburtstagsliste")
 
+    ## routine to execute prepared cancellations
+    # @param refdat - if given: referencedate to which the cancellation should be executed
+    def execute_storno(self, refdat):
+        leftover = self.data.execute_cancel(refdat)
+        if leftover is None:
+            AfpReq_Info("Keine Kündigungen vorgemerkt,","keine Kündigungen durchgeführt!","Kündigungen umsetzen")
+        elif not leftover:
+            AfpReq_Info("Kündigungen umgesetzt!","Keine Nacharbeiten nötig!","Kündigungen umsetzen")
+        else:
+            for left in leftover:
+                client = AfpEvMember(self.data.get_globals(), left)
+                ok = AfpLoad_EvMemberEdit(client, True, True)
+        
     ## create first record in database
     def create_initial_record(self):
         AfpReq_Info("Kein Verein angelegt!","Zum Einrichten bitte Adresse auswählen und eine Sparte einrichten!","Vereinsdaten eingeben!")
@@ -1437,37 +1450,39 @@ class AfpEvScreen_Verein(AfpEvScreen):
     ## Eventhandler BUTTON - close current financial year and open new year - or - execute resignments
     def On_Abschluss(self,event):
         if self.debug: print("AfpEvScreen_Verein Event handler `On_Abschluss'")
-        Types = ["Check", "Text", "Check"]
+        Types = ["Check", "Check", "Text", "Check"]
         today = self.data.get_globals().today()
         interval= self.data.get_globals().get_value("resign-interval", "Event")
         if not interval: interval = 12
         date = Afp_lastIntervalDate(today, interval, True)
-        Liste = [["Abmeldungen umsetzen:", True], ["Umsetzungsdatum:", Afp_toString(date)], ["Zahlung zurücksetzen:", today.month == 1], ["Abschluss Finanzperiode:", today.month == 1]]
+        Liste = [["Abmeldungen umsetzen:", True], ["Zahlung zurücksetzen:", today.month == 1], ["Umsetzungsdatum:", Afp_toString(date)], ["Abschluss Finanzperiode:", today.month == 1]]
         res = AfpReq_MultiLine("Bitte auswählen, welcher Abschluss umgesetzt werden soll.","Bei Abmeldungen auch das gewünscht Umsetzugsdatum angeben.",Types, Liste, "Abschluss")
         if not res: return
         resign = False
         reset_payment  = False
         finance = False
-        if res[0] and res[1]:
-            date = Afp_fromString(res[1])
-            if not Afp_isDate(date): date = None
+        if res[0]:
             resign = True
+        if res[1]:
+            reset_payment = True 
         if res[2]:
-            reset_payment = True        
+            date = Afp_fromString(res[2])
+            if not Afp_isDate(date): date = None
         if res[3]:
             finance = True
-        print("AfpEvScreen_Verein.On_Abschluss:", res, resign, date, finance)
+        print("AfpEvScreen_Verein.On_Abschluss:", res, resign, reset_payment, date, finance)
         Ok = None
         Ok1 = None
         Ok2 = None
         if resign:
-            if date: text = "Kündigungen zum " + Afp_toString(date) + " umsetzten?"
-            else: text = "Kündigungen umsetzen?"
-            Ok = AfpReq_Question(text ,"", "Kündigungen umsetzen?")
+            if date: text = "Kündigungen und Anmeldungen zum " + Afp_toString(date) + " umsetzten?"
+            else: text = "Kündigungen und Anmeldungen umsetzen?"
+            Ok = AfpReq_Question(text ,"", "Kündigungen, Anmeldungen")
             if Ok:
-                AfpEvVerein_exeStorno(self.data, date)
+                self.execute_storno(date)
+                self.data.execute_candidates(Afp_addDaysToDate(date, 31)) #automated registration for all entries in the first month
         if reset_payment:
-            Ok1 = AfpReq_Question("Das aktuelle Jahr abschliessen und neue Zahlungsverpflichtungen erzeugen?" ,"", "Jahresabschluss")
+            Ok1 = AfpReq_Question("Zahlungsverpflichtungen für das neue Jahr erzeugen?" ,"", "Jahresabschluss")
             if Ok1: self.data.reset_payment()           
         if finance:
             if self.finance_moduls and self.finance_moduls[0]:

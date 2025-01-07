@@ -1707,7 +1707,7 @@ class AfpFinance(AfpFinanceTransactions):
         imp.set_csv_parameter(split[0],[split[1]], split[2])
         imp_data = imp.read_from_file(data)[0] 
         sel = imp_data.get_selection()
-        #print ("AfpFinance.import_from_file data:", sel.data)
+        print ("AfpFinance.import_from_file data:", sel.data)
         for i in range(sel.get_data_length()-1, -1, -1):
             date = sel.get_values("Datum", i)[0][0]
             if (fromdat and date <= fromdat) or (todat and date > todat):
@@ -1723,7 +1723,7 @@ class AfpFinance(AfpFinanceTransactions):
                         KNr = AfpAdresse_getKNrFromAlias(self.get_mysql(), name)
                     if KNr: 
                         change["KundenNr"] = KNr
-                    print ("AfpFinance.import_from_file complete:", i, name, change) 
+                    #print ("AfpFinance.import_from_file complete:", i, name, change) 
                 if change:
                     sel.set_data_values(change, i)
         self.import_data = imp_data

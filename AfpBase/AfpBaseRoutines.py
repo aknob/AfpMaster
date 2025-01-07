@@ -894,7 +894,7 @@ class AfpImport(object):
     def set_column_map(self, header):
         head = self.split_csv_line(header)
         self.column_map = {}
-        print ("AfpImport.set_column_map:", head)
+        #print ("AfpImport.set_column_map:", head)
         for entry in self.parameter:
             if Afp_isString(self.parameter[entry]):
                 self.column_map[entry] = head.index(self.parameter[entry])

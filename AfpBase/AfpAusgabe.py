@@ -558,7 +558,7 @@ class AfpAusgabe(object):
     # @param func - funtion call to be executed
     def execute_function(self, func):
         parms, netto = Afp_between(func, "(",")") 
-        print ("AfpAusgabe.execute_function parms:", func, parms, netto)
+        #print ("AfpAusgabe.execute_function parms:", func, parms, netto)
         vars = parms[0].split(",")
         pyBefehl = "value = " + netto[0] + "("
         for i in range(len(vars)):
@@ -570,7 +570,7 @@ class AfpAusgabe(object):
             if not var: var = "0"
             pyBefehl += var + ","
         pyBefehl = pyBefehl[:-1] + ")"
-        print ("AfpAusgabe.execute_function Befehl:", pyBefehl, vars, self.values)
+        #print ("AfpAusgabe.execute_function Befehl:", pyBefehl, vars, self.values)
         #exec(pyBefehl)
         value = eval(pyBefehl[8:])
         if self.debug: print("AfpAusgabe.execute_function:", pyBefehl, "Result:", value)

@@ -6,6 +6,7 @@
 # payment userinteraction is performed here. \n
 #
 #   History: \n
+#        17 Dez. 2024 - add MemberStorno selector - Andreas.Knoblauch@afptech.de \n
 #        30 Dez. 2021 - conversion to python 3 - Andreas.Knoblauch@afptech.de \n
 #        19 Nov. 2020 - add simple invoice handling - Andreas.Knoblauch@afptech.de \n
 #        19 Okt. 2014 - adapt package hierarchy - Andreas.Knoblauch@afptech.de \n
@@ -113,6 +114,7 @@ def AfpFinance_get_ZahlSelectors(globals , in_filter=None):
             else:   selects.append(AfpFinance_EventSelector(globals, debug))
         elif "Verein" in mod:   
             selects.append(AfpFinance_MemberSelector(globals, debug))
+            selects.append(AfpFinance_MemberStornoSelector(globals, debug))
             selects.append(AfpFinance_MemberPayBackSelector(globals, debug))
         elif mod == "Faktura":
             selects.append(AfpFinance_OrderSelector(globals, debug))
@@ -207,6 +209,20 @@ def AfpFinance_MemberSelector(globals, debug = False):
     object = "AfpEvent/AfpEvScreen_Verein/AfpEvMember"
     edit = None
     return AfpPaySelector(globals, name, label,  tablename, indexfield, felder, filter, text, object, edit, debug)
+## generate ZahlSelector for invoice part of the  'Event' Modul flavour 'Verein', Storno
+# @param globals -  global values including object for dadabase access
+# @param debug - debug flag
+def AfpFinance_MemberStornoSelector(globals, debug = False):
+    name = "AnmeldungStorno"
+    label = "&Beitrag Storno"
+    tablename = "ANMELD"
+    indexfield = "EventNr"
+    felder = "RechNr,Preis,KundenNr,Zahlung,ZahlDat,AnmeldNr"
+    filter =  "Zustand = \"Storno\" AND Preis > 0"
+    text = "Anmeldung"
+    object = "AfpEvent/AfpEvScreen_Verein/AfpEvMember"
+    edit = None
+    return AfpPaySelector(globals, name, label,  tablename, indexfield, felder, filter, text, object, edit, debug)
 ## generate ZahlSelector for invoice part of the  'Event' Modul flavour 'Verein', pay back
 # @param globals -  global values including object for dadabase access
 # @param debug - debug flag
@@ -216,8 +232,6 @@ def AfpFinance_MemberPayBackSelector(globals, debug = False):
     tablename = "ANMELD"
     indexfield = "EventNr"
     felder = "RechNr,Preis,KundenNr,Zahlung,ZahlDat,AnmeldNr"
-    #felder = [["RechNr.ANMELD",10], ["Preis.ANMELD",20], ["Zahlung.ANMELD",20],  ["Vorname.ADRESSE.Name",20], ["Name.ADRESSE.Name",30],  
-    #              ["KundenNr.ADRESSE = KundenNr.ANMELD",None], ["AnmeldNr.ANMELD",None]] # Ident column  
     filter =  "(Zustand = \"Anmeldung\" OR Zustand = \"PreStorno\") AND Preis > 0"
     text = "Anmeldung"
     object = "AfpEvent/AfpEvScreen_Verein/AfpEvMember"
@@ -1287,7 +1301,7 @@ class AfpDialog_SimpleInvoice(AfpDialog):
         if zust == "Storno":
             data["Zustand"] = "Storno"
         elif dauer:
-            data["Zustand"] = "Dauer"
+            data["Zustand"] = "Static"
         else:
             preis, zahlung, dummy = self.data.get_payment_values()
             print ("AfpDialog_SimpleInvoice.add_dauer_value:", preis, type(preis), zahlung, type(zahlung), dummy, data)
@@ -1297,9 +1311,9 @@ class AfpDialog_SimpleInvoice(AfpDialog):
                 else:
                     preis = data["BetragSI"]
             if zahlung < preis:
-                data["Zustand"] = "Offen"
+                data["Zustand"] = "Open"
             else:
-                data["Zustand"] = "Beendet"
+                data["Zustand"] = "Closed"
         return data
 
     ## handle archiv entries of documents for obligations
@@ -1370,7 +1384,7 @@ class AfpDialog_SimpleInvoice(AfpDialog):
             if not "ZahlBetrag" in data :
                 data["ZahlBetrag"] = data["BetragSI"]
         if not "Zustand" in data and not self.data.get_value("Zustand"):
-            data["Zustand"] = "Offen"
+            data["Zustand"] = "Open"
         return data
         
     # Event Handlers 
@@ -1452,9 +1466,9 @@ class AfpDialog_SimpleInvoice(AfpDialog):
         if zu == "Storno":
             zahl = self.data.get_value("Zahlung")
             if zahl and zahl >=  self.data.get_value("ZahlBetrag") - 0.01:
-                self.data.set_value("Zustand", "Beendet")
+                self.data.set_value("Zustand", "Closed")
             else:
-                self.data.set_value("Zustand", "Offen")
+                self.data.set_value("Zustand", "Open")
         else:
             self.data.set_value("Zustand", "Storno")
         self.label_Zustand.SetLabel(self.data.get_string_value("Zustand"))

@@ -211,8 +211,8 @@ class AfpSettings(object):
                 if name:
                     value = Afp_toString(self.get(name))
                     if value:
-                        fout.write("# automated insert of " + name)
-                        fout.write(name + "=" + value)
+                        fout.write("# automated insert of " + name + "\n")
+                        fout.write(name + "=" + value + "\n")
         fout.close()
         return vars
     ## extract value from string, take care of special setting possibillities before conversion:
