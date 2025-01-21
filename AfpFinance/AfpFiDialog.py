@@ -328,7 +328,7 @@ class AfpDialog_FiBuchung(AfpDialog):
         self.rows = 10
         self.col_percents = [13, 10, 10, 15, 10, 21, 21]
         self.col_labels = ["Datum","Soll","Haben","Betrag","Beleg", "Name", "Bem"]
-        AfpDialog.__init__(self,None, -1, "")
+        AfpDialog.__init__(self, *args, **kw)
         self.active = False
         self.grid_ident = None
         self.grid_indices = None
@@ -1056,7 +1056,7 @@ class AfpDialog_FiBuchung(AfpDialog):
         object = event.GetEventObject()
         name = object.GetName()
         value = self.read_account(object)
-        #print ("AfpDialog_FiBuchung.Check_Konten:", name, value)
+        print ("AfpDialog_FiBuchung.Check_Konten:", name, value, self.flavour)
         #wx.CallAfter(object.SetValue, Afp_toString(value))
         if self.data.get_main_bankaccount() != self.data.get_bank() and not self.data.is_cash():
             if name == "Soll" and value and self.soll_default is None:
@@ -1529,14 +1529,16 @@ class AfpDialog_FiBuchung(AfpDialog):
 # @param globals - global values, including mysql connection
 # @param period - if given ,period marker for transactions in AfpFinance
 # @param parlist - if given, parameterlist for AfpFinance creation
-def AfpLoad_FiBuchung(globals, period = None, parlist = None):
+def AfpLoad_FiBuchung(globals, period = None, parlist = None, flavour = None):
     data = AfpFinance(globals, period, parlist)
     data.set_key_generation(False)
     if globals.get_value("multiple-transaction-mandates","Finance"):
         print("AfpLoad_FiBuchung 'multiple-transaction-mandates': Selection of financial mandate is not yet implemented!")
         data.set_period(data.period + "xxmxx")
     #data.debug = True
-    DiFi= AfpDialog_FiBuchung(None)
+    breakpoint()
+    print ("AfpLoad_FiBuchung:", flavour)
+    DiFi= AfpDialog_FiBuchung(flavour)
     DiFi.attach_data(data)
     if parlist: 
         if "disable"  in parlist:

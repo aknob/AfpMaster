@@ -274,8 +274,8 @@ class AfpFiScreen_Cash(AfpFiScreen):
         filter = self.combo_Filter.GetValue()
         if filter == "Konten":
             ktnr = Afp_fromString(self.text_Auszug.GetValue())
-            #changed = AfpLoad_FiBuchung(self.data.get_globals(), self.data.get_period(), {"Konto": ktnr, "Gegenkonto": ktnr, "no_strict_accounting": None})
-            changed = AfpLoad_FiBuchung(self.data.get_globals(), self.data.get_period(), {"no_strict_accounting": None})
+            changed = AfpLoad_FiBuchung(self.data.get_globals(), self.data.get_period(), {"Konto": ktnr, "Gegenkonto": ktnr, "no_strict_accounting": None})
+            #changed = AfpLoad_FiBuchung(self.data.get_globals(), self.data.get_period(), {"no_strict_accounting": None})
         else: # filter == "Auszug"
             period = self.data.get_period()
             konto = self.data.get_string_value("KtNr.KTNR")

@@ -731,7 +731,7 @@ class AfpDialog(wx.Dialog):
     ## constructor
     def __init__(self, *args, **kw):
         #style=wx.DEFAULT_DIALOG_STYLE|wx.RESIZE_BORDER
-        #print("AfpDialog.init args:", args, "kw:", kw)
+        print("AfpDialog.init args:", args, "kw:", kw)
         if args and args[0]:
             self.flavour = args[0]
             # remove argument from tuple (which is immutable)
