@@ -5,6 +5,7 @@
 # AfpFiDialog module provides classes and routines needed for user interaction of finance handling and accounting,\n
 #
 #   History: \n
+#        20 Jan. 2025  - enhancement for multi-use of AfpDialog_FiBuchung - Andreas.Knoblauch@afptech.de 
 #        20 Nov. 2024 - changes for python 3.12 - Andreas.Knoblauch@afptech.de 
 #        19 Okt. 2024 - direct use of purpose in AfpDialog_SEPA - Andreas.Knoblauch@afptech.de \n
 #        30 Dez. 2021 - conversion to python 3 - Andreas.Knoblauch@afptech.de \n
@@ -185,45 +186,55 @@ def AfpFinance_handleStatements(globals, data, statsel = True):
     period = globals.get_string_value("actuel-transaction-period","Finance")
     if not period:
         period = Afp_toString(globals.today().year)
-    sel = "Typ = \"Bank\" OR Typ = \"Kasse\""
-    #print ("AfpFinance_handleStatements sel:", sel) 
-    kts = list(map(list, (globals.get_mysql().select("*", sel, "KTNR", "KtNr"))))
-    liste = []
-    for kt in kts:
-        liste.append(Afp_toString(kt[1]) + " " + Afp_toString(kt[0]) + " " + Afp_toString(kt[2]))
-    val, ok = AfpReq_Selection("  Bitte Konto auswählen für das ein Auszug bearbeitet werden soll", "", liste)
-    if ok and val:
-        konto = val.split()[0]
-        ktname = Afp_fromString(val.split()[1])
-    else:
-        wok = False
-    while not wok == False:
-        #ok, val = AfpFinance_selectStatement(globals.get_mysql(), period)
-        wok, val, sdat = AfpFinance_selectStatement(globals.get_mysql(), period, konto, ktname)
-        dat = ""
-        #print ("AfpFinance_handleStatements:", ok, val, sdat)
-        parlist = None
-        if wok:
-            parlist =  {"Auszug": val}
-        elif wok is None:
-            if val:
-                auszug = val[0]
-                saldo = Afp_toString(val[1])
-            else:
-                auszug = ""
-                saldo = ""
-            parlist = AfpFinance_modifyStatement(period, konto, ktname, auszug, saldo, dat)
-            if parlist:
-                if "Period" in parlist: period = parlist["Period"]
-                if sdat:
-                    fname, ok = AfpReq_FileName(globals.get_value("docdir"), "Importdatei wählen", "*.csv", True)
-                    if wok and fname:
-                        parlist["Importfile"] = fname
-                        parlist["Importstart"] = sdat
+    if statsel:
+        sel = "Typ = \"Bank\" OR Typ = \"Kasse\""
+        #print ("AfpFinance_handleStatements sel:", sel) 
+        kts = list(map(list, (globals.get_mysql().select("*", sel, "KTNR", "KtNr"))))
+        liste = []
+        for kt in kts:
+            liste.append(Afp_toString(kt[1]) + " " + Afp_toString(kt[0]) + " " + Afp_toString(kt[2]))
+        val, ok = AfpReq_Selection("  Bitte Konto auswählen für das ein Auszug bearbeitet werden soll", "", liste)
+        if ok and val:
+            konto = val.split()[0]
+            ktname = Afp_fromString(val.split()[1])
+        else:
+            wok = False
+        while not wok == False:
+            #ok, val = AfpFinance_selectStatement(globals.get_mysql(), period)
+            wok, val, sdat = AfpFinance_selectStatement(globals.get_mysql(), period, konto, ktname)
+            dat = ""
+            #print ("AfpFinance_handleStatements:", ok, val, sdat)
+            parlist = None
+            if wok:
+                parlist =  {"Auszug": val}
+            elif wok is None:
+                if val:
+                    auszug = val[0]
+                    saldo = Afp_toString(val[1])
                 else:
-                    wok = False
-        if parlist:
-            res = AfpLoad_FiBuchung(globals, period, parlist)
+                    auszug = ""
+                    saldo = ""
+                parlist = AfpFinance_modifyStatement(period, konto, ktname, auszug, saldo, dat)
+                if parlist:
+                    if "Period" in parlist: period = parlist["Period"]
+                    if sdat:
+                        fname, ok = AfpReq_FileName(globals.get_value("docdir"), "Importdatei wählen", "*.csv", True)
+                        if wok and fname:
+                            parlist["Importfile"] = fname
+                            parlist["Importstart"] = sdat
+                    else:
+                        wok = False
+            if parlist:
+                no_strict = globals.get_value("no_strict_accounting","Finance")
+                if no_strict: 
+                    parlist["no_strict_accounting"] = 1
+                res = AfpLoad_FiBuchung(globals, period, parlist)
+    else:
+        parlist = {"Period":period, "no_stat_display":1}
+        no_strict = globals.get_value("no_strict_accounting","Finance")
+        if no_strict: 
+            parlist["no_strict_accounting"] = 1
+        res = AfpLoad_FiBuchung(globals, period, parlist)
     return  res
 
 ## Routine to add SEPA direct debit mandat to sepa object
@@ -316,7 +327,7 @@ class AfpDialog_FiBuchung(AfpDialog):
         self.active = False
         self.grid_ident = None
         self.grid_indices = None
-        self.strict_accounting = True  # don't allow bookings to be overwritten, use a reverse entry
+        self.disabled = None
         self.client_factories = None
         self.revenue_accounts = None
         self.expense_accounts = None
@@ -534,6 +545,7 @@ class AfpDialog_FiBuchung(AfpDialog):
     def attach_data(self, data, new = False, editable = False):
         #editable = True
         super(AfpDialog_FiBuchung, self).attach_data( data, new, editable)
+        #print ("AfpDialog_FiBuchung.attach_data:", data.auszug)
         self.set_accounts()
         self.set_possible_factories()
         self.reset_first_line()
@@ -546,15 +558,47 @@ class AfpDialog_FiBuchung(AfpDialog):
         if not self.active:
             if self.data and self.data.has_import_queued():
                 self.set_entries_from_import()
-            elif not self.strict_accounting:
+            if self.is_disabled("strict_accounting") and self.has_grid_entries():
                 self.grid_buchung.SelectRow(0)
                 self.On_Adopt()
+            if self.is_disabled("display_stat"):
+                self.label_Ausz.SetLabel("")
+                self.label_AzDat.SetLabel("")
+                self.label_AzSaldo.SetLabel("0,00")
+                self.labelmap.pop("AzDat")
+                self.labelmap.pop("AzSaldo")
+            if self.is_disabled("load"):
+                self.button_Load.Enable(False)
+            if self.is_disabled("transaction"):
+                self.button_Vor.Enable(False)
         self.active = True
         event.Skip()
 
-    ## allow bookings to be overwritten
-    def unset_strict_accounting(self):
-        self.strict_accounting = False
+    ## return if gridrows are present
+    def has_grid_entries(self):
+        entries = False
+        if self.data.get_value("Betrag") or self.data.get_value("Betrag") == 0.00:
+            entries = True
+        return entries
+    ## disable certain values
+    # @param valname - name of the value to be disabled
+    def set_disabled(self, valname):
+        if self.disabled:
+             self.disabled.append(valname)
+        else:
+            self.disabled = [valname]
+    ## return if values have been disabled
+    # @param valname - name of the value to be checked
+    def is_disabled(self, valname):
+        disable = False
+        if self.disabled:
+            if valname in self.disabled:
+                disable = True
+        return disable
+    ## return if value is not disabled
+    # @param valname - name of the value to be checked
+    def is_enabled(self, valname):
+        return not self.is_disabled(valname)
     ## reset first line dependent from the data
     def reset_first_line(self):
         period = self.data.get_period()
@@ -616,6 +660,7 @@ class AfpDialog_FiBuchung(AfpDialog):
 
     ## population routine for statement of accouns
     def Pop_Auszug(self):
+        print("AfpDialog_FiBuchung.Pop_Auszug:", self.data.get_auszug())
         if self.data.get_auszug()[0]:
             sum = self.data.gen_bank_sum()
             label = self.data.get_string_value("StartSaldo.Auszug")  + "\n" + Afp_toString(sum)
@@ -716,24 +761,71 @@ class AfpDialog_FiBuchung(AfpDialog):
         if not csum == amount:
             splitting[0][1] += amount - csum
         return splitting       
+    ## generate splitting data depending of accounting information, if necessary
+    # @param accdata - dictionary of accountind data possibly to be splitted
+    def gen_splitting(self, accdata):
+        splitting = None
+        sequence = None
+        soll = self.get_acc_stat(accdata["Konto"] )
+        haben = self.get_acc_stat(accdata["Gegenkonto"]) 
+        text = None
+        deduct = None
+        if "xxx-Deduct" in self.values:
+            deduct = self.values["xxx-Deduct"]
+        if  "xxx-Split" in self.values:
+            splitting = self.values["xxx-Split"]
+        if deduct and not splitting:
+            if soll == "bank":
+                splitting =  [[accdata["Gegenkonto"], accdata["Betrag"], "", "extra"]]
+            else:
+                splitting =  [[accdata["Konto"], accdata["Betrag"], "", "extra"]]
+        #print("AfpDialog_FiBuchung.On_Add splitting:", splitting, self.values)
+        if  splitting:
+            betrag = accdata["Betrag"]
+            if deduct: betrag -= deduct[1]
+            splitting = self.scale_splitting(betrag, splitting)
+            if deduct: splitting = [deduct] + splitting
+        if soll == "bank" and haben == "bank" and soll != "transfer" and haben != "transfer":
+            # internal use of transfer to separate receipt-cycles
+            text = "Diese Buchung berührt 2 Geldkonten, soll diese Buchung in 2 Buchungen aufgesplittet werden?"
+            if accdata["Konto"] == self.bank: 
+                haben = "intern"
+                splitting = [[accdata["Gegenkonto"], accdata["Betrag"], None ]]
+            else:
+                soll = "intern"
+                splitting = [[accdata["Konto"], accdata["Betrag"], None ]]
+            sequence = self.get_next_sequence()
+        elif not (soll == "bank" or haben == "bank"):
+            if soll == "transfer" or haben == "transfer":
+                splitting = None
+            else:
+                # internal use of direct transfer accounting
+                text = "Dies ist eine interne Verrechungsbuchung, soll diese Buchung über das Transferkonto erfolgen?"
+                #haben = "intern"
+                #splitting = [[accdata["Gegenkonto"], accdata["Betrag"], None ]]
+                soll = "intern"
+                splitting = [[accdata["Konto"], accdata["Betrag"], None ]]
+                sequence = self.get_next_sequence()       
+        return splitting, sequence, soll, haben, text       
     
     ## execution in case the OK button ist hit - overwritten from AfpDialog
     def execute_Ok(self):
         if self.debug: print("AfpDialog_FiBuchung.execute_Ok:", self.data.has_changed())
         self.Ok = False
-        if self.data.has_changed():
+        #print ("AfpDialog_FiBuchung.execute_Ok:", self.grid_ident, self.data.has_changed(), self.data.get_value_length(), self.has_grid_entries())
+        if self.has_grid_entries() and self.data.has_changed():
             text1 = "Auszug/Buchungsstapel wurde geändert,"
             text2 = "sollen die Daten in die Buchhaltung übernommen werden?"
             self.Ok  = AfpReq_Question(text1, text2,"Daten übernehmen?")
         if self.Ok:
-            if self.strict_accounting and self.data.get_globals().get_value("additional-transaction-file","Finance"):
+            if self.is_enabled("strict_accounting") and self.data.get_globals().get_value("additional-transaction-file","Finance"):
                 self.execute_Quit(True)
             clients = []
             rows = self.data.get_value_rows("BUCHUNG", "BuchungsNr,Datum,Konto,Gegenkonto,Betrag,Tab,TabNr,Art")
             #print ("AfpDialog_FiBuchung.execute_Ok rows:", rows)
             for row in rows:
                 #if row[0] or not row[5] or not row[6]: continue
-                if  (row[0] and self.strict_accounting) or not row[5] or not row[6]: continue
+                if  (row[0] and  self.is_enabled("strict_accounting")) or not row[5] or not row[6]: continue
                 #if (row[2] in self.bank_accounts or row[2] == self.tranfer) and (row[3] in self.bank_accounts or row[3] == self.tranfer) continue
                 client = None
                 new = False
@@ -775,7 +867,7 @@ class AfpDialog_FiBuchung(AfpDialog):
     # @param store - flag if text for storing should be dispayed in dialog
     def execute_Quit(self, store=False):
         if self.debug: print ("AfpDialog_FiBuchung.execute_Quit:", self.data.has_changed())
-        if self.data.has_changed(): 
+        if self.has_grid_entries() and self.data.has_changed(): 
             if store:
                 text1 = "Die Daten werden gespeichert,"
                 text2 = "sollen sie zusätzlich in einer XML-Datei abgelegt werden?"
@@ -956,18 +1048,19 @@ class AfpDialog_FiBuchung(AfpDialog):
         value = self.read_account(object)
         #print ("AfpDialog_FiBuchung.Check_Konten:", name, value)
         #wx.CallAfter(object.SetValue, Afp_toString(value))
-        if name == "Soll" and value and self.soll_default is None:
-            ok = AfpReq_Question("Soll das Konto " + Afp_toString(value) ,"als Standardeintrag im Feld 'Soll' übernommen werden?", "Standardwert")
-            if ok: self.soll_default = value
-            else:
-                ok = AfpReq_Question("Kein Standardeintrag im Feld 'Soll'" ,"für diese Eingabesequenz?", "Standardwert")
-                if ok: self.soll_default = False
-        elif name == "Haben" and value and self.haben_default is None:
-            ok = AfpReq_Question("Soll das Konto " + Afp_toString(value) ,"als Standardeintrag im Feld 'Haben' übernommen werden?", "Standardwert")
-            if ok: self.haben_default = value
-            else:
-                ok = AfpReq_Question("Kein Standardeintrag im Feld 'Haben'" ,"für diese Eingabesequenz?", "Standardwert")
-                if ok: self.haben_default = False
+        if self.data.get_main_bankaccount() != self.data.get_bank():
+            if name == "Soll" and value and self.soll_default is None:
+                ok = AfpReq_Question("Soll das Konto " + Afp_toString(value) ,"als Standardeintrag im Feld 'Soll' übernommen werden?", "Standardwert")
+                if ok: self.soll_default = value
+                else:
+                    ok = AfpReq_Question("Kein Standardeintrag im Feld 'Soll'" ,"für diese Eingabesequenz?", "Standardwert")
+                    if ok: self.soll_default = False
+            elif name == "Haben" and value and self.haben_default is None:
+                ok = AfpReq_Question("Soll das Konto " + Afp_toString(value) ,"als Standardeintrag im Feld 'Haben' übernommen werden?", "Standardwert")
+                if ok: self.haben_default = value
+                else:
+                    ok = AfpReq_Question("Kein Standardeintrag im Feld 'Haben'" ,"für diese Eingabesequenz?", "Standardwert")
+                    if ok: self.haben_default = False
         if not (value == self.transfer) or len(self.bank_accounts) > 1:
             if name == "Soll" and value:
                 if not self.read_account(self.combo_Haben) in self.internal_accounts:
@@ -1017,7 +1110,7 @@ class AfpDialog_FiBuchung(AfpDialog):
         data["Soll"] = row[2]
         data["Haben"] = row[4]
         if row[6]: data["Beleg"] = row[6]
-        data["Betrag"] = float(row[7])
+        if row[7]: data["Betrag"] = float(row[7])
         if row[8]:
             data["KundenNr"] = row[8]
         data["Text_Dlg"] = row[9]
@@ -1038,7 +1131,7 @@ class AfpDialog_FiBuchung(AfpDialog):
         if self.text_Auszug.IsEnabled() and row[15] and not "X" in row[15]:
             data["Auszug"] = row[15]
         # no booking data given, apply standard values
-        if not (data["Soll"] or data["Haben"]):
+        if "Betrag" in data and not (data["Soll"] or data["Haben"]):
             if data["Betrag"] < 0.0:
                 if self.soll_default: data["Soll"] = self.soll_default
                 else: data["Soll"] = self.data.get_accounts("Kosten")[0]
@@ -1097,38 +1190,9 @@ class AfpDialog_FiBuchung(AfpDialog):
             AfpReq_Info("Datum, Soll-, Habenkonto und Betrag müssen zur Übernahme eingegeben werden!","Bitte fehlende Einträge nachholen!")
             self.Pop_Buchung()
             return
-        soll = self.get_acc_stat(accdata["Konto"] )
-        haben = self.get_acc_stat(accdata["Gegenkonto"]) 
-        deduct = None
-        splitting = None
-        sequence = None
-        if "xxx-Deduct" in self.values:
-            deduct = self.values["xxx-Deduct"]
-        if  "xxx-Split" in self.values:
-            splitting = self.values["xxx-Split"]
-        if deduct and not splitting:
-            if soll == "bank":
-                splitting =  [[accdata["Gegenkonto"], accdata["Betrag"], "", "extra"]]
-            else:
-                splitting =  [[accdata["Konto"], accdata["Betrag"], "", "extra"]]
-        #print("AfpDialog_FiBuchung.On_Add splitting:", splitting, self.values)
-        if  splitting:
-            betrag = accdata["Betrag"]
-            if deduct: betrag -= deduct[1]
-            splitting = self.scale_splitting(betrag, splitting)
-            if deduct: splitting = [deduct] + splitting
-        if soll == "bank" and haben == "bank" and soll != "transfer" and haben != "transfer":
-            # internal use of transfer to separate receipt-cycles
-            text = "Diese Buchung berührt 2 Geldkonten, soll diese Buchung in 2 Buchungen aufgesplittet werden?"
-            if accdata["Konto"] == self.bank: 
-                haben = "intern"
-                splitting = [[accdata["Gegenkonto"], accdata["Betrag"], None ]]
-            else:
-                soll = "intern"
-                splitting = [[accdata["Konto"], accdata["Betrag"], None ]]
-            sequence = self.get_next_sequence()
-        elif not (soll == "bank" or haben == "bank"): 
-            splitting = None
+        # generate possible splitting data, if necessary. All values are initialized    
+        splitting, sequence, soll, haben, text = self.gen_splitting(accdata)
+        
         if accdata["Art"] == "-automatisch-":
             if soll == "bank" or haben == "bank":
                  accdata["Art"] = "Zahlung"
@@ -1169,7 +1233,7 @@ class AfpDialog_FiBuchung(AfpDialog):
         Change = False
         if  not selected is None: 
             if self.grid_ident[selected]:
-                if self.strict_accounting and self.changes_are_grave():
+                if self.is_enabled("strict_accounting") and self.changes_are_grave():
                     Storno = AfpReq_Question("Die ausgewählte Buchung ist schon eingetragen und kann nicht überschrieben werden!", "Soll eine Stornierungsbuchung mit einer neuen Buchung zusammen erstellt werden?", "Buchung überschreiben?")
                     if not Storno: Change = None
                 elif splitting:
@@ -1178,7 +1242,7 @@ class AfpDialog_FiBuchung(AfpDialog):
                     Change = True
             else:
                 Change = AfpReq_Question("Es ist eine Buchung ausgewählt", "Soll diese überschrieben werden?", "Buchung überschreiben?")
-        #print("AfpDialog_FiBuchung.On_Add Change:", Change, Storno, self.strict_accounting, selected, self.grid_indices, beleg)
+        #print("AfpDialog_FiBuchung.On_Add Change:", Change, Storno, self.is_enabled("strict_accounting"), selected, self.grid_indices, beleg)
         #print("AfpDialog_FiBuchung.On_Add Change:", Change, accdata)
         #if Change is None or (accdata["Datum"]  and accdata["Konto"]  and accdata["Gegenkonto"]  and accdata["Betrag"]):
         if splitting and sequence:
@@ -1248,7 +1312,7 @@ class AfpDialog_FiBuchung(AfpDialog):
             self.set_entries_from_import()
         if not splitting and accdata["Konto"] == self.transfer:
             beleg = None
-        if beleg and self.strict_accounting:
+        if beleg and self.is_enabled("strict_accounting"):
             beleg = self.data.gen_next_rcptnr()
             self.text_Beleg.SetValue(Afp_toNumericString(beleg))
         if not self.is_editable():
@@ -1461,8 +1525,14 @@ def AfpLoad_FiBuchung(globals, period = None, parlist = None):
     #data.debug = True
     DiFi= AfpDialog_FiBuchung(None)
     DiFi.attach_data(data)
-    if parlist and "no_strict_accounting" in parlist:
-        DiFi.unset_strict_accounting()
+    if parlist: 
+        if "no_strict_accounting" in parlist:
+            DiFi.set_disabled("strict_accounting")
+        if "no_stat_display" in parlist:
+            DiFi.set_disabled("display_stat")
+        if "no_load_transaction" in parlist:
+            DiFi.set_disabled("load")
+            DiFi.set_disabled("transaction")
     DiFi.ShowModal()
     Ok = DiFi.get_Ok()
     DiFi.Destroy()
@@ -1812,7 +1882,7 @@ class AfpDialog_SEPA(AfpDialog):
     
     ## execution in case the OK button ist hit - overwritten from AfpDialog
     def execute_Ok(self):
-        print ("AfpDialog_SEPA.execute_Ok:", self.xml_data_loaded, self.clients, self.newclients, self.xml_sepa_type, self.data.has_changed())
+        #print ("AfpDialog_SEPA.execute_Ok:", self.xml_data_loaded, self.clients, self.newclients, self.xml_sepa_type, self.data.has_changed())
         if  self.xml_data_loaded:
             if self.purpose:
                 bem = self.purpose
@@ -1839,7 +1909,7 @@ class AfpDialog_SEPA(AfpDialog):
     ## execution in case the Quit button ist hit -  overwritten from AfpDialog
     def execute_Quit(self):
         if self.debug: print ("AfpDialog_SEPA.execute_Quit:", self.data.has_changed())
-        print ("AfpDialog_SEPA.execute_Quit:", self.data.has_changed(), self.xml_sepa_type, self.filled_rows, self.grid_ident)
+        #print ("AfpDialog_SEPA.execute_Quit:", self.data.has_changed(), self.xml_sepa_type, self.filled_rows, self.grid_ident)
         #self.data.view()
         #self.data.transactions[0].view()
         self.Ok = False

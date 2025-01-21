@@ -665,6 +665,7 @@ class AfpEvClient(AfpPaymentList):
     ## update internal price fields
     def update_prices(self):
         price = self.get_value("Preis.Preis")
+        if not price: price = 0.0
         extra = 0.0
         noprv = 0.0
         rows = self.get_value_rows("ANMELDEX","NoPrv,Preis")

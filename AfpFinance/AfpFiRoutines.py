@@ -1563,7 +1563,7 @@ class AfpFinance(AfpFinanceTransactions):
             self.mainfilter ="Period = \"" + self.period + "\" AND (Konto = " + konto + " OR Gegenkonto = " + gkonto + ")"
             self.konto = konto
             self.set_main_selects_entry() 
-        #print ("AfpFinance.init set_auszug:", self.auszug, self.mainfilter, self.konto)
+        print ("AfpFinance.init set_auszug:", self.auszug, self.mainfilter, self.konto)
         if self.auszug:
             ausdat = None
             aussald = None
@@ -1892,7 +1892,7 @@ class AfpFinance(AfpFinanceTransactions):
                 sel = "SELECT MAX(CONVERT(Beleg,UNSIGNED)) FROM BUCHUNG WHERE " + where 
             else:
                 sel = "SELECT MAX(Beleg) FROM BUCHUNG WHERE " + where 
-            #print ("AfpFinance.gen_next_rcptnr select:", self.mainindex, sel)
+            print ("AfpFinance.gen_next_rcptnr select:", self.mainindex, sel)
             res = self.get_globals().get_mysql().execute(sel)
             nr = Afp_fromString(res[0][0])
             #print ("AfpFinance.gen_next_rcptnr nr:", nr,  Afp_isInteger(nr), Afp_isNumeric(nr))
