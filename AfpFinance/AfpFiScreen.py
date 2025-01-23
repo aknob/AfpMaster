@@ -488,7 +488,7 @@ class AfpFiScreen(AfpScreen):
                 self.set_current_record()
                 self.Populate()
         elif filter == "Konten":
-            list = self.data.get_account_lines("Cash,Other,Kosten,Ertrag")
+            list = self.data.get_account_lines("Cash,Bank,Other,Kosten,Ertrag")
             kt, ok = AfpReq_Selection("Bitte Konto auswählen:", "", list)
             if ok:
                 ktnr = Afp_fromString(kt.split()[0])

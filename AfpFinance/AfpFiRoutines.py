@@ -1656,10 +1656,12 @@ class AfpFinance(AfpFinanceTransactions):
         self.revenue_accounts = []
         self.expense_accounts = []
         self.cash_accounts = []
+        self.bank_accounts = []
         self.internal_accounts = []
         self.revenue_account_names = []
         self.expense_account_names = []
         self.cash_account_names = []
+        self.bank_account_names = []
         self.internal_account_names = []
         rows = self.get_value_rows("KTNR")
         if rows:
@@ -1671,11 +1673,14 @@ class AfpFinance(AfpFinanceTransactions):
                     elif row[4] == "Ertrag":
                         self.revenue_accounts.append(row[1])
                         self.revenue_account_names.append(Afp_toString(row[2]))           
-                    elif row[4] == "Bank" or row[4] == "Kasse":
-                        self.cash_accounts.append(row[1])
-                        self.cash_account_names.append(Afp_toString(row[2])) 
-                        if not self.main_bankaccount and row[4]  == "Bank":
+                    elif row[4] == "Bank":
+                        self.bank_accounts.append(row[1])
+                        self.bank_account_names.append(Afp_toString(row[2])) 
+                        if not self.main_bankaccount:
                             self.main_bankaccount = row[1]
+                    elif row[4] == "Kasse":
+                        self.cash_accounts.append(row[1])
+                        self.cash_account_names.append(Afp_toString(row[2]))                     
                     else:
                         self.internal_accounts.append(row[1])
                         self.internal_account_names.append(Afp_toString(row[2]))    
@@ -1772,6 +1777,8 @@ class AfpFinance(AfpFinanceTransactions):
             return  self.revenue_accounts
         elif typ == "Cash":
             return  self.cash_accounts
+        elif typ == "Bank":
+            return  self.bank_accounts
         elif typ == "Other":
             return  self.internal_accounts
         else:
@@ -1788,6 +1795,8 @@ class AfpFinance(AfpFinanceTransactions):
             name = self.revenue_account_names[self.revenue_accounts.index(nr)]
         elif nr in self.cash_accounts:
             name = self.cash_account_names[self.cash_accounts.index(nr)]
+        elif nr in self.bank_accounts:
+            name = self.bank_account_names[self.cash_accounts.index(nr)]
         elif nr in self.internal_accounts:
             name = self.internal_account_names[self.internal_accounts.index(nr)]
         return name
@@ -1803,6 +1812,9 @@ class AfpFinance(AfpFinanceTransactions):
             if typ == "Cash":
                 for i in range(len(self.cash_accounts)):
                     lines.append(Afp_toString(self.cash_accounts[i]) + " " + self.cash_account_names[i])
+            if typ == "Bank":
+                for i in range(len(self.cash_accounts)):
+                    lines.append(Afp_toString(self.bank_accounts[i]) + " " + self.bank_account_names[i])
             if typ == "Internal":
                 for i in range(len(self.internal_accounts)):
                     lines.append(Afp_toString(self.internal_accounts[i]) + " " + self.internal_account_names[i])
@@ -1814,13 +1826,19 @@ class AfpFinance(AfpFinanceTransactions):
                     lines.append(Afp_toString(self.revenue_accounts[i]) + " " + self.revenue_account_names[i])
         return lines
 
+<<<<<<< HEAD
     ## check if account is a cash account
     # @param ktnr - if given, account number to be checked, else self.bank is checked
     def is_cash(self, ktnr = None):
         if not ktnr: ktnr = self.bank
+=======
+    ## check if account is a cash or a bankaccount
+    # @param ktnr - account number to be checked
+    def is_cash(self, ktnr):
+>>>>>>> db48858 (AfpFinance - Cash Screen first drop)
         if not self.accounts_set:
             self.set_accounts()
-        return ktnr in self.cash_accounts
+        return ktnr in self.cash_accounts or ktnr in self.bank_accounts
     ## add client factory to genertae client objects
     def add_client_factory(self, factory):
         self.client_factory = factory

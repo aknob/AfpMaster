@@ -252,7 +252,10 @@ def AfpFinance_selectStatement(mysql, period, konto , ktname , new = False):
         where = "KtNr = " + konto + " AND NOT Auszug = \"SALDO\"" 
         text = " für das Konto " + konto + " " + ktname
     else:
-        where = "NOT Auszug = \"SALDO\"" 
+        if ktname:
+            where = "Auszug LIKE \"" + ktname + "%\""
+        else:
+            where = "NOT Auszug = \"SALDO\"" 
         ktname = "BAR"
         text = ""
     lgh = len(ktname)
@@ -647,8 +650,8 @@ class AfpDialog_FiBuchung(AfpDialog):
             self.bank = self.bank_accounts[0]
         self.bank_selection = self.bank_accounts.index(self.bank)
         self.transfer = self.data.get_transfer()
-        solllist = self.data.get_account_lines("Cash,Internal,Kosten")
-        habenlist = self.data.get_account_lines("Cash,Internal,Ertrag")
+        solllist = self.data.get_account_lines("Cash,Bank,Internal,Kosten")
+        habenlist = self.data.get_account_lines("Cash,Bank,Internal,Ertrag")
         self.combo_Soll.SetItems(solllist)
         self.combo_Haben.SetItems(habenlist)
 
@@ -1117,9 +1120,11 @@ class AfpDialog_FiBuchung(AfpDialog):
         data["Soll"] = row[2]
         data["Haben"] = row[4]
         if row[6]: data["Beleg"] = row[6]
-        if row[7]: data["Betrag"] = float(row[7])
-        if row[8]:
-            data["KundenNr"] = row[8]
+        if row[7]: 
+            data["Betrag"] = float(row[7])
+        else:
+            data["Betrag"] = 0.0
+        if row[8]: data["KundenNr"] = row[8]
         data["Text_Dlg"] = row[9]
         if row[10]: data["Vorgang"] = row[10]
         else: data["Vorgang"] = "-automatisch-"

@@ -192,7 +192,7 @@ def AfpFinance_TouristSelector(globals, debug = False):
     text = "Reiseanmeldung"
     object = "AfpEvent/AfpEvScreenTourist/AfpEvTourist"
     edit = None
-    return AfpPaySelector(globals, name, label,  tablename, indexfield, felder, filter, textl, object, modu, debug)
+    return AfpPaySelector(globals, name, label,  tablename, indexfield, felder, filter, text, object, edit, debug)
 ## generate ZahlSelector for invoice part of the  'Event' Modul flavour 'Verein'
 # @param globals -  global values including object for dadabase access
 # @param debug - debug flag
