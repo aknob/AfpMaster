@@ -8,6 +8,7 @@
 # - AfpAusgabe
 #
 #   History: \n
+#        23 Jan. 2025 - allow direct evaluation output via () - Andreas.Knoblauch@afptech.de \n
 #        30 Dez. 2021 - conversion to python 3 - Andreas.Knoblauch@afptech.de \n
 #        24 Mar. 2019 - add serial letters- Andreas.Knoblauch@afptech.de \n
 #        27 Jan. 2015 - correct condition evaluation- Andreas.Knoblauch@afptech.de \n
@@ -47,7 +48,7 @@
 #  AfpTechnologies (afptech.de)
 #
 #    BusAfp is a software to manage coach and travel activities
-#    Copyright© 1989 - 2023 afptech.de (Andreas Knoblauch)
+#    Copyright© 1989 - 2025 afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -147,7 +148,7 @@ class AfpAusgabe(object):
     # @param vars - dictionary holding variable values
     def set_variables(self, vars):
         for var in vars:
-            self.variables[var] = vars[var]
+            self.variables[var] = Afp_fromString(vars[var])
     ## check if line is part of a 'while' statement \n
     # output:  0- no while, 1- start, 2- end
     # @param line - line to be analysed
@@ -421,9 +422,14 @@ class AfpAusgabe(object):
         return value.strip()
     ## handles different function evaluations \n
     # assignments (= , +=, -=) are handled here \n
-    # fromula evaluation in ()-prarantheses is deligated
+    # fromula evaluation in ()-parantheses is deligated
     # @param funct - function to be evaluated
     def gen_function(self, funct):
+        direct = False
+        int = False
+        if funct[0] == "(" and funct[-1] == ")":
+            funct = funct[1:-1]
+            direct = True
         if "+=" in funct : sign = "+="
         elif "-=" in funct : sign = "-="
         else: sign = "="
@@ -431,8 +437,6 @@ class AfpAusgabe(object):
         var = split[0]
         form, field = Afp_between(split[1],"(",")")
         #print "AfpAusgabe.gen_function:", form, field
-        direct = False
-        int = False
         if len(form) > 0: 
             if field and Afp_holdsValue(field):
                 value = self.execute_function(split[1])

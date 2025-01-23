@@ -227,13 +227,15 @@ def AfpFinance_handleStatements(globals, data, statsel = True):
             if parlist:
                 no_strict = globals.get_value("no_strict_accounting","Finance")
                 if no_strict: 
-                    parlist["no_strict_accounting"] = 1
+                    parlist["disable"] = "strict_accounting"
                 res = AfpLoad_FiBuchung(globals, period, parlist)
     else:
-        parlist = {"Period":period, "no_stat_display":1}
+        parlist = {"Period":period} 
+        disable = "display_stat"
         no_strict = globals.get_value("no_strict_accounting","Finance")
         if no_strict: 
-            parlist["no_strict_accounting"] = 1
+            disable += ",strict_accounting"
+        parlist["disable"] = disable
         res = AfpLoad_FiBuchung(globals, period, parlist)
     return  res
 
@@ -580,13 +582,18 @@ class AfpDialog_FiBuchung(AfpDialog):
         if self.data.get_value("Betrag") or self.data.get_value("Betrag") == 0.00:
             entries = True
         return entries
-    ## disable certain values
-    # @param valname - name of the value to be disabled
-    def set_disabled(self, valname):
-        if self.disabled:
-             self.disabled.append(valname)
-        else:
-            self.disabled = [valname]
+    ## disable certain feature of the dialog
+    # @param valnames - comma separated list of names to be disabled
+    # at the moment the following entries are supported: 
+    # strict_accounting - disable strict accounting
+    # display_stat - disable display of statement values in dialig
+    # load - disable Load-button ("Laden") 
+    # transaction - disable Transaction ("Vorgang") button
+    def set_disabled(self, valnames):
+        split = valnames.split(",")
+        if not self.disabled: self.disabled = []
+        for sp in split:
+            self.disabled.append(sp)
     ## return if values have been disabled
     # @param valname - name of the value to be checked
     def is_disabled(self, valname):
@@ -1048,7 +1055,7 @@ class AfpDialog_FiBuchung(AfpDialog):
         value = self.read_account(object)
         #print ("AfpDialog_FiBuchung.Check_Konten:", name, value)
         #wx.CallAfter(object.SetValue, Afp_toString(value))
-        if self.data.get_main_bankaccount() != self.data.get_bank():
+        if self.data.get_main_bankaccount() != self.data.get_bank() and not self.data.is_cash():
             if name == "Soll" and value and self.soll_default is None:
                 ok = AfpReq_Question("Soll das Konto " + Afp_toString(value) ,"als Standardeintrag im Feld 'Soll' übernommen werden?", "Standardwert")
                 if ok: self.soll_default = value
@@ -1312,7 +1319,8 @@ class AfpDialog_FiBuchung(AfpDialog):
             self.set_entries_from_import()
         if not splitting and accdata["Konto"] == self.transfer:
             beleg = None
-        if beleg and self.is_enabled("strict_accounting"):
+        #if beleg and self.is_enabled("strict_accounting"):
+        if beleg:
             beleg = self.data.gen_next_rcptnr()
             self.text_Beleg.SetValue(Afp_toNumericString(beleg))
         if not self.is_editable():
@@ -1526,13 +1534,8 @@ def AfpLoad_FiBuchung(globals, period = None, parlist = None):
     DiFi= AfpDialog_FiBuchung(None)
     DiFi.attach_data(data)
     if parlist: 
-        if "no_strict_accounting" in parlist:
-            DiFi.set_disabled("strict_accounting")
-        if "no_stat_display" in parlist:
-            DiFi.set_disabled("display_stat")
-        if "no_load_transaction" in parlist:
-            DiFi.set_disabled("load")
-            DiFi.set_disabled("transaction")
+        if "disable"  in parlist:
+            DiFi.set_disabled(parlist["disable"])
     DiFi.ShowModal()
     Ok = DiFi.get_Ok()
     DiFi.Destroy()

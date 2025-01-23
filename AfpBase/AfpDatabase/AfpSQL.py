@@ -8,6 +8,7 @@
 # - AfpSQLTableSelection
 #
 #   History: \n
+#        23 Jan. 2025 - AfpSQLTableSelection: allow reload with different order - Andreas.Knoblauch@afptech.de \n
 #        29 Dez. 2021 - conversion to python 3 - Andreas.Knoblauch@afptech.de \n
 #        04 Nov. 2018 - AfpSQL: add free execution of sql-statements - Andreas.Knoblauch@afptech.de \n
 #        28 Mar. 2016 - AfpSQLTableSelection: add afterburner - Andreas.Knoblauch@afptech.de \n
@@ -541,9 +542,10 @@ class AfpSQLTableSelection(object):
         self.select_clause = self.mysql.get_select_clause()
         self.manipulation = []  
     ## reload data from database according to last load
-    def reload_data(self):
+    # @param order - if given desired order of output rows
+    def reload_data(self, order = None):
         if self.dbg: print("AfpSQLTableSelection.reload_data:", self.select)
-        if self.select: self.load_data(self.select)
+        if self.select: self.load_data(self.select, order)
     ## load data from given AfpSbDatei
     # @param datei - name of table
     # @param select - select clause for this  AfpSbDatei entry

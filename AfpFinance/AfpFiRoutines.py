@@ -1170,7 +1170,8 @@ class AfpFinanceTransactions(AfpSelectionList):
                 val =  rows[0][0]
                 if Afp_isString(val):
                     val = Afp_fromString(val)
-                    if Afp_isString(val): val = 0
+                if not val or Afp_isString(val) : 
+                    val = 0
                     rows[0][0] = val
                 for row in rows:
                     #if Afp_intString(row[0]) > val: val = Afp_intString(row[0])
@@ -1814,8 +1815,9 @@ class AfpFinance(AfpFinanceTransactions):
         return lines
 
     ## check if account is a cash account
-    # @param ktnr - account number to be checked
-    def is_cash(self, ktnr):
+    # @param ktnr - if given, account number to be checked, else self.bank is checked
+    def is_cash(self, ktnr = None):
+        if not ktnr: ktnr = self.bank
         if not self.accounts_set:
             self.set_accounts()
         return ktnr in self.cash_accounts
@@ -1878,21 +1880,24 @@ class AfpFinance(AfpFinanceTransactions):
         nr = self.get_highest_value("Beleg")
         if not nr:
             where = "Period = \"" + self.period + "\" AND NOT Beleg = \"\""
-            if self.mainindex == "Konto" or self.mainindex == "Gegenkonto":
-                if self.mainfilter:
-                    where = self.mainfilter
+            lgh = len(where)
+            #print ("AfpFinance.gen_next_rcptnr mainfilter:", self.mainfilter)
+            if self.mainfilter:
+                split = self.mainfilter.split("Beleg = \"\"")
+                if len(split) > 1:
+                    where = split[0] + "Beleg <> \"\"" + split[1]
                 else:
-                    where += " AND " + self.mainindex + " = " + self.get_value()
-            elif self.mainindex == "Reference":
+                    where = self.mainfilter
+            elif  self.mainindex == "Reference" or self.mainindex == "Konto" or self.mainindex == "Gegenkonto":
                 konto = self.get_string_value("KtNr.AUSZUG")
                 where += " AND (Konto = " + konto + " OR Gegenkonto = " + konto + ")"
             elif self.get_value():
                 where += " AND " + self.mainindex + " = " + self.get_value()
-            if self.bank == self.main_bankaccount:
+            if self.bank == self.main_bankaccount and len(where) > lgh:
                 sel = "SELECT MAX(CONVERT(Beleg,UNSIGNED)) FROM BUCHUNG WHERE " + where 
             else:
                 sel = "SELECT MAX(Beleg) FROM BUCHUNG WHERE " + where 
-            print ("AfpFinance.gen_next_rcptnr select:", self.mainindex, sel)
+            #print ("AfpFinance.gen_next_rcptnr select:", self.mainindex, sel)
             res = self.get_globals().get_mysql().execute(sel)
             nr = Afp_fromString(res[0][0])
             #print ("AfpFinance.gen_next_rcptnr nr:", nr,  Afp_isInteger(nr), Afp_isNumeric(nr))

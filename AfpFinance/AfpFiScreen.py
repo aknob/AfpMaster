@@ -529,14 +529,19 @@ class AfpFiScreen(AfpScreen):
                 if filter == "Konten" or filter == "Auszug":
                     variables["Wert"] = data.get_value()
                     variables["Bezeichnung"] = data.get_string_value("Bezeichnung.Konto")
+                    variables["KontoNr"] = data.get_string_value("KtNr.Konto")
+                    variables["Start"] = data.get_string_value("StartSaldo.Auszug")
+                    variables["Ende"] = data.get_string_value("EndSaldo.Auszug")
                     if filter == "Auszug":
-                        variables["KontoNr"] = data.get_string_value("KtNr.Konto")
-                        variables["Start"] = data.get_string_value("StartSaldo.Auszug")
-                        variables["Ende"] = data.get_string_value("EndSaldo.Auszug")
                         variables["TransferNr"] = data.get_transfer() 
+                    if filter == "Konten":
+                        variables["Saldo"] = variables["Start"]
+                        variables["StartDat"] = data.get_string_value("BuchDat.Auszug")
+                        variables["EndDat"] = data.get_string_value("Datum.Auszug")
+                        data.get_selection("BUCHUNG").reload_data("Beleg")
                 #print "AfpFiScreen.On_Documents:", data.get_listname(), data.get_mayor_type(), filter, data.get_value(), data.get_string_value(), data.get_period()
                 #data.view()
-                #print "AfpFiScreen.On_Documents variables:", variables
+                #print ("AfpFiScreen.On_Documents variables:", variables)
                 prefix = data.get_listname()+ "_" + filter + "_"
                 header = "Auswertungen"
                 sel = "Modul = \"Finance\" AND Art = \"Report\" and Typ = \""+ filter + "\""
