@@ -228,9 +228,10 @@ class AfpFiScreen_Cash(AfpFiScreen):
         else:
             master = "AUSZUG"
             filter = "Period = " + AfpFinance_setPeriod(None, self.globals) + " AND Auszug LIKE \"BA%\""
-        print ("AfpFiScreen.set_initial_record:", master, filter)
+        print ("AfpFiScreen_Cash.set_initial_record:", master, filter)
         self.sb.CurrentFileName(master)  
         self.sb.select_where(filter, None, master) 
+        self.sb.select_key("BAR01")
         self.sb.select_current()
         self.set_current_record() 
         self.sb_master = master

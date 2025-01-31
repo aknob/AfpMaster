@@ -150,7 +150,9 @@ class AfpMainApp(wx.App):
             pars["dbword"] = dbword
         if "dbword" in pars: set.set("database-word", pars["dbword"])
         if "strict" in pars: set.set("strict-modul-handling",1)
-        if "dry-run" in pars: set.set("dry-run",1)
+        if "dry-run" in pars: 
+            set.set("dry-run",1)
+            set.set("readonly",1)
         mysql = AfpDatabase.AfpSQL.AfpSQL(set.get("database-host"), set.get("database-user"), set.get("database-word"), set.get("database"), set.is_debug())
         self.globals = AfpGlobal.AfpGlobal(name, mysql, set)
         self.globals.set_infos(version, baseversion, copyright, website, description, license, picture, developers)

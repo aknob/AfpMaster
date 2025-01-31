@@ -1050,7 +1050,7 @@ class AfpFinanceTransactions(AfpSelectionList):
         today = self.globals.today()
         if datum is None: datum = today
         if self.check_auszug(auszug) or self.fixed_auszug: return
-        #print "AfpFinanceTransactions.set_auszug needed:", auszug        
+        #print ("AfpFinanceTransactions.set_auszug needed:", auszug )
         auszug, period = self.extract_period(auszug)
         ausname = Afp_getStartLetters(auszug) 
         if not ausname: return
@@ -1690,7 +1690,7 @@ class AfpFinance(AfpFinanceTransactions):
             value = Afp_fromString(self.get_value()) 
             if self.get_mainindex() == "Beleg":
                 value = self.get_value("KtNr.Auszug")
-            if (self.get_mainindex() == "Konto" or self.get_mainindex() == "Gegenkonto" or self.get_mainindex() == "Beleg") and value in self.cash_accounts:
+            if (self.get_mainindex() == "Konto" or self.get_mainindex() == "Gegenkonto" or self.get_mainindex() == "Beleg") and value in self.bank_accounts:
                 self.bank = value
             elif self.main_bankaccount:
                 self.bank = self.main_bankaccount
@@ -1813,7 +1813,7 @@ class AfpFinance(AfpFinanceTransactions):
                 for i in range(len(self.cash_accounts)):
                     lines.append(Afp_toString(self.cash_accounts[i]) + " " + self.cash_account_names[i])
             if typ == "Bank":
-                for i in range(len(self.cash_accounts)):
+                for i in range(len(self.bank_accounts)):
                     lines.append(Afp_toString(self.bank_accounts[i]) + " " + self.bank_account_names[i])
             if typ == "Internal":
                 for i in range(len(self.internal_accounts)):
@@ -1826,16 +1826,10 @@ class AfpFinance(AfpFinanceTransactions):
                     lines.append(Afp_toString(self.revenue_accounts[i]) + " " + self.revenue_account_names[i])
         return lines
 
-<<<<<<< HEAD
     ## check if account is a cash account
     # @param ktnr - if given, account number to be checked, else self.bank is checked
     def is_cash(self, ktnr = None):
         if not ktnr: ktnr = self.bank
-=======
-    ## check if account is a cash or a bankaccount
-    # @param ktnr - account number to be checked
-    def is_cash(self, ktnr):
->>>>>>> db48858 (AfpFinance - Cash Screen first drop)
         if not self.accounts_set:
             self.set_accounts()
         return ktnr in self.cash_accounts or ktnr in self.bank_accounts

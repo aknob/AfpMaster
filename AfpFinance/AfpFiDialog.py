@@ -643,14 +643,18 @@ class AfpDialog_FiBuchung(AfpDialog):
     def set_accounts(self):
         self.revenue_accounts = self.data.get_accounts("Ertrag")
         self.expense_accounts =self.data.get_accounts("Kosten")
-        self.bank_accounts = self.data.get_accounts("Cash")
+        self.cash_accounts = self.data.get_accounts("Cash")
+        self.bank_accounts = self.data.get_accounts("Bank")
         self.internal_accounts = self.data.get_accounts("Other")
         self.bank = self.data.get_bank()
         if not self.bank:
             self.bank = self.bank_accounts[0]
-        self.bank_selection = self.bank_accounts.index(self.bank)
+        if self.bank in self.cash_accounts:
+            self.bank_selection = self.cash_accounts.index(self.bank)
+        if self.bank in self.bank_accounts:
+            self.bank_selection = len(self.cash_accounts) + self.bank_accounts.index(self.bank)
         self.transfer = self.data.get_transfer()
-        solllist = self.data.get_account_lines("Cash,Bank,Internal,Kosten")
+        solllist = self.data.get_account_lines( "Cash,Bank,Internal,Kosten")
         habenlist = self.data.get_account_lines("Cash,Bank,Internal,Ertrag")
         self.combo_Soll.SetItems(solllist)
         self.combo_Haben.SetItems(habenlist)
@@ -867,6 +871,7 @@ class AfpDialog_FiBuchung(AfpDialog):
                 self.data.update_sums()
             if self.sequence:
                 self.data.add_afterburner("BUCHUNG", "self.spread_collection_indicators('BuchungsNr', 'VorgangsNr')")
+            #print ("AfpDialog_FiBuchung.execute_Ok store:", self.data.has_changed())
             self.data.store()
             #print ("AfpDialog_FiBuchung.execute_Ok clients:", len(clients)) 
             if clients: 
@@ -983,6 +988,8 @@ class AfpDialog_FiBuchung(AfpDialog):
         status = None
         if kt in self.bank_accounts:
             status = "bank"
+        elif kt in self.cash_accounts:
+            status = "bank"
         elif kt in self.expense_accounts:
             status = "ex"
         elif kt in self.revenue_accounts:
@@ -1080,7 +1087,7 @@ class AfpDialog_FiBuchung(AfpDialog):
                         if self.haben_default:
                             self.combo_Haben.SetValue(Afp_toString(self.haben_default))
                         else:
-                            self.combo_Haben.SetSelection(len(self.bank_accounts) + len(self.internal_accounts)) 
+                            self.combo_Haben.SetSelection(len(self.cash_accounts) + len(self.bank_accounts) + len(self.internal_accounts)) 
             elif value:
                 if not self.read_account(self.combo_Soll) in self.internal_accounts:
                     if value in self.revenue_accounts:
@@ -1089,7 +1096,7 @@ class AfpDialog_FiBuchung(AfpDialog):
                         if self.soll_default:
                             self.combo_Soll.SetValue(Afp_toString(self.soll_default))
                         else:
-                            self.combo_Soll.SetSelection(len(self.bank_accounts) + len(self.internal_accounts)) 
+                            self.combo_Soll.SetSelection(len(self.cash_accounts) + len(self.bank_accounts) + len(self.internal_accounts)) 
         self.Changes(event  )
          
     ## Event handler for checking date
@@ -1112,7 +1119,7 @@ class AfpDialog_FiBuchung(AfpDialog):
                 self.text_BDatum.SetValue(datum)
         self.Changes(event)
     ## filling data from row into entry fields
-    # @param row - row fromvalues to be adopted and fillet into the data fields
+    # @param row - row fromvalues to be adopted and filled into the data fields
     def adopt_row(self, row):
         #print ("AfpDialog_FiBuchung.adopt_row row:", row)
         data = {}
@@ -1178,6 +1185,7 @@ class AfpDialog_FiBuchung(AfpDialog):
                 #print("AfpDialog_FiBuchung.On_Change_Auszug Mod:", konto, ken, auszug, saldo)
                 parlist = AfpFinance_modifyStatement(None, Afp_toString(konto), ken, auszug, Afp_toString(saldo), "")
                 if parlist: self.data.set_auszug(parlist["Auszug"], parlist["Datum"], parlist["Saldo"])
+                #print("AfpDialog_FiBuchung.On_Change_Auszug data:", self.data.get_selection("AUSZUG").data)
             self.Changes(event)
                 
     ## Event handler to add financial transaction to SelectionList
@@ -1529,16 +1537,14 @@ class AfpDialog_FiBuchung(AfpDialog):
 # @param globals - global values, including mysql connection
 # @param period - if given ,period marker for transactions in AfpFinance
 # @param parlist - if given, parameterlist for AfpFinance creation
-def AfpLoad_FiBuchung(globals, period = None, parlist = None, flavour = None):
+def AfpLoad_FiBuchung(globals, period = None, parlist = None):
     data = AfpFinance(globals, period, parlist)
     data.set_key_generation(False)
     if globals.get_value("multiple-transaction-mandates","Finance"):
         print("AfpLoad_FiBuchung 'multiple-transaction-mandates': Selection of financial mandate is not yet implemented!")
         data.set_period(data.period + "xxmxx")
     #data.debug = True
-    breakpoint()
-    print ("AfpLoad_FiBuchung:", flavour)
-    DiFi= AfpDialog_FiBuchung(flavour)
+    DiFi= AfpDialog_FiBuchung(None)
     DiFi.attach_data(data)
     if parlist: 
         if "disable"  in parlist:

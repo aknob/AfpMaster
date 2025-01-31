@@ -7,6 +7,7 @@
 # - AfpScreen - screen base class
 #
 #   History: \n
+#        31 Jan. 2025 - add readonly flag and color - Andreas.Knoblauch@afptech.de \n
 #        26 Nov. 2024 - add set_initial_gridrow - Andreas.Knoblauch@afptech.de \n
 #        24 Okt. 2024 - adaption to python 3.12 - Andreas.Knoblauch@afptech.de \n
 #        30 Dez. 2021 - conversion to python 3 - Andreas.Knoblauch@afptech.de \n
@@ -84,8 +85,11 @@ class AfpScreen(wx.Frame):
         # control settings for database selections
         self.filtermap = {}
         self.indexmap = {}
-        self.no_keydown = []     
+        self.no_keydown = []
+        self.readonly = None
         self.windowsbackgroundcolor = (239, 235, 222)
+        #self.readonlycolor = wx.Colour(192, 220, 192)
+        self.readonlycolor = wx.Colour(220, 192, 192)
         #self.buttoncolor = (230,230,230)
         self.buttoncolor = (220,220,220)
         self.actuelbuttoncolor = (255,255,255)
@@ -110,6 +114,7 @@ class AfpScreen(wx.Frame):
         # shortcuts for convienence
         self.mysql = self.globals.get_mysql()
         self.debug = self.globals.is_debug()
+        self.readonly = self.globals.get_value("readonly")
         #self.debug = True
         self.globals.set_value(None, None, self.typ)
         self.load_additional_globals()
@@ -144,8 +149,10 @@ class AfpScreen(wx.Frame):
             if not child.GetName() in self.no_keydown:
                 child.Bind(wx.EVT_KEY_DOWN, self.On_KeyDown)
         # set background if necessary
+        if self.readonly:
+            self.SetBackgroundColour(self.readonlycolor)
         if self.globals.os_is_windows():
-            self.SetBackgroundColour(self.windowsbackgroundcolor)
+            if not self.readonly: self.SetBackgroundColour(self.windowsbackgroundcolor)
             #print "AfpScreen.init_database Windows Background set:", self.windowsbackgroundcolor
             for entry in self.grid_minrows:
                 self.grid_minrows[entry] =  int(1.4 * self.grid_minrows[entry])
