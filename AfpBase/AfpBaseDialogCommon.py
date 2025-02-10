@@ -175,11 +175,11 @@ def Afp_editMail(mail, norp=False):
                 if "Betreff:" in line:
                     subject = line[8:].strip()
                 elif "An:" in line:
-                    recipients = line[3:].split(",")
+                    recipients += line[3:].split(",")
                 elif "Von:" in line:
                     sender = line[4:].strip()
                 elif "Anhang:" in line:
-                    attachs = line[7:].split(",")
+                    attachs += line[7:].split(",")
                 elif "Serie:" in line:
                     serie = True
                     start -= (len(line) -5)

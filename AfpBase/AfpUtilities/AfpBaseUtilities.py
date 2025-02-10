@@ -753,8 +753,8 @@ def Afp_sendOverSMTP(sender, recipients, subject, message, html_message, attachm
                 part = MIMEBase('application', "octet-stream")
                 part.set_payload(open(attach, "rb").read())
                 email.encoders.encode_base64(part)
-                #part.add_header('Content-Disposition', 'attachment; filename=' + Afp_extractBase(attach))
-                part.add_header('Content-Disposition', 'attachment; filename=' + attach)
+                #part.add_header('Content-Disposition', 'attachment; filename=' + attach)
+                part.add_header('Content-Disposition', 'attachment; filename=' + Afp_extractBase(attach))
                 msg.attach(part)
         if debug: print("Afp_sendOverSMTP Server:",smtphost + ":" + str(port), security)
         if security == "SSL":

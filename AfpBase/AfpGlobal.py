@@ -207,10 +207,12 @@ class AfpSettings(object):
                             break
             fout.write(line)
         if source == False:
-            for name in vars:
+            for i in range(len(vars)):
+                name = vars[i]
                 if name:
                     value = Afp_toString(self.get(name))
                     if value:
+                        vars[i] = None
                         fout.write("# automated insert of " + name + "\n")
                         fout.write(name + "=" + value + "\n")
         fout.close()
@@ -346,7 +348,7 @@ class AfpGlobal(object):
             for var in varnames:
                 if not var is None:
                     vars.append(var)
-            if len(var):
+            if len(vars):
                 dbset = self.get_setting(self.get_value("database"))
                 if dbset:
                     dbset.modify_config(vars, set)

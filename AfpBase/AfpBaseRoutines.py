@@ -408,8 +408,8 @@ def Afp_toDatetime(date, time, hightime = None):
 ## get age of input date
 # @param datum - string of birthdate for which age has to be determined
 # @param daysharp - flag if age has to be determinded day sharp or year sharp, default: False
-# @param default - default age returned, when no date is given, default: 1000
-def Afp_getAge(datum, daysharp = False, default = 1000):
+# @param default - default age returned, when no date is given, default: 1
+def Afp_getAge(datum, daysharp = False, default = 1):
     age = default
     date = Afp_fromString(datum)
     if date:
@@ -417,6 +417,7 @@ def Afp_getAge(datum, daysharp = False, default = 1000):
         age = today.year - date.year
         if daysharp and (date.month > today.month or (date.month == today.month and date.day >= today.day)):
             age -= 1
+    if age < 0: age = 100 + age
     #print "Afp_getAge:", datum, age
     return age
 ## get a birthday list (firtsname, name, birthday)
