@@ -150,6 +150,7 @@ class AfpMainApp(wx.App):
             pars["dbword"] = dbword
         if "dbword" in pars: set.set("database-word", pars["dbword"])
         if "strict" in pars: set.set("strict-modul-handling",1)
+        if "dry-run" in pars: set.set("dry-run",1)
         mysql = AfpDatabase.AfpSQL.AfpSQL(set.get("database-host"), set.get("database-user"), set.get("database-word"), set.get("database"), set.is_debug())
         self.globals = AfpGlobal.AfpGlobal(name, mysql, set)
         self.globals.set_infos(version, baseversion, copyright, website, description, license, picture, developers)
@@ -208,6 +209,7 @@ def AfpStart(info):
             if i < lgh-1 and sys.argv[i+1][0] != "-": modul = sys.argv[i+1]
         if sys.argv[i] == "-v" or sys.argv[i] == "--verbose": debug = True
         if sys.argv[i] == "-x" or sys.argv[i] == "--strict": parameter["strict"] = None
+        if sys.argv[i] == "-y" or sys.argv[i] == "--dry": parameter["dry-run"] = 1
         if sys.argv[i] == "-h" or sys.argv[i] == "--help": execute = False
     if execute:
         App = AfpMainApp(0)
@@ -252,7 +254,8 @@ def AfpStart(info):
         print("-o,--option    manuel setting of different configuration settings follows")
         print("               Usage: [modulname.]variablename=value[, ...]")
         print("-v,--verbose   display comments on all actions (debug-information)")
-        #print "-x,--strict    don't allow dynamic modul handling (needed for py2exe compilation)"
+        #print("-x,--strict    don't allow dynamic modul handling (needed for py2exe compilation)")
+        print("-y,--dry       start program in dry-run mode: no emails, no imports!")
         print("routine, file  pythonmodul and name of routine to be executed")
         print("               or path of a file in which each line represents one call")
         print("               Usage: python.modul.routinename:parameter1[,param2 ...]")

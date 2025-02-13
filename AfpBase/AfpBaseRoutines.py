@@ -1365,7 +1365,7 @@ class AfpMailSender(object):
         self.word = None
         self.dry_run = None
         # look for data in globals
-        if self.globals.get_value("mail-dry-run"):
+        if self.globals.get_value("dry-run"):
             self.dry_run = True
         server = self.globals.get_value("smtp-host")
         if server:
