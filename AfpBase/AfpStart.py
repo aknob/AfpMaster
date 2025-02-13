@@ -257,7 +257,7 @@ def AfpStart(info):
         print("               Usage: [modulname.]variablename=value[, ...]")
         print("-v,--verbose   display comments on all actions (debug-information)")
         #print("-x,--strict    don't allow dynamic modul handling (needed for py2exe compilation)")
-        print("-y,--dry       start program in dry-run mode: no emails, no imports!")
+        print("-y,--dry       start program in dry-run mode: no writing to database, no emails, no imports!")
         print("routine, file  pythonmodul and name of routine to be executed")
         print("               or path of a file in which each line represents one call")
         print("               Usage: python.modul.routinename:parameter1[,param2 ...]")
