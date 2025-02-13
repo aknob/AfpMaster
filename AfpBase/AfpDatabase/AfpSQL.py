@@ -399,7 +399,7 @@ class AfpSQLTableSelection(object):
     # @param feldnamen - names of columns, if not given they will be retrieved from database
     def  __init__(self, mysql, tablename, debug = False, unique_feldname = None, feldnamen = None):
         self.dbg = False # hardcode switch for storage logging
-        #if tablename == "PREISE": debug = True
+        #if tablename == "AUSZUG": debug = True
         if debug: 
             print("AfpSQLTableSelection Konstruktor dbg On:", tablename)
             print("AfpSQLTableSelection Konstruktor input:", tablename, debug, unique_feldname, feldnamen)

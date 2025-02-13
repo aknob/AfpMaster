@@ -575,10 +575,9 @@ class AfpFiScreen(AfpScreen):
                     #beleg, ref = self.data.get_value_rows("BUCHUNG", "Beleg,Reference", index)[0][0]
                     beleg, ref, vnr = self.data.get_value_rows("BUCHUNG", "Beleg,Reference,VorgangsNr", index)[0] 
                     print("AfpFiScreen.On_modify:", beleg, ref, vnr)
+                    disable = "strict_accounting"
                     if self.flavour == "Cash":
-                        disable = "strict_accounting,load,transaction"
-                    else:
-                        disable = "strict_accounting,load,transaction"
+                        disable += ",load,transaction"
                     if vnr:
                         changed = AfpLoad_FiBuchung(self.data.get_globals(), self.data.get_period(), {"VorgangsNr": vnr,  "disable": disable})
                     else:

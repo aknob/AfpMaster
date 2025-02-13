@@ -299,7 +299,7 @@ def AfpFinance_selectStatement(mysql, period, konto , ktname , new = False):
 # @param ktname - name of account for statement
 # @param auszug - suggested name of statement
 # @param saldo - balance at startdate of the statement
-# @param dat - date when statement has benn drawn
+# @param dat - date when statement has been drawn
 def AfpFinance_modifyStatement(period, konto, ktname, auszug, saldo, dat):
     liste = [["Auszug:",auszug], ["Anfangssaldo:", saldo], ["Datum:", dat]]
     if period: liste = [["Periode:", period]] + liste

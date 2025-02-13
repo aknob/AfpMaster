@@ -1550,7 +1550,8 @@ class AfpFinance(AfpFinanceTransactions):
             self.selects["Auszuege"][1] =  "KtNr = " +  konto +" AND " + self.selects["Auszuege"] [1] 
         elif mainindex == "Reference":
             self.selects["AUSZUG"][1] = "Auszug = \"" + Afp_toString(value) + "\" AND " + self.selects["AUSZUG"] [1]
-            self.selects["Konto"] = [ "KTNR"," KtNr = KtNr.AUSZUG"] 
+            self.selects["Konto"] = [ "KTNR","KtNr = KtNr.AUSZUG"]
+            self.selects["Auszuege"][1] =  "KtNr = KtNr.AUSZUG AND " + self.selects["Auszuege"] [1]
         elif mainindex == "Beleg" and "Reference" in parlist:
             ref = Afp_toString(parlist["Reference"])
             self.selects["AUSZUG"][1] = "Auszug = \"" + ref + "\" AND " + self.selects["AUSZUG"] [1]
@@ -1855,6 +1856,24 @@ class AfpFinance(AfpFinanceTransactions):
             sald = self.get_value("StartSaldo.AUSZUG")  
         #print("AfpFinance.get_auszug:", self.auszug, dat, sald, self.get_selection("AUSZUG").data)
         return self.auszug, dat, sald
+    ## return next unused identifier of statement of account, if available
+    def get_unused_auszug(self):
+        auszug = None
+        saldo = None
+        if self.auszug:
+            ktname = Afp_getStartLetters(self.auszug)
+            lgh = len(ktname)
+            rows = self.get_value_rows("Auszuege")
+            anr = 0
+            saldo = 0.0
+            for row in rows:
+                 if row[0][:lgh] == ktname:
+                    nr = Afp_fromString(row[0][lgh:])
+                    if nr > anr:
+                        anr = nr
+                        saldo = row[4]
+            auszug = ktname + Afp_toIntString(anr + 1, 5 - lgh)
+        return auszug, saldo
     ## return identierfier of batch booking, if available
     def get_batch(self):
         return self.batch

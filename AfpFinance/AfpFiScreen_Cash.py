@@ -280,12 +280,10 @@ class AfpFiScreen_Cash(AfpFiScreen):
         else: # filter == "Auszug"
             period = self.data.get_period()
             konto = self.data.get_string_value("KtNr.KTNR")
-            ausz = self.data.get_value("Auszug.AUSZUG")
-            ktname = Afp_getStartLetters(ausz)
-            saldo  = self.data.get_string_value("EndSaldo.AUSZUG")
-            auszug =  ktname + Afp_toIntString(Afp_getEndNumber(ausz) + 1, 5 - len(ktname))
-            print("AfpFiScreen.On_Neu:", ausz, auszug, saldo)
-            parlist = AfpFinance_modifyStatement(period, konto, ktname, auszug, saldo, "")
+            ktname =  self.data.get_string_value("KtName.KTNR")
+            auszug, saldo = self.data.get_unused_auszug()
+            print("AfpFiScreen.On_Neu:", period, konto, ktname, auszug, saldo, type(saldo))
+            parlist = AfpFinance_modifyStatement(period, konto, ktname, auszug, Afp_toString(saldo), "")
             print("AfpFiScreen.On_Neu parlist:", parlist)
             if parlist:
                 if "Period" in parlist: period = parlist["Period"]
