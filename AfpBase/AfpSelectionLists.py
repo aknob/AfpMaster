@@ -9,6 +9,7 @@
 # - AfpOrderedList
 #
 #   History: \n
+#        16 Feb. 2025 - remove depricated routines - Andreas.Knoblauch@afptech.de \n
 #        24 Nov. 2024 - AfpPaymentList.get_account: always check if output ist numeric - Andreas.Knoblauch@afptech.de \n
 #        30 Dez. 2021 - conversion to python 3 - Andreas.Knoblauch@afptech.de \n
 #        21 Dez. 2020 - separated from AfpBaseRoutines and AfpOrderedList implemented- Andreas.Knoblauch@afptech.de
@@ -844,43 +845,13 @@ class AfpSelectionList(object):
     # may be overwritten, if special handling is necessary
     def store_preparation(self):
         return
-    ## routine to retrieve payment data from SelectionList \n
-    # may be overwritten, default implementation: return "Preis", "Zahlung" and "ZahlDat" column from main selection
-    def get_payment_values_dep(self):
-        preis = self.get_value("Preis")
-        zahlung = self.get_value("Zahlung")
-        if preis is None: preis = 0.0
-        if zahlung is None: zahlung = 0.0
-        return preis, zahlung, self.get_value("ZahlDat")
-    ## routine to set payment data in SelectionList \n
-    # may be overwritten, default implementation: "Zahlung" and "ZahlDat" columns of main selection are set
-    # @param payment - amount that already has been payed
-    # @param datum - date of last payment
-    def set_payment_values_dep(self, payment, datum):
-        self.set_value("Zahlung", payment)
-        self.set_value("ZahlDat", datum)
-    ## routine to retrieve splitting data for payment from SelectionList \n
-    # may be overwritten, default implementation: return None
-    def get_splitting_values_dep(self):
-        return None
-    ## set identification data for archive \n
-    # default implementation: add name of maintable and mainvalue \n
-    # - may be overwritten if necessary
-    # @param data - dictionary where identifiers should be added
     def set_archiv_table(self, data):
         data["Tab"] = self.get_selection().get_tablename()
         data["TabNr"] = self.get_value()
         return data
     #    
     # routines to be overwritten in devired class
-    #
-    ## extract payment relevant data from SelectionList for 'Finance' modul (onlý needed if bookkeeping is considered)
-    # has to return the account number this payment has to be charged ("Gegenkonto")
-    # @param paymentdata - payment data dictionary to be modified and returned
-    def add_payment_data_dep(self, paymentdata):
-        print("AfpSelecxtionList.add_payment_data not implemented for list:", self.listname)
-        return paymentdata
-     
+    #     
     ## return specific identification string to be used in dialogs \n
     # - should be overwritten in devired class
     def get_identification_string(self):

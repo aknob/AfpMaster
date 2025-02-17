@@ -7,6 +7,7 @@
 # - AfpEvScreen_Verein
 #
 #   History: \n
+#        16 Feb. 2025 - remove depricated routines - Andreas.Knoblauch@afptech.de \n
 #        30 Dez. 2022 - conversion to python 3 - Andreas.Knoblauch@afptech.de \n
 #        25 Aug. 2022 - add main Verein type sampling all members - Andreas.Knoblauch@afptech.de
 #        10 Apr. 2019 - integrate all devired flavour classes into one deck - Andreas.Knoblauch@afptech.de
@@ -845,18 +846,6 @@ class AfpEvMember(AfpEvClient):
             return None
         else:
             return sum
-   ## generate identification number (membership number for "Verein")  
-    def generate_IdNr_depricated(self):
-        IdNr = None
-        # ToDo: for different 'Sparten' in 'Verein' look for already given id
-        IdNr = self.get_next_RechNr_value()
-        #tag = self.get_value("Tag.Verein")
-        #Extern = AfpExternNr(self.get_globals(),"Count", tag, self.debug)
-        #IdNr = Extern.get_number()
-        return IdNr
-    ## return field to be increased to generate 'RechNr'  
-    def get_RechNr_name_depricated(self):
-        return "RechNr.EVENT"
     ## check if  the name of the price holds string
     # @param check - string to be checked
     def pricename_holds(self, check):

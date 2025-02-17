@@ -6,6 +6,7 @@
 # no display and user interaction in this modul.
 #
 #   History: \n
+#        16 Feb. 2025 - remove depricated routines - Andreas.Knoblauch@afptech.de \n
 #        30 Dez. 2021 - conversion to python 3 - Andreas.Knoblauch@afptech.de \n
 #        15 May 2018 - inital code generated - Andreas.Knoblauch@afptech.de \n
 
@@ -367,6 +368,12 @@ class AfpEvent(AfpSelectionList):
             RNr += self.get_value("Kostenst.EVENT")
             print("AfpEvClient.generate_RechNr RNr:", Kst, Nr, RNr)
             RechNr = Afp_toString(RNr)
+        #elif typ == "Nummer.ExternNr":
+            #Extern = AfpExternNr(self.get_globals(),"Month", None, self.debug)
+            #RechNr = Extern.get_number_string()
+        #else:
+            #client.add_invoice()
+            #RechNr will be set automatically after storing and has not to be returned here 
         return RechNr
     ## add clients to event-counter
     #@param cnt - number of clients to be added to counter, use negative value for removal
@@ -473,7 +480,8 @@ class AfpEvClient(AfpPaymentList):
         return True
     ## client is connected to a separate invoice which has to be syncronised
     def is_invoice_connected(self):
-        return self.get_RechNr_name_depricated() == "RechNr.RECHNG"
+        #return self.get_RechNr_name_depricated() == "RechNr.RECHNG"
+        return False
     ## bulk data has been set
     def has_bulk_set(self):
         return self.bulk_data_set
@@ -646,22 +654,6 @@ class AfpEvClient(AfpPaymentList):
                 if ANr: changed_data["AnmeldNr"] = ANr
                 sel.add_data_values(changed_data)
  
-    ## return field to be increased to generate 'RechNr'  
-    # may be overwritten in devired class
-    def get_RechNr_name_depricated(self):
-        if self.get_value("AgentNr.EVENT"): return "Nummer.ExternNr" 
-        else:  return "RechNr.EVENT:Kostenst.EVENT"
-        # possibillity to assign extern invoice number
-        # return "RechNr.RECHNG"
-    ## generate next value for  RechNr
-    def get_next_RechNr_value_depricated(self):
-        Nr = None
-        Nr = self.get_value("IdNr")
-        if not Nr:
-            self.lock_data("EVENT")
-            Nr = self.get_value("RechNr.EVENT") + 1
-            self.set_value("RechNr.EVENT", Nr)
-        return Nr
     ## update internal price fields
     def update_prices(self):
         price = self.get_value("Preis.Preis")
@@ -677,52 +669,6 @@ class AfpEvClient(AfpPaymentList):
         self.set_value("Extra", extra)
         self.set_value("Preis", extra + price)
         self.set_value("ProvPreis", extra + price - noprv)
-    ## generate invoice number
-    # @param Nr - if given, this counter will be used to generate RechNr-string
-    def generate_RechNr_depricated(self, Nr=None):
-        RechNr = None
-        typ = self.get_RechNr_name()
-        if self.debug: print("AfpEvClient.generate_RechNr Typ:", typ)
-        if "RechNr.EVENT" in typ:
-            if Nr is None:
-                Nr = self.get_next_RechNr_value()
-            deci = self.globals.get_value("decimals-in-rechnr","Event")
-            if not deci: deci = 2
-            if "Kostenst.EVENT" in typ:
-                div = 10**deci
-                while Nr/div > 0:  div*10
-                RNr = float(Nr)/div                
-                Kst = self.get_value("Kostenst.EVENT")
-                RNr += Kst 
-                print("AfpEvClient.generate_RechNr RNr:", typ, Kst, Nr, RNr)
-                RechNr = Afp_toString(RNr)
-            else:
-                RNr =  Afp_toIntString(Nr, deci)
-                RechNr = self.get_string_value("Kennung.EVENT") + "-" + RNr
-                print("AfpEvClient.generate_RechNr RNr:", typ, RNr, RechNr, self.get_name())
-        elif typ == "Nummer.ExternNr":
-            Extern = AfpExternNr(self.get_globals(),"Month", None, self.debug)
-            RechNr = Extern.get_number_string()
-        else:
-            self.add_invoice()
-            #RechNr will be set automatically after storing and has not to be returned here 
-        return RechNr
-    ## count tour entry up or down
-    # @param plus - number to be added to event, default: 1
-    def add_to_event_depricated(self, plus = 1):
-        if plus != 0:
-            event = self.get_selection("EVENT")
-            event.lock_data()
-            event.reload_data()
-            cnt = event.get_value("Anmeldungen")
-            event.set_value("Anmeldungen", cnt + plus)
-            event.store()
-            print("AfpEvClient.add_to_event:", cnt, plus, event.get_value("Anmeldungen"))
-    ## delete entries from tour
-    # @param minus - number to be addeleted from event, default: 1
-    def delete_from_event_depricated(self, minus = 1):
-        if minus != 0:
-           self.add_to_event(-minus)
     ## generate Event object for this client
     def get_event(self):
         ENr = self.get_value("EventNr.EVENT")
