@@ -114,7 +114,8 @@ class AfpScreen(wx.Frame):
         # shortcuts for convienence
         self.mysql = self.globals.get_mysql()
         self.debug = self.globals.is_debug()
-        self.readonly = self.globals.get_value("readonly")
+        if self.readonly is None: 
+            self.readonly = self.globals.get_value("readonly")
         #self.debug = True
         self.globals.set_value(None, None, self.typ)
         self.load_additional_globals()

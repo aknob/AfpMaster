@@ -205,17 +205,18 @@ class AfpFiScreen_Cash(AfpFiScreen):
         
         self.setup_period_filter()
 
+  ## connect to database and populate widgets, overwritten from AfpScreen
+    # @param globals - global variables, including database connection
+    # @param sb - AfpSuperbase database object , if supplied, otherwise it is created
+    # @param origin - string from where to get data for initial record, 
+    # to allow syncronised display of screens (only works if 'sb' is given)
+    def init_database(self, globals, sb, origin):
+        globals.get_mysql().add_database("AfpCash", "BUCHUNG,AUSZUG")
+        AfpScreen.init_database(self, globals, sb, origin)
+
     ## compose event specific menu parts
     def create_specific_menu(self):
         return  
-    ## create buttons to switch modules 
-    def create_modul_buttons(self):
-        self.button_modules = {}
-        self.button_modules["Finance"] = wx.Button(self, -1, label="Finance", size=(75,30), name="BFinance")
-        self.button_modules["Finance"].SetBackgroundColour(self.actuelbuttoncolor)
-        self.modul_button_sizer.AddSpacer(10)
-        self.modul_button_sizer.Add(self.button_modules["Finance"] ,0,wx.EXPAND)
-        return
     ## set initial record to be shown, when screen opens the first time
     #overwritten from AfpScreen) 
     # @param origin - string where to find initial data
@@ -282,8 +283,9 @@ class AfpFiScreen_Cash(AfpFiScreen):
             konto = self.data.get_string_value("KtNr.KTNR")
             ktname =  self.data.get_string_value("KtName.KTNR")
             auszug, saldo = self.data.get_unused_auszug()
+            if not auszug: auszug = ktname + "01"
             print("AfpFiScreen.On_Neu:", period, konto, ktname, auszug, saldo, type(saldo))
-            parlist = AfpFinance_modifyStatement(period, konto, ktname, auszug, Afp_toString(saldo), "")
+            parlist = AfpFinance_modifyStatement(period, konto, ktname, Afp_toString(auszug), Afp_toString(saldo), "")
             print("AfpFiScreen.On_Neu parlist:", parlist)
             if parlist:
                 if "Period" in parlist: period = parlist["Period"]

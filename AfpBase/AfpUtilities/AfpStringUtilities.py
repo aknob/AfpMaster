@@ -983,7 +983,7 @@ def Afp_addRootpath(rootdir, filename):
             composite = rootdir
     return composite
 
-## countes the starting spaces in the string
+## counts the starting spaces in the string
 # @param string - string to be analysed
 def Afp_leftSpCnt(string):
     # left space count

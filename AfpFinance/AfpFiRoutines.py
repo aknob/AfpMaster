@@ -1541,7 +1541,7 @@ class AfpFinance(AfpFinanceTransactions):
         self.selects["Salden"] = [ "AUSZUG","Auszug = \"SALDO\" AND Period = \"" + self.period + "\""] 
         self.selects["Balances"] = [ "KTNR","KtName = \"SALDO\""] 
         self.selects["Journal"] = [ "BUCHUNG","Period = \"" + self.period + "\""] 
-        self.selects["Auszuege"] =  [ "AUSZUG","Period = \"" + self.period + "\"" ] 
+        self.selects["Auszuege"] =  [ "AUSZUG","NOT (Auszug = \"SALDO\") AND Period = \"" + self.period + "\"" ] 
         # only needed for "Konto" or "Gegenkonto"
         if mainindex == "Konto" or mainindex == "Gegenkonto":
             konto = Afp_toString(value)
@@ -1797,7 +1797,7 @@ class AfpFinance(AfpFinanceTransactions):
         elif nr in self.cash_accounts:
             name = self.cash_account_names[self.cash_accounts.index(nr)]
         elif nr in self.bank_accounts:
-            name = self.bank_account_names[self.cash_accounts.index(nr)]
+            name = self.bank_account_names[self.bank_accounts.index(nr)]
         elif nr in self.internal_accounts:
             name = self.internal_account_names[self.internal_accounts.index(nr)]
         return name
@@ -1861,7 +1861,10 @@ class AfpFinance(AfpFinanceTransactions):
         auszug = None
         saldo = None
         if self.auszug:
-            ktname = Afp_getStartLetters(self.auszug)
+            if self.auszug == "SALDO":
+                ktname = self.get_value("KtName.KTNR")
+            else:
+                ktname = Afp_getStartLetters(self.auszug)
             lgh = len(ktname)
             rows = self.get_value_rows("Auszuege")
             anr = 0
@@ -2008,12 +2011,11 @@ class AfpFinance(AfpFinanceTransactions):
     # @param konto - accountnumber to be summerized
     def gen_sum(self, konto):
         #print "AfpFinance.gen_sum:", self.view()
-        sum = None
+        sum = 0.0
         rows = self.get_value_rows("BUCHUNG","Konto,Gegenkonto,Betrag")   
         for row in rows:
             betrag = Afp_fromString(row[2])
-            if row[0] == konto or row[1] == konto:
-                if sum is None: sum = 0.0
+            if betrag and (row[0] == konto or row[1] == konto):
                 if row[0] == konto: sum -= betrag
                 else: sum += betrag
                 #print "AfpFinance.gen_sum added:", betrag, sum
@@ -2022,8 +2024,7 @@ class AfpFinance(AfpFinanceTransactions):
             rows = self.get_value_rows("Journal","Konto,Gegenkonto,Betrag")   
             for row in rows:
                 betrag = Afp_fromString(row[2])
-                if row[0] == konto or row[1] == konto:
-                    if sum is None: sum = 0.0
+                if betrag and (row[0] == konto or row[1] == konto):
                     if row[0] == konto: sum -= betrag
                     else: sum += betrag
                     #print "AfpFinance.gen_sum Journal added:", betrag, sum

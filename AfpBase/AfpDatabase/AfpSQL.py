@@ -8,6 +8,7 @@
 # - AfpSQLTableSelection
 #
 #   History: \n
+#        19 Feb. 2025 - AfpSQL: add readonly flag and additional connections - Andreas.Knoblauch@afptech.de \n
 #        23 Jan. 2025 - AfpSQLTableSelection: allow reload with different order - Andreas.Knoblauch@afptech.de \n
 #        29 Dez. 2021 - conversion to python 3 - Andreas.Knoblauch@afptech.de \n
 #        04 Nov. 2018 - AfpSQL: add free execution of sql-statements - Andreas.Knoblauch@afptech.de \n
@@ -21,7 +22,7 @@
 #  AfpTechnologies (afptech.de)
 #
 #    BusAfp is a software to manage coach and travel activities
-#    Copyright© 1989 - 2023 afptech.de (Andreas Knoblauch)
+#    Copyright© 1989 - 2025 afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -61,8 +62,13 @@ class AfpSQL(object):
         self.db_cursor = None      
         self.db_connection = self.connect(dbhost,dbuser,dbword, self.dbname)
         self.db_cursor = self.db_connection.cursor()
-        self.db_lastrowid = 0
+        self.db_readonly = False
+        self.db_roflags = None # optional: readonly flags
+        self.tableto_db = None # optional: table to database mapping
+        self.lastrowid = 0
         self.select_clause= None
+        self.connections = None
+        self.tablecons = None
         self.version = self.get_version()
         if self.debug: print("AfpSQL Konstruktor")
         if self.create_db: 
@@ -80,7 +86,50 @@ class AfpSQL(object):
         if self.db_cursor: self.db_cursor.close ()
         if self.db_connection: self.db_connection.close ()
         if self.debug: print("AfpSQL Destruktor")
-    ## switch debug on
+    ## add one more database connection
+    # @param dbhost - host for database 
+    # @param dbuser - user for connection
+    # @param dbword - password for connection
+    # @param dbname - name of database
+    # @param attribut - flag for rw-mode, possible comma separated list of tables using this connection
+    #                               p.e. "rw, table1, table2" or  "ro, table3, table4,..."
+    def add_connection(self, dbhost, dbuser, dbword, dbname, attribut = None):
+        connection = self.connect(dbhost,dbuser,dbword, dbname)
+        if connection:
+            if self.connections is None: 
+                self.connections = {}
+                self.tablecons = {}
+            split = attribut.split(",")
+            readonly = not "rw" in split[0]
+            if split[0].strip() == "rw-only":
+                self.db_readonly = True
+            self.connections[dbname] = [connection, connection.cursor(), readonly]
+            if len(split) > 1:
+                for i in range(1,len(split)):
+                    self.tablecons[split[i]] = dbname
+   ## add one more database connection
+    # @param dbname - name of database
+    # @param tables - comma separated list of tables using this database
+    # @param readonly - flag is database is readonly
+    # @param ro_db - flag if original database used in connection should be readonly
+    def add_database(self, dbname, tables, readonly = False, ro_db = True):
+        if self.tableto_db is None: 
+            self.tableto_db = {}
+            self.db_roflags = {}
+        if ro_db:
+            self.db_readonly = True
+        self.db_roflags[dbname] = readonly
+        split = tables.split(",")
+        for sp in split:
+            self.tableto_db[sp] = dbname
+    ##set readoly flag for datanase
+    # @param dbname - if given name od database to be set to readonly
+    def set_readonly(self, dbname = None):
+        self.db_readonly = True
+        for db in self.db_roflags:
+            if dbname is None or db == dbname:
+                self.db__roflags[dbname] = True
+   ## switch debug on
     def set_debug(self):
         #print "AfpSQL.set_debug()"
         self.debug = True
@@ -121,11 +170,22 @@ class AfpSQL(object):
     def get_debug(self):
         return self.debug
     ## return database name
-    def get_dbname(self):
-        return self.dbname
+    # @param table - if given, tablename to possibly select connection
+    def get_dbname(self, table = None):
+        if self.tableto_db and table and table in self.tableto_db:
+            return self.tableto_db[table]
+        else:
+            return self.dbname
     ## return database cursor
     def get_cursor(self):
         return self.db_cursor   
+    ## return readonly flag for database connectionr
+    # @param table - if given, tablename to possibly select connection
+    def get_readonly(self, table = None):
+        if self.tableto_db and table and table in self.tableto_db:
+                return self.db_roflags[self.get_dbname(table)]
+        else:
+            return self.db_readonly   
     ## return last used mysql select clause
     def get_select_clause(self):
         return self.select_clause
@@ -142,6 +202,10 @@ class AfpSQL(object):
         if self.debug: print("AfpSQL.get_tables:", Befehl)
         self.db_cursor.execute (Befehl)     
         rows = self.db_cursor.fetchall()
+        if self.db_roflags:
+            for db in self.db_roflags:
+                self.db_cursor.execute(Befehl + " FROM " + db)
+                rows += self.db_cursor.fetchall()
         return Afp_extractColumns(0, rows)
     ## return information of database table
     # @param datei - name of table
@@ -202,9 +266,9 @@ class AfpSQL(object):
             if dat_clause == "": komma = ""
             else: komma = ","
             if no_indicator:
-                dat_clause += komma +  self.dbname + "." + dateien[i].upper() 
+                dat_clause += komma +  self.get_dbname(dateien[i].upper()) + "." + dateien[i].upper() 
             else:
-                dat_clause += komma +  self.dbname + "." + dateien[i].upper() + " D" + str(i)
+                dat_clause += komma +  self.get_dbname(dateien[i].upper()) + "." + dateien[i].upper() + " D" + str(i)
 
         if all_fields:
             feld_clause = "*"
@@ -269,16 +333,16 @@ class AfpSQL(object):
     # @param  where         -  "[field1.table1 (>,<,>=,<=,=) (field2.table2,value)[(and,or) ...]]"
     # @param link            - "[field1.table1 == field2.table2 [and ...]]"
     def select(self, feldnamen, select, dateinamen, order = None, limit = None, where=None, link=None):      
-        #if self.debug: print "AfpSQL.select:", feldnamen, select, dateinamen, order, limit, where, link
+        if self.debug: print ("AfpSQL.select:", feldnamen, select, dateinamen, order, limit, where, link)
         clauses = self.extract_clauses(feldnamen, select, dateinamen, order, limit, where, link)
         Befehl = "SELECT "+ clauses[0] + " FROM " + clauses[1]  # feld_clause, dat_clause
         if not clauses[2] == "": Befehl += " WHERE "+ clauses[2]# where_clause 
         if not clauses[3] == "": Befehl += " ORDER BY "+ clauses[3] # order_clause 
         if not clauses[4] == "": Befehl += " LIMIT "+ clauses[4] # limit_clause 
         if self.debug: print("AfpSQL.select:",Befehl)
-        #print ("AfpSQL.select:",Befehl)
-        self.db_cursor.execute (Befehl)     
-        rows = self.db_cursor.fetchall ()
+        cursor = self.get_cursor()
+        cursor.execute (Befehl)     
+        rows = cursor.fetchall ()
         if self.debug: print("AfpSQL.select result:",rows)
         self.select_clause= Befehl
         return rows
@@ -286,17 +350,20 @@ class AfpSQL(object):
     # @param datei - name of the table
     # @param select - select clause for locked database entries
     def lock(self, datei, select):
-        Befehl = "SELECT * FROM "  + self.dbname + "." + datei + " WHERE "  + select + " LOCK IN SHARE MODE;"
+        Befehl = "SELECT * FROM "  + self.get_dbname(datei) + "." + datei + " WHERE "  + select + " LOCK IN SHARE MODE;"
         if self.debug: print("AfpSQL.lock:",Befehl)
-        self.db_cursor.execute(Befehl)
-    ## remove the lock from the table, rollback to database status befor the lock was set
+        self.get_cursor().execute(Befehl)
+    ## remove the lock from the table, rollback to database status before the lock was set
     def unlock(self):
         Befehl = "ROLLBACK;"
         if self.debug: print("AfpSQL.unlock:", Befehl)
         self.db_cursor.execute(Befehl)
+        if self.connections:
+            for con in self.connections:
+                self.connections[con][1].execute(Befehl)
     ## return the las inserted database id
     def get_last_inserted_id(self):
-        return self.db_lastrowid
+        return self.lastrowid
     ## write data to database, if select is set use 'update' \n
     # for tables with a primary key
     # @param datei - name of table
@@ -304,6 +371,7 @@ class AfpSQL(object):
     # @param data - list of data rows, each written to the columns indicated above (nomally one row is delivered)
     # @param select - select clause for database entries to be updated (normally points to a unique entry)
     def write_unique(self, datei, felder, data, select):
+        if self.get_readonly(datei): return
         if select is None:
             self.write_insert(datei, felder, data)
         else:
@@ -315,11 +383,12 @@ class AfpSQL(object):
     def write_no_unique(self, select_clause, felder, data):
         split_clause = select_clause.split(" FROM ")
         if len(split_clause) == 2:
-            self.write_delete(select_clause)
             split_dat = split_clause[1].split(" WHERE ")
             dateien = split_dat[0].split(",")
             if len(dateien) > 1 : print("WARNING: AfpSQL.write_no_unique: multiple tables not yet possible!")
             datei = dateien[0].split(" ")[0]
+            if self.get_readonly(datei): return
+            self.write_delete(select_clause)
             self.write_insert(datei, felder, data)
     ## delete data from database
     # @param select_clause - select clause for database entries to be deleted \n
@@ -327,11 +396,12 @@ class AfpSQL(object):
     def write_delete(self, select_clause):
         split_clause = select_clause.split(" FROM ")
         if len(split_clause) == 2:
-          # delete data from database
+            # delete data from database
             Befehl = "DELETE FROM " + split_clause[1]
             if self.debug:  print("AfpSQL.write_delete Command:", Befehl)
-            res = self.db_cursor.execute (Befehl)     
-            self.db_cursor.execute("COMMIT;")
+            cursor = self.get_cursor()
+            res = cursor.execute (Befehl)     
+            cursor.execute("COMMIT;")
             if self.debug: print("AfpSQL.write_delete Deleted Rows:",res)
     ## update data in database, \n
     # for tables with a primary key
@@ -341,6 +411,7 @@ class AfpSQL(object):
     # @param select - select clause for database entries to be updated (normally points to a unique entry)
     # @param no_commit - omit COMMIT statement at the end of this routine (if more database interactions should be done in one step)
     def write_update(self, datei, felder, data, select, no_commit= False):
+        if self.get_readonly(datei): return
         Befehl = None
         flen = len(felder)
         if len(data) == flen:
@@ -357,6 +428,7 @@ class AfpSQL(object):
     # @param felder - list of column names in table, where data is written to 
     # @param data - list of data rows, each written to the columns indicated above
     def write_insert(self, datei, felder, data):
+        if self.get_readonly(datei): return
         Befehl = None      
         flen = len(felder)   
         if not "." in datei: datei = self.dbname + "." + datei
@@ -367,7 +439,7 @@ class AfpSQL(object):
                 if self.debug: print("AfpSQL.write_insert:", Befehl, datarow)
                 #print("AfpSQL.write_insert:", Befehl, datarow)
                 self.db_cursor.execute (Befehl, datarow)
-                self.db_lastrowid = self.db_cursor.lastrowid
+                self.lastrowid = self.db_cursor.lastrowid
             else:
                 print("WARNING: AfpSQL.write_insert: length data does not match number of fields (", flen, ",", len(datarow), ")") 
         if not Befehl is None:

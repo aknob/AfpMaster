@@ -98,7 +98,7 @@ class AfpMainApp(wx.App):
         website = "http://www.afptech.de"
         baseversion = "6.1.1 beta"       
         version = baseversion    
-        copyright = 'Copyright (C) 1989 - 2023  AfpTech.de'
+        copyright = 'Copyright (C) 1989 - 2025  AfpTech.de'
         moduls = ["Adresse"]
         if info:
             name = info.get_name()
@@ -116,7 +116,7 @@ class AfpMainApp(wx.App):
         rechtssichere englische Version:
         
         """ + name + """ is a software to manage coach and travel acivities
-         Copyright© 1989 - 2023  afptech.de (Andreas Knoblauch)
+         Copyright© 1989 - 2025  afptech.de (Andreas Knoblauch)
 
          This program is free software: you can redistribute it and/or modify
          it under the terms of the GNU General Public License as published by
