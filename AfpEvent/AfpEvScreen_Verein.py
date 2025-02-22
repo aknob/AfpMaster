@@ -742,7 +742,7 @@ class AfpEvMember(AfpEvClient):
         p_end = Afp_addDaysToDate(rdat, period)
         date = Afp_lastIntervalDate(p_end, interval)
         datum = Afp_toString(date)
-        print ("AfpMember.get_resign_date:", interval, period, rdat, p_end, date, datum, type(rdat))
+        #print ("AfpMember.get_resign_date:", interval, period, rdat, p_end, date, datum, type(rdat))
         #self.get_globals().view()
         return datum
     ## extract bulk price, overwritten from AfpEvClient

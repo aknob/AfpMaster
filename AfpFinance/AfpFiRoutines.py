@@ -1564,7 +1564,7 @@ class AfpFinance(AfpFinanceTransactions):
             self.mainfilter ="Period = \"" + self.period + "\" AND (Konto = " + konto + " OR Gegenkonto = " + gkonto + ")"
             self.konto = konto
             self.set_main_selects_entry() 
-        print ("AfpFinance.init set_auszug:", self.auszug, self.mainfilter, self.konto)
+        #print ("AfpFinance.init set_auszug:", self.auszug, self.mainfilter, self.konto)
         if self.auszug:
             ausdat = None
             aussald = None
@@ -2158,7 +2158,7 @@ class AfpFinanceBalances(AfpSelectionList):
         self.mainindex = "Period"
         self.mainvalue = AfpFinance_setPeriod(period, globals, None, self.mandant)
         self.period = self.mainvalue
-        print("AfpFinanceBalances.init:", self.period)
+        #print("AfpFinanceBalances.init:", self.period)
         self.set_main_selects_entry()
         if not self.mainselection in self.selections:
             self.create_selection(self.mainselection)
