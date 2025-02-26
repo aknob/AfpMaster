@@ -132,6 +132,7 @@ class AfpFiScreen_Cash(AfpFiScreen):
         self.combo_Period = wx.ComboBox(panel, -1, value="", size=(84,20), style=wx.CB_DROPDOWN, name="Period")
         self.Bind(wx.EVT_COMBOBOX, self.On_Jahr_Filter, self.combo_Period)
         #self.Bind(wx.EVT_TEXT_ENTER, self.On_Jahr_Filter, self.combo_Jahr)
+        self.combo_Period.Enable(False) 
         self.top_mid_sizer.AddStretchSpacer(1)
         self.top_mid_sizer.Add(self.combo_Period,0,wx.EXPAND)
         self.top_mid_sizer.AddSpacer(10)
@@ -212,6 +213,8 @@ class AfpFiScreen_Cash(AfpFiScreen):
     # to allow syncronised display of screens (only works if 'sb' is given)
     def init_database(self, globals, sb, origin):
         globals.get_mysql().add_database("AfpCash", "BUCHUNG,AUSZUG")
+        if globals.get_value("actuel-transaction-period","Finance"):
+            globals.set_value("actuel-transaction-period",None,"Finance") # remove entry
         AfpScreen.init_database(self, globals, sb, origin)
 
     ## compose event specific menu parts
@@ -229,7 +232,7 @@ class AfpFiScreen_Cash(AfpFiScreen):
         else:
             master = "AUSZUG"
             filter = "Period = " + AfpFinance_setPeriod(None, self.globals) + " AND Auszug LIKE \"BA%\""
-        print ("AfpFiScreen_Cash.set_initial_record:", master, filter)
+        #print ("AfpFiScreen_Cash.set_initial_record:", master, filter)
         self.sb.CurrentFileName(master)  
         self.sb.select_where(filter, None, master) 
         self.sb.select_key("BAR01")
@@ -273,28 +276,49 @@ class AfpFiScreen_Cash(AfpFiScreen):
    ## Eventhandler BUTTON - generate new statement of account 
     def On_Neu(self,event):
         if self.debug: print("AfpFiScreen_Cash Event handler `On_Neu'")
-        filter = self.combo_Filter.GetValue()
-        if filter == "Konten":
-            ktnr = Afp_fromString(self.text_Auszug.GetValue())
-            changed = AfpLoad_FiBuchung(self.data.get_globals(), self.data.get_period(), {"Konto": ktnr, "Gegenkonto": ktnr, "no_strict_accounting": None})
-            #changed = AfpLoad_FiBuchung(self.data.get_globals(), self.data.get_period(), {"no_strict_accounting": None})
-        else: # filter == "Auszug"
-            period = self.data.get_period()
-            konto = self.data.get_string_value("KtNr.KTNR")
-            ktname =  self.data.get_string_value("KtName.KTNR")
-            auszug, saldo = self.data.get_unused_auszug()
-            if not auszug: auszug = ktname + "01"
-            print("AfpFiScreen.On_Neu:", period, konto, ktname, auszug, saldo, type(saldo))
-            parlist = AfpFinance_modifyStatement(period, konto, ktname, Afp_toString(auszug), Afp_toString(saldo), "")
-            print("AfpFiScreen.On_Neu parlist:", parlist)
-            if parlist:
-                if "Period" in parlist: period = parlist["Period"]
-                res = AfpLoad_FiBuchung(self.data.get_globals(), period, parlist)
-                print("AfpFiScreen.On_Neu res:", res)
-                if res:
-                    self.sb.select_key(ausz, "Auszug", "AUSZUG")
-                    self.set_current_record()
-                    self.Populate()
+        period = self.data.get_period()
+        konto = self.data.get_string_value("KtNr.KTNR")
+        ktname =  self.data.get_string_value("KtName.KTNR")
+        auszug, dat, saldo = self.data.get_auszug(True)
+        beleg = self.data.gen_next_rcptnr()
+        data = AfpFinanceSingleTransaction(self.get_globals(), None, period)
+        today = self.get_globals().today()
+        if auszug and dat > today:
+            data.get_selection("Auszug").load_data("Auszug = \"" + auszug + "\" AND Period = " + Afp_toString(period))
+        else:
+            lgh = 5 - len(ktname)
+            month = Afp_toIntString(today.month, lgh)
+            auszug = ktname + month
+            ok = True
+            if not saldo:
+                text, ok = AfpReq_Text("Bitte Startsaldo für den Auszug '" + auszug + "' eingeben!","","","Saldo")
+                if ok: saldo = Afp_floatString(text)
+            if ok:
+                nyear = today.year
+                nmonth = today.month + 1
+                if nmonth > 12:
+                    nmonth = 1
+                    nyear = today.year + 1
+                data.set_value("Auszug.AUSZUG", auszug)
+                data.set_value("BuchDat.AUSZUG", Afp_genDate(today.year, today.month, 1))
+                data.set_value("Datum.AUSZUG", Afp_addDaysToDate(Afp_genDate(nyear, nmonth, 1), 1, "-"))
+                data.set_value("KtNr.AUSZUG", konto)
+                data.set_value("Period.AUSZUG", period)
+                data.set_value("StartSaldo.AUSZUG", saldo)
+                data.set_value("EndSaldo.AUSZUG", saldo)
+            else:
+                auszug = None
+        print("AfpFiScreen.On_Neu:", period, konto, ktname, auszug, saldo, beleg, data.mainindex, data.mainselection)
+        data.view()
+        if auszug:
+            data.set_value("Beleg", beleg)
+            ok = AfpLoad_SingleTransaction(data,  True)
+            #ok = AfpLoad_SingleTransaction(data)    
+            print("AfpFiScreen.On_Neu ok:",  ok)     
+            if ok:
+                self.sb.select_key(auszug, "Auszug", "AUSZUG")
+                self.set_current_record()
+                self.Populate()
         event.Skip()
     ## Eventhandler BUTTON - selection
     def On_Ausw(self,event):

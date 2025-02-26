@@ -388,7 +388,7 @@ class AfpDialog_FiBuchung(AfpDialog):
         self.label_Datum = wx.StaticText(self, 1, label="Datum:", size=(70,20), name="LDatum")
         self.text_Datum=  wx.TextCtrl(self, -1, value="", style=0, name="Datum")
         self.text_Datum.Bind(wx.EVT_KILL_FOCUS, self.Check_Datum)
-        self.label_BDat = wx.StaticText(self, 1, label="Beleg Datum:", size=(70,20), name="LBDat")
+        self.label_BDat = wx.StaticText(self, 1, label="Beleg:", size=(70,20), name="LBDat")
         self.text_BDatum=  wx.TextCtrl(self, -1, value="", style=0, name="BDatum")
         self.text_BDatum.Bind(wx.EVT_KILL_FOCUS, self.Check_Datum)
         self.label_Beleg = wx.StaticText(self, 1, label="BelegNr:", size=(70,20), name="LBeleg")
@@ -2264,4 +2264,448 @@ def AfpLoad_SEPAct(data, mandator = None, filename = None):
     DiSepa.Destroy()
     return Ok 
 
-  
+ ## class for a single transaction dialog 
+class AfpDialog_SingleTransaction(AfpDialog):
+    def __init__(self, cash = False):
+        self.cash = cash
+        AfpDialog.__init__(self,None, -1, "")
+        self.data_changed = False
+        self.active = False
+        self.req_cancel = None
+        self.values = {}
+        self.SetSize((189,200))
+        if self.cash:
+            self.SetTitle("Barkassenbuchung")
+        else:
+            self.SetTitle("Einzel-Direktbuchung")
+        
+    def InitWx(self): 
+        self.sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.panel_sizer = wx.BoxSizer(wx.VERTICAL)
+
+        self.label_TKtNr = wx.StaticText(self, -1, label="Konto:", style=wx.ALIGN_RIGHT)
+        self.label_KtNr = wx.StaticText(self, -1,  name="KtNr")
+        self.labelmap["KtNr"] = "KtNr.AUSZUG"        
+        self.label_ADatum = wx.StaticText(self, -1, name="LADatum")
+        self.labelmap["LADatum"] = "Datum.AUSZUG"
+        self.label_TStart = wx.StaticText(self, -1, label="Start:", style=wx.ALIGN_RIGHT)
+        self.label_Start = wx.StaticText(self, -1,  name="Startsaldo")
+        self.labelmap["Startsaldo"] = "StartSaldo.AUSZUG"        
+        self.label_TEnd = wx.StaticText(self, -1, label="Ende:", style=wx.ALIGN_RIGHT)
+        self.label_End = wx.StaticText(self, -1,  name="Endsaldo")
+        self.labelmap["Endsaldo"] = "EndSaldo.AUSZUG"        
+        self.label_Auszug = wx.StaticText(self, -1, name="LAuszug")
+        self.labelmap["LAuszug"] = "Auszug.AUSZUG"
+        self.line1_sizer =  wx.BoxSizer(wx.HORIZONTAL)
+        self.line1_sizer.AddSpacer(5) 
+        self.line1_sizer.Add(self.label_TKtNr,0,wx.EXPAND)       
+        self.line1_sizer.AddSpacer(5)  
+        self.line1_sizer.Add(self.label_KtNr,0,wx.EXPAND)       
+        self.line1_sizer.AddStretchSpacer(3)  
+        self.line1_sizer.Add(self.label_ADatum,0,wx.EXPAND)       
+        self.line1_sizer.AddStretchSpacer(1)           
+        self.line1_sizer.Add(self.label_TStart,0,wx.EXPAND)       
+        self.line1_sizer.AddSpacer(5)  
+        self.line1_sizer.Add(self.label_Start,1,wx.EXPAND)       
+        self.line1_sizer.AddSpacer(5)  
+        self.line1_sizer.Add(self.label_TEnd,0,wx.EXPAND)       
+        self.line1_sizer.AddSpacer(5)  
+        self.line1_sizer.Add(self.label_End,1,wx.EXPAND)       
+        self.line1_sizer.AddStretchSpacer(3)  
+        self.line1_sizer.Add(self.label_Auszug,0,wx.EXPAND)
+        self.line1_sizer.AddSpacer(5)  
+        
+        self.label_Vorname = wx.StaticText(self, -1, name="LVorname")
+        self.labelmap["LVorname"] = "Vorname.ADRESSE"
+        self.label_Nachname = wx.StaticText(self, -1, name="LNachname")
+        self.labelmap["LNachname"] = "Name.ADRESSE"
+        self.line2_sizer =  wx.BoxSizer(wx.HORIZONTAL)
+        self.line2_sizer.AddStretchSpacer(1)
+        self.line2_sizer.AddSpacer(5)
+        self.line2_sizer.Add(self.label_Vorname,3,wx.EXPAND)
+        self.line2_sizer.AddSpacer(5)        
+        self.line2_sizer.AddStretchSpacer(1)
+        self.line2_sizer.AddSpacer(5)
+        self.line2_sizer.Add(self.label_Nachname,3,wx.EXPAND)
+        self.line2_sizer.AddSpacer(5)
+
+        self.label_TDatum = wx.StaticText(self, -1, label="Datum:", style=wx.ALIGN_RIGHT)
+        self.text_Datum = wx.TextCtrl(self, -1,  name="FiDatum")
+        if self.cash: self.set_enable(self.text_Datum, False)
+        else: self.vtextmap["FiDatum"] = "Datum"
+        self.text_Datum.Bind(wx.EVT_KILL_FOCUS, self.On_Datum)
+        self.label_TBDatum = wx.StaticText(self, -1, label="Beleg:", style=wx.ALIGN_RIGHT)
+        self.text_BDatum = wx.TextCtrl(self, -1,  name="FiBDatum")
+        self.vtextmap["FiBDatum"] = "BelegDatum"
+        self.text_BDatum.Bind(wx.EVT_KILL_FOCUS, self.On_Datum)
+        self.line3_sizer =  wx.BoxSizer(wx.HORIZONTAL)
+        self.line3_sizer.Add(self.label_TDatum,1,wx.EXPAND)
+        self.line3_sizer.AddSpacer(5)
+        self.line3_sizer.Add(self.text_Datum,3,wx.EXPAND)
+        self.line3_sizer.AddSpacer(5)        
+        self.line3_sizer.Add(self.label_TBDatum,1,wx.EXPAND)
+        self.line3_sizer.AddSpacer(5)        
+        self.line3_sizer.Add(self.text_BDatum,3,wx.EXPAND)
+        self.line3_sizer.AddSpacer(5) 
+ 
+        self.label_TBeleg = wx.StaticText(self, -1, label="BelegNr:", style=wx.ALIGN_RIGHT)
+        self.text_Beleg = wx.TextCtrl(self, -1,  name="FiBeleg")
+        self.text_Beleg.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
+        self.textmap["FiBeleg"] = "Beleg"
+        self.text_Art = wx.TextCtrl(self, -1,  name="FiArt")
+        self.text_Art.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
+        if self.cash: self.set_enable(self.text_Art, False)        
+        else: self.textmap["FiArt"] = "Art"
+        self.label_TArt = wx.StaticText(self, -1, label="Art:", style=wx.ALIGN_RIGHT)
+        self.line4_sizer =  wx.BoxSizer(wx.HORIZONTAL)
+        self.line4_sizer.Add(self.label_TBeleg,1,wx.EXPAND)
+        self.line4_sizer.AddSpacer(5)        
+        self.line4_sizer.Add(self.text_Beleg,3,wx.EXPAND)
+        self.line4_sizer.AddSpacer(5)        
+        self.line4_sizer.Add(self.label_TArt,1,wx.EXPAND)
+        self.line4_sizer.AddSpacer(5)  
+        self.line4_sizer.Add(self.text_Art,3,wx.EXPAND)
+        self.line4_sizer.AddSpacer(5)        
+
+        self.radio_EinAus = wx.RadioBox(self, -1, label="Richtung",choices=["Ausgabe", "Einnahme"], name="REinAus")
+        self.radio_EinAus.Bind(wx.EVT_RADIOBOX, self.On_EinAus)
+        self.line5_sizer =  wx.BoxSizer(wx.HORIZONTAL)
+        self.line5_sizer.AddStretchSpacer(2)        
+        self.line5_sizer.Add(self.radio_EinAus,1,wx.EXPAND)
+        self.line5_sizer.AddStretchSpacer(2)        
+
+        self.label_TKonto= wx.StaticText(self, -1, label="Konto:", style=wx.ALIGN_RIGHT)
+        self.text_Konto = wx.TextCtrl(self, -1,  name="FiKonto")
+        self.text_Konto.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
+        self.text_Konto.Bind(wx.EVT_SET_FOCUS, self.On_Konten)
+        #self.textmap["FiKonto"] = "Konto"
+        self.label_TGKonto= wx.StaticText(self, -1, label="Gegenkonto:", style=wx.ALIGN_RIGHT)
+        self.text_GKonto = wx.TextCtrl(self, -1,  name="FiGKonto")
+        self.text_GKonto.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
+        self.text_GKonto.Bind(wx.EVT_SET_FOCUS, self.On_Konten)
+        self.set_enable(self.text_GKonto, False)
+        #self.textmap["FiGKonto"] = "Gegenkonto"
+        self.line6_sizer =  wx.BoxSizer(wx.HORIZONTAL)
+        self.line6_sizer.Add(self.label_TKonto,1,wx.EXPAND)
+        self.line6_sizer.AddSpacer(5)        
+        self.line6_sizer.Add(self.text_Konto,3,wx.EXPAND)
+        self.line6_sizer.AddSpacer(5)        
+        self.line6_sizer.Add(self.label_TGKonto,1,wx.EXPAND)
+        self.line6_sizer.AddSpacer(5)        
+        self.line6_sizer.Add(self.text_GKonto,3,wx.EXPAND)
+        self.line6_sizer.AddSpacer(5)        
+
+        self.label_TAus= wx.StaticText(self, -1, label="Ausgabe:", style=wx.ALIGN_RIGHT)
+        self.text_Ausgabe = wx.TextCtrl(self, -1,  name="FiAus")
+        self.text_Ausgabe.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
+        #self.textmap["FiAus"] = "Betrag"
+        self.label_TEin= wx.StaticText(self, -1, label="Einnahme:", style=wx.ALIGN_RIGHT)
+        self.text_Einnahme = wx.TextCtrl(self, -1,  name="FiEin")
+        self.text_Einnahme.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
+        self.set_enable(self.text_Einnahme, False)
+        #self.textmap["FiEin"] = "Betrag"
+        self.line7_sizer =  wx.BoxSizer(wx.HORIZONTAL)
+        self.line7_sizer.Add(self.label_TAus,1,wx.EXPAND)
+        self.line7_sizer.AddSpacer(5)        
+        self.line7_sizer.Add(self.text_Ausgabe,3,wx.EXPAND)
+        self.line7_sizer.AddSpacer(5)        
+        self.line7_sizer.Add(self.label_TEin,1,wx.EXPAND)
+        self.line7_sizer.AddSpacer(5)        
+        self.line7_sizer.Add(self.text_Einnahme,3,wx.EXPAND)
+        self.line7_sizer.AddSpacer(5)        
+ 
+        self.label_TBem= wx.StaticText(self, -1, label="Text:", style=wx.ALIGN_RIGHT)
+        self.text_Bem = wx.TextCtrl(self, -1,  name="FiBem")
+        self.text_Bem.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
+        self.textmap["FiBem"] = "Bem"
+        self.line8_sizer =  wx.BoxSizer(wx.HORIZONTAL)
+        self.line8_sizer.Add(self.label_TBem,1,wx.EXPAND)
+        self.line8_sizer.AddSpacer(5)        
+        self.line8_sizer.Add(self.text_Bem,7,wx.EXPAND)
+        self.line8_sizer.AddSpacer(5)           
+        
+        self.panel_sizer.AddSpacer(20)          
+        self.panel_sizer.Add(self.line1_sizer,0,wx.EXPAND)
+        self.panel_sizer.AddSpacer(5)          
+        self.panel_sizer.Add(self.line2_sizer,0,wx.EXPAND)
+        self.panel_sizer.AddSpacer(5)  
+        self.panel_sizer.Add(self.line3_sizer,0,wx.EXPAND)
+        self.panel_sizer.AddSpacer(5)  
+        self.panel_sizer.Add(self.line4_sizer,0,wx.EXPAND)
+        self.panel_sizer.AddSpacer(5)   
+        self.panel_sizer.Add(self.line5_sizer,0,wx.EXPAND)
+        self.panel_sizer.AddSpacer(5)    
+        self.panel_sizer.Add(self.line6_sizer,0,wx.EXPAND)
+        self.panel_sizer.AddSpacer(5)    
+        self.panel_sizer.Add(self.line7_sizer,0,wx.EXPAND)
+        self.panel_sizer.AddSpacer(5)    
+        self.panel_sizer.Add(self.line8_sizer,0,wx.EXPAND)
+        self.panel_sizer.AddSpacer(20)
+        
+        # BUTTONs
+        self.button_sizer = wx.BoxSizer(wx.VERTICAL)          
+        self.button_Auszug = wx.Button(self, -1,  label="Aus&zug", name="FiAuszug")
+        self.Bind(wx.EVT_BUTTON, self.On_Auszug, self.button_Auszug)       
+        self.button_Auszug.Enable(False)        
+        self.button_Adresse = wx.Button(self, -1, label="&Adresse", name="FiAdresse")
+        self.Bind(wx.EVT_BUTTON, self.On_Adresse, self.button_Adresse)
+        self.button_Vorgang = wx.Button(self, -1, label="&Vorgang", name="FiVorgang")
+        self.Bind(wx.EVT_BUTTON, self.On_Vorgang, self.button_Vorgang)
+        self.button_Vorgang.Enable(False)
+        self.button_Storno = wx.Button(self, -1, label="&Stornierung", name="Storno")
+        self.Bind(wx.EVT_BUTTON, self.On_Storno, self.button_Storno)
+        self.button_sizer.AddSpacer(5)
+        self.button_sizer.Add(self.button_Auszug,0,wx.EXPAND)
+        self.button_sizer.AddSpacer(5)
+        self.button_sizer.Add(self.button_Adresse,0,wx.EXPAND)
+        self.button_sizer.AddStretchSpacer(1)
+        self.button_sizer.Add(self.button_Vorgang,0,wx.EXPAND)
+        self.button_sizer.AddStretchSpacer(1)
+        self.button_sizer.Add(self.button_Storno,0,wx.EXPAND)
+        self.setWx(self.button_sizer, [1, 0, 0], [1, 0, 1]) # set Edit and Ok widgets
+
+        self.sizer.AddSpacer(10)
+        self.sizer.Add(self.panel_sizer,1,wx.EXPAND)
+        self.sizer.AddSpacer(10)
+        self.sizer.Add(self.button_sizer,0,wx.EXPAND)
+        self.sizer.AddSpacer(10)   
+        self.SetSizerAndFit(self.sizer)
+        self.SetAutoLayout(1)
+        self.sizer.Fit(self)
+        self.Bind(wx.EVT_ACTIVATE, self.On_Activate)
+        
+    ## enable or disable textboxes
+    # @param textbox - textbox object to be switched on and off
+    # @param enable - flag if textbox should be enabled or disabled
+    def set_enable(self, textbox, enable):
+        textbox.Enable(enable)
+        if enable:
+            textbox.SetBackgroundColour(self.editcolor)
+        else:
+            textbox.SetBackgroundColour(self.readonlycolor)
+
+    ## execution in case the OK button ist hit - overwritten from AfpDialog
+    def execute_Ok(self):
+        if self.data.is_new() and (not ("FiKonto" in self.changed_text or "FiGKonto" in self.changed_text) or not ("FiEin" in self.changed_text or "FiAus" in self.changed_text)):
+            AfpReq_Info("Kein Konto oder Betrag angegeben,", "bitte nachholen!", "Fehlender Eintrag!")
+            self.close_dialog = False
+            return
+        self.Ok = True
+        self.close_dialog = True
+        data = {}
+        skip = ["FiEin", "FiAus", "FiKonto", "FiGKonto"]
+        for entry in self.changed_text:
+            if entry in skip: continue
+            field, value = self.Get_TextValue(entry)
+            data[field] = value
+        if "FiEin" in self.changed_text or "FiAus" in self.changed_text:
+            if self.radio_EinAus.GetSelection():
+                data["Betrag"] = Afp_floatString(self.text_Einnahme.GetValue())
+            else:
+                data["Betrag"] = Afp_floatString(self.text_Ausgabe.GetValue())
+        if "FiKonto" in self.changed_text:
+            data["Konto"] = self.text_Konto.GetValue()
+        if "FiGKonto" in self.changed_text:
+            data["Gegenkonto"] =self.text_GKonto.GetValue()
+        for entry in self.values:
+            data[entry] = self.values[entry]
+        #print("AfpDialog_SimpleInvoice.execute_Ok:", self.changed_text, data)
+        if data:
+            data = self.complete_data(data)
+            if self.data.is_new():
+                self.data.add_direct_transaction(data,0)
+                if self.data.get_value_length() > 1:
+                    self.data.delete_row("BUCHUNG",1)
+            else:
+                self.data.set_data_values(data)
+        #return
+        if data or self.data_changed:
+            self.data.store()
+    ## complete data before storing
+    # @param data - dictionary of changed values
+    def complete_data(self, data):
+        if self.data.is_new():
+            if not "Datum" in data:
+                data["Datum"] = self.text_Datum.GetValue()
+            if not "BelegDatum" in data:
+                data["BelegDatum"] = self.text_BDatum.GetValue()
+            if not "Beleg" in data:
+                data["Beleg"] = self.text_Beleg.GetValue()
+            if not "Art" in data:
+                data["Art"] = self.text_Art.GetValue()
+            if not "Konto" in data:
+                data["Konto"] = self.text_Konto.GetValue()
+            if not "Gegenkonto" in data:
+                data["Gegenkonto"] = self.text_GKonto.GetValue()
+            if not "Bem" in data:
+                data["Bem"] = self.text_Bem.GetValue()
+            if not "Reference" in data:
+                data["Reference"] = self.label_Auszug.GetLabel()
+            if  not "Betrag" in data:
+                if self.radio_EinAus.GetSelection():
+                    data["Betrag"] = Afp_floatString(self.text_Einnahme.GetValue())
+                else:
+                    data["Betrag"] = Afp_floatString(self.text_Ausgabe.GetValue())
+        return data
+    ## swap payment data (Ein/Aus) neutral
+    def swap_payment(self):
+        kt = self.text_Konto.GetValue()
+        self.text_Konto.SetValue(self.text_GKonto.GetValue())
+        self.text_GKonto.SetValue(kt)
+        if self.text_Einnahme.GetValue():
+            if self.text_Einnahme.GetValue():
+                amount = -1*Afp_floatString(self.text_Einnahme.GetValue())
+                self.text_Ausgabe.SetValue(Afp_toString(amount))
+            self.text_Einnahme.SetValue("")
+        else:
+            if self.text_Ausgabe.GetValue():
+                amount = -1*Afp_floatString(self.text_Ausgabe.GetValue())
+                self.text_Einnahme.SetValue(Afp_toString(amount))
+            self.text_Ausgabe.SetValue("")
+
+    # Event Handlers 
+    ## Event handler on activation
+    def On_Activate(self,event):
+        if not self.active: 
+            self.active = True
+            if self.cash:
+                self.text_Datum.SetValue(self.data.get_globals().today_string())
+                self.text_BDatum.SetValue(self.data.get_globals().today_string())
+                self.text_Art.SetValue("Zahlung")
+            if self.data.is_new():
+                self.button_Storno.Enable(False)
+                self.text_GKonto.SetValue(self.data.get_string_value("KtNr.AUSZUG"))
+            elif self.cash:
+                self.intristic["FiDatum"] = self.data.get_string_value("Datum")
+                self.intristic["FiArt"] = self.data.get_string_value("Art")
+                self.intristic["FiKonto"] = self.data.get_string_value("Konto")
+                self.intristic["FiGKonto"] = self.data.get_string_value("Gegenkonto")
+            print("AfpDialog_SingleTransaction.On_Activate:", self.data.get_value("Konto"),  self.data.get_value("KtMr.AUSZUG"),  self.data.get_value("Konto") ==  self.data.get_value("KtMr.AUSZUG"))
+            if self.data.get_value("Gegenkonto") ==  self.data.get_value("KtMr.AUSZUG"):
+                self.intristic["FiAus"] = self.data.get_string_value("Betrag")
+            else:
+                self.intristic["FiEin"] = self.data.get_string_value("Betrag")
+            self.Pop_intristic()
+                    
+        
+    ## Event handler for date entry
+    def On_Datum(self,event):
+        if self.debug: print("Event handler `AfpDialog_SingleTransaction.On_Datum'")
+        object = event.GetEventObject()
+        dat = object.GetValue()
+        object.SetValue(Afp_ChDatum(dat))
+        self.On_KillFocus(event)
+    ## event handler for payment changes
+    def On_EinAus(self,event):
+        if self.debug: print("Event handler `AfpDialog_SingleTransaction.On_EinAus'")
+        index = self.radio_EinAus.GetSelection()
+        if index:
+            self.set_enable(self.text_Konto, False)
+            self.set_enable(self.text_Ausgabe, False)
+            self.set_enable(self.text_GKonto, True)
+            self.set_enable(self.text_Einnahme, True)
+        else:
+            self.set_enable(self.text_Konto, True)
+            self.set_enable(self.text_Ausgabe, True)
+            self.set_enable(self.text_GKonto, False)
+            self.set_enable(self.text_Einnahme, False)
+        self.swap_payment()
+        event.Skip()
+   ## Event handler supply account information
+    def On_Konten(self, event):
+        if self.debug: print("Event handler `AfpDialog_SingleTransaction.On_Konten'")
+        if self.req_cancel:
+            self.req_cancel = False
+            return
+        index = self.radio_EinAus.GetSelection()
+        if index and self.text_GKonto.GetValue(): return
+        if not index and self.text_Konto.GetValue(): return
+        liste = []
+        ident = [] 
+        if index:
+            rows = self.data.get_value_rows("Ertrag", "KtNr,Bezeichnung")
+        else:
+            rows = self.data.get_value_rows("Kosten", "KtNr,Bezeichnung")
+        rows += self.data.get_value_rows("Geld", "KtNr,Bezeichnung")
+        if rows:
+            for row in rows:
+                liste.append(Afp_toString(row[0]) + " " + row[1])
+                ident.append(row[0])
+        konto, ok = AfpReq_Selection("Bitte das Buchhaltungskonto auswählen,", "dem diese Buchung zugeordnet werden soll", liste, "Auswahl Konten", ident)
+        if ok:
+            if index:
+                self.text_GKonto.SetValue(Afp_toString(konto))
+            else:
+                self.text_Konto.SetValue(Afp_toString(konto))
+        else:
+            self.req_cancel = True
+
+   ## Event handler to modify statement
+    def On_Auszug(self, event):
+        if self.debug: print("Event handler `AfpDialog_SingleTransaction.On_Auszug'")
+        print("Event handler `AfpDialog_SingleTransaction.On_Auszug'")
+   ## Event handler to get address for transaction
+    def On_Adresse(self, event=None):
+        if self.debug: print("Event handler `AfpDialog_SingleTransaction.On_Adresse'")
+        KNr  = AfpLoad_AdAusw(self.data.get_globals(), "ADRESSE", "Name", "", None, None, True)
+        if KNr:
+            adresse = AfpAdresse(self.data.get_globals(), KNr)
+            text = self.text_Bem.GetValue()
+            if text: text += " - "
+            self.values["KundenNr"] = KNr
+            self.label_Vorname.SetLabel(adresse.get_value("Vorname"))
+            self.label_Nachname.SetLabel(adresse.get_value("Name"))
+            self.text_Bem.SetValue(text + adresse.get_name(True))
+        if event: event.Skip()
+        
+    ## event handler for payment changes
+    def On_Vorgang(self,event):
+        if self.debug: print("Event handler `AfpDialog_SimpleInvoice.On_Skonto'")
+        object = event.GetEventObject()
+        #self.set_payment_change(object)
+        event.Skip()
+        
+    ## event handler for button 'Neu'
+    def On_Neu(self,event):
+        if self.debug: print("Event handler AfpDialog_SimpleInvoice.On_Neu")
+        KNr = None
+        name = self.data.get_value("Name.Adresse")
+        if self.oblig:
+            text = "Bitte Adresse für neue Eingangsrechnung auswählen:"
+        else:
+            text = "Bitte Adresse für neue Rechnung auswählen:"
+        KNr = AfpLoad_AdAusw(self.data.get_globals(),"ADRESSE","NamSort",name, None, text)
+        if KNr:
+            self.data.set_new(KNr)
+            self.Populate()
+            self.Set_Editable(True)
+        event.Skip()
+    
+    ## event handler for button 'Stornierung'
+    def On_Storno(self,event):
+        if self.debug: print("AfpDialog_SimpleInvoice Event handler `On_Storno'")
+        zu = self.data.get_value("Zustand")
+        if zu == "Storno":
+            zahl = self.data.get_value("Zahlung")
+            if zahl and zahl >=  self.data.get_value("ZahlBetrag") - 0.01:
+                self.data.set_value("Zustand", "Closed")
+            else:
+                self.data.set_value("Zustand", "Open")
+        else:
+            self.data.set_value("Zustand", "Storno")
+        self.label_Zustand.SetLabel(self.data.get_string_value("Zustand"))
+        self.On_Check(event)
+        self.Set_Editable(True, True)
+        event.Skip()
+
+## loader routine for single transaction dialog 
+# @param data - data to be edited with dialog
+# @param cash - flag if cash-mode will be used for interface
+def AfpLoad_SingleTransaction(data,  cash = False):
+    DiTrans = AfpDialog_SingleTransaction(cash)
+    DiTrans.attach_data(data, data.is_new())
+    DiTrans.ShowModal()
+    Ok = DiTrans.get_Ok()
+    DiTrans.Destroy()
+    return Ok
+

@@ -767,6 +767,7 @@ class AfpDialog(wx.Dialog):
         self.checkmap = {}   
         self.listmap = []
         self.gridmap = []
+        self.intristic = {}
         self.keepeditable = []
         self.conditioned_display = {}
         self.changed_text = []
@@ -891,6 +892,7 @@ class AfpDialog(wx.Dialog):
         self.Pop_check()
         self.Pop_lists()
         self.Pop_grids()
+        self.Pop_intristic()
     ## population routine for textboxes \n
     # covention: textmap holds the entryname to retrieve the string value from self.data \n
     # covention: vtextmap holds the entryname to retrieve the date or float value from self.data \n
@@ -965,6 +967,18 @@ class AfpDialog(wx.Dialog):
             Befehl = "self.Pop_" + entry + "()"
             #print "AfpDialog.Pop_grids:", Befehl
             exec(Befehl)
+    ## population routine for intristic values \n
+    # covention:value are written into the dictionary self.intristic
+    def Pop_intristic(self):
+        print ("AfpDialog.Pop_intristic:", self.intristic)
+        if self.intristic:       
+            for entry in self.intristic:
+                widget = self.FindWindowByName(entry) 
+                if widget:
+                    if entry[0] == "L":
+                        widget.SetLabel(Afp_toString(self.intristic[entry]))
+                    else:
+                        widget.SetValue(Afp_toString(self.intristic[entry]))
     ## resize grid rows
     # @param grid - the grid object
     # @param new_lgh - new number of rows to be populated

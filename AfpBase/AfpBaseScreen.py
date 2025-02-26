@@ -149,9 +149,10 @@ class AfpScreen(wx.Frame):
         for child in children:
             if not child.GetName() in self.no_keydown:
                 child.Bind(wx.EVT_KEY_DOWN, self.On_KeyDown)
-        # set background if necessary
+        # set background and readonly flag for database, if necessary
         if self.readonly:
             self.SetBackgroundColour(self.readonlycolor)
+            self.mysql.set_readonly()
         if self.globals.os_is_windows():
             if not self.readonly: self.SetBackgroundColour(self.windowsbackgroundcolor)
             #print "AfpScreen.init_database Windows Background set:", self.windowsbackgroundcolor

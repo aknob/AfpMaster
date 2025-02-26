@@ -128,7 +128,7 @@ class AfpSQL(object):
         self.db_readonly = True
         for db in self.db_roflags:
             if dbname is None or db == dbname:
-                self.db__roflags[dbname] = True
+                self.db_roflags[db] = True
    ## switch debug on
     def set_debug(self):
         #print "AfpSQL.set_debug()"
@@ -172,6 +172,8 @@ class AfpSQL(object):
     ## return database name
     # @param table - if given, tablename to possibly select connection
     def get_dbname(self, table = None):
+        if "." in table:
+            return table.split(".")[0]
         if self.tableto_db and table and table in self.tableto_db:
             return self.tableto_db[table]
         else:
@@ -182,6 +184,8 @@ class AfpSQL(object):
     ## return readonly flag for database connectionr
     # @param table - if given, tablename to possibly select connection
     def get_readonly(self, table = None):
+        if "." in table:
+            table = table.split(".")[1]
         if self.tableto_db and table and table in self.tableto_db:
                 return self.db_roflags[self.get_dbname(table)]
         else:
@@ -416,7 +420,7 @@ class AfpSQL(object):
         flen = len(felder)
         if len(data) == flen:
             set_clause =    (" SET %(set)s WHERE ") %   {"set"  : ",".join( [str(i)+"=%s" for i in felder] ) }
-            Befehl =  "UPDATE " + self.dbname + "." + datei +  set_clause + select +";" 
+            Befehl =  "UPDATE " + self.get_dbname(datei) + "." + datei +  set_clause + select +";" 
         else:
             print("WARNING: AfpSQL.write_update: length data does not match number of fields (", flen, ",", len(data), ")") 
         if not Befehl is None:
@@ -431,7 +435,7 @@ class AfpSQL(object):
         if self.get_readonly(datei): return
         Befehl = None      
         flen = len(felder)   
-        if not "." in datei: datei = self.dbname + "." + datei
+        if not "." in datei: datei = self.get_dbname(datei) + "." + datei
         for datarow in data:
             if len(datarow) == flen:
                 value_clause =  (" ( %(items)s ) VALUES ( %(values)s );") %  {"items" : ",".join(felder), "values" : ",".join( ["%s"]*flen ) }
@@ -452,6 +456,13 @@ class AfpSQL(object):
             befehle = commands.split(";")
             for befehl in befehle:
                 if befehl:
+                    if "FROM" in befehl: 
+                        #print("AfpSQL.execute 1:", befehl)
+                        split = befehl.split("FROM")
+                        split[1] = split[1] .strip()
+                        datei = split[1].split()[0]
+                        befehl = split[0] +"FROM " + self.get_dbname(datei) + "." + datei + split[1][len(datei):]
+                        #print("AfpSQL.execute 2", befehl)
                     if self.debug: print("AfpSQL.execute:", befehl + ";")
                     #print("AfpSQL.execute:", befehl + ";")
                     retval = self.db_cursor.execute(befehl + ";") 
@@ -612,6 +623,7 @@ class AfpSQLTableSelection(object):
         self.data = list(map(list, self.mysql.select("*",self.select, self.tablename, order, limit)))
         if self.dbg: print("AfpSQLTableSelection.load_data:", self.select, self.tablename, order, self.data)
         self.select_clause = self.mysql.get_select_clause()
+        self.new = False
         self.manipulation = []  
     ## reload data from database according to last load
     # @param order - if given desired order of output rows

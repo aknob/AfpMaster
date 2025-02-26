@@ -1458,9 +1458,12 @@ class AfpFinanceSingleTransaction(AfpFinanceTransactions):
     # @param BuchNr - if given, identifier of  transactions
     # @param period - if given, period marker for transactions
     def  __init__(self, globals, BuchNr = None, period = None):
-        AfpFinanceTransactions.__init__(self, globals, BuchNr, None, period)   
-        self.selects["ADRESSE"] = [ "ADRESSE","KundenNr =  KundenNr.BUCHUNG"] 
-        self.selects["ARCHIV"] = [ "ARCHIV","KundenNr =  KundenNr.BUCHUNG"] 
+        AfpFinanceTransactions.__init__(self, globals, BuchNr,"BuchungsNr", period)   
+        self.selects["ADRESSE"] = [ "ADRESSE","KundenNr = KundenNr.BUCHUNG"] 
+        self.selects["ARCHIV"] = [ "ARCHIV","KundenNr = KundenNr.BUCHUNG"] 
+        self.selects["Geld"] = [ "KTNR","Typ = \"Kasse\" OR Typ = \"Bank\""] 
+        self.selects["Kosten"] = [ "KTNR","Typ = \"Kosten\" AND NOT KtName = \"SALDO\""] 
+        self.selects["Ertrag"] = [ "KTNR","Typ = \"Ertrag\" AND NOT KtName = \"SALDO\""] 
         if self.debug: print("AfpFinanceSingleTransaction Konstruktor:", self.period)
     ## destructor
     def __del__(self):    
@@ -1565,7 +1568,7 @@ class AfpFinance(AfpFinanceTransactions):
             self.mainfilter ="Period = \"" + self.period + "\" AND (Konto = " + konto + " OR Gegenkonto = " + gkonto + ")"
             self.konto = konto
             self.set_main_selects_entry() 
-        print ("AfpFinance.init set_auszug:", self.auszug, self.mainfilter, self.konto)
+        #print ("AfpFinance.init set_auszug:", self.auszug, self.mainfilter, self.konto)
         if self.auszug:
             ausdat = None
             aussald = None
@@ -1848,12 +1851,17 @@ class AfpFinance(AfpFinanceTransactions):
     def get_period(self):
         return self.period
     ## return identierfier of statement of account, if available
-    def get_auszug(self):
+    # @param ende - flag if enddate and endsaldo should be returned
+    def get_auszug(self, ende = False):
         dat = None
         sald = None
         if self.auszug ==  self.get_value("Auszug.AUSZUG"):
-            dat = self.get_value("BuchDat.AUSZUG") 
-            sald = self.get_value("StartSaldo.AUSZUG")  
+            if ende:
+                dat = self.get_value("Datum.AUSZUG") 
+                sald = self.get_value("EndSaldo.AUSZUG")  
+            else:
+                dat = self.get_value("BuchDat.AUSZUG") 
+                sald = self.get_value("StartSaldo.AUSZUG")  
         #print("AfpFinance.get_auszug:", self.auszug, dat, sald, self.get_selection("AUSZUG").data)
         return self.auszug, dat, sald
     ## return next unused identifier of statement of account, if available
@@ -1907,7 +1915,7 @@ class AfpFinance(AfpFinanceTransactions):
             #if integer > 9: # should be scaled for factor 1000 ...
             integer = self.bank - (int(self.bank/100) * 100)
             nr += integer
-        print ("AfpFinance.gen_first_rcptnr nr:", nr, self.bank, self.main_bankaccount)
+        #print ("AfpFinance.gen_first_rcptnr nr:", nr, self.bank, self.main_bankaccount)
         return nr
     ## generate next receipt number
     def gen_next_rcptnr(self):
@@ -1915,7 +1923,7 @@ class AfpFinance(AfpFinanceTransactions):
         if not nr:
             where = "Period = \"" + self.period + "\" AND NOT Beleg = \"\""
             lgh = len(where)
-            #print ("AfpFinance.gen_next_rcptnr mainfilter:", self.mainfilter)
+            #print ("AfpFinance.gen_next_rcptnr mainfilter:", self.mainfilter, self.mainindex)
             if self.mainfilter:
                 split = self.mainfilter.split("Beleg = \"\"")
                 if len(split) > 1:
@@ -1924,7 +1932,9 @@ class AfpFinance(AfpFinanceTransactions):
                     where = self.mainfilter
             elif  self.mainindex == "Reference" or self.mainindex == "Konto" or self.mainindex == "Gegenkonto":
                 konto = self.get_string_value("KtNr.AUSZUG")
+                if not konto:  konto = self.get_string_value("KtNr.KTNR")
                 where += " AND (Konto = " + konto + " OR Gegenkonto = " + konto + ")"
+                #print ("AfpFinance.gen_next_rcptnr konto:", konto, where) 
             elif self.get_value():
                 where += " AND " + self.mainindex + " = " + self.get_value()
             if self.bank == self.main_bankaccount and len(where) > lgh:
@@ -1947,7 +1957,7 @@ class AfpFinance(AfpFinanceTransactions):
         need_new = False
         start = self.get_value("StartSaldo.AUSZUG")
         end = self.get_value("EndSaldo.AUSZUG")
-        if start is None and end is None: need_new = True
+        if start is None and end is None and not self.get_selection("AUSZUG").is_empty(): need_new = True
         #print "AfpFinance.get_salden EndSaldo Auszug:", start, end, need_new
         if not start: start = 0.0
         if not end: end = 0.0
