@@ -2493,7 +2493,7 @@ class AfpDialog_SingleTransaction(AfpDialog):
         self.Ok = True
         self.close_dialog = True
         data = {}
-        skip = ["FiEin", "FiAus", "FiKonto", "FiGKonto"]
+        skip = ["FiEin", "FiAus", "FiKonto", "FiGKonto", "FiDatum"]
         for entry in self.changed_text:
             if entry in skip: continue
             field, value = self.Get_TextValue(entry)
@@ -2507,9 +2507,11 @@ class AfpDialog_SingleTransaction(AfpDialog):
             data["Konto"] = self.text_Konto.GetValue()
         if "FiGKonto" in self.changed_text:
             data["Gegenkonto"] =self.text_GKonto.GetValue()
+        if "FiDatum" in self.changed_text:
+            data["Datum"] = Afp_fromString(self.text_Datum.GetValue())
         for entry in self.values:
             data[entry] = self.values[entry]
-        #print("AfpDialog_SimpleInvoice.execute_Ok:", self.changed_text, data)
+        print("AfpDialog_SimpleInvoice.execute_Ok:", self.changed_text, data)
         if data:
             data = self.complete_data(data)
             if self.data.is_new():
@@ -2526,9 +2528,9 @@ class AfpDialog_SingleTransaction(AfpDialog):
     def complete_data(self, data):
         if self.data.is_new():
             if not "Datum" in data:
-                data["Datum"] = self.text_Datum.GetValue()
+                data["Datum"] = Afp_fromString(self.text_Datum.GetValue())
             if not "BelegDatum" in data:
-                data["BelegDatum"] = self.text_BDatum.GetValue()
+                data["BelegDatum"] = Afp_fromString(self.text_BDatum.GetValue())
             if not "Beleg" in data:
                 data["Beleg"] = self.text_Beleg.GetValue()
             if not "Art" in data:
@@ -2562,7 +2564,18 @@ class AfpDialog_SingleTransaction(AfpDialog):
                 amount = -1*Afp_floatString(self.text_Ausgabe.GetValue())
                 self.text_Einnahme.SetValue(Afp_toString(amount))
             self.text_Ausgabe.SetValue("")
-
+    ## dis- or enable editing of dialog widgets, overwritten from AfpDialog
+    # @param ed_flag - flag to turn editing on or off
+    # @param lock_data - flag if invoking of dialog needs a lock on the database
+    def Set_Editable(self, ed_flag, lock_data = None):
+        AfpDialog.Set_Editable(self, ed_flag, lock_data)
+        if self.radio_EinAus.GetSelection():
+            self.set_enable(self.text_GKonto, ed_flag)
+            self.set_enable(self.text_Einnahme, ed_flag)
+        else:
+            self.set_enable(self.text_Konto, ed_flag)
+            self.set_enable(self.text_Ausgabe, ed_flag)
+            
     # Event Handlers 
     ## Event handler on activation
     def On_Activate(self,event):
@@ -2581,7 +2594,7 @@ class AfpDialog_SingleTransaction(AfpDialog):
                 self.intristic["FiKonto"] = self.data.get_string_value("Konto")
                 self.intristic["FiGKonto"] = self.data.get_string_value("Gegenkonto")
             print("AfpDialog_SingleTransaction.On_Activate:", self.data.get_value("Konto"),  self.data.get_value("KtMr.AUSZUG"),  self.data.get_value("Konto") ==  self.data.get_value("KtMr.AUSZUG"))
-            if self.data.get_value("Gegenkonto") ==  self.data.get_value("KtMr.AUSZUG"):
+            if self.data.get_value("Gegenkonto") ==  self.data.get_value("KtNr.AUSZUG"):
                 self.intristic["FiAus"] = self.data.get_string_value("Betrag")
             else:
                 self.intristic["FiEin"] = self.data.get_string_value("Betrag")
@@ -2598,17 +2611,18 @@ class AfpDialog_SingleTransaction(AfpDialog):
     ## event handler for payment changes
     def On_EinAus(self,event):
         if self.debug: print("Event handler `AfpDialog_SingleTransaction.On_EinAus'")
-        index = self.radio_EinAus.GetSelection()
-        if index:
-            self.set_enable(self.text_Konto, False)
-            self.set_enable(self.text_Ausgabe, False)
-            self.set_enable(self.text_GKonto, True)
-            self.set_enable(self.text_Einnahme, True)
-        else:
-            self.set_enable(self.text_Konto, True)
-            self.set_enable(self.text_Ausgabe, True)
-            self.set_enable(self.text_GKonto, False)
-            self.set_enable(self.text_Einnahme, False)
+        if self.choice_Edit.GetCurrentSelection() == 1:
+            index = self.radio_EinAus.GetSelection()
+            if index:
+                self.set_enable(self.text_Konto, False)
+                self.set_enable(self.text_Ausgabe, False)
+                self.set_enable(self.text_GKonto, True)
+                self.set_enable(self.text_Einnahme, True)
+            else:
+                self.set_enable(self.text_Konto, True)
+                self.set_enable(self.text_Ausgabe, True)
+                self.set_enable(self.text_GKonto, False)
+                self.set_enable(self.text_Einnahme, False)
         self.swap_payment()
         event.Skip()
    ## Event handler supply account information

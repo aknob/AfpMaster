@@ -1161,9 +1161,10 @@ class AfpFinanceTransactions(AfpSelectionList):
         return data
     ## retrieve last used receipt number
     # @param colname - name of column checked
-    def get_highest_value(self, colname):
+    # @param always - flag if data should be checke even if no data had been added
+    def get_highest_value(self, colname, always=False):
         val= None
-        if self.data_added:
+        if self.data_added or always:
             rows = self.get_value_rows("BUCHUNG", colname)
             #print ("AfpFinanceTransactions.get_highest_value:", colname, rows)
             if rows:
@@ -1177,7 +1178,7 @@ class AfpFinanceTransactions(AfpSelectionList):
                     #if Afp_intString(row[0]) > val: val = Afp_intString(row[0])
                     if Afp_isString(row[0]): row[0] = Afp_numericString(row[0])
                     if row[0] and row[0] > val: val = row[0]
-        #print ("AfpFinanceTransactions.get_highest_value:", val, self.data_added)
+        #print ("AfpFinanceTransactions.get_highest_value:", val)
         return val
     ## retrieve individual account from database
     # @param KNr - address identifier
@@ -1459,6 +1460,7 @@ class AfpFinanceSingleTransaction(AfpFinanceTransactions):
     # @param period - if given, period marker for transactions
     def  __init__(self, globals, BuchNr = None, period = None):
         AfpFinanceTransactions.__init__(self, globals, BuchNr,"BuchungsNr", period)   
+        self.selects["AUSZUG"] = [ "AUSZUG","Auszug = Reference.BUCHUNG AND Period = \"" + self.period + "\""] 
         self.selects["ADRESSE"] = [ "ADRESSE","KundenNr = KundenNr.BUCHUNG"] 
         self.selects["ARCHIV"] = [ "ARCHIV","KundenNr = KundenNr.BUCHUNG"] 
         self.selects["Geld"] = [ "KTNR","Typ = \"Kasse\" OR Typ = \"Bank\""] 
@@ -1855,15 +1857,38 @@ class AfpFinance(AfpFinanceTransactions):
     def get_auszug(self, ende = False):
         dat = None
         sald = None
+        print("AfpFinance.get_auszug:", self.auszug, self.get_value("Auszug.AUSZUG"))
         if self.auszug ==  self.get_value("Auszug.AUSZUG"):
+            auszug = self.auszug
             if ende:
                 dat = self.get_value("Datum.AUSZUG") 
                 sald = self.get_value("EndSaldo.AUSZUG")  
             else:
                 dat = self.get_value("BuchDat.AUSZUG") 
                 sald = self.get_value("StartSaldo.AUSZUG")  
+        elif self.auszug is None:
+            row = self.get_last_auszug_row()
+            auszug = row[0]
+            dat = row[2]
+            sald = row[4]
         #print("AfpFinance.get_auszug:", self.auszug, dat, sald, self.get_selection("AUSZUG").data)
-        return self.auszug, dat, sald
+        return auszug, dat, sald
+    ## return last used statement row of account, if available
+    # @param ktname - short name of account, if given
+    def get_last_auszug_row(self, ktname = None):
+        row = None
+        if ktname is None:
+            ktname = self.get_value("KtName.KTNR")
+        lgh = len(ktname)
+        rows = self.get_value_rows("Auszuege")
+        anr = 0
+        for r in rows:
+             if r[0][:lgh] == ktname:
+                nr = Afp_fromString(r[0][lgh:])
+                if nr > anr:
+                    anr = nr
+                    row = r
+        return row
     ## return next unused identifier of statement of account, if available
     def get_unused_auszug(self):
         auszug = None
@@ -1873,18 +1898,12 @@ class AfpFinance(AfpFinanceTransactions):
                 ktname = self.get_value("KtName.KTNR")
             else:
                 ktname = Afp_getStartLetters(self.auszug)
-            lgh = len(ktname)
-            rows = self.get_value_rows("Auszuege")
-            anr = 0
-            saldo = 0.0
-            for row in rows:
-                 if row[0][:lgh] == ktname:
-                    nr = Afp_fromString(row[0][lgh:])
-                    if nr > anr:
-                        anr = nr
-                        saldo = row[4]
-            auszug = ktname + Afp_toIntString(anr + 1, 5 - lgh)
-        return auszug, saldo
+            row = self.get_last_auszug_row(ktname)
+            if row:
+                nr = Afp_intString(row[0][len(ktname):])
+                auszug = ktname + Afp_toIntString(nr + 1, 5 - lgh)
+                return auszug, row[4]
+            return None, None
     ## return identierfier of batch booking, if available
     def get_batch(self):
         return self.batch
@@ -1919,7 +1938,11 @@ class AfpFinance(AfpFinanceTransactions):
         return nr
     ## generate next receipt number
     def gen_next_rcptnr(self):
-        nr = self.get_highest_value("Beleg")
+        cash = self.bank in self.cash_accounts
+        if cash: alw = True
+        else: alw = False
+        nr = self.get_highest_value("Beleg", alw)
+        #print ("AfpFinance.gen_next_rcptnr highest:", nr)
         if not nr:
             where = "Period = \"" + self.period + "\" AND NOT Beleg = \"\""
             lgh = len(where)
@@ -1937,11 +1960,11 @@ class AfpFinance(AfpFinanceTransactions):
                 #print ("AfpFinance.gen_next_rcptnr konto:", konto, where) 
             elif self.get_value():
                 where += " AND " + self.mainindex + " = " + self.get_value()
-            if self.bank == self.main_bankaccount and len(where) > lgh:
+            if (self.bank == self.main_bankaccount or cash) and len(where) > lgh:
                 sel = "SELECT MAX(CONVERT(Beleg,UNSIGNED)) FROM BUCHUNG WHERE " + where 
             else:
                 sel = "SELECT MAX(Beleg) FROM BUCHUNG WHERE " + where 
-            #print ("AfpFinance.gen_next_rcptnr select:", self.mainindex, sel)
+            print ("AfpFinance.gen_next_rcptnr select:", self.mainindex, sel)
             res = self.get_globals().get_mysql().execute(sel)
             nr = Afp_fromString(res[0][0])
             #print ("AfpFinance.gen_next_rcptnr nr:", nr,  Afp_isInteger(nr), Afp_isNumeric(nr))
@@ -1957,8 +1980,9 @@ class AfpFinance(AfpFinanceTransactions):
         need_new = False
         start = self.get_value("StartSaldo.AUSZUG")
         end = self.get_value("EndSaldo.AUSZUG")
-        if start is None and end is None and not self.get_selection("AUSZUG").is_empty(): need_new = True
-        #print "AfpFinance.get_salden EndSaldo Auszug:", start, end, need_new
+        #if start is None and end is None and not self.get_selection("AUSZUG").is_empty(): need_new = True
+        if start is None and end is None: need_new = True
+        print ("AfpFinance.get_salden EndSaldo Auszug:", start, end, need_new, self.get_selection("AUSZUG").is_empty())
         if not start: start = 0.0
         if not end: end = 0.0
         konto = Afp_fromString(self.konto)
@@ -1975,6 +1999,8 @@ class AfpFinance(AfpFinanceTransactions):
                 for dat in dati:
                     if min is None or dat[0] < min: min = dat[0]
                     if max is None or dat[0] > max: max = dat[0]
+                if not min: min = self.get_globals().today()
+                if not max: max = self.get_globals().today()
                 ssaldo = 0.0
                 if self.is_cash(self.konto):
                     rows = self.get_value_rows("Auszuege","Auszug,StartSaldo")
@@ -1986,6 +2012,7 @@ class AfpFinance(AfpFinanceTransactions):
                 self.set_data_values(new_data, "AUSZUG", -1)
             else:
                 self.set_value("EndSaldo.AUSZUG", start + sum)
+            print ("AfpFinance.get_salden AUSZUG:", self.get_selection("AUSZUG").data)
             self.get_selection("AUSZUG").store()
             print ("AfpFinance.get_salden EndSaldo resetted:", konto, end, "->", start + sum, "new database entry created:",  need_new)
             salden = self.gen_balance_salden(self.get_konto_typ(konto))

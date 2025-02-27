@@ -283,7 +283,7 @@ class AfpFiScreen_Cash(AfpFiScreen):
         beleg = self.data.gen_next_rcptnr()
         data = AfpFinanceSingleTransaction(self.get_globals(), None, period)
         today = self.get_globals().today()
-        if auszug and dat > today:
+        if auszug and dat >= today:
             data.get_selection("Auszug").load_data("Auszug = \"" + auszug + "\" AND Period = " + Afp_toString(period))
         else:
             lgh = 5 - len(ktname)
@@ -308,7 +308,7 @@ class AfpFiScreen_Cash(AfpFiScreen):
                 data.set_value("EndSaldo.AUSZUG", saldo)
             else:
                 auszug = None
-        print("AfpFiScreen.On_Neu:", period, konto, ktname, auszug, saldo, beleg, data.mainindex, data.mainselection)
+        print("AfpFiScreen.On_Neu:", period, konto, ktname, auszug, dat, saldo, beleg, data.mainindex, data.mainselection)
         data.view()
         if auszug:
             data.set_value("Beleg", beleg)
@@ -320,9 +320,25 @@ class AfpFiScreen_Cash(AfpFiScreen):
                 self.set_current_record()
                 self.Populate()
         event.Skip()
+    ## Eventhandler BUTTON , MENU - modify event
+    def On_modify(self,event=None):     
+        if self.debug: print("AfpFiScreen_Cash Event handler `On_modify'")
+        indices = self.grid_custs.GetSelectedRows()
+        index = None
+        if indices: index = indices[0]
+        changed = False
+        if "Bookings" in self.grid_id:
+            if not index is None and len(self.grid_id["Bookings"]) > index:
+                self.grid_row_selected = True
+                Nr = Afp_fromString(self.grid_id["Bookings"][index])
+                if self.search_indices: index = self.search_indices[index]
+                data = AfpFinanceSingleTransaction(self.get_globals(), Nr, self.data.get_period())
+                changed = AfpLoad_SingleTransaction(data, True)  
+        if changed: self.Reload()      
+        if event: event.Skip()
     ## Eventhandler BUTTON - selection
     def On_Ausw(self,event):
-        if self.debug: print("AfpFiScreen Event handler `On_Ausw'")
+        if self.debug: print("AfpFiScreen_Cash Event handler `On_Ausw'")
         self.grid_scrollback()
         filter = self.combo_Filter.GetValue()
         if filter == "Auszug":

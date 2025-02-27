@@ -457,14 +457,13 @@ class AfpSQL(object):
             for befehl in befehle:
                 if befehl:
                     if "FROM" in befehl: 
-                        #print("AfpSQL.execute 1:", befehl)
                         split = befehl.split("FROM")
                         split[1] = split[1] .strip()
                         datei = split[1].split()[0]
-                        befehl = split[0] +"FROM " + self.get_dbname(datei) + "." + datei + split[1][len(datei):]
-                        #print("AfpSQL.execute 2", befehl)
-                    if self.debug: print("AfpSQL.execute:", befehl + ";")
+                        if not "." in datei:
+                            befehl = split[0] +"FROM " + self.get_dbname(datei) + "." + datei + split[1][len(datei):]
                     #print("AfpSQL.execute:", befehl + ";")
+                    if self.debug: print("AfpSQL.execute:", befehl + ";")
                     retval = self.db_cursor.execute(befehl + ";") 
                     if retval: retval = self.db_cursor.fetchall ()
                     #print "AfpSQL.execute:", befehl, retval
