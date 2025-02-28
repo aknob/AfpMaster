@@ -846,6 +846,25 @@ class AfpEvMember(AfpEvClient):
             return None
         else:
             return sum
+    ## return one line holding the different 'Sparten'
+    # @param deli - delimiter betwenn the different entries
+    def get_sparten_line(self, deli = " "):
+        line = ""
+        mysql = self.get_mysql()
+        db = self.get_mysql().get_dbname()
+        befehl = "SELECT Bez FROM " + db +".EVENT AS EV, " + db + ".PREISE AS P, " + db + ".ANMELDEX AS EX WHERE EX.AnmeldNr = " + self.get_string_value() + " AND NOT EX.KENNUNG IS NULL AND EX.Kennung < 100 AND P.PreisNr = EX.Kennung AND EV.EventNr = P.EventNr"
+        #print ("AfpMember.get_sparten_line:", befehl)
+        rows = self.get_mysql().execute(befehl)
+        #print ("AfpMember.get_sparten_line rows:", self.get_string_value(), rows)
+        if rows:
+            for row in rows:
+                line += row[0] + deli
+            if line:
+                line = line[:-1]
+        #print ("AfpMember.get_sparten_line line:", self.get_string_value(), line)
+        return line
+        
+            
     ## check if  the name of the price holds string
     # @param check - string to be checked
     def pricename_holds(self, check):
@@ -870,6 +889,8 @@ class AfpEvMember(AfpEvClient):
             if feld == "Senior":
                 value = Afp_getAge(self.get_value("Anmeldung"))
                 #print ("AfpEvMember.get_tmp_value Senior:", self.get_value("Anmeldung"), value)
+            if feld == "Sparte":
+                value = self.get_sparten_line(";")
             if not (value is None):
                 if self._tmp is None:
                     self._tmp = {}
