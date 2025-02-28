@@ -912,7 +912,7 @@ class AfpSuperbase(object):
     # @param Dateiname - name of the table
     def open_datei(self, Dateiname):
         if self.datei == None:
-            self.datei = [AfpSbDatei(self.globals.get_mysql().get_dbname(), Dateiname, self.globals.get_mysql().get_cursor(), self.debug)] 
+            self.datei = [AfpSbDatei(self.globals.get_mysql().get_dbname(Dateiname), Dateiname, self.globals.get_mysql().get_cursor(), self.debug)] 
             self.dateiname = [Dateiname]
             self.CurrentFile = self.datei[self.dats]
             self.dats += 1
@@ -921,7 +921,7 @@ class AfpSuperbase(object):
                 ind = self.dateiname.index(Dateiname)
                 self.CurrentFile = self.datei[ind]
             else:
-                self.datei.append(AfpSbDatei(self.globals.get_mysql().get_dbname(), Dateiname, self.globals.get_mysql().get_cursor(), self.debug))
+                self.datei.append(AfpSbDatei(self.globals.get_mysql().get_dbname(Dateiname), Dateiname, self.globals.get_mysql().get_cursor(), self.debug))
                 self.dateiname.append(Dateiname)
                 self.CurrentFile = self.datei[self.dats]
                 self.dats += 1

@@ -49,7 +49,7 @@ from AfpBase.AfpUtilities.AfpBaseUtilities import *
 # if globals are given, only modules available for this program are returned
 # @param globals - if given, global variables holding graphic modulnames
 def Afp_graphicModulNames(globals = None):
-    modules = ["Adresse","Charter","Event:Tourist","Event:Verein","Event","Faktura","Finance"]
+    modules = ["Adresse","Charter","Event:Tourist","Event:Verein","Event","Faktura","Finance","Finance:Cash"]
     if globals:
         mods = globals.get_value("graphic-moduls")
         if mods: modules = mods
@@ -82,7 +82,7 @@ def Afp_getModulShortName(modul):
 # @param flavour - None: names are given as they come, False: only modul part is listed, True: flavour parts are listed, if given, else modul parts
 def Afp_ModulNames(globals = None, flavour = None):
     mods = Afp_graphicModulNames(globals)
-    #print "Afp_ModulNames input:", mods, flavour
+    #print ("Afp_ModulNames input:", mods, flavour)
     modules = []
     # check if appropriate python files exists, if global variables are given
     if globals and not globals.is_strict() and mods:
@@ -93,7 +93,7 @@ def Afp_ModulNames(globals = None, flavour = None):
             if Afp_existsModulFiles(mod, deli, path):
                 modi.append(mod)
         mods = modi
-    #print "Afp_ModulNames files:", mods
+    #print ("Afp_ModulNames files:", mods)
     if not flavour is None:
         for mod in mods:
             #print "Afp_ModulNames mods:", mod
@@ -108,7 +108,7 @@ def Afp_ModulNames(globals = None, flavour = None):
                 modules.append(mod)
     else:
         modules = mods
-    #print "Afp_ModulNames modules:", modules
+    #print ("Afp_ModulNames modules:", modules)
     return modules
 ## get all possible afp-modul names
 def Afp_allModulNames():
@@ -199,12 +199,12 @@ def Afp_ModulFileNames(modul, delimiter, path):
 def Afp_existsModulFiles(modul, delimiter, path):
     filenames = Afp_ModulFileNames(modul, delimiter, path)
     if filenames:
-        #print "Afp_existsModulFiles filenames:", filenames
+        #print ("Afp_existsModulFiles filenames:", filenames)
         exists = True
         for file in filenames:
-                # look if appropriate .py or .pyc file exists im path
-                exists = exists and (Afp_existsFile(file) or Afp_existsFile(file + "c"))
-                #print "Afp_existsModulFiles exists:", exists
+            # look if appropriate .py or .pyc file exists im path
+            exists = exists and (Afp_existsFile(file) or Afp_existsFile(file + "c"))
+            #print ("Afp_existsModulFiles exists:", exists)
         return exists
     return False
 ## get 'modul info' (timestamp) of all python-modul files for a afp-modul

@@ -1538,7 +1538,7 @@ class AfpEvScreen_Verein(AfpEvScreen):
             variables["Name"] = self.data.get_value("AgentName")
             variables["Filter"] = self.combo_Filter.GetValue()
             variables["Count"] = len(clients)
-            #print ("AfpEvScreen_Verein.On_Documents:", header, prefix, archiv, variables, self.data.get_selection("AUSGABE").data)
+            print ("AfpEvScreen_Verein.On_Documents:", header, prefix, archiv, variables, self.data.get_selection("AUSGABE").data)
             AfpLoad_DiReport(clients, self.globals, variables, header, prefix, archiv, self.data)
         if event:
             self.Reload()

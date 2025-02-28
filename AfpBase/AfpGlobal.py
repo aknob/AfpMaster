@@ -258,7 +258,10 @@ class AfpSettings(object):
     # @param value - value to be assigned to this variable
     def set(self, name, value):
         #print name, value
-        self.settings[name] = value
+        if value is None:
+            if name in self.settings: self.settings.pop(name)
+        else:
+            self.settings[name] = value
     ## check if variable exists in setting
     # @param name - name of global variable
     def exists_key(self, name):
@@ -322,7 +325,7 @@ class AfpGlobal(object):
                     self.set_value(split[1], setting[entry], module)
     ## set value in settings
     # @param name - name of variable to be set
-    # @param value - value of variable
+    # @param value - value of variable, if == None, entry will be removed
     # @param module - if given, name of afp-module using returned settings
     def set_value(self, name, value, module = None):
         set = self.get_setting(module)

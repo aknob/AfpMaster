@@ -1050,7 +1050,7 @@ class AfpFinanceTransactions(AfpSelectionList):
         today = self.globals.today()
         if datum is None: datum = today
         if self.check_auszug(auszug) or self.fixed_auszug: return
-        #print "AfpFinanceTransactions.set_auszug needed:", auszug        
+        #print ("AfpFinanceTransactions.set_auszug needed:", auszug )
         auszug, period = self.extract_period(auszug)
         ausname = Afp_getStartLetters(auszug) 
         if not ausname: return
@@ -1161,9 +1161,10 @@ class AfpFinanceTransactions(AfpSelectionList):
         return data
     ## retrieve last used receipt number
     # @param colname - name of column checked
-    def get_highest_value(self, colname):
+    # @param always - flag if data should be checke even if no data had been added
+    def get_highest_value(self, colname, always=False):
         val= None
-        if self.data_added:
+        if self.data_added or always:
             rows = self.get_value_rows("BUCHUNG", colname)
             #print ("AfpFinanceTransactions.get_highest_value:", colname, rows)
             if rows:
@@ -1177,7 +1178,7 @@ class AfpFinanceTransactions(AfpSelectionList):
                     #if Afp_intString(row[0]) > val: val = Afp_intString(row[0])
                     if Afp_isString(row[0]): row[0] = Afp_numericString(row[0])
                     if row[0] and row[0] > val: val = row[0]
-        #print ("AfpFinanceTransactions.get_highest_value:", val, self.data_added)
+        #print ("AfpFinanceTransactions.get_highest_value:", val)
         return val
     ## retrieve individual account from database
     # @param KNr - address identifier
@@ -1458,9 +1459,13 @@ class AfpFinanceSingleTransaction(AfpFinanceTransactions):
     # @param BuchNr - if given, identifier of  transactions
     # @param period - if given, period marker for transactions
     def  __init__(self, globals, BuchNr = None, period = None):
-        AfpFinanceTransactions.__init__(self, globals, BuchNr, None, period)   
-        self.selects["ADRESSE"] = [ "ADRESSE","KundenNr =  KundenNr.BUCHUNG"] 
-        self.selects["ARCHIV"] = [ "ARCHIV","KundenNr =  KundenNr.BUCHUNG"] 
+        AfpFinanceTransactions.__init__(self, globals, BuchNr,"BuchungsNr", period)   
+        self.selects["AUSZUG"] = [ "AUSZUG","Auszug = Reference.BUCHUNG AND Period = \"" + self.period + "\""] 
+        self.selects["ADRESSE"] = [ "ADRESSE","KundenNr = KundenNr.BUCHUNG"] 
+        self.selects["ARCHIV"] = [ "ARCHIV","KundenNr = KundenNr.BUCHUNG"] 
+        self.selects["Geld"] = [ "KTNR","Typ = \"Kasse\" OR Typ = \"Bank\""] 
+        self.selects["Kosten"] = [ "KTNR","Typ = \"Kosten\" AND NOT KtName = \"SALDO\""] 
+        self.selects["Ertrag"] = [ "KTNR","Typ = \"Ertrag\" AND NOT KtName = \"SALDO\""] 
         if self.debug: print("AfpFinanceSingleTransaction Konstruktor:", self.period)
     ## destructor
     def __del__(self):    
@@ -1541,7 +1546,7 @@ class AfpFinance(AfpFinanceTransactions):
         self.selects["Salden"] = [ "AUSZUG","Auszug = \"SALDO\" AND Period = \"" + self.period + "\""] 
         self.selects["Balances"] = [ "KTNR","KtName = \"SALDO\""] 
         self.selects["Journal"] = [ "BUCHUNG","Period = \"" + self.period + "\""] 
-        self.selects["Auszuege"] =  [ "AUSZUG","Period = \"" + self.period + "\"" ] 
+        self.selects["Auszuege"] =  [ "AUSZUG","NOT (Auszug = \"SALDO\") AND Period = \"" + self.period + "\"" ] 
         # only needed for "Konto" or "Gegenkonto"
         if mainindex == "Konto" or mainindex == "Gegenkonto":
             konto = Afp_toString(value)
@@ -1550,7 +1555,8 @@ class AfpFinance(AfpFinanceTransactions):
             self.selects["Auszuege"][1] =  "KtNr = " +  konto +" AND " + self.selects["Auszuege"] [1] 
         elif mainindex == "Reference":
             self.selects["AUSZUG"][1] = "Auszug = \"" + Afp_toString(value) + "\" AND " + self.selects["AUSZUG"] [1]
-            self.selects["Konto"] = [ "KTNR"," KtNr = KtNr.AUSZUG"] 
+            self.selects["Konto"] = [ "KTNR","KtNr = KtNr.AUSZUG"]
+            self.selects["Auszuege"][1] =  "KtNr = KtNr.AUSZUG AND " + self.selects["Auszuege"] [1]
         elif mainindex == "Beleg" and "Reference" in parlist:
             ref = Afp_toString(parlist["Reference"])
             self.selects["AUSZUG"][1] = "Auszug = \"" + ref + "\" AND " + self.selects["AUSZUG"] [1]
@@ -1656,10 +1662,12 @@ class AfpFinance(AfpFinanceTransactions):
         self.revenue_accounts = []
         self.expense_accounts = []
         self.cash_accounts = []
+        self.bank_accounts = []
         self.internal_accounts = []
         self.revenue_account_names = []
         self.expense_account_names = []
         self.cash_account_names = []
+        self.bank_account_names = []
         self.internal_account_names = []
         rows = self.get_value_rows("KTNR")
         if rows:
@@ -1671,11 +1679,14 @@ class AfpFinance(AfpFinanceTransactions):
                     elif row[4] == "Ertrag":
                         self.revenue_accounts.append(row[1])
                         self.revenue_account_names.append(Afp_toString(row[2]))           
-                    elif row[4] == "Bank" or row[4] == "Kasse":
-                        self.cash_accounts.append(row[1])
-                        self.cash_account_names.append(Afp_toString(row[2])) 
-                        if not self.main_bankaccount and row[4]  == "Bank":
+                    elif row[4] == "Bank":
+                        self.bank_accounts.append(row[1])
+                        self.bank_account_names.append(Afp_toString(row[2])) 
+                        if not self.main_bankaccount:
                             self.main_bankaccount = row[1]
+                    elif row[4] == "Kasse":
+                        self.cash_accounts.append(row[1])
+                        self.cash_account_names.append(Afp_toString(row[2]))                     
                     else:
                         self.internal_accounts.append(row[1])
                         self.internal_account_names.append(Afp_toString(row[2]))    
@@ -1685,7 +1696,7 @@ class AfpFinance(AfpFinanceTransactions):
             value = Afp_fromString(self.get_value()) 
             if self.get_mainindex() == "Beleg":
                 value = self.get_value("KtNr.Auszug")
-            if (self.get_mainindex() == "Konto" or self.get_mainindex() == "Gegenkonto" or self.get_mainindex() == "Beleg") and value in self.cash_accounts:
+            if (self.get_mainindex() == "Konto" or self.get_mainindex() == "Gegenkonto" or self.get_mainindex() == "Beleg") and value in self.bank_accounts:
                 self.bank = value
             elif self.main_bankaccount:
                 self.bank = self.main_bankaccount
@@ -1772,6 +1783,8 @@ class AfpFinance(AfpFinanceTransactions):
             return  self.revenue_accounts
         elif typ == "Cash":
             return  self.cash_accounts
+        elif typ == "Bank":
+            return  self.bank_accounts
         elif typ == "Other":
             return  self.internal_accounts
         else:
@@ -1788,6 +1801,8 @@ class AfpFinance(AfpFinanceTransactions):
             name = self.revenue_account_names[self.revenue_accounts.index(nr)]
         elif nr in self.cash_accounts:
             name = self.cash_account_names[self.cash_accounts.index(nr)]
+        elif nr in self.bank_accounts:
+            name = self.bank_account_names[self.bank_accounts.index(nr)]
         elif nr in self.internal_accounts:
             name = self.internal_account_names[self.internal_accounts.index(nr)]
         return name
@@ -1803,6 +1818,9 @@ class AfpFinance(AfpFinanceTransactions):
             if typ == "Cash":
                 for i in range(len(self.cash_accounts)):
                     lines.append(Afp_toString(self.cash_accounts[i]) + " " + self.cash_account_names[i])
+            if typ == "Bank":
+                for i in range(len(self.bank_accounts)):
+                    lines.append(Afp_toString(self.bank_accounts[i]) + " " + self.bank_account_names[i])
             if typ == "Internal":
                 for i in range(len(self.internal_accounts)):
                     lines.append(Afp_toString(self.internal_accounts[i]) + " " + self.internal_account_names[i])
@@ -1820,7 +1838,7 @@ class AfpFinance(AfpFinanceTransactions):
         if not ktnr: ktnr = self.bank
         if not self.accounts_set:
             self.set_accounts()
-        return ktnr in self.cash_accounts
+        return ktnr in self.cash_accounts or ktnr in self.bank_accounts
     ## add client factory to genertae client objects
     def add_client_factory(self, factory):
         self.client_factory = factory
@@ -1835,14 +1853,57 @@ class AfpFinance(AfpFinanceTransactions):
     def get_period(self):
         return self.period
     ## return identierfier of statement of account, if available
-    def get_auszug(self):
+    # @param ende - flag if enddate and endsaldo should be returned
+    def get_auszug(self, ende = False):
         dat = None
         sald = None
+        print("AfpFinance.get_auszug:", self.auszug, self.get_value("Auszug.AUSZUG"))
         if self.auszug ==  self.get_value("Auszug.AUSZUG"):
-            dat = self.get_value("BuchDat.AUSZUG") 
-            sald = self.get_value("StartSaldo.AUSZUG")  
+            auszug = self.auszug
+            if ende:
+                dat = self.get_value("Datum.AUSZUG") 
+                sald = self.get_value("EndSaldo.AUSZUG")  
+            else:
+                dat = self.get_value("BuchDat.AUSZUG") 
+                sald = self.get_value("StartSaldo.AUSZUG")  
+        elif self.auszug is None:
+            row = self.get_last_auszug_row()
+            auszug = row[0]
+            dat = row[2]
+            sald = row[4]
         #print("AfpFinance.get_auszug:", self.auszug, dat, sald, self.get_selection("AUSZUG").data)
-        return self.auszug, dat, sald
+        return auszug, dat, sald
+    ## return last used statement row of account, if available
+    # @param ktname - short name of account, if given
+    def get_last_auszug_row(self, ktname = None):
+        row = None
+        if ktname is None:
+            ktname = self.get_value("KtName.KTNR")
+        lgh = len(ktname)
+        rows = self.get_value_rows("Auszuege")
+        anr = 0
+        for r in rows:
+             if r[0][:lgh] == ktname:
+                nr = Afp_fromString(r[0][lgh:])
+                if nr > anr:
+                    anr = nr
+                    row = r
+        return row
+    ## return next unused identifier of statement of account, if available
+    def get_unused_auszug(self):
+        auszug = None
+        saldo = None
+        if self.auszug:
+            if self.auszug == "SALDO":
+                ktname = self.get_value("KtName.KTNR")
+            else:
+                ktname = Afp_getStartLetters(self.auszug)
+            row = self.get_last_auszug_row(ktname)
+            if row:
+                nr = Afp_intString(row[0][len(ktname):])
+                auszug = ktname + Afp_toIntString(nr + 1, 5 - lgh)
+                return auszug, row[4]
+            return None, None
     ## return identierfier of batch booking, if available
     def get_batch(self):
         return self.batch
@@ -1873,15 +1934,19 @@ class AfpFinance(AfpFinanceTransactions):
             #if integer > 9: # should be scaled for factor 1000 ...
             integer = self.bank - (int(self.bank/100) * 100)
             nr += integer
-        print ("AfpFinance.gen_first_rcptnr nr:", nr, self.bank, self.main_bankaccount)
+        #print ("AfpFinance.gen_first_rcptnr nr:", nr, self.bank, self.main_bankaccount)
         return nr
     ## generate next receipt number
     def gen_next_rcptnr(self):
-        nr = self.get_highest_value("Beleg")
+        cash = self.bank in self.cash_accounts
+        if cash: alw = True
+        else: alw = False
+        nr = self.get_highest_value("Beleg", alw)
+        #print ("AfpFinance.gen_next_rcptnr highest:", nr)
         if not nr:
             where = "Period = \"" + self.period + "\" AND NOT Beleg = \"\""
             lgh = len(where)
-            #print ("AfpFinance.gen_next_rcptnr mainfilter:", self.mainfilter)
+            #print ("AfpFinance.gen_next_rcptnr mainfilter:", self.mainfilter, self.mainindex)
             if self.mainfilter:
                 split = self.mainfilter.split("Beleg = \"\"")
                 if len(split) > 1:
@@ -1890,14 +1955,16 @@ class AfpFinance(AfpFinanceTransactions):
                     where = self.mainfilter
             elif  self.mainindex == "Reference" or self.mainindex == "Konto" or self.mainindex == "Gegenkonto":
                 konto = self.get_string_value("KtNr.AUSZUG")
+                if not konto:  konto = self.get_string_value("KtNr.KTNR")
                 where += " AND (Konto = " + konto + " OR Gegenkonto = " + konto + ")"
+                #print ("AfpFinance.gen_next_rcptnr konto:", konto, where) 
             elif self.get_value():
                 where += " AND " + self.mainindex + " = " + self.get_value()
-            if self.bank == self.main_bankaccount and len(where) > lgh:
+            if (self.bank == self.main_bankaccount or cash) and len(where) > lgh:
                 sel = "SELECT MAX(CONVERT(Beleg,UNSIGNED)) FROM BUCHUNG WHERE " + where 
             else:
                 sel = "SELECT MAX(Beleg) FROM BUCHUNG WHERE " + where 
-            #print ("AfpFinance.gen_next_rcptnr select:", self.mainindex, sel)
+            print ("AfpFinance.gen_next_rcptnr select:", self.mainindex, sel)
             res = self.get_globals().get_mysql().execute(sel)
             nr = Afp_fromString(res[0][0])
             #print ("AfpFinance.gen_next_rcptnr nr:", nr,  Afp_isInteger(nr), Afp_isNumeric(nr))
@@ -1913,8 +1980,9 @@ class AfpFinance(AfpFinanceTransactions):
         need_new = False
         start = self.get_value("StartSaldo.AUSZUG")
         end = self.get_value("EndSaldo.AUSZUG")
+        #if start is None and end is None and not self.get_selection("AUSZUG").is_empty(): need_new = True
         if start is None and end is None: need_new = True
-        #print "AfpFinance.get_salden EndSaldo Auszug:", start, end, need_new
+        print ("AfpFinance.get_salden EndSaldo Auszug:", start, end, need_new, self.get_selection("AUSZUG").is_empty())
         if not start: start = 0.0
         if not end: end = 0.0
         konto = Afp_fromString(self.konto)
@@ -1931,6 +1999,8 @@ class AfpFinance(AfpFinanceTransactions):
                 for dat in dati:
                     if min is None or dat[0] < min: min = dat[0]
                     if max is None or dat[0] > max: max = dat[0]
+                if not min: min = self.get_globals().today()
+                if not max: max = self.get_globals().today()
                 ssaldo = 0.0
                 if self.is_cash(self.konto):
                     rows = self.get_value_rows("Auszuege","Auszug,StartSaldo")
@@ -1942,6 +2012,7 @@ class AfpFinance(AfpFinanceTransactions):
                 self.set_data_values(new_data, "AUSZUG", -1)
             else:
                 self.set_value("EndSaldo.AUSZUG", start + sum)
+            print ("AfpFinance.get_salden AUSZUG:", self.get_selection("AUSZUG").data)
             self.get_selection("AUSZUG").store()
             print ("AfpFinance.get_salden EndSaldo resetted:", konto, end, "->", start + sum, "new database entry created:",  need_new)
             salden = self.gen_balance_salden(self.get_konto_typ(konto))
@@ -1977,12 +2048,11 @@ class AfpFinance(AfpFinanceTransactions):
     # @param konto - accountnumber to be summerized
     def gen_sum(self, konto):
         #print "AfpFinance.gen_sum:", self.view()
-        sum = None
+        sum = 0.0
         rows = self.get_value_rows("BUCHUNG","Konto,Gegenkonto,Betrag")   
         for row in rows:
             betrag = Afp_fromString(row[2])
-            if row[0] == konto or row[1] == konto:
-                if sum is None: sum = 0.0
+            if betrag and (row[0] == konto or row[1] == konto):
                 if row[0] == konto: sum -= betrag
                 else: sum += betrag
                 #print "AfpFinance.gen_sum added:", betrag, sum
@@ -1991,8 +2061,7 @@ class AfpFinance(AfpFinanceTransactions):
             rows = self.get_value_rows("Journal","Konto,Gegenkonto,Betrag")   
             for row in rows:
                 betrag = Afp_fromString(row[2])
-                if row[0] == konto or row[1] == konto:
-                    if sum is None: sum = 0.0
+                if betrag and (row[0] == konto or row[1] == konto):
                     if row[0] == konto: sum -= betrag
                     else: sum += betrag
                     #print "AfpFinance.gen_sum Journal added:", betrag, sum

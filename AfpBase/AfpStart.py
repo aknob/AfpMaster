@@ -98,7 +98,7 @@ class AfpMainApp(wx.App):
         website = "http://www.afptech.de"
         baseversion = "6.1.1 beta"       
         version = baseversion    
-        copyright = 'Copyright (C) 1989 - 2023  AfpTech.de'
+        copyright = 'Copyright (C) 1989 - 2025  AfpTech.de'
         moduls = ["Adresse"]
         if info:
             name = info.get_name()
@@ -116,7 +116,7 @@ class AfpMainApp(wx.App):
         rechtssichere englische Version:
         
         """ + name + """ is a software to manage coach and travel acivities
-         Copyright© 1989 - 2023  afptech.de (Andreas Knoblauch)
+         Copyright© 1989 - 2025  afptech.de (Andreas Knoblauch)
 
          This program is free software: you can redistribute it and/or modify
          it under the terms of the GNU General Public License as published by
@@ -150,7 +150,9 @@ class AfpMainApp(wx.App):
             pars["dbword"] = dbword
         if "dbword" in pars: set.set("database-word", pars["dbword"])
         if "strict" in pars: set.set("strict-modul-handling",1)
-        if "dry-run" in pars: set.set("dry-run",1)
+        if "dry-run" in pars: 
+            set.set("dry-run",1)
+            set.set("readonly",1)
         mysql = AfpDatabase.AfpSQL.AfpSQL(set.get("database-host"), set.get("database-user"), set.get("database-word"), set.get("database"), set.is_debug())
         self.globals = AfpGlobal.AfpGlobal(name, mysql, set)
         self.globals.set_infos(version, baseversion, copyright, website, description, license, picture, developers)
@@ -255,7 +257,7 @@ def AfpStart(info):
         print("               Usage: [modulname.]variablename=value[, ...]")
         print("-v,--verbose   display comments on all actions (debug-information)")
         #print("-x,--strict    don't allow dynamic modul handling (needed for py2exe compilation)")
-        print("-y,--dry       start program in dry-run mode: no emails, no imports!")
+        print("-y,--dry       start program in dry-run mode: no writing to database, no emails, no imports!")
         print("routine, file  pythonmodul and name of routine to be executed")
         print("               or path of a file in which each line represents one call")
         print("               Usage: python.modul.routinename:parameter1[,param2 ...]")

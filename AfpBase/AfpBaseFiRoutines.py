@@ -277,6 +277,9 @@ class AfpZahlung(object):
         else:
             return None
     # convinience routines simular to AfpSelectionList
+    ## return global data
+    def get_globals(self):
+        return self.globals
     ## return mysql connection
     def get_mysql(self):
         return self.mysql

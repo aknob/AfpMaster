@@ -192,7 +192,7 @@ def AfpFinance_TouristSelector(globals, debug = False):
     text = "Reiseanmeldung"
     object = "AfpEvent/AfpEvScreenTourist/AfpEvTourist"
     edit = None
-    return AfpPaySelector(globals, name, label,  tablename, indexfield, felder, filter, textl, object, modu, debug)
+    return AfpPaySelector(globals, name, label,  tablename, indexfield, felder, filter, text, object, edit, debug)
 ## generate ZahlSelector for invoice part of the  'Event' Modul flavour 'Verein'
 # @param globals -  global values including object for dadabase access
 # @param debug - debug flag
@@ -568,16 +568,16 @@ class AfpDialog_DiFiZahl(AfpDialog):
 
     ## initialise graphic elements for simple payment dialog
     def InitWx_sizer(self):
-        self.label_Vorname = wx.StaticText(self, -1, label="Vorname.Adresse", name="Vorname")
-        self.labelmap["Vorname"] = "Vorname.ADRESSE"
-        self.label_Name = wx.StaticText(self, -1, label="Name.Adresse", name="Name")
-        self.labelmap["Name"] = "Name.ADRESSE"
-        self.label_Strasse = wx.StaticText(self, -1, label="Strasse.Adresse", name="Strasse")
-        self.labelmap["Strasse"] = "Strasse.ADRESSE"
-        self.label_Plz = wx.StaticText(self, -1, label="Plz.Adresse",  name="Plz")
-        self.labelmap["Plz"] = "Plz.ADRESSE"
-        self.label_Ort = wx.StaticText(self, -1, label="Ort.Adresse", name="Ort")
-        self.labelmap["Ort"] = "Ort.ADRESSE"
+        self.label_Vorname = wx.StaticText(self, -1, label="Vorname.Adresse", name="FiVorname")
+        self.labelmap["FiVorname"] = "Vorname.ADRESSE"
+        self.label_Name = wx.StaticText(self, -1, label="Name.Adresse", name="FiName")
+        self.labelmap["FiName"] = "Name.ADRESSE"
+        self.label_Strasse = wx.StaticText(self, -1, label="Strasse.Adresse", name="FiStrasse")
+        self.labelmap["FiStrasse"] = "Strasse.ADRESSE"
+        self.label_Plz = wx.StaticText(self, -1, label="Plz.Adresse",  name="FiPlz")
+        self.labelmap["FiPlz"] = "Plz.ADRESSE"
+        self.label_Ort = wx.StaticText(self, -1, label="Ort.Adresse", name="FiOrt")
+        self.labelmap["FiOrt"] = "Ort.ADRESSE"
         self.label_T_Bet_Zahlung = wx.StaticText(self, -1, label="zu zahlen:", name="T_Bet_Zahlung")
         self.label_Gesamt = wx.StaticText(self, -1, label="Betrag_Zahlung$", name="Gesamt")
         self.label_T_Anz_Zahlung = wx.StaticText(self, -1, label="bereits bezahlt:", name="T_Anz_Zahlung")
@@ -851,13 +851,15 @@ class AfpDialog_DiFiZahl(AfpDialog):
             for data in self.data.selected_list:
                 tab = data.get_mainselection()
                 tabnr = data.get_value()
-                select = "Tab = \"" + tab + "\" AND TabNr = " + Afp_toString(tabnr) + " AND (Art = \"Zahlung\" OR Art = \"Zahlung in\")"
-                felder = "Datum,GktName,Betrag,Beleg,Bem"
+                select = "Tab = \"" + tab + "\" AND TabNr = " + Afp_toString(tabnr) + " AND Art LIKE \"Zahlung%\""
+                felder = "Datum,Beleg,Betrag,GktName,Bem"
                 rows = self.data.mysql.select(felder, select, "BUCHUNG")
+                #print ("AfpDialog_DiFiZahl.On_Zahlung_Liste:", rows)
                 zahlungen = []
                 for row in rows:
                     zahlungen.append(Afp_ArraytoLine(row))
-                liste[ident] = zahlungen
+                von = tab + "-" + Afp_toIntString(tabnr, 5)
+                liste[von] = zahlungen
                 #print "AfpDialog_DiFiZahl.On_Zahlung_Liste:", liste
             Afp_printToInfoFile(self.data.globals, liste)
         else:
@@ -887,8 +889,10 @@ class AfpDialog_DiFiZahl(AfpDialog):
             liste = {}
             for data in self.data.selected_list:
                 payment = {}
-                payment = self.data.finance.add_payment_data(payment, data) 
-                liste[payment["Von"]] = [Afp_toString(payment["Gegenkonto"]) + " "  + data.get_name()]
+                payment = self.data.finance.add_payment_data(payment, data)  
+                #print("AfpDialog_DiFiZahl payment", payment)
+                von = payment["Tab"] + "-" + Afp_toIntString(payment["TabNr"], 5)
+                liste[von] = [Afp_toString(payment["Gegenkonto"]) + " "  + data.get_name()]
             Afp_printToInfoFile(self.data.globals, liste)
         else:
             AfpReq_Info("Finanzmodul nicht installiert!","Funktion steht nicht zur Verfügung!")
@@ -1537,5 +1541,3 @@ def Afp_newSimpleInvoice(data):
     else:
         Ok = False
     return Ok
-  
-

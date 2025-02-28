@@ -412,6 +412,7 @@ class AfpEvScreen(AfpScreen):
         #print ("AfpScreen.On_Index current index", self.sb.get_value("AnmeldNr.ANMELD"), self.sb.CurrentFile.indexname, self.sb.CurrentFile.name, self.sb.CurrentFile.CurrentIndex.name)
         self.set_jahr_filter()
         #print ("AfpScreen.On_Index filter", self.sb.get_value("AnmeldNr.ANMELD"))
+        #breakpoint()
         self.CurrentData()
         #print ("AfpScreen.On_Index End", self.sb.get_value("AnmeldNr.ANMELD"))
         if event: event.Skip()

@@ -767,14 +767,16 @@ class AfpDialog(wx.Dialog):
         self.checkmap = {}   
         self.listmap = []
         self.gridmap = []
+        self.intristic = {}
         self.keepeditable = []
         self.conditioned_display = {}
         self.changed_text = []
-        self.readonlycolor = self.GetBackgroundColour()
+        self.readonly = False # flag if no database interaction is allowed
+        self.readonlycolor = self.GetBackgroundColour() # color for not editable text boxes
         #self.readonlycolor = (100,100,100)
         self.editcolor = (255,255,255)
         #self.editcolor = (240,240,240)
-        self.no_readonly = True
+        self.wx_edit_choice = False # flag if setWx has been called for Ok and Cancel use
         self.close_dialog = True
         self.InitWx()
 
@@ -787,7 +789,7 @@ class AfpDialog(wx.Dialog):
     #                       weight of space left [0] and right [2] and [1] weight of ok widget in sizer
     def setWx(self, parent, edit, ok):
         if parent is None: return
-        self.no_readonly = False
+        self.wx_edit_choice = True
         #if type(parent) == wx._windows.Panel: # parent is a panel
         if type(parent) == wx._core.Panel: # parent is a panel
             self.choice_Edit = wx.Choice(parent, -1, pos=(edit[0], edit[1]), size=(edit[2], edit[3]), choices=["Lesen", "Ändern", "Abbruch"], style=0, name="CEdit")
@@ -826,17 +828,19 @@ class AfpDialog(wx.Dialog):
         self.debug = self.data.debug
         self.new = new
         edit = new or editable
-        if edit and not self.no_readonly: self.choice_Edit.SetSelection(1)
+        if edit and self.wx_edit_choice: self.choice_Edit.SetSelection(1)
         if self.new:
             #self.Pop_lists()
             self.Populate()
         else:
             self.Populate()
         self.Set_Editable(edit, False)
+        if self.data.get_globals().get_value("readonly"):
+            self.readonly = True
     ## central routine which returns if dialog is meant to be editable
     def is_editable(self):
         editable = False
-        if self.no_readonly or self.choice_Edit.GetCurrentSelection() == 1: editable = True
+        if not self.wx_edit_choice or self.choice_Edit.GetCurrentSelection() == 1: editable = True
         return editable 
     ## return the Ok flag to caller
     def get_Ok(self):
@@ -888,6 +892,7 @@ class AfpDialog(wx.Dialog):
         self.Pop_check()
         self.Pop_lists()
         self.Pop_grids()
+        self.Pop_intristic()
     ## population routine for textboxes \n
     # covention: textmap holds the entryname to retrieve the string value from self.data \n
     # covention: vtextmap holds the entryname to retrieve the date or float value from self.data \n
@@ -962,6 +967,18 @@ class AfpDialog(wx.Dialog):
             Befehl = "self.Pop_" + entry + "()"
             #print "AfpDialog.Pop_grids:", Befehl
             exec(Befehl)
+    ## population routine for intristic values \n
+    # covention:value are written into the dictionary self.intristic
+    def Pop_intristic(self):
+        print ("AfpDialog.Pop_intristic:", self.intristic)
+        if self.intristic:       
+            for entry in self.intristic:
+                widget = self.FindWindowByName(entry) 
+                if widget:
+                    if entry[0] == "L":
+                        widget.SetLabel(Afp_toString(self.intristic[entry]))
+                    else:
+                        widget.SetValue(Afp_toString(self.intristic[entry]))
     ## resize grid rows
     # @param grid - the grid object
     # @param new_lgh - new number of rows to be populated
@@ -1033,7 +1050,7 @@ class AfpDialog(wx.Dialog):
                 list.SetBackgroundColour(self.readonlycolor)   
                 list.Enable(False)  
         if ed_flag:
-            if not self.no_readonly and self.choice_Edit.GetCurrentSelection() != 1: 
+            if self.wx_edit_choice and self.choice_Edit.GetCurrentSelection() != 1: 
                 self.choice_Edit.SetSelection(1)
         else:
             self.changelist = []
@@ -1063,14 +1080,14 @@ class AfpDialog(wx.Dialog):
         editable = self.is_editable()
         if not editable: self.re_load()
         self.Set_Editable(editable)
-        if self.no_readonly or self.choice_Edit.GetCurrentSelection() == 2: 
+        if not self.wx_edit_choice or self.choice_Edit.GetCurrentSelection() == 2: 
             self.execute_Quit()
             self.EndModal(wx.ID_CANCEL)
         event.Skip()
     ## Eventhandler BUTTON - Ok button pushed
     # @param event - event which initiated this action
     def On_Button_Ok(self,event):
-        if self.no_readonly or self.choice_Edit.GetSelection() == 1:
+        if not self.readonly and (not self.wx_edit_choice or self.choice_Edit.GetSelection() == 1):
             self.execute_Ok()
             #if self.lock_data and not self.new: self.data.unlock_data() 
             if self.debug: print("Event handler `AfpDialog.On_Button_Ok' save, neu:", self.new,"Ok:",self.Ok) 

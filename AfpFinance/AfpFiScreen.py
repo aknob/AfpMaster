@@ -488,7 +488,7 @@ class AfpFiScreen(AfpScreen):
                 self.set_current_record()
                 self.Populate()
         elif filter == "Konten":
-            list = self.data.get_account_lines("Cash,Other,Kosten,Ertrag")
+            list = self.data.get_account_lines("Cash,Bank,Other,Kosten,Ertrag")
             kt, ok = AfpReq_Selection("Bitte Konto auswählen:", "", list)
             if ok:
                 ktnr = Afp_fromString(kt.split()[0])
@@ -575,10 +575,13 @@ class AfpFiScreen(AfpScreen):
                     #beleg, ref = self.data.get_value_rows("BUCHUNG", "Beleg,Reference", index)[0][0]
                     beleg, ref, vnr = self.data.get_value_rows("BUCHUNG", "Beleg,Reference,VorgangsNr", index)[0] 
                     print("AfpFiScreen.On_modify:", beleg, ref, vnr)
+                    disable = "strict_accounting"
+                    if self.flavour == "Cash":
+                        disable += ",load,transaction"
                     if vnr:
-                        changed = AfpLoad_FiBuchung(self.data.get_globals(), self.data.get_period(), {"VorgangsNr": vnr, "no_strict_accounting": None})
+                        changed = AfpLoad_FiBuchung(self.data.get_globals(), self.data.get_period(), {"VorgangsNr": vnr,  "disable": disable})
                     else:
-                        changed = AfpLoad_FiBuchung(self.data.get_globals(), self.data.get_period(), {"Beleg": beleg, "no_strict_accounting": None, "Reference": ref})
+                        changed = AfpLoad_FiBuchung(self.data.get_globals(), self.data.get_period(), {"Beleg": beleg, "disable": disable, "Reference": ref})
             else:
                 changed = AfpLoad_FiBuchung_fromData(self.data.get_globals(), self.data)
         if changed: self.Reload()      
