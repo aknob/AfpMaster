@@ -970,7 +970,7 @@ class AfpDialog(wx.Dialog):
     ## population routine for intristic values \n
     # covention:value are written into the dictionary self.intristic
     def Pop_intristic(self):
-        print ("AfpDialog.Pop_intristic:", self.intristic)
+        #print ("AfpDialog.Pop_intristic:", self.intristic)
         if self.intristic:       
             for entry in self.intristic:
                 widget = self.FindWindowByName(entry) 

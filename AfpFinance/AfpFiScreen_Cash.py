@@ -212,7 +212,9 @@ class AfpFiScreen_Cash(AfpFiScreen):
     # @param origin - string from where to get data for initial record, 
     # to allow syncronised display of screens (only works if 'sb' is given)
     def init_database(self, globals, sb, origin):
-        globals.get_mysql().add_database("AfpCash", "BUCHUNG,AUSZUG")
+        dbcash = globals.get_value("cash-database","Finance")
+        if dbcash:
+            globals.get_mysql().add_database(dbcash, "BUCHUNG,AUSZUG")
         if globals.get_value("actuel-transaction-period","Finance"):
             globals.set_value("actuel-transaction-period",None,"Finance") # remove entry
         AfpScreen.init_database(self, globals, sb, origin)
@@ -308,8 +310,7 @@ class AfpFiScreen_Cash(AfpFiScreen):
                 data.set_value("EndSaldo.AUSZUG", saldo)
             else:
                 auszug = None
-        print("AfpFiScreen.On_Neu:", period, konto, ktname, auszug, dat, saldo, beleg, data.mainindex, data.mainselection)
-        data.view()
+        #print("AfpFiScreen.On_Neu:", period, konto, ktname, auszug, dat, saldo, beleg, data.mainindex, data.mainselection)
         if auszug:
             data.set_value("Beleg", beleg)
             ok = AfpLoad_SingleTransaction(data,  True)

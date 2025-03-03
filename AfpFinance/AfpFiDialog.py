@@ -2593,7 +2593,7 @@ class AfpDialog_SingleTransaction(AfpDialog):
                 self.intristic["FiArt"] = self.data.get_string_value("Art")
                 self.intristic["FiKonto"] = self.data.get_string_value("Konto")
                 self.intristic["FiGKonto"] = self.data.get_string_value("Gegenkonto")
-            print("AfpDialog_SingleTransaction.On_Activate:", self.data.get_value("Konto"),  self.data.get_value("KtMr.AUSZUG"),  self.data.get_value("Konto") ==  self.data.get_value("KtMr.AUSZUG"))
+            #print("AfpDialog_SingleTransaction.On_Activate:", self.data.get_value("Konto"),  self.data.get_value("KtMr.AUSZUG"),  self.data.get_value("Konto") ==  self.data.get_value("KtMr.AUSZUG"))
             if self.data.get_value("Gegenkonto") ==  self.data.get_value("KtNr.AUSZUG"):
                 self.intristic["FiAus"] = self.data.get_string_value("Betrag")
             else:
@@ -2716,6 +2716,7 @@ class AfpDialog_SingleTransaction(AfpDialog):
 # @param data - data to be edited with dialog
 # @param cash - flag if cash-mode will be used for interface
 def AfpLoad_SingleTransaction(data,  cash = False):
+    data.set_key_generation(False)
     DiTrans = AfpDialog_SingleTransaction(cash)
     DiTrans.attach_data(data, data.is_new())
     DiTrans.ShowModal()

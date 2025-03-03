@@ -1122,20 +1122,13 @@ class AfpFinanceTransactions(AfpSelectionList):
         Export.write_to_file(fieldlist, information)
     ## overwritten 'store' of the AfpSelectionList, the parent 'store' is called and a common action-number spread.          
     def store(self):
-        #print "AfpFinanceTransactions.store 0:",self.new, self.mainindex
-        #self.view()
         AfpSelectionList.store(self)
-        #print "AfpFinanceTransactions.store 1:",self.new, self.mainindex 
-        #self.view()
         if self.spread_key and self.new:
             self.new = False
             VNr = self.get_value("BuchungsNr")
-           # print "AfpFinanceTransactions.store VorgangsNr:", VNr
             changed_data = {"VorgangsNr": VNr}
             for i in range(0, self.get_value_length()):
                 self.set_data_values(changed_data, None, i)
-            #print "AfpFinanceTransactions.store 2:",self.new, self.mainindex 
-            #for d in self.selections: print d,":", self.selections[d].data
             AfpSelectionList.store(self)
     ## set payment through indermediate account (payment has to be split)
     def set_payment_transfer(self):
@@ -1857,7 +1850,7 @@ class AfpFinance(AfpFinanceTransactions):
     def get_auszug(self, ende = False):
         dat = None
         sald = None
-        print("AfpFinance.get_auszug:", self.auszug, self.get_value("Auszug.AUSZUG"))
+        #print("AfpFinance.get_auszug:", self.auszug, self.get_value("Auszug.AUSZUG"))
         if self.auszug ==  self.get_value("Auszug.AUSZUG"):
             auszug = self.auszug
             if ende:
@@ -1964,7 +1957,7 @@ class AfpFinance(AfpFinanceTransactions):
                 sel = "SELECT MAX(CONVERT(Beleg,UNSIGNED)) FROM BUCHUNG WHERE " + where 
             else:
                 sel = "SELECT MAX(Beleg) FROM BUCHUNG WHERE " + where 
-            print ("AfpFinance.gen_next_rcptnr select:", self.mainindex, sel)
+            #print ("AfpFinance.gen_next_rcptnr select:", self.mainindex, sel)
             res = self.get_globals().get_mysql().execute(sel)
             nr = Afp_fromString(res[0][0])
             #print ("AfpFinance.gen_next_rcptnr nr:", nr,  Afp_isInteger(nr), Afp_isNumeric(nr))
@@ -1982,7 +1975,7 @@ class AfpFinance(AfpFinanceTransactions):
         end = self.get_value("EndSaldo.AUSZUG")
         #if start is None and end is None and not self.get_selection("AUSZUG").is_empty(): need_new = True
         if start is None and end is None: need_new = True
-        print ("AfpFinance.get_salden EndSaldo Auszug:", start, end, need_new, self.get_selection("AUSZUG").is_empty())
+        #print ("AfpFinance.get_salden EndSaldo Auszug:", start, end, need_new, self.get_selection("AUSZUG").is_empty())
         if not start: start = 0.0
         if not end: end = 0.0
         konto = Afp_fromString(self.konto)
@@ -2006,13 +1999,13 @@ class AfpFinance(AfpFinanceTransactions):
                     rows = self.get_value_rows("Auszuege","Auszug,StartSaldo")
                     for row in rows:
                         if row[0][-2:] == "01": ssaldo = row[1]
-                    print ("AfpFinance.get_salden StartSaldo:", ssaldo) 
+                    #print ("AfpFinance.get_salden StartSaldo:", ssaldo) 
                 new_data = {"Auszug": "SALDO", "Period": self.period, "KtNr": self.konto, "StartSaldo": ssaldo, "EndSaldo": ssaldo + start + sum, "BuchDat": min, "Datum": max}
                 if self.auszug: new_data["Auszug"] = self.auszug
                 self.set_data_values(new_data, "AUSZUG", -1)
             else:
                 self.set_value("EndSaldo.AUSZUG", start + sum)
-            print ("AfpFinance.get_salden AUSZUG:", self.get_selection("AUSZUG").data)
+            #print ("AfpFinance.get_salden AUSZUG:", self.get_selection("AUSZUG").data)
             self.get_selection("AUSZUG").store()
             print ("AfpFinance.get_salden EndSaldo resetted:", konto, end, "->", start + sum, "new database entry created:",  need_new)
             salden = self.gen_balance_salden(self.get_konto_typ(konto))
@@ -2227,7 +2220,7 @@ class AfpFinanceBalances(AfpSelectionList):
         self.mainindex = "Period"
         self.mainvalue = AfpFinance_setPeriod(period, globals, None, self.mandant)
         self.period = self.mainvalue
-        #print("AfpFinanceBalances.init:", self.period)
+        print("AfpFinanceBalances.init:", self.period)
         self.set_main_selects_entry()
         if not self.mainselection in self.selections:
             self.create_selection(self.mainselection)
