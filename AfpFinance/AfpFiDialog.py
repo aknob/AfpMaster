@@ -2511,7 +2511,7 @@ class AfpDialog_SingleTransaction(AfpDialog):
             data["Datum"] = Afp_fromString(self.text_Datum.GetValue())
         for entry in self.values:
             data[entry] = self.values[entry]
-        print("AfpDialog_SimpleInvoice.execute_Ok:", self.changed_text, data)
+        #print("AfpDialog_SimpleTransaction.execute_Ok:", self.changed_text, data)
         if data:
             data = self.complete_data(data)
             if self.data.is_new():
@@ -2661,54 +2661,37 @@ class AfpDialog_SingleTransaction(AfpDialog):
    ## Event handler to get address for transaction
     def On_Adresse(self, event=None):
         if self.debug: print("Event handler `AfpDialog_SingleTransaction.On_Adresse'")
+        Nr = None
+        if  self.data.get_value("KundenNr"):
+            Nr = self.data.get_value("KundenNr")
+        if "KundenNr" in self.values:
+            Nr = self.values["KundenNr"]
         KNr  = AfpLoad_AdAusw(self.data.get_globals(), "ADRESSE", "Name", "", None, None, True)
+        #print ("AfpDialog_SingleTransaction.On_Adresse:", KNr, Nr)
         if KNr:
-            adresse = AfpAdresse(self.data.get_globals(), KNr)
-            text = self.text_Bem.GetValue()
-            if text: text += " - "
-            self.values["KundenNr"] = KNr
-            self.label_Vorname.SetLabel(adresse.get_value("Vorname"))
-            self.label_Nachname.SetLabel(adresse.get_value("Name"))
-            self.text_Bem.SetValue(text + adresse.get_name(True))
+            if KNr != Nr:
+                adresse = AfpAdresse(self.data.get_globals(), KNr)
+                text = self.text_Bem.GetValue().split(" - ")[0]
+                if text: text += " - "
+                self.values["KundenNr"] = KNr
+                self.label_Vorname.SetLabel(adresse.get_value("Vorname"))
+                self.label_Nachname.SetLabel(adresse.get_value("Name"))
+                self.text_Bem.SetValue(text + adresse.get_name(True))
+                self.Set_Editable(True, True)
         if event: event.Skip()
         
     ## event handler for payment changes
     def On_Vorgang(self,event):
-        if self.debug: print("Event handler `AfpDialog_SimpleInvoice.On_Skonto'")
+        if self.debug: print("Event handler `AfpDialog_SimpleTransaction.On_Vorgang'")
+        print("Event handler`AfpDialog_SimpleTransaction.On_Vorgang' not implemented yet!")
         object = event.GetEventObject()
         #self.set_payment_change(object)
-        event.Skip()
-        
-    ## event handler for button 'Neu'
-    def On_Neu(self,event):
-        if self.debug: print("Event handler AfpDialog_SimpleInvoice.On_Neu")
-        KNr = None
-        name = self.data.get_value("Name.Adresse")
-        if self.oblig:
-            text = "Bitte Adresse für neue Eingangsrechnung auswählen:"
-        else:
-            text = "Bitte Adresse für neue Rechnung auswählen:"
-        KNr = AfpLoad_AdAusw(self.data.get_globals(),"ADRESSE","NamSort",name, None, text)
-        if KNr:
-            self.data.set_new(KNr)
-            self.Populate()
-            self.Set_Editable(True)
         event.Skip()
     
     ## event handler for button 'Stornierung'
     def On_Storno(self,event):
-        if self.debug: print("AfpDialog_SimpleInvoice Event handler `On_Storno'")
-        zu = self.data.get_value("Zustand")
-        if zu == "Storno":
-            zahl = self.data.get_value("Zahlung")
-            if zahl and zahl >=  self.data.get_value("ZahlBetrag") - 0.01:
-                self.data.set_value("Zustand", "Closed")
-            else:
-                self.data.set_value("Zustand", "Open")
-        else:
-            self.data.set_value("Zustand", "Storno")
-        self.label_Zustand.SetLabel(self.data.get_string_value("Zustand"))
-        self.On_Check(event)
+        if self.debug: print("AfpDialog_SimpleTransaction Event handler `On_Storno'")
+        print("Event handler`AfpDialog_SimpleTransaction.On_Storno' not implemented yet!")
         self.Set_Editable(True, True)
         event.Skip()
 

@@ -127,7 +127,7 @@ class AfpFiScreen_Cash(AfpFiScreen):
         self.button_sizer.AddSpacer(20)
         
         # COMBOBOX
-        self.combo_Filter = wx.ComboBox(panel, -1, value="Auszug", size=(164,20), choices=["Konten","Auszug"], style=wx.CB_DROPDOWN, name="Filter")
+        self.combo_Filter = wx.ComboBox(panel, -1, value="Konten", size=(164,20), choices=["Konten","Auszug"], style=wx.CB_DROPDOWN, name="Filter")
         self.Bind(wx.EVT_COMBOBOX, self.On_Filter, self.combo_Filter)
         self.combo_Period = wx.ComboBox(panel, -1, value="", size=(84,20), style=wx.CB_DROPDOWN, name="Period")
         self.Bind(wx.EVT_COMBOBOX, self.On_Jahr_Filter, self.combo_Period)
@@ -231,13 +231,15 @@ class AfpFiScreen_Cash(AfpFiScreen):
         if self.combo_Filter.GetValue() == "Konten":
             master = "KTNR"
             filter = "NOT KtName = \"SALDO\" AND Typ = \"Kasse\""
+            key = 1600
         else:
             master = "AUSZUG"
             filter = "Period = " + AfpFinance_setPeriod(None, self.globals) + " AND Auszug LIKE \"BA%\""
-        #print ("AfpFiScreen_Cash.set_initial_record:", master, filter)
+            key = "BAR01"
+        #print ("AfpFiScreen_Cash.set_initial_record:", master, filter, key)
         self.sb.CurrentFileName(master)  
         self.sb.select_where(filter, None, master) 
-        self.sb.select_key("BAR01")
+        self.sb.select_key(key)
         self.sb.select_current()
         self.set_current_record() 
         self.sb_master = master
