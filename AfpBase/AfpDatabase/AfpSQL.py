@@ -126,9 +126,10 @@ class AfpSQL(object):
     # @param dbname - if given name od database to be set to readonly
     def set_readonly(self, dbname = None):
         self.db_readonly = True
-        for db in self.db_roflags:
-            if dbname is None or db == dbname:
-                self.db_roflags[db] = True
+        if self.db_roflags:
+            for db in self.db_roflags:
+                if dbname is None or db == dbname:
+                    self.db_roflags[db] = True
    ## switch debug on
     def set_debug(self):
         #print "AfpSQL.set_debug()"
