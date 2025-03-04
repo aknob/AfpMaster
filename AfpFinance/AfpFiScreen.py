@@ -538,7 +538,7 @@ class AfpFiScreen(AfpScreen):
                         variables["Saldo"] = variables["Start"]
                         variables["StartDat"] = data.get_string_value("BuchDat.Auszug")
                         variables["EndDat"] = data.get_string_value("Datum.Auszug")
-                        data.get_selection("BUCHUNG").reload_data("Beleg")
+                        #data.get_selection("BUCHUNG").reload_data("Beleg")
                 #print "AfpFiScreen.On_Documents:", data.get_listname(), data.get_mayor_type(), filter, data.get_value(), data.get_string_value(), data.get_period()
                 #data.view()
                 #print ("AfpFiScreen.On_Documents variables:", variables)
