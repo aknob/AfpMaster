@@ -17,7 +17,7 @@
 #  AfpTechnologies (afptech.de)
 #
 #    BusAfp is a software to manage coach and travel activities
-#    Copyright© 1989 - 2023 afptech.de (Andreas Knoblauch)
+#    Copyright© 1989 - 2025 afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by

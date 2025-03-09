@@ -3,7 +3,7 @@
 
 ## @package BusAfp
 # BusAfp is a software to manage coach and travel activities \n
-#    Copyright© 1989 - 2021  afptech.de (Andreas Knoblauch) \n
+#    Copyright© 1989 - 2025  afptech.de (Andreas Knoblauch) \n
 # \n
 #   History: \n
 #        30 Dez. 2021 - conversion to python 3 - Andreas.Knoblauch@afptech.de \n
@@ -21,7 +21,7 @@
 #  AfpTechnologies (afptech.de)
 #
 #    BusAfp is a software to manage coach and travel acivities
-#    Copyright© 1989 - 2023 afptech.de (Andreas Knoblauch)
+#    Copyright© 1989 - 2025 afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
