@@ -36,7 +36,7 @@
 import wx
 import wx.grid
 
-from AfpBase.AfpUtilities.AfpStringUtilities import Afp_MatrixSplitCol, AfpSelectEnrich_dbname, Afp_ArraytoString, Afp_toString, Afp_fromString, Afp_addRootpath
+from AfpBase.AfpUtilities.AfpStringUtilities import Afp_MatrixSplitCol, AfpSelectEnrich_dbname, Afp_ArraytoString, Afp_toString, Afp_fromString, Afp_toInternDateString, Afp_addRootpath
 from AfpBase.AfpUtilities.AfpBaseUtilities import Afp_existsFile, Afp_isInteger
 from AfpBase.AfpDatabase.AfpSQL import AfpSQL
 from AfpBase.AfpDatabase.AfpSuperbase import AfpSuperbase
@@ -398,7 +398,8 @@ class AfpAdScreen(AfpScreen):
                 #print("AfpAdScreen.On_DClickRight_Archiv result:", ind, result)
                 if result:
                     changed = {}
-                    if result[0] != liste[0][1]: changed["Datum"] =  result[0]
+                    if result[0] != liste[0][1]: 
+                        changed["Datum"] =  Afp_toInternDateString(Afp_fromString(result[0]))
                     if result[1] != liste[1][1]: changed["Art"] =  result[1]
                     if result[2] != liste[2][1]: changed["Typ"] =  result[2]
                     if result[3] != liste[3][1]: changed["Gruppe"] =  result[3]
