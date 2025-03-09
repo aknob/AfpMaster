@@ -2554,7 +2554,7 @@ class AfpDialog_SingleTransaction(AfpDialog):
         kt = self.text_Konto.GetValue()
         self.text_Konto.SetValue(self.text_GKonto.GetValue())
         self.text_GKonto.SetValue(kt)
-        if self.text_Einnahme.GetValue():
+        if self.radio_EinAus.GetSelection() == 0:
             if self.text_Einnahme.GetValue():
                 amount = -1*Afp_floatString(self.text_Einnahme.GetValue())
                 self.text_Ausgabe.SetValue(Afp_toString(amount))
@@ -2691,8 +2691,26 @@ class AfpDialog_SingleTransaction(AfpDialog):
     ## event handler for button 'Stornierung'
     def On_Storno(self,event):
         if self.debug: print("AfpDialog_SimpleTransaction Event handler `On_Storno'")
-        print("Event handler`AfpDialog_SimpleTransaction.On_Storno' not implemented yet!")
-        self.Set_Editable(True, True)
+        if not self.data.is_new():
+            bem = self.text_Bem.GetValue()
+            if bem[:12] == "Stornierung:":
+                text = "Soll die aktuelle Stornierung zurückgenommen werden?"
+                storno = False
+            else:
+                text = "Soll die angezeigte Buchung storniert werden?"
+                storno = True
+            ok = AfpReq_Question(text, "", "Stornierung")
+            if ok:
+                if self.radio_EinAus.GetSelection():
+                    self.text_Einnahme.SetValue(Afp_toString(-1*Afp_floatString(self.text_Einnahme.GetValue())))
+                else:
+                    self.text_Ausgabe.SetValue(Afp_toString(-1*Afp_floatString(self.text_Ausgabe.GetValue())))
+                text = self.text_Bem.GetValue()
+                if storno:
+                    self.text_Bem.SetValue("Stornierung: " + text)
+                else:
+                    self.text_Bem.SetValue(text[12:].strip())
+            self.Set_Editable(True, True)
         event.Skip()
 
 ## loader routine for single transaction dialog 
