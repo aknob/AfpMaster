@@ -361,5 +361,13 @@ class AfpFiScreen_Cash(AfpFiScreen):
                 self.set_current_record()
                 self.Populate()
         event.Skip()
+    ## Eventhandler BUTTON - quit
+    # overwritten from AfpScreen
+    def On_Ende(self, event):
+        if not self.globals.get_value("auto-dump-sql-tables"):
+            dprog = self.globals.get_value("cash-dump-sql-tables", "Finance")
+            if dprog:
+                self.dump_database(dprog)
+        AfpScreen.On_Ende(self, event)
 
 # end of class AfpFiScreen_Cash

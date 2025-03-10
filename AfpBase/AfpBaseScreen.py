@@ -252,10 +252,14 @@ class AfpScreen(wx.Frame):
             self.sizer.Fit(self)
       
    ## dump database with available 'Extra'-program
-    def dump_database(self):
-        prog = self.globals.get_value("extradir") + self.globals.get_value("auto-dump-sql-tables")
+   # @param dprog - if given, name of dump program to be used
+    def dump_database(self, dprog = None):
+        if dprog:
+            prog = self.globals.get_value("extradir") + dprog
+        else:
+            prog = self.globals.get_value("extradir") + self.globals.get_value("auto-dump-sql-tables")
         if Afp_existsFile(prog):
-            Afp_startExtraProgram(prog, self.globals, None, self.debug)
+            Afp_startExtraProgram(prog, self.globals, self.data, self.debug)
         
    ## scroll all grids to first row
     # necessary to avoid slow scrollback when changing grid input
