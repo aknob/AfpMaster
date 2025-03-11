@@ -2269,7 +2269,8 @@ class AfpDialog_SingleTransaction(AfpDialog):
     def __init__(self, cash = False):
         self.cash = cash
         AfpDialog.__init__(self,None, -1, "")
-        self.data_changed = False
+        self.readonly = False
+        self.data_copy = False
         self.active = False
         self.req_cancel = None
         self.values = {}
@@ -2511,7 +2512,7 @@ class AfpDialog_SingleTransaction(AfpDialog):
             data["Datum"] = Afp_fromString(self.text_Datum.GetValue())
         for entry in self.values:
             data[entry] = self.values[entry]
-        #print("AfpDialog_SimpleTransaction.execute_Ok:", self.changed_text, data)
+        print("AfpDialog_SimpleTransaction.execute_Ok:", self.changed_text, data)
         if data:
             data = self.complete_data(data)
             if self.data.is_new():
@@ -2521,7 +2522,9 @@ class AfpDialog_SingleTransaction(AfpDialog):
             else:
                 self.data.set_data_values(data)
         #return
-        if data or self.data_changed:
+        if data or self.data_copy:
+            if self.data_copy:
+                self.data.set_value("BuchungsNr", None)
             self.data.store()
     ## complete data before storing
     # @param data - dictionary of changed values
@@ -2568,6 +2571,7 @@ class AfpDialog_SingleTransaction(AfpDialog):
     # @param ed_flag - flag to turn editing on or off
     # @param lock_data - flag if invoking of dialog needs a lock on the database
     def Set_Editable(self, ed_flag, lock_data = None):
+        if self.readonly: return
         AfpDialog.Set_Editable(self, ed_flag, lock_data)
         if self.radio_EinAus.GetSelection():
             self.set_enable(self.text_GKonto, ed_flag)
@@ -2599,8 +2603,11 @@ class AfpDialog_SingleTransaction(AfpDialog):
             else:
                 self.intristic["FiEin"] = self.data.get_string_value("Betrag")
             self.Pop_intristic()
+            if not self.new and not self.data.get_globals().get_value("no_strict_accounting", "Finance"):
+                #print ("AfpDialog_SingleTransaction.On_Activate new:", self.new, self.data.is_new())
+                self.readonly = True
+        event.Skip()
                     
-        
     ## Event handler for date entry
     def On_Datum(self,event):
         if self.debug: print("Event handler `AfpDialog_SingleTransaction.On_Datum'")
@@ -2652,12 +2659,18 @@ class AfpDialog_SingleTransaction(AfpDialog):
             else:
                 self.text_Konto.SetValue(Afp_toString(konto))
         else:
+            if index:
+                self.text_GKonto.SetValue("8900")
+            else:
+                self.text_Konto.SetValue("4200")
             self.req_cancel = True
+        event.Skip()
 
    ## Event handler to modify statement
     def On_Auszug(self, event):
         if self.debug: print("Event handler `AfpDialog_SingleTransaction.On_Auszug'")
         print("Event handler `AfpDialog_SingleTransaction.On_Auszug'")
+        event.Skip()
    ## Event handler to get address for transaction
     def On_Adresse(self, event=None):
         if self.debug: print("Event handler `AfpDialog_SingleTransaction.On_Adresse'")
@@ -2693,23 +2706,20 @@ class AfpDialog_SingleTransaction(AfpDialog):
         if self.debug: print("AfpDialog_SimpleTransaction Event handler `On_Storno'")
         if not self.data.is_new():
             bem = self.text_Bem.GetValue()
-            if bem[:12] == "Stornierung:":
-                text = "Soll die aktuelle Stornierung zurückgenommen werden?"
-                storno = False
-            else:
-                text = "Soll die angezeigte Buchung storniert werden?"
-                storno = True
-            ok = AfpReq_Question(text, "", "Stornierung")
+            ok = AfpReq_Question( "Soll die angezeigte Buchung storniert werden?", "", "Stornierung")
             if ok:
                 if self.radio_EinAus.GetSelection():
                     self.text_Einnahme.SetValue(Afp_toString(-1*Afp_floatString(self.text_Einnahme.GetValue())))
+                    if not "FiEin" in self.changed_text: self.changed_text.append("FiEin")
                 else:
                     self.text_Ausgabe.SetValue(Afp_toString(-1*Afp_floatString(self.text_Ausgabe.GetValue())))
+                    if not "FiAus" in self.changed_text: self.changed_text.append("FiEin")
                 text = self.text_Bem.GetValue()
-                if storno:
-                    self.text_Bem.SetValue("Stornierung: " + text)
-                else:
-                    self.text_Bem.SetValue(text[12:].strip())
+                self.text_Bem.SetValue("Stornierung: " + text)
+                if not "FiBem" in self.changed_text: self.changed_text.append("FiBem")
+                self.data_copy = True
+                self.readonly = False
+                self.button_Storno.Enable(False)
             self.Set_Editable(True, True)
         event.Skip()
 
