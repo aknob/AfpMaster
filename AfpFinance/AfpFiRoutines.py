@@ -1502,6 +1502,12 @@ class AfpFinance(AfpFinanceTransactions):
             if "BuchungsNr" in parlist:
                 value = parlist["BuchungsNr"]
                 mainindex = "BuchungsNr"
+            elif "VorgangsNr" in parlist:
+                value = parlist["VorgangsNr"]
+                mainindex = "VorgangsNr"
+            elif "Beleg" in parlist:
+                value = parlist["Beleg"]
+                mainindex = "Beleg"
             elif "Auszug" in parlist:
                 self.auszug = parlist["Auszug"]
                 value = self.auszug
@@ -1510,15 +1516,9 @@ class AfpFinance(AfpFinanceTransactions):
                 self.batch = parlist["Stapel"]
                 value = self.batch
                 mainindex = "Reference"
-            elif "VorgangsNr" in parlist:
-                value = parlist["VorgangsNr"]
-                mainindex = "VorgangsNr"
             elif "KundenNr" in parlist:
                 value = parlist["KundenNr"]
                 mainindex = "KundenNr"
-            elif "Beleg" in parlist:
-                value = parlist["Beleg"]
-                mainindex = "Beleg"
             elif "Konto" in parlist:
                 value = parlist["Konto"]
                 mainindex = "Konto"
@@ -1870,6 +1870,11 @@ class AfpFinance(AfpFinanceTransactions):
     # @param ktname - short name of account, if given
     def get_last_auszug_row(self, ktname = None):
         row = None
+        if ktname is None:
+            ktname = Afp_getStartLetters(self.get_value("Auszug.AUSZUG"))
+            if ktname == "SALDO": ktname = None
+        if ktname is None:
+            ktname = Afp_getStartLetters(self.get_value("Reference"))
         if ktname is None:
             ktname = self.get_value("KtName.KTNR")
         lgh = len(ktname)

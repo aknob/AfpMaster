@@ -2555,17 +2555,24 @@ class AfpDialog_SingleTransaction(AfpDialog):
     ## swap payment data (Ein/Aus) neutral
     def swap_payment(self):
         kt = self.text_Konto.GetValue()
-        self.text_Konto.SetValue(self.text_GKonto.GetValue())
-        self.text_GKonto.SetValue(kt)
+        gkt = self.text_GKonto.GetValue()
         if self.radio_EinAus.GetSelection() == 0:
             if self.text_Einnahme.GetValue():
                 amount = -1*Afp_floatString(self.text_Einnahme.GetValue())
                 self.text_Ausgabe.SetValue(Afp_toString(amount))
+                self.text_Konto.SetValue(self.text_GKonto.GetValue())
+            else:
+                self.text_Konto.SetValue("")
+            self.text_GKonto.SetValue(kt)
             self.text_Einnahme.SetValue("")
         else:
             if self.text_Ausgabe.GetValue():
                 amount = -1*Afp_floatString(self.text_Ausgabe.GetValue())
                 self.text_Einnahme.SetValue(Afp_toString(amount))
+                self.text_GKonto.SetValue(self.text_Konto.GetValue())
+            else:
+                self.text_GKonto.SetValue("")
+            self.text_Konto.SetValue(gkt)
             self.text_Ausgabe.SetValue("")
     ## dis- or enable editing of dialog widgets, overwritten from AfpDialog
     # @param ed_flag - flag to turn editing on or off
@@ -2635,9 +2642,12 @@ class AfpDialog_SingleTransaction(AfpDialog):
    ## Event handler supply account information
     def On_Konten(self, event):
         if self.debug: print("Event handler `AfpDialog_SingleTransaction.On_Konten'")
+        #print("AfpDialog_SingleTransaction.On_Konten entry:", self.req_cancel)
         if self.req_cancel:
             self.req_cancel = False
+            event.Skip()
             return
+        self.req_cancel = True
         index = self.radio_EinAus.GetSelection()
         if index and self.text_GKonto.GetValue(): return
         if not index and self.text_Konto.GetValue(): return
@@ -2652,7 +2662,9 @@ class AfpDialog_SingleTransaction(AfpDialog):
             for row in rows:
                 liste.append(Afp_toString(row[0]) + " " + row[1])
                 ident.append(row[0])
+        #print("AfpDialog_SingleTransaction.On_Konten reqin:", self.req_cancel)
         konto, ok = AfpReq_Selection("Bitte das Buchhaltungskonto auswählen,", "dem diese Buchung zugeordnet werden soll", liste, "Auswahl Konten", ident)
+        #print("AfpDialog_SingleTransaction.On_Konten reqout:", konto, ok, self.req_cancel)
         if ok:
             if index:
                 self.text_GKonto.SetValue(Afp_toString(konto))
@@ -2663,7 +2675,7 @@ class AfpDialog_SingleTransaction(AfpDialog):
                 self.text_GKonto.SetValue("8900")
             else:
                 self.text_Konto.SetValue("4200")
-            self.req_cancel = True
+        #print("AfpDialog_SingleTransaction.On_Konten leave:", konto, ok, self.req_cancel)
         event.Skip()
 
    ## Event handler to modify statement

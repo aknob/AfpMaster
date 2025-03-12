@@ -316,8 +316,7 @@ class AfpFiScreen_Cash(AfpFiScreen):
         if auszug:
             data.set_value("Beleg", beleg)
             ok = AfpLoad_SingleTransaction(data,  True)
-            #ok = AfpLoad_SingleTransaction(data)    
-            print("AfpFiScreen.On_Neu ok:",  ok)     
+            #print("AfpFiScreen.On_Neu ok:",  ok)
             if ok:
                 self.sb.select_key(auszug, "Auszug", "AUSZUG")
                 self.set_current_record()
