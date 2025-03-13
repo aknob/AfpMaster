@@ -937,7 +937,7 @@ class AfpPaymentList(AfpSelectionList):
     def get_account(self):
         #print ("AfpPaymentList.get_account:",  self.account_field,  self.get_value(self.account_field))
         if self.account_field: 
-            KtNr = self.get_value(self.account_field)
+            KtNr = Afp_fromString(self.get_value(self.account_field))
         else:
             KtNr = "ERL"
         if not (Afp_isNumeric(KtNr)):

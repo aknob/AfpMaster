@@ -569,3 +569,9 @@ class AfpObligation(AfpPaymentList):
         paymentdata["GktName"] = self.get_name(True) 
         print("AfpObligation.add_payment_data:",paymentdata)
         return paymentdata
+    ## routine to retrieve payment data from SelectionList \n
+    # overwritten from AfpPaymentList
+    def get_payment_values(self):
+        preis, zahlung, datum = AfpPaymentList.get_payment_values(self)
+        if self.get_value("Zustand") == "Static": zahlung = 0.0
+        return preis, zahlung, datum

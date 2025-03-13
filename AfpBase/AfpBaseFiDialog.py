@@ -1485,6 +1485,9 @@ class AfpDialog_SimpleInvoice(AfpDialog):
         if self.debug: print("Event handler AfpDialog_SimpleInvoice.On_Original'")
         if self.oblig:
             self.handle_obligation_archiv()
+            if self.data_changed and self.data.get_value("Zustand") == "Static":
+                self.data.set_value("Zahlung", 0.0)
+                self.data.set_value("ZahlDat", None)
         else:
             print("Event handler`AfpDialog_SimpleInvoice.On_Original' not implemented!")
         event.Skip()
@@ -1507,11 +1510,6 @@ class AfpDialog_SimpleInvoice(AfpDialog):
             header = "Rechnungsausgang"
         print("AfpDialog_SimpleInvoice.On_drucken:", header, self.data.view())
         AfpLoad_DiReport(self.data, self.data.get_globals(), variables, header, prefix)
-        event.Skip()
-
-    ## dummy event handler for panel dialogs
-    def On_Dummy(self,event):
-        print("Event handler `On_Dummy' not implemented!")
         event.Skip()
 
 ## loader routine for simple Invoice dialog 
