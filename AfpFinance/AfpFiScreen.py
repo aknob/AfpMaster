@@ -97,6 +97,7 @@ class AfpFiScreen(AfpScreen):
         self.SetForegroundColour(wx.Colour(20, 19, 18))
         self.SetFont(self.font)
         self.Bind(wx.EVT_SIZE, self.On_ReSize)
+        self.Fit()
         if self.debug: print("AfpFiScreen Konstruktor")
     
     ## initialize widgets

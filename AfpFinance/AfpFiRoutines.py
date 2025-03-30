@@ -1702,7 +1702,7 @@ class AfpFinance(AfpFinanceTransactions):
         par = self.globals.get_value("import.csv.BANK", "Finance")
         info = self.globals.get_value("import.csv.info.BANK", "Finance")
         mark = self.globals.get_value("import.csv.marker.BANK", "Finance")
-        print ("AfpFinance.import_from_file:", fname, par, info, mark, fromdat, todat)
+        #print ("AfpFinance.import_from_file:", fname, par, info, mark, fromdat, todat)
         if not info: return
         data = AfpFinanceTransactions(self.globals, None, "BuchungsNr", self.period)
         imp = AfpImport(self.globals, fname, par, self.debug)
@@ -1712,7 +1712,7 @@ class AfpFinance(AfpFinanceTransactions):
         imp.set_csv_parameter(split[0],[split[1]], split[2])
         imp_data = imp.read_from_file(data)[0] 
         sel = imp_data.get_selection()
-        print ("AfpFinance.import_from_file data:", sel.data)
+        #print ("AfpFinance.import_from_file data:", sel.data)
         for i in range(sel.get_data_length()-1, -1, -1):
             date = sel.get_values("Datum", i)[0][0]
             if (fromdat and date <= fromdat) or (todat and date > todat):
@@ -1881,7 +1881,7 @@ class AfpFinance(AfpFinanceTransactions):
         rows = self.get_value_rows("Auszuege")
         anr = 0
         for r in rows:
-             if r[0][:lgh] == ktname:
+             if Afp_getStartLetters(r[0]) == ktname:
                 nr = Afp_fromString(r[0][lgh:])
                 if nr > anr:
                     anr = nr

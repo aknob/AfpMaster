@@ -936,6 +936,10 @@ class AfpCalendarEntries(object):
     ## get ftp-handler
     def get_ftp(self):
         return self.ftpcon
+    ## get globals
+    # needed to set up dialogs
+    def get_globals(self):
+        return None
     ## extrat date values from line
     # @param line - line where data should be extracted
     def get_date(self, line):

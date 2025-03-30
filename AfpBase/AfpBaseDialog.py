@@ -835,7 +835,7 @@ class AfpDialog(wx.Dialog):
         else:
             self.Populate()
         self.Set_Editable(edit, False)
-        if self.data.get_globals().get_value("readonly"):
+        if self.data.get_globals() and self.data.get_globals().get_value("readonly"):
             self.readonly = True
     ## central routine which returns if dialog is meant to be editable
     def is_editable(self):

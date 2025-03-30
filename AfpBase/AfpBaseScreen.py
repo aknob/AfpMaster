@@ -656,6 +656,7 @@ def Afp_loadScreen(globals, modulname, sb = None, origin = None, pos = None):
     if Modul:
         if pos:
             Modul.SetPosition(pos)
+            #print("Afp_loadScreen pos:", pos)
         Modul.init_database(globals, sb, origin)
         Modul.set_focus()
         Modul.Show()
