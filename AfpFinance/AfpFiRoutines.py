@@ -619,7 +619,7 @@ class AfpSEPAdd(AfpSelectionList):
     # @param interval - number of runs during a year for this SEPA direct debit account
     # @param actuel - actuel number of run in this year for this SEPA direct debit account
     def set_creditor_data(self, iban, bic, interval, actuel = None):
-        print("AfpSEPAdd.set_creditor_data:", iban, bic, interval, actuel)
+        #print("AfpSEPAdd.set_creditor_data:", iban, bic, interval, actuel)
         if iban:
             self.creditor_IBAN = iban.replace(" ","")
         if bic:
@@ -637,7 +637,7 @@ class AfpSEPAdd(AfpSelectionList):
     def read_creditor_data(self):
         self.creditor_Id = self.get_value("AttText.Kreditor")
         bank = self.get_value("Tag.Konto")
-        print ("AfpSEPAdd.read_creditor_data in:", self.creditor_Id, bank)
+        #print ("AfpSEPAdd.read_creditor_data in:", self.creditor_Id, bank)
         if bank: 
             split = bank.split(",") 
             if len(split) > 1:
@@ -647,16 +647,19 @@ class AfpSEPAdd(AfpSelectionList):
                     self.dd_interval = Afp_fromString(split[2].strip())
                     #self.set_period() # not needed, as only dd_interval is set
                     #month = self.get_globals().today().month # month count starting at 0
-                    month = self.get_globals().today().month-1 # month count starting at 0
+                    refday =self.get_globals().today()
+                    if self.get_globals().get_value("sepa-early-dd", "Finance"):
+                        refday =Afp_addDaysToDate(refday, self.get_globals().get_value("sepa-early-dd", "Finance"))
+                    month = refday.month-1 # month count starting at 0
                     div = 12/self.dd_interval
                     self.dd_actuel = int(month/div) + 1
-        print ("AfpSEPAdd.read_creditor_data out:", self.creditor_Id, self.creditor_IBAN,self.creditor_BIC, self.dd_interval, self.dd_actuel)
+        #print ("AfpSEPAdd.read_creditor_data out:", self.creditor_Id, self.creditor_IBAN,self.creditor_BIC, self.dd_interval, self.dd_actuel)
  
     ## get date of last SEPA Direct Debit run 
     def read_last_run(self):    
         rows = self.get_value_rows("Execution", "Datum")
         datum = None
-        print ("AfpSEPAdd.read_last_run:", rows)
+        #print ("AfpSEPAdd.read_last_run:", rows)
         for row in rows:
             if datum is None: datum = row[0]
             elif row[0] > datum: datum = row[0]
@@ -672,6 +675,8 @@ class AfpSEPAdd(AfpSelectionList):
         selection = self.get_selection("Mandat")
         #print ("AfpSEPAdd.gen_mandat_data selection:", selection.data)
         rows = selection.get_values("KundenNr,Datum,TabNr,Gruppe,Bem")
+        #print ("AfpSEPAdd.gen_mandat_data lgh:", len(rows), self.datafields["total"], self.datafields["regular"])
+        #print ("AfpSEPAdd.gen_mandat_data rows:", rows)
         self.temp = []
         self.newtemp = []
         self.clients = []
@@ -684,6 +689,8 @@ class AfpSEPAdd(AfpSelectionList):
             client = self.data.get_client(row[2])
             payed = client.get_value("Zahlung") 
             if payed is None: payed = 0.0
+            #print ("AfpSEPAdd.gen_mandat_data client:", client.get_name(), client.get_value())
+            #print ("AfpSEPAdd.gen_mandat_data client:", client.get_value(clientid), IdNr, client.get_value(clientid) == IdNr, payed, client.get_value(self.datafields["total"]), payed < client.get_value(self.datafields["total"]) )
             if client.get_value(clientid) == IdNr and payed < client.get_value(self.datafields["total"]):
                 self.client_bic[row[0]] = row[3]
                 self.client_iban[row[0]] = row[4]

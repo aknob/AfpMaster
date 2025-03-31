@@ -2086,7 +2086,7 @@ class AfpDialog_SEPA(AfpDialog):
         else:
             ok = self.data.prepare_xml()
             if ok: self.clients, self.newclients = self.data.get_clients()
-            #print ("AfpDialog_SEPA.On_Load:", ok, self.newclients, self.clients)
+            #print ("AfpDialog_SEPA.On_Load:", ok, len(self.newclients), len(self.clients))
             if self.clients or self.newclients:
                 self.client_value_field = self.data.get_client_fieldname("actuel")
                 self.xml_data_loaded = True
