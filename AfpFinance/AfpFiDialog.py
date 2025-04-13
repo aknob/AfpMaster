@@ -674,7 +674,7 @@ class AfpDialog_FiBuchung(AfpDialog):
 
     ## population routine for statement of accouns
     def Pop_Auszug(self):
-        print("AfpDialog_FiBuchung.Pop_Auszug:", self.data.get_auszug())
+        #print("AfpDialog_FiBuchung.Pop_Auszug:", self.data.get_auszug())
         if self.data.get_auszug()[0]:
             sum = self.data.gen_bank_sum()
             label = self.data.get_string_value("StartSaldo.Auszug")  + "\n" + Afp_toString(sum)
@@ -1063,7 +1063,7 @@ class AfpDialog_FiBuchung(AfpDialog):
         object = event.GetEventObject()
         name = object.GetName()
         value = self.read_account(object)
-        print ("AfpDialog_FiBuchung.Check_Konten:", name, value, self.flavour)
+        #print ("AfpDialog_FiBuchung.Check_Konten:", name, value, self.flavour)
         #wx.CallAfter(object.SetValue, Afp_toString(value))
         if self.data.get_main_bankaccount() != self.data.get_bank() and not self.data.is_cash():
             if name == "Soll" and value and self.soll_default is None:
@@ -2086,7 +2086,7 @@ class AfpDialog_SEPA(AfpDialog):
         else:
             ok = self.data.prepare_xml()
             if ok: self.clients, self.newclients = self.data.get_clients()
-            #print ("AfpDialog_SEPA.On_Load:", ok, self.newclients, self.clients)
+            #print ("AfpDialog_SEPA.On_Load:", ok, len(self.newclients), len(self.clients))
             if self.clients or self.newclients:
                 self.client_value_field = self.data.get_client_fieldname("actuel")
                 self.xml_data_loaded = True

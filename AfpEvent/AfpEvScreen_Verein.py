@@ -2280,7 +2280,7 @@ class AfpDialog_EvMemberEdit(AfpDialog_EvClientEdit):
     # @param event - event which initiated this action   
     def On_ZahlungsArt(self,event):
         if self.debug: print("AfpDialog_EvMemberEdit Event handler `On_ZahlungsArt'")
-        if self.data.get_value("Preis") < 0.01:
+        if self.data.get_value("Preis") < 0.01 and self.data.get_value("Bezeichnung.Preis") == "Familienmitglied":
             AfpReq_Info("Keine Beitragszahlungen von " + self.data.get_name() + "!","Zahlungsart bitte über Hauptzahler ändern.", "Familienanmeldung!")
             self.combo_ZArt.SetValue("")
         else:
