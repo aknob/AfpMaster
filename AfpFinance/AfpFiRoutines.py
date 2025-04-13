@@ -2409,8 +2409,6 @@ class AfpFinanceBalances(AfpSelectionList):
         self.selects["Salden"] = [ "AUSZUG","Period = \"" + self.period + "\" AND Auszug = \"SALDO\""] 
         self.store_salden()
         if self.globals.get_value("actuel-transaction-period","Finance"):
-            #self.globals.set_value("actuel-transaction-period", self.period,"Finance")
-            #self.globals.modify_config("Finance", ["actuel-transaction-period"])
             self.globals.modify_config(["actuel-transaction-period"], [self.period], "Finance")
                  
 ## class to export financial transactions

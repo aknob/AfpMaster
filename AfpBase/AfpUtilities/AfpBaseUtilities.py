@@ -637,10 +637,11 @@ def Afp_genEmptyFile(filename):
     fout = open(filename, 'w')
     fout.write(" ")
     fout.close()
-## generate an empty file
+## read all lines from a file
 # @param filename - name of file
 # @param max - if given, maximum numer of lines read
 def Afp_readLinesFromFile(filename, max = None):
+    #print ("Afp_readLinesFromFile:", filename, max)
     fin = open(filename, 'r')
     cnt = 0
     lines = []
