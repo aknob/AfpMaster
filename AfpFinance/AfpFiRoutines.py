@@ -1848,6 +1848,7 @@ class AfpFinance(AfpFinanceTransactions):
     ## return identierfier of statement of account, if available
     # @param ende - flag if enddate and endsaldo should be returned
     def get_auszug(self, ende = False):
+        auszug = None
         dat = None
         sald = None
         #print("AfpFinance.get_auszug:", self.auszug, self.get_value("Auszug.AUSZUG"))
@@ -1861,9 +1862,10 @@ class AfpFinance(AfpFinanceTransactions):
                 sald = self.get_value("StartSaldo.AUSZUG")  
         elif self.auszug is None:
             row = self.get_last_auszug_row()
-            auszug = row[0]
-            dat = row[2]
-            sald = row[4]
+            if row:
+                auszug = row[0]
+                dat = row[2]
+                sald = row[4]
         #print("AfpFinance.get_auszug:", self.auszug, dat, sald, self.get_selection("AUSZUG").data)
         return auszug, dat, sald
     ## return last used statement row of account, if available
@@ -2140,8 +2142,33 @@ class AfpFinance(AfpFinanceTransactions):
                     changed = True
                     #print "AfpFinance.set_balance_salden resetted:", ktnr, salden[ktnr]
         return changed
+    ## load transactions desingnated for export
+    # @param date - if given, all transactions having the given export date are kept
+    def only_export_candidates(self, date = None):
+        data = self.get_selection("BUCHUNG")
+        if not date:
+            date = self.get_globals().today()
+        sel = self.selects["BUCHUNG"][1] + " AND (Expo IS NULL OR Expo >= " + Afp_toInternDateString(date) + ")"
+        data.load_data(sel)
+    ## set actuel date to mark transactions as exported 
+    def set_export_date(self):
+        today = self.get_globals().today()
+        data = self.get_selection("BUCHUNG")
+        lgh = data.get_data_length()
+        inds = data.get_feldindices("Expo")
+        for i in range(lgh):
+            data.data[i][inds[0]] = today
+     ## prepare data to be absorbed 
+    def prepare_import(self):
+        data = self.get_selection("BUCHUNG")
+        lgh = data.get_data_length()
+        inds = data.get_feldindices("BuchungsNr,Expo")
+        for i in range(lgh):
+            data.data[i][inds[0]] = None
+            data.data[i][inds[1]] = None
+      
     ## remove transactions, that are already recorded in database
-    # @para filter - filter to be handled in an 'if' statement, default: 'BuchungsNr' - already recorded bookings
+    # @param filter - filter to be handled in an 'if' statement, default: 'BuchungsNr' - already recorded bookings
     def remove_bookings(self, filter = "BuchungsNr"):
         print ("AfpFinance.remove_bookings:", filter)
 
@@ -2213,6 +2240,7 @@ class AfpFinanceBalances(AfpSelectionList):
     ## initialize class
     # @param globals - global values including the mysql connection - this input is 
     # @param period - if given, period marker for transactions
+    # @param mandant - if given, identifier for active mandant (currently not implemented)
     def  __init__(self, globals, period = None, mandant=None):
         AfpSelectionList.__init__(self, globals, "BUCHUNG", globals.is_debug())
         self.mandant = mandant

@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 ## @package AfpFinance.AfpFiScreen_Chash
@@ -281,8 +282,10 @@ class AfpFiScreen_Cash(AfpFiScreen):
     def On_Neu(self,event):
         if self.debug: print("AfpFiScreen_Cash Event handler `On_Neu'")
         period = self.data.get_period()
-        konto = self.data.get_string_value("KtNr.KTNR")
-        ktname =  self.data.get_string_value("KtName.KTNR")
+        #konto = self.data.get_string_value("KtNr.KTNR")
+        konto = self.data.get_string_value("KtNr.Konto")
+        #ktname =  self.data.get_string_value("KtName.KTNR")
+        ktname =  self.data.get_string_value("KtName.Konto")
         auszug, dat, saldo = self.data.get_auszug(True)
         beleg = self.data.gen_next_rcptnr()
         data = AfpFinanceSingleTransaction(self.get_globals(), None, period)
