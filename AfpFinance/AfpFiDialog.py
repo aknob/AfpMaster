@@ -1478,7 +1478,6 @@ class AfpDialog_FiBuchung(AfpDialog):
             imp = AfpImport(globals, fname, None, self.debug)
             header = imp.get_file_header()
             ident = self.identify_file_header(header)
-            split_data = False
             #print("AfpDialog_FiBuchung.On_Load SEPA:", fname, header, ident)
             if "SEPA" in ident:
                 if not (datum and beleg and auszug):
@@ -1507,7 +1506,7 @@ class AfpDialog_FiBuchung(AfpDialog):
                     datas[0].set_value("Art", self.combo_Vorgang.GetValue())
                     self.import_line = None
                     self.set_entries_from_import()
-            self.data.booking_absorber(datas[0], split_data)
+            self.data.booking_absorber(datas[0])
             self.Pop_Buchung()
             self.Pop_Auszug()
             BNr = self.data.gen_next_rcptnr()
@@ -2081,7 +2080,7 @@ class AfpDialog_SEPA(AfpDialog):
             if ok and fname:
                 imp = AfpImport(self.data.get_globals(), fname, None, self.debug)
                 datas = imp.read_from_file()            
-                self.data.booking_absorber(datas[0], False)
+                self.data.booking_absorber(datas[0])
                 refresh = True
         else:
             ok = self.data.prepare_xml()

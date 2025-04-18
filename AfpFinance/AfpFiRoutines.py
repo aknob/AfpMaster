@@ -2149,31 +2149,6 @@ class AfpFinance(AfpFinanceTransactions):
                     changed = True
                     #print "AfpFinance.set_balance_salden resetted:", ktnr, salden[ktnr]
         return changed
-    ## load transactions desingnated for export
-    # @param date - if given, all transactions having the given export date are kept
-    def only_export_candidates(self, date = None):
-        data = self.get_selection("BUCHUNG")
-        if not date:
-            date = self.get_globals().today()
-        sel = self.selects["BUCHUNG"][1] + " AND (Expo IS NULL OR Expo >= " + Afp_toInternDateString(date) + ")"
-        data.load_data(sel)
-    ## set actuel date to mark transactions as exported 
-    def set_export_date(self):
-        today = self.get_globals().today()
-        data = self.get_selection("BUCHUNG")
-        lgh = data.get_data_length()
-        inds = data.get_feldindices("Expo")
-        for i in range(lgh):
-            data.data[i][inds[0]] = today
-     ## prepare data to be absorbed 
-    def prepare_import(self):
-        data = self.get_selection("BUCHUNG")
-        lgh = data.get_data_length()
-        inds = data.get_feldindices("BuchungsNr,Expo")
-        for i in range(lgh):
-            data.data[i][inds[0]] = None
-            data.data[i][inds[1]] = None
-      
     ## remove transactions, that are already recorded in database
     # @param filter - filter to be handled in an 'if' statement, default: 'BuchungsNr' - already recorded bookings
     def remove_bookings(self, filter = "BuchungsNr"):
@@ -2181,9 +2156,8 @@ class AfpFinance(AfpFinanceTransactions):
 
     ## absorb finance bookings from another AfpFinance object
     # @param object - AfpFinance object where to absorb data
-    # @param splitting - flag if split-bookings should be invoked
-    def booking_absorber(self, object, splitting=False):
-        #print "AfpFinance.booking_absorber:", type(self), type(object), object.get_value_length("BUCHUNG")
+    def booking_absorber(self, object):
+        #print ("AfpFinance.booking_absorber:", type(self), type(object), object.get_value_length("BUCHUNG"))
         if type(self) == type(object) and object.get_value_length("BUCHUNG"):
             if self.client_factory:
                 rows = object.get_value_rows("BUCHUNG", "Tab,TabNr,Art,Betrag")
@@ -2439,102 +2413,134 @@ class AfpFinanceBalances(AfpSelectionList):
         if self.globals.get_value("actuel-transaction-period","Finance"):
             self.globals.modify_config(["actuel-transaction-period"], [self.period], "Finance")
                  
-## class to export financial transactions
-class AfpFinanceExport(AfpSelectionList):
+## class to export and import financial transactions
+class AfpFinanceExchange(AfpFinance):
     ## initialize class
     # @param globals - global values including the mysql connection - this input is mandatory
-    # @param period - if given, [startdate, enddate] for data to be exported otherwise selectionlists must be given
-    # @param selectionlists - if given and no period given, SelectionLists holding the data to be exported
-    # @param only_payment - flag if only payments shouzld be extracted
-    # - None: all entries are extracted
-    # - False: only internal transitions are extracted
-    # - True: only payments are extracted
-    def  __init__(self, globals, period, selectionlists = None, only_payment = None):
-        AfpSelectionList.__init__(self, globals, "Export", globals.is_debug())
-        self.filename = None
-        self.type = None
-        self.information = None
-        self.finance = None
-        self.singledate = None
-        self.selectionlists = selectionlists
-        self.use_payments = True
-        self.use_transactions = True
-        if only_payment:
-            self.use_transactions = False
-        if period:
-            if selectionlists: print("WARNING:AfpFinanceExport selectionlist given - only period used!")
-            self.period  = period
-            if len(period) == 1: self.singledate = period[0]
-        else:
-            if not selectionlists: print("WARNING:AfpFinanceExport no selectionlist and no period given!")
-            self.singledata = globals.today()
-        if self.singledate:
-            # in case of a single date look for transactions already exported at that date
-            self.selects["BUCHUNG"] = [ "BUCHUNG", self.set_period_select("Export")]   
-        else:
-            # otherwise for transaction becoming valid in this period
-            self.selects["BUCHUNG"] = [ "BUCHUNG", self.set_period_select("Datum")]   
-        self.mainselection = "BUCHUNG"
+    # @param period_input - if given, period marker for transactions
+    def  __init__(self, globals, period_input = None, parlist = None, mandant = None):   
+        AfpFinance.__init__(self, globals, period_input)
+        self.imp_obj = None # AfpFinance object to be imported
+        self.imp_refs = None # references of imported accounts
+        self.imp_checks = None # list of indices, which transactions may be already in the journal
         if self.debug: print("AfpFinanceExport Konstruktor")
     ## destructor
     def __del__(self):    
         if self.debug: print("AfpFinanceExport Destruktor")
-    ## compose the period select string
-    # @param field - name of tablefield to be involved in this selection
-    def set_period_select(self, field):
-        select = ""
-        if self.singledate:
-            select = field + " = \"" + Afp_toInternDateString(self.singledate)  + "\""
-        else:  
-            select =  field + " >= \"" + Afp_toInternDateString(self.period[0]) + "\" AND " 
-            select +=   field + " <= \"" + Afp_toInternDateString(self.period[1]) + "\""
-            select = "!"+ select
-        return select
-    ## set output files
-    # @param filename - name of file where data should be written (see AfpBaseRoutines.AfpExport)
-    # @param template - if given, name of templatefile to be used for output (only used for dbf output)
-    def set_output(self, filename, template):
-        self.filename = filename
-        self.type = filename.split(".")[-1]
-        #print"AfpFinanceExport.set_output:", template, Afp_existsFile(template)
-        if Afp_existsFile(template):
-            self.information = template
-    ## set information data for export
-    # @param info - information data (see AfpBaseRoutines.AfpExport)
-    def set_information(self, info):
-        self. information = info
-    ## actually generate transactions to be exported
-    def generate_transactions(self):
-        if self.selectionlists:
-            self.finance = AfpFinanceTransactions(self.globals)
-            for liste in self.selectionlists:
-                sellist = self.selectionlists[liste]
-                if sellist:
-                    if self.use_transactions:
-                        self.finance.add_financial_transactions(sellist)
-                    if self.use_payments:
-                        self.finance.add_payment_transactions(sellist)
-    ## get the appropriate table selections
-    def get_accounting(self):
-        #print "AfpFinanceExport.get_accounting:", self.mainselection, self.selects, self.selections
-        if self.finance:
-            return self.finance.get_selection()
-        else:
-            return self.get_selection()
+    ## load transactions desingnated for export
+    # @param date - if given, all transactions up to the given date are kept
+    # @param expo - if given, all transactions having the given export date or later, are kept
+    def only_export_candidates(self, date = None, expo = None):
+        data = self.get_selection("BUCHUNG")
+        if date is None or expo is None:
+            today = self.get_globals().today()
+            if not date: date = today
+            if not expo: expo = today
+        sel = self.selects["BUCHUNG"][1] + " AND Datum <= '" + Afp_toInternDateString(date) + "' AND (Expo IS NULL OR Expo >= '" + Afp_toInternDateString(expo) + "')"
+        #print("AfpFinanceExchange.only_export_candidates:", date, expo, sel)
+        data.load_data(sel)
+    ## set actuel date to mark transactions as exported 
+    def set_export_date(self):
+        today = self.get_globals().today()
+        data = self.get_selection("BUCHUNG")
+        lgh = data.get_data_length()
+        inds = data.get_feldindices("Expo")
+        for i in range(lgh):
+            data.data[i][inds[0]] = today
     ## perform export
-    def export(self):
-        if self.selectionlists:
-            self.generate_transactions()
-        select = self.get_accounting()            
-        Export = AfpExport(self.get_globals(), select, self.filename, self.debug)
-        vname = "export." + self.type 
-        #print "AfpFinanceExport.export:", vname
-        append =  Afp_ArrayfromLine(self.get_globals().get_value(vname + ".ADRESSE", "Finance"))
-        Export.append_data(append)
-        fieldlist =  Afp_ArrayfromLine(self.get_globals().get_value(vname, "Finance"))
-        if not self.information:
-            self.information = self.get_globals().get_value(vname + ".info", "Finance")
-        Export.write_to_file(fieldlist, self.information)
+    # @param fname - name of  file for export
+    # @param date - if given, all transactions up to the given date exported
+    def perform_export(self, fname, date = None):
+        self.only_export_candidates(date)
+        Export = AfpExport(self.get_globals(), self, fname, self.debug)
+        Export.write_to_file(None, 4) 
+        self.set_export_date()
+        self.store()
+    ## prepare data to be absorbed 
+    # @param account - if given, number of actuel import account
+    def prepare_import_data(self, account = None):
+        main = self.get_main_bankaccount()
+        print("AfpFinanceExchange.prepare_import accounts:", self.konto, self.bank, self.main_bankaccount, self.transfer)
+        acc = None
+        if account: acc = account - int(main/100)*100
+        data = self.get_selection("BUCHUNG")
+        lgh = data.get_data_length()
+        inds = data.get_feldindices("BuchungsNr,Datum,Konto,Gegenkonto,Beleg,Reference,Expo")
+        dmin = self.get_globals().today()
+        dmax = Afp_minDate()
+        references = {}
+        refs = []
+        checks = []
+        for i in range(lgh):
+            data.data[i][inds[0]] = None
+            data.data[i][inds[-1]] = None
+            #if ref: data.data[i][inds[4]] = ref
+            dat = data.data[i][inds[1]]
+            if dat < dmin: dmin = dat
+            if dat > dmax: dmax = dat
+            if  data.data[i][inds[2]] == main:
+                data.data[i][inds[2]] = self.transfer
+                checks.append(i)
+            if  data.data[i][inds[3]] == main:
+                data.data[i][inds[3]] = self.transfer
+                checks.append(i)
+            if not acc is None: data.data[i][inds[4]] = Afp_toNumericString(acc + Afp_fromString(data.data[i][inds[4]])/1000)
+            if not data.data[i][inds[5]]  in refs: refs.append(data.data[i][inds[5]])
+        if "AUSZUG" in self.selections:
+            ind = self.get_selection("AUSZUG").get_feldindices("Auszug")[0]
+            rows = self.get_value_rows("AUSZUG")
+            for row in rows:
+                for ref in refs:
+                    if ref == row[ind]:
+                        references[ref] = row
+            for ref in refs:
+                if not ref in references:
+                    print("WARNING: statement of account '" + ref + "' has not been exported!")
+        return dmin, dmax, references, checks
+    ## check if transaction is already recorded in database, return identifier
+    # @param row - list holding [Datum,Konto,Gegenkonto,Betrag] of the transaction
+    def booking_found(self, row):
+        sel = "SELECT BuchungsNr,VorgangsNr FROM BUCHUNG WHERE Datum = '" + Afp_toInternDateString(row[0]) + "' AND Konto = " + Afp_toString(row[1]) + " AND Gegenkonto = " + Afp_toString(row[2])  + " AND Betrag = " + Afp_toString(row[3])
+        res = self.get_mysql().execute(sel)[0]
+        if self.debug:  print ("AfpFinance.booking_found:", sel, res)
+        #print ("AfpFinance.booking_found:", sel, res)
+        return res[0], res[1]
+    ## absorb finance bookings from a AfpFinance object
+    # overwritten from AfpFinance
+    # @param object - AfpFinance object where to absorb data
+    def booking_absorber(self, object):
+        if self.imp_checks:
+            for check in self.imp_checks:
+                bnr, vnr = self.booking_found(object.get_value_rows("BUCHUNG", "Datum,Konto,Gegenkonto,Betrag", check)[0])
+                if bnr:
+                    change = {"BuchungsNr": bnr}
+                    if vnr: change["VorgangsNr"] = vnr
+                    object.set_data_values(change, "BUCHUNG", check)
+        AfpFinance.booking_absorber(self, object)
+    ## prepare import
+    # @param fname - name of  file to be imported
+    # @param acc - if given, number of actuel import account
+    def prepare_import(self, fname, acc = None):
+        imp = AfpImport(self.get_globals(), fname, None, self.debug)
+        self.imp_obj = imp.read_from_file()[0]
+        dmin, dmax, self.imp_refs,  self.imp_checks = self.imp_obj.prepare_import_data(acc)
+        print("AfpFinanceExchange.prepare_import:", dmin, dmax, self.imp_refs, self.imp_checks)
+        return dmin, dmax
+    ## perform import
+    def perform_import(self):
+        self.booking_absorber(self.imp_obj)
+        # To Do: work on self.imp_refs
+        if self.imp_refs:
+            auszug =  self.get_selection("AUSZUG")
+            loc_refs = auszug.get_values("Auszug") 
+            for i in range(len(loc_refs)):
+                loc_refs[i] = loc_refs[i][0] 
+            for ref in self.imp_refs:
+                if not ref in loc_refs:
+                    auszug.add_row(self.imp_refs[ref])
+        self.store()
+
+
 
 ## class holding sorted invoices
 class AfpBulkInvoices(AfpOrderedList):
