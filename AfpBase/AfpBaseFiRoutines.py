@@ -561,12 +561,12 @@ class AfpObligation(AfpPaymentList):
     # has to return the account number this payment has to be charged ("Gegenkonto")
     # @param paymentdata - payment data dictionary to be modified and returned
     def add_payment_data(self, paymentdata):
-        paymentdata["Gegenkonto"] = self.get_value("Kreditor") 
-        if not paymentdata["Gegenkonto"]:
-            paymentdata["Gegenkonto"]  = self.get_value("Kontierung")
-        if not paymentdata["Gegenkonto"]:
-            paymentdata["Gegenkonto"]  = Afp_getIndividualAccount(self.get_mysql(), self.get_value("KundenNr"))
-        paymentdata["GktName"] = self.get_name(True) 
+        paymentdata["Konto"] = self.get_value("Kreditor")
+        if not paymentdata["Konto"]:
+            paymentdata["Konto"]  = self.get_value("Kontierung")
+        if not paymentdata["Konto"]:
+            paymentdata["Konto"]  = Afp_getIndividualAccount(self.get_mysql(), self.get_value("KundenNr"))
+        paymentdata["KtName"] = self.get_name(True)
         print("AfpObligation.add_payment_data:",paymentdata)
         return paymentdata
     ## routine to retrieve payment data from SelectionList \n

@@ -495,6 +495,7 @@ class AfpAdScreen(AfpScreen):
         data = self.get_data()
         if data:
             variables = {}
+            variables["Today"] = data.get_globals().today_string()
             prefix = data.get_listname() + "_"
             header = "Adressen" 
             #print ("AfpAdScreen.On_Adresse_Doku:", prefix, header, variables)

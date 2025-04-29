@@ -937,7 +937,7 @@ class AfpSQLTableSelection(object):
     def spread_collection_indicators(self, feldname, indicator):
         lgh = self.get_data_length()
         cache = {}
-        print ("AfpSQLTableSelection.spread_collection_indcators input:", feldname, indicator, lgh)
+        #print ("AfpSQLTableSelection.spread_collection_indcators input:", feldname, indicator, lgh)
         for row in range(0,lgh):
             ind = self.get_values(indicator, row)[0][0] 
             if ind:
@@ -946,7 +946,7 @@ class AfpSQLTableSelection(object):
                 else:
                     value = self.get_values(feldname, row)[0][0] 
                     cache[ind] = value
-                print ("AfpSQLTableSelection.spread_collection_indcators:", row, ind, value, cache)
+                #print ("AfpSQLTableSelection.spread_collection_indcators:", row, ind, value, cache)
                 if ind != value:
                     self.set_value(indicator, value, row)
     ## spread value of indicated column to all rows

@@ -1000,7 +1000,7 @@ class AfpPaymentList(AfpSelectionList):
     # routines to be overwritten in devired class
     #
     ## extract payment relevant data from SelectionList for 'Finance' modul (onlý needed if bookkeeping is considered)
-    # has to return the account number this payment has to be charged ("Gegenkonto")
+    # has to return the account number this payment has to be charged ("Konto" resp. "Gegenkonto")
     # @param paymentdata - payment data dictionary to be modified and returned
     def add_payment_data(self, paymentdata):
         print("AfpPaymentList.add_payment_data not implemented for list:", self.listname)

@@ -1883,7 +1883,9 @@ class AfpFinance(AfpFinanceTransactions):
             ktname = Afp_getStartLetters(self.get_value("Auszug.AUSZUG"))
             if ktname == "SALDO": ktname = None
         if ktname is None:
-            ktname = Afp_getStartLetters(self.get_value("Reference"))
+            ref = self.get_value("Reference")
+            if ref:
+                ktname = Afp_getStartLetters(ref) 
         if ktname is None:
             ktname = self.get_value("KtName.KTNR")
         lgh = len(ktname)

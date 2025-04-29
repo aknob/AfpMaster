@@ -976,7 +976,10 @@ class AfpDialog_FiBuchung(AfpDialog):
     # if already used booking numbers are lower 1000
     def get_next_sequence(self):
         if self.sequence is None:
-            if self.data.gen_next_rcptnr() < 1000:
+            sel = "SELECT MAX(BuchungsNr) FROM BUCHUNG"
+            BNr = self.data.get_mysql().execute(sel)[0][0]
+            print ("AfpDialog_FiBuchung.get_next_sequence:", sel, BNr)
+            if BNr < 1000:
                 self.sequence = 2000
             else:
                 self.sequence = 0
