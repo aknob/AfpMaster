@@ -2167,7 +2167,7 @@ class AfpFinance(AfpFinanceTransactions):
                 splist = []
                 for i in range(len(rows)):
                     row = rows[i]
-                    if splitting and row[0] and row[1] and row[2] != "Intern":
+                    if row[0] and row[1] and row[2] != "Intern":
                         client = self.get_client(row[1])
                         split = client.get_splitting_values(row[3]) 
                         #print "AfpFinance.booking_absorber rows:", split, row[0], client.get_mainselection(), row[0] == client.get_mainselection(), client.get_listname()
