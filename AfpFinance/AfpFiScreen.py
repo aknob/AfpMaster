@@ -63,6 +63,7 @@ class AfpFiScreen(AfpScreen):
         AfpScreen.__init__(self,None, -1, "")
         self.typ = "Finance"
         self.flavour = None
+        self.title_buffer = None
         #self.einsatz = None # to invoke import of 'Einsatz' modules in 'init_database'
         self.slave_data = None
         self.grid_rows["Bookings"] = 14 
@@ -90,7 +91,6 @@ class AfpFiScreen(AfpScreen):
         self.mandant = None
         if debug: self.debug = debug
         # self properties
-        self.SetTitle("Afp Finance")
         self.initWx()
         self.SetSize((800, 600))
         self.SetBackgroundColour(wx.Colour(192, 192, 192))
@@ -356,7 +356,7 @@ class AfpFiScreen(AfpScreen):
         s_key = self.sb.get_value("KtNr")        
         period = self.get_period()
         value = self.combo_Filter.GetValue()
-        #print "AfpFiScreen.On_Filter:", period, value  
+        #print ("AfpFiScreen.On_Filter:", period, value)Q
         if self.debug: print("AfpFiScreen.On_Filter:", period, value)   
         if value == "Ausgang" or value == "Eingang":
             if value == "Eingang":
@@ -384,6 +384,9 @@ class AfpFiScreen(AfpScreen):
             master = "KTNR"
         elif value == "Auszug":
             filter += " AND NOT Auszug = \"SALDO\""
+        elif value == "Journal":
+            if not self.title_buffer: self.title_buffer = self.Title
+            self.SetTitle("Journal ... lädt!")
         self.sb.select_where("", None, self.sb_master) # clear old filter
         if self.sb_master != master:
             self.sb_master = master
@@ -393,6 +396,7 @@ class AfpFiScreen(AfpScreen):
         self.sb.select_current()
         self.grid_scrollback()
         self.CurrentData()
+        if value == "Journal": self.SetTitle(self.title_buffer)
         if event: event.Skip()    
  
     ## Eventhandler COMBOBOX - sort index
@@ -470,16 +474,22 @@ class AfpFiScreen(AfpScreen):
         self.grid_scrollback()
         filter = self.combo_Filter.GetValue()
         if filter == "Journal":
+            if not self.title_buffer: self.title_buffer = self.Title
             period = self.combo_Period.GetValue()
+            if self.search: text = self.search
+            else: text = ""
             self.search = None
-            text = ""
-            text, ok = AfpReq_Text("Bitte Begriff eingeben welcher ausgewählt werden soll.","Leere Eingabe lädt komplettes Journal.", text, "Buchungsauswahl")
+            text, ok = AfpReq_Text("Bitte Begriff eingeben welcher ausgewählt werden soll.","Leere Eingabe oder 'Abbrechen' lädt komplettes Journal.", text, "Buchungsauswahl")
             if ok and text:
+                self.SetTitle("Filter: \"" + text + "\" ... lädt!")
                 self.search = text
                 self.Populate()
+                self.SetTitle("Filter: \"" + text + "\"")
             elif not self.search_indices is None:
+                self.SetTitle("Journal ... lädt!")
                 self.search_indices = None
                 self.Populate()
+                if self.title_buffer: self.SetTitle(self.title_buffer)
                 #print ("AfpFiScreen.On_Ausw:", filter, text, BNr)
         elif filter == "Auszug":
             ok, out, dum = AfpFinance_selectStatement(self.globals.get_mysql(),  self.get_period(), None, None, None)
