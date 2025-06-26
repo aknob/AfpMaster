@@ -15,6 +15,7 @@
 # - AfpSuperbase
 #
 #   History: \n
+#        26 Jum. 2025 - keep limit od database call constant for inner offset movement in 'select_plus_step' - Andreas.Knoblauch@afptech.de \n
 #        30 Dez. 2021 - conversion to python 3 - Andreas.Knoblauch@afptech.de \n
 #        15 Nov. 2018 - remove deprecated function 'Afp_extractValues' - Andreas.Knoblauch@afptech.de \n
 #        20 Jan. 2015 - add array cache for next step selection \n
@@ -533,7 +534,8 @@ class AfpSbIndex(object):
         index_clause = self.gen_index_clause(in_step < 0)
         where_clause = ""
         if not self.where is None: where_clause = "(" + self.where + ") and "
-        anz = self.imaxident + step
+        anz = self.imaxident
+        if offset + step > anz: anz = offset + step
         while anz > 0:          
             limit =  (" LIMIT 0,%d") % anz
             Befehl = "SELECT * FROM " + self.db + "." + self.datei +" WHERE "+ where_clause + index_clause + limit
