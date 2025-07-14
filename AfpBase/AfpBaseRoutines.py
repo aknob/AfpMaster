@@ -1122,6 +1122,7 @@ class AfpExport(object):
         self.filename = filename
         self.fieldlist = None
         self.xml_embedded_data = None
+        self.xml_force_utf8 = False
         self.information = None
         self.export_available = False
         self.module = None
@@ -1141,6 +1142,9 @@ class AfpExport(object):
     ## destructor
     def __del__(self):   
         if self.debug: print("AfpExport Destruktor") 
+    ## assure utf-8 coding is used for xml-export
+    def force_utf(self):
+         self.xml_force_utf8 = True
     ## add embedded data to
     # @param propname - name of self.data property holding the data to be embbeded into output
     def add_embedded_data(self, propname):
@@ -1273,8 +1277,10 @@ class AfpExport(object):
         else:
             lgh = len(fields)
         for i in range(lgh):
-            #fout.write(preind + indent + "<AfpValue name=\"" + fields[i] + "\">" + Afp_toString(values[i]).encode("UTF-8") + "</AfpValue> \n")
-            fout.write(preind + indent + "<AfpValue name=\"" + fields[i] + "\">" + Afp_toString(values[i]) + "</AfpValue> \n")
+            if  self.xml_force_utf8:
+                fout.write(preind + indent + "<AfpValue name=\"" + fields[i] + "\">" + Afp_toString(values[i]).encode("UTF-8") + "</AfpValue> \n")
+            else:
+                fout.write(preind + indent + "<AfpValue name=\"" + fields[i] + "\">" + Afp_toString(values[i]) + "</AfpValue> \n")
         fout.write(preind + "</AfpTableRow> \n")
     ## writes field data to xml file
     # @param selection - given table selection

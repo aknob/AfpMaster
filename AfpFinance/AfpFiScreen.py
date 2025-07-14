@@ -387,6 +387,8 @@ class AfpFiScreen(AfpScreen):
         elif value == "Journal":
             if not self.title_buffer: self.title_buffer = self.Title
             self.SetTitle("Journal ... lädt!")
+            self.Refresh()
+            print ("AfpFiScreen.On_Filter: Journal lädt!")
         self.sb.select_where("", None, self.sb_master) # clear old filter
         if self.sb_master != master:
             self.sb_master = master
@@ -482,11 +484,15 @@ class AfpFiScreen(AfpScreen):
             text, ok = AfpReq_Text("Bitte Begriff eingeben welcher ausgewählt werden soll.","Leere Eingabe oder 'Abbrechen' lädt komplettes Journal.", text, "Buchungsauswahl")
             if ok and text:
                 self.SetTitle("Filter: \"" + text + "\" ... lädt!")
+                self.Refresh()
+                print ("AfpFiScreen.On_Ausw lädt:", filter, text)
                 self.search = text
                 self.Populate()
                 self.SetTitle("Filter: \"" + text + "\"")
             elif not self.search_indices is None:
                 self.SetTitle("Journal ... lädt!")
+                self.Refresh()
+                print ("AfpFiScreen.On_Ausw: Jounal lädt!", filter, text)
                 self.search_indices = None
                 self.Populate()
                 if self.title_buffer: self.SetTitle(self.title_buffer)
@@ -519,7 +525,8 @@ class AfpFiScreen(AfpScreen):
             data = self.get_selected_data()
             #print "AfpFiScreen.On_Documents data:", filter, data
             if data:
-                variables = {}
+                year = self.globals.today().year
+                variables = {"ThisYear": year}
                 prefix = data.get_listname() + "_"
                 if  filter == "Eingang":
                     header = "Rechnungseingang"

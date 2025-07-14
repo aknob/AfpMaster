@@ -1635,6 +1635,7 @@ class AfpFinance(AfpFinanceTransactions):
     # @param row - index of row in TableSelection
     def get_value_rows(self, sel = None, felder = None, row = -1):
         rows = super(AfpFinance, self).get_value_rows(sel, felder, row) 
+        # todo: if "Beleg" in felder and self.konto: nach Beleg sortieren, evtl nur mit extra Flag
         if sel == "BUCHUNG" and felder and row < 0:
             orig = self.get_selection("BUCHUNG").get_feldnamen()
             split = felder.split(",")
@@ -2455,6 +2456,7 @@ class AfpFinanceExchange(AfpFinance):
     def perform_export(self, fname, date = None):
         self.only_export_candidates(date)
         Export = AfpExport(self.get_globals(), self, fname, self.debug)
+        Export.force_utf()
         Export.write_to_file(None, 4) 
         self.set_export_date()
         self.store()

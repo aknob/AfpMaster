@@ -6,6 +6,7 @@
 # no display and user interaction in this modul.
 #
 #   History: \n
+#        14 July. 2025 - add Archiv to AfpCommonInvoice - Andreas.Knoblauch@afptech.de \n
 #        30 Dez. 2021 - conversion to python 3 - Andreas.Knoblauch@afptech.de \n
 #        23 Dez. 2019 - move financial routines into selection list- Andreas.Knoblauch@afptech.de \n
 #        19 Okt. 2014 - adapt package hierarchy - Andreas.Knoblauch@afptech.de \n
@@ -420,6 +421,7 @@ class AfpCommonInvoice(AfpPaymentList):
         self.selects["ADRESSE"] = [ "ADRESSE","KundenNr = KundenNr.RECHNG"] 
         self.selects["FAHRTEN"] = [ "FAHRTEN","RechNr = RechNr.RECHNG"] 
         self.selects["AUSGABE"] = [ "AUSGABE", "Modul = \"Finance\" AND Art = \"" + self.get_listname()  + "\" AND Typ = \"Common\""] 
+        self.selects["ARCHIV"] = [ "ARCHIV","TabNr = RechNr.RECHNG AND Tab = \"RECHNG\""] 
         #self.selects["Original"] = [ Typ.RECHNG,"RechNr = TypNr.RECHNG"] 
         if complete: self.create_selections()
         # set payment related data

@@ -1437,6 +1437,7 @@ class AfpEvScreen_Verein(AfpEvScreen):
             if ok:
                 #print ("AfpEvScreen_Verein.On_Ausw:", value, name, filter)
                 knr = AfpLoad_AdIndiAusw(self.globals, "EventNr.ANMELD", value, name, filter, "Bitte Mitglied auswählen, das angezeigt werden soll.")
+                print ("AfpEvScreen_Verein.On_Ausw select:", value, name, filter, knr)
             if knr:
                 adresse = AfpAdresse(self.globals, knr)
                 select = "KundenNr = " + Afp_toString(knr) + " AND EventNr = " + Afp_toString(value) # enhance for possible list
@@ -1445,7 +1446,7 @@ class AfpEvScreen_Verein(AfpEvScreen):
                 ANr = rows[0][0]
                 filter = self.re_filtermap(rows[0][3])
                 self.grid_row_selected = False
-                #print "AfpEvScreen_Verein.On_Ausw:", rows[0][3], filter
+                print ("AfpEvScreen_Verein.On_Ausw:", ANr, rows[0][3], filter, rows)
                 if not filter ==  self.combo_Filter.GetValue():
                     self.combo_Filter.SetValue(filter)
                     self.On_Filter()
@@ -2303,7 +2304,7 @@ class AfpDialog_EvMemberEdit(AfpDialog_EvClientEdit):
                 self.zahlart = sel
             if not self.zahlart or self.zahlart[:4] != "SEPA":
                 self.data.deactivate_sepa()
-            if  self.zahlart != "Retoure" and  self.zahlart[:4] != "ARGE" :
+            if  self.zahlart != "Retoure" and  (self.zahlart and self.zahlart[:4] != "ARGE") :
                 info = self.data.get_value("Info")
                 if info and "'" in info: 
                     self.data.set_value("Info",info.split("'")[0].strip())

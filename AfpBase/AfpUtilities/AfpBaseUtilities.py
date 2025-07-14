@@ -456,10 +456,10 @@ def Afp_importFileData(fname):
 def Afp_importFileLines(fname):
     lines = []
     if Afp_existsFile(fname):
-         fin = open(fname , 'r') 
-         for line in fin:
-             lines.append(line)
-         fin.close()
+        fin = open(fname , 'r')
+        for line in fin:
+            lines.append(line)
+        fin.close()
     return lines
 
 ## generate and initialize 2 dimensional nxm array 
