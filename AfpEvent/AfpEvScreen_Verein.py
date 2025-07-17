@@ -1193,7 +1193,7 @@ class AfpEvScreen_Verein(AfpEvScreen):
         self.grid_custs.EnableDragColSize(0)
         self.grid_custs.EnableDragRowSize(0)
         self.grid_custs.EnableDragGridSize(0)
-        self.grid_custs.SetSelectionMode(wx.grid.Grid.GridSelectRows)
+        self.grid_custs.SetSelectionMode(wx.grid.Grid.SelectRows)
         self.grid_custs.SetColLabelValue(0, "Nr")
         self.grid_custs.SetColLabelValue(1, "Vorname")
         self.grid_custs.SetColLabelValue(2, "Name")

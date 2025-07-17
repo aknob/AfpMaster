@@ -563,7 +563,7 @@ class AfpFaScreen(AfpEditScreen):
         self.grid_content.EnableDragColSize(0)
         self.grid_content.EnableDragRowSize(0)
         self.grid_content.EnableDragGridSize(0)
-        self.grid_content.SetSelectionMode(wx.grid.Grid.GridSelectRows)
+        self.grid_content.SetSelectionMode(wx.grid.Grid.SelectRows)
         self.grid_content.SetColLabelValue(0, self.content_colname[0])
         self.grid_content.SetColSize(0, 30)
         self.grid_content.SetColLabelValue(1, self.content_colname[1])

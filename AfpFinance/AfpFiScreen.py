@@ -209,7 +209,7 @@ class AfpFiScreen(AfpScreen):
         self.grid_custs.EnableDragColSize(0)
         self.grid_custs.EnableDragRowSize(0)
         self.grid_custs.EnableDragGridSize(0)
-        self.grid_custs.SetSelectionMode(wx.grid.Grid.GridSelectRows)
+        self.grid_custs.SetSelectionMode(wx.grid.Grid.SelectRows)
         for col in range(self.grid_cols["Bookings"]):
             self.grid_custs.SetColLabelValue(col, self.dynamic_grid_col_labels[col])
         for row in range(0,self.grid_rows["Bookings"]):

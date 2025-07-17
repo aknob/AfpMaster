@@ -247,7 +247,7 @@ class AfpAdScreen(AfpScreen):
         self.grid_archiv.EnableDragColSize(0)
         self.grid_archiv.EnableDragRowSize(0)
         self.grid_archiv.EnableDragGridSize(0)
-        self.grid_archiv.SetSelectionMode(wx.grid.Grid.GridSelectRows)
+        self.grid_archiv.SetSelectionMode(wx.grid.Grid.SelectRows)
         self.grid_archiv.SetColLabelValue(0, self.archiv_colname[0])
         self.grid_archiv.SetColSize(0, 130)
         self.grid_archiv.SetColLabelValue(1, self.archiv_colname[1])

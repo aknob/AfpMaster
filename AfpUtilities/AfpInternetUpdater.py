@@ -1341,7 +1341,7 @@ class AfpDialog_calEvents(AfpDialog):
         #self.grid_events.EnableDragColSize(0)
         self.grid_events.EnableDragRowSize(0)
         self.grid_events.EnableDragGridSize(0)
-        self.grid_events.SetSelectionMode(wx.grid.Grid.GridSelectRows)   
+        self.grid_events.SetSelectionMode(wx.grid.Grid.SelectRows)   
         self.grid_events.SetColLabelValue(0, "Datum")
         self.grid_events.SetColLabelValue(1, "Text")
         for row in range(self.rows):
