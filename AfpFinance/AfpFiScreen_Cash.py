@@ -8,6 +8,7 @@
 # - AfpFiScreen_Cash
 #
 #   History: \n
+#        19 July 2025 - display balance in each line of grid - Andreas.Knoblauch@afptech.de
 #        03 Jan 2025 - inital code generated - Andreas.Knoblauch@afptech.de
 
 
@@ -64,6 +65,9 @@ class AfpFiScreen_Cash(AfpFiScreen):
         self.flavour = "Cash"
         AfpFiScreen.__init__(self, debug)
         #self.einsatz = None # to invoke import of 'Einsatz' modules in 'init_database'
+        self.grid_col_labels[0] = ["Datum", "Beleg", "Konto", "Betrag", "Stand", "Bezeichnung", "Name"]
+        self.dynamic_grid_col_labels = self.grid_col_labels[0]
+        self.dynamic_grid_col_percents = [12, 6, 9, 11, 12, 30, 20]
         self.SetTitle("Afp Barkasse")
         if self.debug: print("AfpFiScreen_Chash Konstruktor")
     
@@ -371,5 +375,23 @@ class AfpFiScreen_Cash(AfpFiScreen):
             if dprog:
                 self.dump_database(dprog)
         AfpScreen.On_Ende(self, event)
+    ## get grid rows to populate grids \n
+    # (overwritten from AfpFiScreen) 
+    # @param typ - name of grid to be populated
+    def get_grid_rows(self, typ):
+        rows = AfpFiScreen.get_grid_rows(self, typ)
+        balance = self.data.get_value("StartSaldo.Auszug")
+        kt = self.data.get_string_value("KtNr.Auszug")
+        for row in rows:
+            value = Afp_fromString(row[4])
+            if row[2] == kt:
+                row[2] = row[3]
+            else:
+                value *= -1.0
+            balance += value
+            row[3] = Afp_toString(value)
+            row[4] = Afp_toString(balance)
+        return rows
+
 
 # end of class AfpFiScreen_Cash
