@@ -1198,6 +1198,7 @@ class AfpDialog_SimpleInvoice(AfpDialog):
         self.checkmap["Dauer"] = "Zustand = Static"
         self.Bind(wx.EVT_CHECKBOX, self.On_Check, self.check_Dauer)
         if not self.oblig:
+            self.button_Orig.SetLabel("&Vertrag")
             self.check_Voraus = wx.CheckBox(self, -1, label="Voraus", name="Voraus")
             self.Bind(wx.EVT_CHECKBOX, self.On_Check, self.check_Voraus)
         self.button_Druck = wx.Button(self, -1, label="&Drucken", name="Druck")
@@ -1320,12 +1321,18 @@ class AfpDialog_SimpleInvoice(AfpDialog):
                 data["Zustand"] = "Closed"
         return data
 
-    ## handle archiv entries of documents for obligations
-    def handle_obligation_archiv(self):
+    ## handle archiv entries of documents
+    def handle_archiv(self):
         add = True
         wanted = False
-        art = self.data.get_globals().get_name()
-        art = "Eingang " + art
+        if self.oblig:
+            art = "Eingang"
+            art1 = "eingang"
+        else:
+            art = "Ausgang"
+            art1 = "ausgang"
+        aart = self.data.get_globals().get_name()
+        aart = art + " " + aart
         listname = self.data.get_listname()
         rows = self.data.get_value_rows("ARCHIV","Art,Typ,Gruppe,Datum,Extern")
         #print "AfpDialog_SimpleInvoice.handle_obligation_archiv:", rows
@@ -1333,12 +1340,12 @@ class AfpDialog_SimpleInvoice(AfpDialog):
             fpath = None
             datum = Afp_fromString("1.1.1900") # assumtion: first entry not before 1.1.1900!
             for row in rows:
-                if row[0] == art and listname in row[1] and row[2] == "Rechnungseingang" and row[3] > datum:
+                if row[0] == aart and listname in row[1] and row[2] == "Rechnungs" + art1 and row[3] > datum:
                     fpath = Afp_addRootpath(self.data.globals.get_value("archivdir"), row[4])
                     add = False
             if not add:
                 if  self.check_Dauer.GetValue() and ("BetragSI" in self.changed_text or "ZahlBet" in self.changed_text):
-                    add = AfpReq_Question("Eingangsrechnung wurde geändert!", "Soll neue Eingangsrechnung eingescannt und angehängt werden?")
+                    add = AfpReq_Question(art + "srechnung wurde geändert!", "Soll neue " + art + "srechnung eingescannt und angehängt werden?")
                     wanted = True
                 if not add:
                     if Afp_existsFile(fpath):
@@ -1347,11 +1354,11 @@ class AfpDialog_SimpleInvoice(AfpDialog):
                         AfpReq_Info("Archiveintrag existiert, aber Datei ist nicht vorhanden!","")
         if add:
             if not wanted:
-                wanted = AfpReq_Question("Bitte die Eingangsrechnung einscannen und die gescannte Datei auswählen!","")
+                wanted = AfpReq_Question("Bitte die " + art + "srechnung einscannen und die gescannte Datei auswählen!","")
             if wanted:
-                fixed = {"Art": art, "Gruppe": "Rechnungseingang"}
+                fixed = {"Art": aart, "Gruppe": "Rechnungs" + art1}
                 change = {"Eingangsdatum": self.data.get_globals().today_string(), "Bemerkung":""}
-                data = AfpAdresse_addFileToArchiv(self.data, "Eingangsrechnung", fixed, change)
+                data = AfpAdresse_addFileToArchiv(self.data, art + "srechnung", fixed, change)
                 if data:
                     self.data = data
                     self.data_changed = True
@@ -1482,13 +1489,14 @@ class AfpDialog_SimpleInvoice(AfpDialog):
     ## event handler for button 'Original'    
     def On_Original(self,event):
         if self.debug: print("Event handler AfpDialog_SimpleInvoice.On_Original'")
-        if self.oblig:
-            self.handle_obligation_archiv()
-            if self.data_changed and self.data.get_value("Zustand") == "Static":
+        if self.oblig or self.check_Dauer.IsChecked() :
+            self.handle_archiv()
+            if self.oblig and self.data_changed and self.data.get_value("Zustand") == "Static":
                 self.data.set_value("Zahlung", 0.0)
                 self.data.set_value("ZahlDat", None)
         else:
             print("Event handler`AfpDialog_SimpleInvoice.On_Original' not implemented!")
+            AfpReq_Info("Für normale Rechnungen ist kein Vertrag nötig, ", "Vertragsablage nur für Dauerrechnung implementiert!")
         event.Skip()
 
     ## event handler for checkbox 'Dauer'
