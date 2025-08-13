@@ -527,7 +527,7 @@ class AfpFiScreen(AfpScreen):
             if data:
                 year = self.globals.today().year
                 variables = {"ThisYear": year}
-                prefix = data.get_listname() + "_"
+                prefix = self.globals.get_name() + "_" + data.get_listname()
                 if  filter == "Eingang":
                     header = "Rechnungseingang"
                 else:
@@ -557,10 +557,7 @@ class AfpFiScreen(AfpScreen):
                         variables["StartDat"] = data.get_string_value("BuchDat.Auszug")
                         variables["EndDat"] = data.get_string_value("Datum.Auszug")
                         #data.get_selection("BUCHUNG").reload_data("Beleg")
-                #print "AfpFiScreen.On_Documents:", data.get_listname(), data.get_mayor_type(), filter, data.get_value(), data.get_string_value(), data.get_period()
-                #data.view()
-                #print ("AfpFiScreen.On_Documents variables:", variables)
-                prefix = data.get_listname()+ "_" + filter + "_"
+                prefix =  self.globals.get_name() + "_" + data.get_listname()+ "_" + filter
                 header = "Auswertungen"
                 sel = "Modul = \"Finance\" AND Art = \"Report\" and Typ = \""+ filter + "\""
                 data.get_selection("AUSGABE").load_data(sel)

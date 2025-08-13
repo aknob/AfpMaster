@@ -1324,8 +1324,7 @@ class AfpDialog_SimpleInvoice(AfpDialog):
     def handle_obligation_archiv(self):
         add = True
         wanted = False
-        art = self.data.get_globals().get_value("name")
-        if art[:3] == "Afp": art = art[3:]
+        art = self.data.get_globals().get_name()
         art = "Eingang " + art
         listname = self.data.get_listname()
         rows = self.data.get_value_rows("ARCHIV","Art,Typ,Gruppe,Datum,Extern")
@@ -1504,12 +1503,12 @@ class AfpDialog_SimpleInvoice(AfpDialog):
         if self.debug: print("Event handler `On_drucken'")
         year = self.data.get_globals().today().year
         variables = {"ThisYear": year}
-        prefix = self.data.get_listname() + "_"
+        prefix = self.data.get_globals().get_name() + "_" + self.data.get_listname()
         if self.oblig:
             header = "Rechnungseingang"
         else:
             header = "Rechnungsausgang"
-        print("AfpDialog_SimpleInvoice.On_drucken:", header, self.data.view())
+        #print("AfpDialog_SimpleInvoice.On_drucken:", header, self.data.view())
         AfpLoad_DiReport(self.data, self.data.get_globals(), variables, header, prefix)
         event.Skip()
 

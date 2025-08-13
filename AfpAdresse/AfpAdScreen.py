@@ -496,7 +496,7 @@ class AfpAdScreen(AfpScreen):
         if data:
             variables = {}
             variables["Today"] = data.get_globals().today_string()
-            prefix = data.get_listname() + "_"
+            prefix = data.get_globals().get_name() + " " + data.get_listname()
             header = "Adressen" 
             #print ("AfpAdScreen.On_Adresse_Doku:", prefix, header, variables)
             AfpLoad_DiReport(data, self.globals, variables, header, prefix)

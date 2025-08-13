@@ -798,8 +798,7 @@ class AfpSelectionList(object):
     def set_archiv_data(self, data):
         if not "Datum" in data: data["Datum"] = self.globals.today()
         if not "Art" in data: 
-            data["Art"] = self.globals.get_value("name")
-            if data["Art"][:3] == "Afp": data["Art"] = data["Art"][3:]
+            data["Art"] = self.globals.get_name()
         if not "Typ" in data: data["Typ"] = self.get_listname_translation()
         if not "KundenNr" in data: data["KundenNr"] = self.get_value("KundenNr")
         if not data["KundenNr"]:  data["KundenNr"] = self.get_value("KundenNr.ADRESSE")
@@ -809,8 +808,7 @@ class AfpSelectionList(object):
     def move_to_archiv(self):
         if self.archiv_copy_needed:
             archivdir = self.globals.get_value("archivdir")
-            modul = self.globals.get_value("name")
-            if modul[:3] == "Afp": modul = modul[3:]
+            modul = self.globals.get_name()
             fname = modul + "_" + self.get_listname() + "_" + self.get_string_value()
             #print "AfpSelectionList.move_to_archiv:", archivdir, modul, fname
             #print("AfpSelectionList.move_to_archiv:", self.archiv_copy_needed)

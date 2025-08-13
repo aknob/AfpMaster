@@ -426,6 +426,12 @@ class AfpGlobal(object):
         if self.debug: "AfpGlobal.os_is_windows:", is_win, op_sys
         return is_win
     # special retrieve routines
+    ## get name of this package, without prefix
+    def get_name(self):
+        name = self.get_value("name") 
+        if name[:3] == "Afp":
+            name = name[3:]
+        return name
     ## get header with database information
     def get_host_header(self):
         return self.get_value("name") + " auf " + self.get_value("database-host") + ", DB: \""  + self.get_value("database") + "\""

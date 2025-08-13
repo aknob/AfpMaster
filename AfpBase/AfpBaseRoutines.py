@@ -225,6 +225,7 @@ def Afp_getModulInfo(modul, delimiter, path):
 # @param text - text to be analysed
 # @param delimiter - path delimiter
 def Afp_archivName(text, delimiter):
+    print ("Afp_archivName In:", text, delimiter)
     filename = None
     if text and "." in text:
         is_name = False
@@ -234,6 +235,7 @@ def Afp_archivName(text, delimiter):
             is_archiv = True
         else:
             mods = Afp_allModulNames()
+            print ("Afp_archivName mods:", mods)
             for mod in mods:
                 if ":" in mod: mod = mod.split(":")[1]
                 if mod == text[:len(mod)]: is_name = True
@@ -242,6 +244,7 @@ def Afp_archivName(text, delimiter):
                 filename = Afp_pathname(text[6:], delimiter, True) 
             else:
                 filename = Afp_pathname(text, delimiter, True) 
+    print ("Afp_archivName Out:", is_name, is_archiv, filename)
     return filename
   
 ## read extra info from file

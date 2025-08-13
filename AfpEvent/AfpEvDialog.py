@@ -57,8 +57,7 @@ def AfpEv_addRegToArchiv(client, option=None, fname = None, Bem = ""):
     if option and "exit" in option: 
         doctyp = "Kündigung"
         gruppe = "Abmeldung"
-    art = client.get_globals().get_value("name")
-    if art[:3] == "Afp": art = art[3:]
+    art = client.get_globals().get_name()
     typ = client.get_listname_translation()
     datum = client.get_globals().today()
     if option and "check" in option:
