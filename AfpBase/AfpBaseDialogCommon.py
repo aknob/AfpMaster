@@ -404,7 +404,7 @@ class AfpDialog_DiReport(wx.Dialog):
                 self.reportdel.append(True)
             self.reportflag.append(True)
         rows = self.data.get_string_rows("ARCHIV", "Datum,Gruppe,Typ,Bem,Extern,Art")
-        print ("AfpDialog_DiReport.Pop_list Archiv:", rows, self.globals.get_value("name"))
+        #print ("AfpDialog_DiReport.Pop_list Archiv:", rows, self.globals.get_value("name"))
         if rows:
             for row in rows:
                 if self.globals.is_same_type(row[5]):
@@ -413,7 +413,7 @@ class AfpDialog_DiReport(wx.Dialog):
                     self.reportflag.append(False)
                     self.reportdel.append(False)
         self.list_Report.Clear()
-        print ("AfpDialog_DiReport.Pop_list Report:", self.reportname, self.reportlist, self.reportflag, self.reportdel)
+        #print ("AfpDialog_DiReport.Pop_list Report:", self.reportname, self.reportlist, self.reportflag, self.reportdel)
         if self.reportname:
             self.list_Report.InsertItems(self.reportname, 0)
         return None
@@ -550,38 +550,34 @@ class AfpDialog_DiReport(wx.Dialog):
         archiv = self.check_Archiv.IsChecked() 
         mail = self.check_EMail.IsChecked()
         #print ("AfpDialog_DiReport.get_result_name index:", index, mail, self.reportflag, self.reportname)
-        if index >= 0: 
-            if self.reportflag[index]:
-                if archiv:
-                    max = 0
-                    #print "AfpDialog_DiReport.get_result_name reportlist:", self.reportlist
-                    for entry in self.reportlist:
-                        if entry and "." in entry:
-                            split = entry.split(".")
-                            nb = int(split[0][-2:]) 
-                            if nb > max: max = nb
-                    max += 1
-                    if self.datasindex: max += self.datasindex
-                    if max < 10:  null = "0"
-                    else:  null = ""
-                    print ("AfpDialog_DiReport.get_result_name data:", self.prefix, self.data.get_string_value(), self.reportlist[index])
-                    fresult = self.prefix  + "_" + self.data.get_string_value() + "_" + self.reportlist[index] + "_"
-                    if self.postfix:
-                        fresult += self.postfix + "_" 
-                    fresult += null + str(max) + ".odt"
-                    self.archivname = fresult
-                    fresult = Afp_addRootpath(self.globals.get_value("archivdir"), fresult)
-                else:
-                    if self.datasindex:
-                        #fresult = Afp_addRootpath(self.globals.get_value("tempdir"), self.major_type + "_textausgabe" + str(self.datasindex) + ".fodt")
-                        fresult = Afp_addRootpath(self.globals.get_value("tempdir"), self.reportname[index] .strip().replace(" ","_") + "_" + str(self.datasindex) + ".odt")
-                    else:
-                        #fresult = Afp_addRootpath(self.globals.get_value("tempdir"), self.major_type + "_textausgabe.fodt")
-                        fresult = Afp_addRootpath(self.globals.get_value("tempdir"),  self.reportname[index] .strip().replace(" ","_") + ".odt")
+        if index >= 0 and self.reportflag[index]:
+            if archiv:
+                max = 0
+                #print "AfpDialog_DiReport.get_result_name reportlist:", self.reportlist
+                for entry in self.reportlist:
+                    if entry and "." in entry:
+                        split = entry.split(".")
+                        nb = int(split[0][-2:]) 
+                        if nb > max: max = nb
+                max += 1
+                if self.datasindex: max += self.datasindex
+                if max < 10:  null = "0"
+                else:  null = ""
+                #print ("AfpDialog_DiReport.get_result_name data:", self.prefix, self.data.get_string_value(), self.reportlist[index])
+                fresult = self.prefix  + "_" + self.data.get_string_value() + "_" + self.reportlist[index] + "_"
+                if self.postfix:
+                    fresult += self.postfix + "_" 
+                fresult += null + str(max) + ".odt"
+                self.archivname = fresult
+                fresult = Afp_addRootpath(self.globals.get_value("archivdir"), fresult)
             else:
-                # get filename of entry
-                print ("AfpDialog_DiReport.get_result_name:",self.reportlist[index], self.reportlist)   
-        print ("AfpDialog_DiReport.get_result_name:", fresult)   
+                if self.datasindex:
+                    #fresult = Afp_addRootpath(self.globals.get_value("tempdir"), self.major_type + "_textausgabe" + str(self.datasindex) + ".fodt")
+                    fresult = Afp_addRootpath(self.globals.get_value("tempdir"), self.reportname[index] .strip().replace(" ","_") + "_" + str(self.datasindex) + ".odt")
+                else:
+                    #fresult = Afp_addRootpath(self.globals.get_value("tempdir"), self.major_type + "_textausgabe.fodt")
+                    fresult = Afp_addRootpath(self.globals.get_value("tempdir"),  self.reportname[index] .strip().replace(" ","_") + ".odt")
+        #print ("AfpDialog_DiReport.get_result_name:", fresult)   
         return  fresult
     ## return selected list index
     def get_list_Report_index(self):
