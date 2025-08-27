@@ -1309,7 +1309,7 @@ class AfpDialog_SimpleInvoice(AfpDialog):
             data["Zustand"] = "Static"
         else:
             preis, zahlung, dummy = self.data.get_payment_values()
-            print ("AfpDialog_SimpleInvoice.add_dauer_value:", preis, type(preis), zahlung, type(zahlung), dummy, data)
+            print ("AfpDialog_SimpleInvoice.add_zustand_value:", preis, type(preis), zahlung, type(zahlung), dummy, data)
             if "BetragSI" in data or "ZahlBetrag" in data:
                 if "ZahlBetrag" in data:
                     preis = data["ZahlBetrag"]
@@ -1326,13 +1326,13 @@ class AfpDialog_SimpleInvoice(AfpDialog):
         add = True
         wanted = False
         if self.oblig:
-            art = "Eingang"
-            art1 = "eingang"
+            art = "Eingangsrechnung"
+            gruppe = self.data.get_string_value("ExternNr")
+            dlg_txt = "die " + art
         else:
-            art = "Ausgang"
-            art1 = "ausgang"
-        aart = self.data.get_globals().get_name()
-        aart = art + " " + aart
+            art = "Ausgangsrechnung"
+            gruppe = "Vertrag_" + self.data.get_string_value("RechNr")
+            dlg_txt = "den Vertrag"
         listname = self.data.get_listname()
         rows = self.data.get_value_rows("ARCHIV","Art,Typ,Gruppe,Datum,Extern")
         #print "AfpDialog_SimpleInvoice.handle_obligation_archiv:", rows
@@ -1340,12 +1340,12 @@ class AfpDialog_SimpleInvoice(AfpDialog):
             fpath = None
             datum = Afp_fromString("1.1.1900") # assumtion: first entry not before 1.1.1900!
             for row in rows:
-                if row[0] == aart and listname in row[1] and row[2] == "Rechnungs" + art1 and row[3] > datum:
+                if row[0] == art and listname in row[1]  and row[3] > datum:
                     fpath = Afp_addRootpath(self.data.globals.get_value("archivdir"), row[4])
                     add = False
             if not add:
-                if  self.check_Dauer.GetValue() and ("BetragSI" in self.changed_text or "ZahlBet" in self.changed_text):
-                    add = AfpReq_Question(art + "srechnung wurde geändert!", "Soll neue " + art + "srechnung eingescannt und angehängt werden?")
+                if  self.oblig and self.check_Dauer.GetValue() and ("BetragSI" in self.changed_text or "ZahlBet" in self.changed_text):
+                    add = AfpReq_Question(art + " wurde geändert!", "Soll neue " + art + " eingescannt und angehängt werden?")
                     wanted = True
                 if not add:
                     if Afp_existsFile(fpath):
@@ -1354,11 +1354,11 @@ class AfpDialog_SimpleInvoice(AfpDialog):
                         AfpReq_Info("Archiveintrag existiert, aber Datei ist nicht vorhanden!","")
         if add:
             if not wanted:
-                wanted = AfpReq_Question("Bitte die " + art + "srechnung einscannen und die gescannte Datei auswählen!","")
+                wanted = AfpReq_Question("Bitte " + dlg_txt + " einscannen und die gescannte Datei auswählen!","")
             if wanted:
-                fixed = {"Art": aart, "Gruppe": "Rechnungs" + art1}
+                fixed = {"Art": art, "Gruppe": gruppe}
                 change = {"Eingangsdatum": self.data.get_globals().today_string(), "Bemerkung":""}
-                data = AfpAdresse_addFileToArchiv(self.data, art + "srechnung", fixed, change)
+                data = AfpAdresse_addFileToArchiv(self.data, art, fixed, change)
                 if data:
                     self.data = data
                     self.data_changed = True
@@ -1367,7 +1367,7 @@ class AfpDialog_SimpleInvoice(AfpDialog):
     ## execution in case the OK button ist hit - overwritten from AfpDialog
     def execute_Ok(self):
         self.close_dialog = True
-        if self.data.is_new() and not "Kontierung" in self.changed_text:
+        if self.data.is_new() and not "Kontierung" in self.changed_text and not self.data.get_value("Kontierung"):
             AfpReq_Info("Keine Kontierung angegeben,", "bitte nachholen!", "Fehlender Eintrag!")
             self.close_dialog = False
             return
@@ -1457,16 +1457,35 @@ class AfpDialog_SimpleInvoice(AfpDialog):
     def On_Neu(self,event):
         if self.debug: print("Event handler AfpDialog_SimpleInvoice.On_Neu")
         KNr = None
-        name = self.data.get_value("Name.Adresse")
-        if self.oblig:
-            text = "Bitte Adresse für neue Eingangsrechnung auswählen:"
+        static = False
+        if not self.oblig and self.check_Dauer.IsChecked():
+            KNr = AfpReq_Question("Die Rechnung basiert auf einem Vertrag.", "Soll zu diesem Vertrag eine neue Rechnung erstellt werden?")
+            if KNr:
+                if self.data.get_value("Zustand") == "Static":
+                    preis, zahlung, dummy = self.data.get_payment_values()
+                    if zahlung < preis:
+                        self.data.set_value("Zustand", "Open")
+                    else:
+                        self.data.set_value("Zustand", "Closed")
+                    self.data.store()
+                self.data.set_new(None)
+                #self.data.view()
+                static = True
         else:
-            text = "Bitte Adresse für neue Rechnung auswählen:"
-        KNr = AfpLoad_AdAusw(self.data.get_globals(),"ADRESSE","NamSort",name, None, text)
+            name = self.data.get_value("Name.Adresse")
+            if self.oblig:
+                text = "Bitte Adresse für neue Eingangsrechnung auswählen:"
+            else:
+                text = "Bitte Adresse für neue Rechnung auswählen:"
+            KNr = AfpLoad_AdAusw(self.data.get_globals(),"ADRESSE","NamSort",name, None, text)
+            if KNr:
+                self.data.set_new(KNr)
         if KNr:
-            self.data.set_new(KNr)
             self.Populate()
             self.Set_Editable(True)
+            if static:
+                self.check_Dauer.SetValue(True)
+                self.checked_box.append("Dauer")
         event.Skip()
     
     ## event handler for button 'Stornierung'
@@ -1495,7 +1514,6 @@ class AfpDialog_SimpleInvoice(AfpDialog):
                 self.data.set_value("Zahlung", 0.0)
                 self.data.set_value("ZahlDat", None)
         else:
-            print("Event handler`AfpDialog_SimpleInvoice.On_Original' not implemented!")
             AfpReq_Info("Für normale Rechnungen ist kein Vertrag nötig, ", "Vertragsablage nur für Dauerrechnung implementiert!")
         event.Skip()
 

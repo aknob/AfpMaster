@@ -32,6 +32,7 @@
 #
 
 from AfpBase.AfpSelectionLists import *
+from AfpBase.AfpUtilities.AfpBaseUtilities import Afp_addMonthToDate
 from AfpBase.AfpBaseRoutines import *
     
 ## get name from address with given identifier, when only sql connetion is given
@@ -422,7 +423,6 @@ class AfpCommonInvoice(AfpPaymentList):
         self.selects["FAHRTEN"] = [ "FAHRTEN","RechNr = RechNr.RECHNG"] 
         self.selects["AUSGABE"] = [ "AUSGABE", "Modul = \"Finance\" AND Art = \"" + self.get_listname()  + "\" AND Typ = \"Common\""] 
         self.selects["ARCHIV"] = [ "ARCHIV","TabNr = RechNr.RECHNG AND Tab = \"RECHNG\""] 
-        #self.selects["Original"] = [ Typ.RECHNG,"RechNr = TypNr.RECHNG"] 
         if complete: self.create_selections()
         # set payment related data
         payment_values = {"cancel":"Zustand",  "cancel_value":"Storno", "price":"ZahlBetrag,Betrag", "text":"Bem"}
@@ -433,27 +433,50 @@ class AfpCommonInvoice(AfpPaymentList):
     def __del__(self):    
         if self.debug: print("AfpCommonInvoice Destruktor")
         #AfpSelectionList.__del__(self) 
-    ## clear current SelectionList to behave as a newly created List 
-    # @param KundenNr - KundenNr of newly selected adress, == None if address is kept   
-    def set_new(self, KundenNr):
+    ## clear current SelectionList to behave as a newly created list 
+    # @param KundenNr - KundenNr of newly selected adress, == 0: address is kept, == None: invoice is copied   
+    # @param interval - if a copy is created, number of month to be added to the target date  
+    def set_new(self, KundenNr, interval = 12):
         self.new = True
         data = {}
         keep = []
+        archiv = None
         if KundenNr:
             data["KundenNr"] = KundenNr
         else:
             data["KundenNr"] = self.get_value("KundenNr")
             keep.append("ADRESSE")
-        data["Zustand"] = "Open"
-        #data["Datum"] = self.globals.today_string()
-        data["Datum"] = self.globals.today()
-        #print data
-        #print keep
+            if KundenNr is None:
+                data["Datum"] = self.get_globals().today()
+                data["Bem"] =  self.get_value("Bem")
+                data["Netto"] =  self.get_value("Netto")
+                data["Betrag"] =  self.get_value("Betrag")
+                data["ZahlBetrag"] =  self.get_value("ZahlBetrag")
+                data["Kontierung"] =  self.get_value("Kontierung")
+                target = self.get_value("ZahlZiel")
+                if target:
+                    data["ZahlZiel"] =  Afp_addMonthToDate(target, interval)
+                data["Status"] = "Static"
+                archiv = self.get_archiv_entry("contract")
         self.clear_selections(keep)
         self.set_data_values(data,"RECHNG")
+        if archiv:
+            self.get_selection("ARCHIV").insert_row(None, archiv)
         if KundenNr:
             self.create_selection("ADRESSE", False)
             self.set_value("Name", self.get_name(True))
+    ## find entries of given typ in archive
+    # @param typ - contract, extract entry holding the base-contract of this invoice
+    def get_archiv_entry(self, typ, clear = True):
+        if typ == "contract":
+            rows = self.get_value_rows("ARCHIV")
+            data = []
+            for row in rows:
+                if row[1] == "Ausgangsrechnung" and "Vertrag" in row[3]:
+                    if clear:
+                        row[-1] = None
+                    return row
+        return None
     ## one line to hold all relevant values of this invoice to be displayed 
     def line(self):
         betrag = self.get_value("Betrag")
