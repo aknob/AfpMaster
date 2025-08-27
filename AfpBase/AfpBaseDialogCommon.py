@@ -674,7 +674,7 @@ class AfpDialog_DiReport(wx.Dialog):
             if filename:
                 Afp_startFile( filename, self.globals, self.debug, noWait) 
                 if choice == "Kopie":
-                    rows = self.data.get_value_rows("AUSGABE","Art,Typ,Bez",list_Report_index)
+                    rows = self.data.get_value_rows("AUSGABE","Art,Typ,Bez,Modul,Datei",list_Report_index)
                     name = rows[0][2]
                     ok = True
                     neu = ""
@@ -682,13 +682,16 @@ class AfpDialog_DiReport(wx.Dialog):
                         name, ok = AfpReq_Text("Bitte " + neu + "Namen eingeben unter dem die neue Vorlage","für '" + rows[0][0] + " " + rows[0][1] + "' abgelegt werden soll!",rows[0][2], "Vorlagenbezeichnung")
                         neu = "NEUEN "
                     if ok:
-                        data = {"Modul":self.globals.get_name(),"Art": rows[0][0], "Typ": rows[0][1], "Bez": name, "Datei": ""}
+                        data = {"Modul":rows[0][3],"Art": rows[0][0], "Typ": rows[0][1], "Bez": name, "Datei": ""}
                         ausgabe = AfpSQLTableSelection(self.data.get_mysql(), "AUSGABE", self.debug, "BerichtNr", self.data.get_selection("AUSGABE").get_feldnamen())
                         ausgabe.new_data()
                         ausgabe.set_data_values(data)
                         ausgabe.store()
                         BNr = ausgabe.get_string_value("BerichtNr")
-                        destination = self.globals.get_value("templatedir") + self.major_type + "_template_" + BNr + ".fodt"
+                        datname = rows[0][4] + "_" + BNr
+                        ausgabe.set_value("Datei", datname)
+                        ausgabe.store()
+                        destination = self.globals.get_value("templatedir") + "Afp" + rows[0][3] + "_template_" + datname + ".fodt"
                         Afp_copyFile(filename, destination)
                         ind = list_Report_index + 1
                         self.reportname.insert(ind, name)
