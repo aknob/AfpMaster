@@ -691,11 +691,11 @@ class AfpDialog_DiReport(wx.Dialog):
                         datname = rows[0][4] + "_" + BNr
                         ausgabe.set_value("Datei", datname)
                         ausgabe.store()
-                        destination = self.globals.get_value("templatedir") + "Afp" + rows[0][3] + "_template_" + datname + ".fodt"
+                        destination = self.globals.get_value("templatedir") + self.major_type + "_template_" + datname + ".fodt"
                         Afp_copyFile(filename, destination)
                         ind = list_Report_index + 1
                         self.reportname.insert(ind, name)
-                        self.reportlist.insert(ind, BNr)
+                        self.reportlist.insert(ind, datname)
                         self.reportflag.insert(ind, True)
                         self.reportdel.insert(ind, True)
                         self.list_Report.Clear()
