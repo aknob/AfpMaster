@@ -445,8 +445,8 @@ class AfpFiScreen(AfpScreen):
                 data = AfpObligation(self.get_globals())
             else:
                 data = AfpCommonInvoice(self.get_globals())
-            #print "AfpFiScreen.On_Neu:", data.view()
             ok = Afp_newSimpleInvoice(data)  
+            #print ("AfpFiScreen.On_Neu:", ok)
             if ok: self.Reload()
         elif filter == "Konten":
             ktnr = Afp_fromString(self.text_Auszug.GetValue())

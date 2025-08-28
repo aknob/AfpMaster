@@ -1385,6 +1385,7 @@ class AfpDialog_SimpleInvoice(AfpDialog):
             self.data.set_data_values(data)
         if data or self.data_changed:
             self.data.store()
+            self.Ok = True
     ## complete data before storing
     # @param data - dictionary of changed values
     def complete_data(self, data):
@@ -1558,7 +1559,7 @@ def Afp_newSimpleInvoice(data):
         text = "Bitte Adresse für neue Eingangsrechnung auswählen:"
     else:
         text = "Bitte Adresse für neue Rechnung auswählen:"
-    KNr = AfpLoad_AdAusw(data.get_globals(),"ADRESSE","NamSort",name, None, text)
+    KNr = AfpLoad_AdAusw(data.get_globals(),"ADRESSE","NamSort",name, None, text,True)
     if KNr:
         data.set_new(KNr)
         Ok = AfpLoad_SimpleInvoice(data, True)
