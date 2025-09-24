@@ -29,8 +29,6 @@
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>. 
 #
 
-#import traceback  # just to show callstack
-
 import wx
 import wx.grid
 
@@ -46,7 +44,7 @@ from AfpBase.AfpBaseAdRoutines import AfpAdresse_StatusMap, AfpAdresse
 from AfpBase.AfpBaseAdDialog import AfpLoad_DiAdEin_fromKNr, AfpLoad_AdAusw, AfpAdresse_indirectAttributFromKNr
 from AfpBase.AfpBaseFiDialog import AfpLoad_DiFiZahl
 
-from AfpFaktura.AfpFaRoutines import AfpFa_FilterList, AfpInvoice, AfpOffer, AfpOrder, AfpFa_inFilterList, AfpFa_changeKind, AfpFa_possibleKinds, AfpFa_colonFloat
+from AfpFaktura.AfpFaRoutines import AfpFa_FilterList, AfpInvoice, AfpOffer, AfpOrder, AfpFa_inFilterList, AfpFa_changeKind, AfpFa_possibleKinds, AfpFa_colonFloat, AfpFa_colonInt
 from AfpFaktura.AfpFaDialog import AfpLoad_FaAusw, AfpLoad_FaCustomSelect, AfpLoad_FaLine, AfpLoad_FaArtikelAusw, AfpReq_FaSelectedRow
 
 class AfpFaScreen_EditLinePlugIn(object):
@@ -206,10 +204,10 @@ class AfpFaScreen_EditLinePlugIn(object):
                 #print "AfpFaScreen_EditLinePlugIn.next_process_step post:", self.postprocess, self.edit_value, self.update
                 if self.postprocess and self.edit_value:
                     pyBefehl = "value = " + self.postprocess + "(\"" + self.edit_value + "\")"
-                    #print "AfpFaScreen_EditLinePlugIn.next_process_step post exe:", pyBefehl
-                    #local = locales()
+                    funct = {"Afp_intString": Afp_intString, "Afp_floatString": Afp_floatString, "AfpFa_colonFloat": AfpFa_colonFloat,  "AfpFa_colonInt": AfpFa_colonInt}
                     local = locals()
-                    exec(pyBefehl, {}, local)
+                    #print ("AfpFaScreen_EditLinePlugIn.next_process_step post exe:", pyBefehl, funct, local)
+                    exec(pyBefehl, funct, local)
                     value = local["value"]
                     string = Afp_toString(value)
                     self.set_initial_row([self.edit_col, string])
@@ -232,9 +230,10 @@ class AfpFaScreen_EditLinePlugIn(object):
                                         pyBefehl += " " + self.initial_row[col]
                                 else:
                                     pyBefehl += " " + up
-                            #print "AfpFaScreen_EditLinePlugIn.next_process_step update exe:", pyBefehl
-                            exec(pyBefehl)   
-                            #print "AfpFaScreen_EditLinePlugIn.next_process_step update res:", value, ucol
+                            #print ("AfpFaScreen_EditLinePlugIn.next_process_step update exe:", pyBefehl)
+                            exec(pyBefehl, {}, local) 
+                            value = local["value"]
+                            #print ("AfpFaScreen_EditLinePlugIn.next_process_step update res:", value, ucol)
                             if not ucol is None:
                                 self.set_initial_row([ucol, Afp_toString(value)])
                                 #self.initial_row[ucol] = Afp_toString(value)
@@ -399,7 +398,14 @@ class AfpFaScreen(AfpEditScreen):
         #self.SetBackgroundColour(self.readonlycolor)
         self.SetForegroundColour(wx.Colour(20, 19, 18))
         self.SetFont(wx.Font(9, wx.DEFAULT, wx.NORMAL, wx.NORMAL, 0, "DejaVu Sans"))
+        self.InitWx()
 
+    ## initialize widgets
+    def InitWx(self):
+        self.InitWx_static()
+        
+    ## initialize static widgets on panel
+    def InitWx_static(self):
         panel = self.panel
       
         # BUTTON
@@ -548,7 +554,7 @@ class AfpFaScreen(AfpEditScreen):
         self.listmap.append("ListArchiv")
 
         # OPTIONBUTTON
-        self.choice_Status = wx.Choice(panel, -1, pos=(240,52), size=(76,18), choices=["Passiv", "Aktiv", "Neutral", "Markiert", "Inaktiv"],  name="RStatus")
+        self.choice_Status = wx.Choice(panel, -1, pos=(240,50), size=(76,25), choices=["Passiv", "Aktiv", "Neutral", "Markiert", "Inaktiv"],  name="RStatus")
         self.choice_Status.SetSelection(0)
         #self.choice_Status.Enable(False)
         self.Bind(wx.EVT_CHOICE, self.On_CStatus, self.choice_Status)
@@ -690,7 +696,7 @@ class AfpFaScreen(AfpEditScreen):
         zustand = Faktura.get_string_value("Zustand").strip()
         header = Faktura.get_listname() + " " + zustand
         prefix = "Faktura_" + header
-        AfpLoad_DiReport(Faktura, self.globals, header, prefix, zustand)
+        AfpLoad_DiReport(Faktura, self.globals, None, header, prefix, zustand)
         if event:
             self.Reload()
             event.Skip()
@@ -710,7 +716,7 @@ class AfpFaScreen(AfpEditScreen):
         if event: event.Skip()
         
     ## Eventhandler COMBOBOX - allow filter due to attributes, change master table
-    def On_Filter(self,event): 
+    def On_Filter(self,event = None): 
         value = self.combo_Filter.GetValue()
         if self.debug: print("AfpFaScreen Event handler `On_Filter'", value)
         if self.is_editable():
@@ -728,6 +734,7 @@ class AfpFaScreen(AfpEditScreen):
             return
         datei, filter = AfpFa_possibleKinds(value)
         reset = False
+        print("AfpFaScreen.On_Filter:", datei, filter, self.sb_master)
         if not datei: 
             datei = self.sb_master
             reset = True
@@ -753,7 +760,7 @@ class AfpFaScreen(AfpEditScreen):
             self.CurrentData()
         if reset:
             self.combo_Filter.SetSelection(self.get_filter_index(self.sb_master))
-        event.Skip()
+        if event: event.Skip()
     ## Eventhandler COMBOBOX - sort index
     def On_Sortierung(self,event = None):
         value = self.combo_Sortierung.GetValue()
@@ -821,7 +828,7 @@ class AfpFaScreen(AfpEditScreen):
         if not stat: stat = 0
         choice = self.choicemap[stat]
         self.choice_Status.SetSelection(choice)
-        if self.debug: print("AfpFaScreen Population routine`Pop_choice_status'", choice)
+        if self.debug: print("AfpFaScreen.Pop_choice_status:", choice)
     ## population routine for special treatment - overwritten from AfpScreen
     def Pop_special(self):
         brutto = self.data.get_value("Betrag")
@@ -959,6 +966,7 @@ class AfpFaScreen(AfpEditScreen):
             self.sb.select_key(RNr, "RechNr", self.sb_master)
             if self.sb_filter: self.sb.select_where("", "RechNr", self.sb_master)
             self.sb.set_index(self.index, self.sb_master, "RechNr")   
+            self.sb.CurrentFileName(self.sb_master)
             self.set_current_record()
             if self.index == "KundenNr":
                 self.sb.select_key(self.data.get_value("KundenNr"),"KundenNr","ADRESSE")
@@ -978,9 +986,15 @@ class AfpFaScreen(AfpEditScreen):
             elif Afp_isString(Ok):
                 if data == "KVA": data = "Kostenvoranschlag"
                 if Ok == "Suchen":
-                    table, dummy = AfpFa_possibleKinds(data)
-                    print("AfpFaScreen.invoke_custom_select Suchen:", table)
-                    if table: self.invoke_regular_selection(table)
+                    table, filter = AfpFa_possibleKinds(data)
+                    where = None
+                    if table == "KVA": where = "Zustand = \"" + filter + "\""
+                    print("AfpFaScreen.invoke_custom_select Suchen:", table, where)
+                    if table:
+                        self.sb_master = table
+                        self.invoke_regular_selection(table, "", where)
+                        self.combo_Filter.SetValue(data)
+                        #self.On_Filter()
                 elif Ok == "Neu":
                     print("AfpFaScreen.invoke_custom_select Neu:", data)
                     if data: self.generate_new_data(data, None)
@@ -1334,9 +1348,9 @@ class AfpFaScreen(AfpEditScreen):
         if ReNr == 0:
             self.sb.CurrentIndexName("RechNr","RECHNG")
             #self.sb.set_debug()
-            self.sb.select_key(11658) # for tests
+            #self.sb.select_key(11658) # for tests
             #self.sb.select_key(21167) # for tests
-            #self.sb.select_last() # for tests
+            self.sb.select_last() # for tests
         else:
             self.sb.CurrentIndexName("RechNr","RECHNG")
             self.sb.select_key(ReNr)

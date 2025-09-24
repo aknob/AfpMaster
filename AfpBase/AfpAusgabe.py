@@ -147,6 +147,7 @@ class AfpAusgabe(object):
     ## set variables directly
     # @param vars - dictionary holding variable values
     def set_variables(self, vars):
+        print ("AfpAusgabe.set_variables:", vars)
         for var in vars:
             self.variables[var] = Afp_fromString(vars[var])
     ## check if line is part of a 'while' statement \n
@@ -604,31 +605,32 @@ class AfpAusgabe(object):
                 function = None
             elif not var in self.values:
                 self.values[var] = 0.0
-        lgh = len(rows)
-        for i in range(lgh):
-            row = rows[i]
-            #print felder
-            #print row
-            for feld,wert in zip(felder,row):
-                self.values[feld] = wert
-            if function: self.values[var] = self.evaluate_formula(function)
-            if self.debug: print("AfpAusgabe.execute_while WHILE:", stack_index,"Row:", i)
-            #print local_lines
-            for line in local_lines:
-                if self.debug: print("AfpAusgabe.execute_while Linie", local_lines.index(line))
-                #print line
-                if self.is_while(line) == 1:
-                    # start of new while loop
-                    if self.debug: print("NEW WHILE:", stack_index + 1, "stack length",len(self.line_stack))
-                    if indices is None:
-                        self.execute_while(line, stack_index + 1)
-                        if self.debug: print("END NEW WHILE")
+        if rows:
+            lgh = len(rows)
+            for i in range(lgh):
+                row = rows[i]
+                #print felder
+                #print row
+                for feld,wert in zip(felder,row):
+                    self.values[feld] = wert
+                if function: self.values[var] = self.evaluate_formula(function)
+                if self.debug: print("AfpAusgabe.execute_while WHILE:", stack_index,"Row:", i)
+                #print local_lines
+                for line in local_lines:
+                    if self.debug: print("AfpAusgabe.execute_while Linie", local_lines.index(line))
+                    #print line
+                    if self.is_while(line) == 1:
+                        # start of new while loop
+                        if self.debug: print("NEW WHILE:", stack_index + 1, "stack length",len(self.line_stack))
+                        if indices is None:
+                            self.execute_while(line, stack_index + 1)
+                            if self.debug: print("END NEW WHILE")
+                        else:
+                            self.execute_while(line, stack_index + 1, indices[i])
+                            if self.debug: print("END NEW WHILE")
                     else:
-                        self.execute_while(line, stack_index + 1, indices[i])
-                        if self.debug: print("END NEW WHILE")
-                else:
-                    if self.debug: print("AfpAusgabe.execute_while execute linie", local_lines.index(line), "of WHILE", stack_index, "Linie:", line)
-                    self.execute_line(line)
+                        if self.debug: print("AfpAusgabe.execute_while execute linie", local_lines.index(line), "of WHILE", stack_index, "Linie:", line)
+                        self.execute_line(line)
     ## analyses the while_line, \n
     # extracts the while_clause, fields, tables and optional the function
     # @param while_line - holds the while conditions
@@ -779,7 +781,7 @@ class AfpAusgabe(object):
         if self.data:
             #rows = self.data.get_grid_rows(selname) 
             rows = self.data.get_value_rows(selname, felder) 
-            #print "AfpAusgabe.extract_rows_from_data:", selname, felder, rows
+            #print ("AfpAusgabe.extract_rows_from_data:", selname, felder, rows)
         return rows
    ## read block of rows from datafile
     # @param feldnamen - names of values to be extracted

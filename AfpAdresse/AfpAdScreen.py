@@ -607,11 +607,13 @@ class AfpAdScreen(AfpScreen):
             KNr = origin
         else:
             KNr = 0
-        if origin == "Charter":
-            KNr = self.sb.get_value("KundenNr.FAHRTEN")
-            #KNr = self.globals.get_value("KundenNr", origin)
         if origin == "Event":
             KNr = self.sb.get_value("KundenNr.ANMELD")
+        elif origin == "Faktura":
+            KNr = self.sb.get_value("KundenNr.RECHNG")
+        elif origin == "Charter":
+            KNr = self.sb.get_value("KundenNr.FAHRTEN")
+            #KNr = self.globals.get_value("KundenNr", origin)
         #print ("AfpAdScreen.set_initial_record:", origin, KNr)
         if KNr == 0:
             self.sb.CurrentIndexName("KundenNr","ADRESSE")

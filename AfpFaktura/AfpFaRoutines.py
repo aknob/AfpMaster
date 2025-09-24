@@ -87,8 +87,8 @@ def AfpFa_inFilterList(name, filter = None):
 # - else: the 'names' and 'tables' lists are returned
 def AfpFa_possibleKinds(name = None, table = None, filter = None):
     names = ["Ausgabe" , "Waren"     , "Bestellung", "Bestell-Liste", "Kostenvoranschlag","Angebot" , "Lieferschein", "Auftrag" , "Rechnung", "Mahnung", "Einnahme"]
-    tables = ["BESTELL"  , "BESTELL" , "BESTELL"      , "BESTELL"          , "KVA"                        , "KVA"       , "KVA"                , "KVA"        , "RECHNG"   , "RECHNG"  , "RECHNG"]
-    filters =  ["closed"  ,"erhalten", "open"         , "neu"                 , "KVA"                        , "Angebot",  "Liefer"          , "Auftrag" , "open"    ,  "Mahnung", "closed"]
+    tables = ["BESTELL"  , "BESTELL" , "BESTELL"      , "BESTELL"           , "KVA"                           , "KVA"       , "KVA"                 , "KVA"         , "RECHNG"   , "RECHNG"   , "RECHNG"]
+    filters =  ["closed"   ,"erhalten" , "open"           , "neu"                  , "KVA"                            , "Angebot",  "Liefer"          , "Auftrag" , "open"       ,  "Mahnung", "closed"]
     print("AfpFa_possibleKinds:", name, table, filter)
     if table and not filter is None:
         for i in range(len(tables)):
@@ -501,7 +501,8 @@ class AfpFaktura(AfpSelectionList):
                 pos += 1
                 self.content.set_value("Nr", pos, i)
             else: 
-                self.content.set_value("Nr", "", i)
+                #self.content.set_value("Nr", "", i)
+                self.content.set_value("Nr", 0, i)
             self.content.set_value("PosNr", i+1, i)
             #print "AfpFaktura.content_numbering Nr:", pos, "PosNr:", i+1
     ## simple formula evaluation
@@ -664,6 +665,8 @@ class AfpFaktura(AfpSelectionList):
     # - overwritten from AfpSelectionList
     def store(self):
         self.complete_data()
+        print("AfpFaktura.store view:")
+        self.view()
         AfpSelectionList.store(self)
     ## return specific identification string to be used in dialogs \n
     # - overwritten from AfpSelectionList

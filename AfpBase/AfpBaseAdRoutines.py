@@ -197,6 +197,7 @@ class AfpAdresse(AfpSelectionList):
         self.selects["FAHRER"] = ["FAHRER","FahrerNr = KundenNr.ADRESSE"] 
         self.selects["EINSATZ"] = ["EINSATZ","FremdNr = KundenNr.ADRESSE"] 
         self.selects["RECHNG"] = ["RECHNG","KundenNr = KundenNr.ADRESSE"] 
+        self.selects["KVA"] = ["KVA","KundenNr = KundenNr.ADRESSE"] 
         self.selects["ANMELD"] = ["ANMELD","KundenNr = KundenNr.ADRESSE"] 
         self.selects["AnmeldAgent"] = ["ANMELD","AgentNr = KundenNr.ADRESSE"] 
         self.selects["EVENT"] = ["EVENT","AgentNr = KundenNr.ADRESSE"] 

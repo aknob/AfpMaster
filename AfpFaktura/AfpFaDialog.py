@@ -36,6 +36,7 @@ from AfpBase.AfpBaseRoutines import *
 from AfpBase.AfpBaseDialog import *
 from AfpBase.AfpBaseDialogCommon import *
 from AfpBase.AfpBaseAdDialog import AfpLoad_AdAusw, AfpLoad_DiAdEin_fromKNr
+from AfpBase.AfpBaseAdRoutines import AfpAdresse_getListOfTable
 from AfpBase.AfpBaseFiDialog import AfpLoad_DiFiZahl
 
 #from AfpEvent.AfpEvRoutines import *
@@ -89,7 +90,7 @@ class AfpDialog_FaAusw(AfpDialog_Auswahl):
 def AfpLoad_FaAusw(globals, table, index, value = "", where = None, ask = False):
     result = None
     Ok = True
-    print("AfpLoad_FaAusw input:", index, value, where, ask)
+    print("AfpLoad_FaAusw input:", table, index, value, where, ask)
     kind = AfpFa_getClearName(table)
     if ask:
         sort_list = AfpFa_getOrderlistOfTable()        
@@ -101,13 +102,23 @@ def AfpLoad_FaAusw(globals, table, index, value = "", where = None, ask = False)
             KNr = AfpLoad_AdAusw(globals,"ADRESSE","NamSort",value, None, text)
             if KNr:
                 text = "Bitte " + kind + " von dem folgenden Auftraggeber auswählen,"
-                rows, name = AfpAdresse_getListOfTable(globals, KNr, "RECHNG","RechNr,Datum,Pos,Betrag")
+                #rows, name = AfpAdresse_getListOfTable(globals, KNr, "RECHNG","RechNr,Datum,Pos,Betrag")
+                fields = "RechNr,Datum,Pos,Betrag"
+                filter = None
+                if where: filter = where.split("=")
+                if filter:
+                    filter[0] = filter[0].strip()
+                    filter[1] = filter[1].strip().replace("\"","")
+                    fields += "," + filter[0]
+                rows, name = AfpAdresse_getListOfTable(globals, KNr, table, fields)
                 liste = []
                 ident = []
-                for row in rows:
-                    ident.append(row[0])
-                    liste.append(Afp_ArraytoLine(row))
-                print("AfpLoad_FaAusw select:", text, name, liste, ident)
+                if rows:
+                    for row in reversed(rows):
+                        if filter and row[-1] != filter[1]: continue
+                        ident.append(row[0])
+                        liste.append(Afp_ArraytoLine(row[:4]))
+                print("AfpLoad_FaAusw select:", text, name, liste, ident, rows)
                 result, Ok = AfpReq_Selection(text, name, liste, "Auswahl", ident)
         else:
             DiAusw = AfpDialog_FaAusw()
