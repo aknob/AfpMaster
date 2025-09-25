@@ -425,7 +425,7 @@ def AfpLoad_AdAusw(globals, Datei, index, value = "", where = None, attribut_tex
     Ok = True
     if ask:
         sort_list = AfpAdresse_getOrderlistOfTable(globals.get_mysql(), index, Datei)
-        value, index, Ok = Afp_autoEingabe(value, index, sort_list, "Adressen","Bitte Namen eingeben:")
+        value, index, Ok = Afp_autoEingabe(value, index, sort_list, "Adressen","Bitte Namen für Suche eingeben:")
     if Ok:
         if Datei == "ADRESSE":
             DiAusw = AfpDialog_AdAusw()

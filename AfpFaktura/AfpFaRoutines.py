@@ -141,7 +141,9 @@ def AfpFa_getClearName(tablename):
         
 ## get the appropriate data object from database selection
 def AfpFa_getSelectionList( globals, RechNr, tablename):
-    if tablename == "KVA":
+    if tablename == "ADMEMO":
+        return  AfpMemo(globals, RechNr)
+    elif tablename == "KVA":
         return  AfpOffer(globals, RechNr)
     elif tablename == "BESTELL":
         return  AfpOrder(globals, RechNr)
@@ -185,13 +187,62 @@ def AfpFa_getSelectedRows(mysql, typ, debug):
     else:
         filter = "Zustand." + datei + " = \"" + filter + "\""
     select = filter + " AND KundenNr." + datei + " = KundenNr.ADRESSE"
+    print ("AfpFa_getSelectedRows:", typ, datei, filter, "Select:", select)
     if datei == "ADMEMO":
-        rows = mysql.select_strings("Name.ADRESSE,Vorname.ADRESSE,Datum.ADMEMO,TypNr.ADMEMO,Memo.ADMEMO", select, datei + " ADRESSE")
+        rows = mysql.select_strings("Name.ADRESSE,Vorname.ADRESSE,Datum.ADMEMO,MemoNr.ADMEMO,Memo.ADMEMO", select, datei + " ADRESSE")
     else:
         rows = mysql.select_strings("Name.ADRESSE,Vorname.ADRESSE,Datum." + datei +",RechNr."+datei + ",Bem." + datei, select, datei + " ADRESSE")
     if debug: print("AfpFa_getSelectedRows:", select, rows)
+    print("AfpFa_getSelectedRows:", select, rows)
     return datei, rows
  
+## baseclass for memo handling 
+class AfpMemo(AfpSelectionList):
+    ## initialize AfpMemo class
+    # @param globals - global values including the mysql connection - this input is mandatory
+    # @param value - mainvalue to initialise this class
+    # @param debug - flag for debug information
+    def  __init__(self, globals, value = None, debug = None):
+        AfpSelectionList.__init__(self, globals, "Memo", debug)
+        if debug: self.debug = debug
+        else: self.debug = globals.is_debug()
+        self.mainindex = "MemoNr"
+        self.mainselection = "ADMEMO"
+        self.mainvalue = ""
+        if value: 
+            self.mainvalue = Afp_toQuotedString(value)
+        else:
+            self.new = True
+        self.set_main_selects_entry()
+        self.create_selection(self.mainselection)
+        self.selects["ADRESSE"] = [ "ADRESSE","KundenNr = KundenNr.ADMEMO"] 
+        if self.debug: print("AfpMemo Konstruktor")
+    ## destructor
+    def __del__(self):    
+        if self.debug: print("AfpMemo Destruktor")
+
+    ## initialize new object with values
+    # @param knr - identifier of address this memo belongs to
+    # @param dat - if given date of the memo, otherwise today is used
+    # @param memo - if given text of the memo
+    def initialize(self, knr, dat = None, memo = None):
+        self.set_value("KundenNr", knr)
+        if dat is None: dat = self.globals.today()
+        self.set_value("Datum", dat)
+        if memo:
+            self.set_value("Memo", memo)
+        self.set_value("Zustand", "open")
+    ## set memo text and store
+    # @param memo - text to be stored in this memo
+    def set_memo(self, memo):
+        self.set_value("Memo", memo)
+        self. store()
+    ## deaktivate memo and store
+    def deactivate(self):
+        self.set_value("Zustand", "closed")
+        self. store()
+        
+        
 ## baseclass for article handling during faktura        
 class AfpArtikel(AfpSelectionList):
     ## initialize AfpArtikel class

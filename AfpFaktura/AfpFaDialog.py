@@ -36,7 +36,7 @@ from AfpBase.AfpBaseRoutines import *
 from AfpBase.AfpBaseDialog import *
 from AfpBase.AfpBaseDialogCommon import *
 from AfpBase.AfpBaseAdDialog import AfpLoad_AdAusw, AfpLoad_DiAdEin_fromKNr
-from AfpBase.AfpBaseAdRoutines import AfpAdresse_getListOfTable
+from AfpBase.AfpBaseAdRoutines import AfpAdresse, AfpAdresse_getListOfTable
 from AfpBase.AfpBaseFiDialog import AfpLoad_DiFiZahl
 
 #from AfpEvent.AfpEvRoutines import *
@@ -229,7 +229,7 @@ class AfpDialog_FaCustomSelect(AfpDialog):
         self.rows = 7
         self.minrows = 7
         self.cols = 4
-        self.col_percents = [30, 15, 20, 35]
+        self.col_percents = [30, 15, 5, 50]
         self.ident = []
         AfpDialog.__init__(self,None, -1, "")
         self.SetSize((650,415))
@@ -251,7 +251,7 @@ class AfpDialog_FaCustomSelect(AfpDialog):
         self.radio_Rechnung = wx.RadioButton(panel, -1,  label = "Rechnung", pos=(280,100), size=(90,15),  name="RRechnung") 
         self.radio_Bestellung = wx.RadioButton(panel, -1,  label = "Bestellung", pos=(280,125), size=(90,15),  name="RBestellung") 
         
-        self.choice_Art = wx.Choice(panel, -1,  pos=(175,160), size=(250,20),  choices=AfpFa_possibleOpenKinds(),  name="CArt")   
+        self.choice_Art = wx.Choice(panel, -1,  pos=(175,150), size=(250,30),  choices=AfpFa_possibleOpenKinds(),  name="CArt")   
         self.Bind(wx.EVT_CHOICE, self.On_CArt, self.choice_Art)
          
         self.button_Bar = wx.Button(panel, -1, label="&Bar", pos=(20,30), size=(100,50), name="Bar")
@@ -349,18 +349,39 @@ class AfpDialog_FaCustomSelect(AfpDialog):
     def On_DClick(self,event):
         if self.debug: print("Event handler `AfpDialog_FaCustomSelect.On_DClick'")
         ind = event.GetRow()
-        print("Event handler `AfpDialog_FaCustomSelect.On_DClick'", ind)
+        print("Event handler `AfpDialog_FaCustomSelect.On_DClick'", ind, self.ident)
         event.Skip()        
         if ind < len(self.ident):
             RechNr = self.ident[ind]
-            self.data = AfpFa_getSelectionList(self.globals, RechNr, self.datei)
-            self.Ok = True
-            self.EndModal(wx.ID_OK)
+            data = AfpFa_getSelectionList(self.globals, RechNr, self.datei)
+            if self.datei == "ADMEMO":
+                name = data.get_name()
+                ok = AfpReq_Question("Soll das Memo von", name + " deaktiviert werden?", "Memo")
+                if ok:
+                    data.deactivate()
+                    self.Pop_Auswahl()
+            else:
+                self.data = data
+                self.Ok = True
+                self.EndModal(wx.ID_OK)
     ## Eventhandler Grid RightClick - invoke memo edit
     # @param event - event which initiated this action   
     def On_RClick(self,event):
         if self.debug: print("Event handler `AfpDialog_FaCustomSelect.On_RClick'")
         print("Event handler `AfpDialog_FaCustomSelect.On_RClick' not implemented!", event.GetRow())
+        ind = event.GetRow()
+        if ind < len(self.ident):
+            RechNr = self.ident[ind]
+            data = AfpFa_getSelectionList(self.globals, RechNr, self.datei)
+            if self.datei == "ADMEMO":
+                name = data.get_name()
+                text = data.get_value("Memo")
+                mtext,ok = AfpReq_Text("Bitte den Memotext für", name + " eigeben!", text, "Memoeingabe")
+                if mtext and ok:
+                    data.set_memo(mtext)
+                    data.store()
+                    self.Pop_Auswahl()
+                 
         event.Skip()
 
     ## Eventhandler CHOICE - invoke new choice display to grid
@@ -405,6 +426,17 @@ class AfpDialog_FaCustomSelect(AfpDialog):
         radio = self.get_selected_RadioButton()
         if radio == "Memo":
             print("AfpDialog_FaCustomSelect.On_Neu Memo!")
+            text = "Bitte Person auswählen, der das Memo zugeordnet werden soll:"
+            knr = AfpLoad_AdAusw(self.globals,"ADRESSE","NamSort","", None, text, True)
+            if knr:
+                ad = AfpAdresse(self.globals, knr)
+                name = ad.get_name()
+                mtext,ok = AfpReq_Text("Bitte den Memotext für", name + " eigeben!", "", "Memoeingabe")
+                if mtext and ok:
+                    memo = AfpMemo(self.globals)
+                    memo.initialize(knr, None, mtext)
+                    memo.store()
+                    self.Pop_Auswahl()
         else:
             self.Ok = "Neu"
             self.data = radio
