@@ -372,6 +372,7 @@ class AfpFaScreen(AfpEditScreen):
         self.use_labels = use_labels
         self.use_RETURN = False
         self.use_custom_selection = False
+        self.custom_index = None
         self.automated_selection = False
         self.first_content_change = None
         self.grid_rows["Content"] = 10 
@@ -977,7 +978,7 @@ class AfpFaScreen(AfpEditScreen):
     # - Ok == True: data becomes current data of screen
     # - Ok = string, (optional: data = string): Ok triggers routine, data triggers databasetable
     def invoke_custom_select(self):
-        Ok, data = AfpLoad_FaCustomSelect(self.globals)
+        Ok, data, self.custom_index = AfpLoad_FaCustomSelect(self.globals, self.custom_index)
         print("AfpFaScreen.invoke_custom_select:", Ok, data)
         # fork to the different tasks, standard way Ok == True
         if Ok and data:

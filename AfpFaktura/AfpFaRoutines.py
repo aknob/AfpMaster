@@ -181,6 +181,7 @@ def AfpFa_colonInt(string):
 # @param debug - flag if debug text should be written
 def AfpFa_getSelectedRows(mysql, typ, debug):
     datei, filter = AfpFa_possibleKinds(typ)
+    print ("AfpFa_getSelectedRows:", typ, datei, filter)
     if datei == "":
         datei = "ADMEMO"
         filter = "Zustand." + datei + " = \"open\""

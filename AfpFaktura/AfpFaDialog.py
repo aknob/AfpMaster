@@ -229,7 +229,7 @@ class AfpDialog_FaCustomSelect(AfpDialog):
         self.rows = 7
         self.minrows = 7
         self.cols = 4
-        self.col_percents = [30, 15, 5, 50]
+        self.col_percents = [25, 15, 10, 50]
         self.ident = []
         AfpDialog.__init__(self,None, -1, "")
         self.SetSize((650,415))
@@ -304,7 +304,7 @@ class AfpDialog_FaCustomSelect(AfpDialog):
         typ = self.choice_Art.GetStringSelection()
         self.datei, rows = AfpFa_getSelectedRows(self.globals.get_mysql(), typ, self.debug)
         lgh = len(rows)
-        rows = Afp_MatrixJoinCol(rows)
+        rows = Afp_MatrixJoinCol(reversed(rows))
         #print "AfpDialog_FaCustomSelect.Pop_Auswahl:", lgh, rows
         if lgh < self.minrows:
             self.grid_resize(self.grid_auswahl, self.minrows)
@@ -343,7 +343,14 @@ class AfpDialog_FaCustomSelect(AfpDialog):
         elif self.radio_Rechnung.GetValue(): label = self.radio_Rechnung.GetLabel()
         elif self.radio_Bestellung.GetValue(): label = self.radio_Bestellung.GetLabel()
         return label
-        
+    ## return index of grid combo-box
+    def get_grid_ind(self):
+        return self.choice_Art.GetSelection()
+    ## set index of grid combo-box
+    # @param ind -index to be selected
+    def set_grid_ind(self, ind):
+       self.choice_Art.SetSelection(ind)
+       self.Pop_Auswahl()
     ## Eventhandler Grid DBLClick - invoke direct selection of invoice
     # @param event - event which initiated this action   
     def On_DClick(self,event):
@@ -368,20 +375,31 @@ class AfpDialog_FaCustomSelect(AfpDialog):
     # @param event - event which initiated this action   
     def On_RClick(self,event):
         if self.debug: print("Event handler `AfpDialog_FaCustomSelect.On_RClick'")
-        print("Event handler `AfpDialog_FaCustomSelect.On_RClick' not implemented!", event.GetRow())
         ind = event.GetRow()
+        print("Event handler `AfpDialog_FaCustomSelect.On_RClick' not implemented!", ind)
         if ind < len(self.ident):
             RechNr = self.ident[ind]
             data = AfpFa_getSelectionList(self.globals, RechNr, self.datei)
+            name = data.get_name()
             if self.datei == "ADMEMO":
-                name = data.get_name()
-                text = data.get_value("Memo")
+                field = "Memo"
+                text = data.get_value(field)
                 mtext,ok = AfpReq_Text("Bitte den Memotext für", name + " eigeben!", text, "Memoeingabe")
-                if mtext and ok:
-                    data.set_memo(mtext)
-                    data.store()
-                    self.Pop_Auswahl()
-                 
+            else:
+                field = "Bem"
+                text = data.get_value(field)
+                if self.datei == "KVA":
+                    vorgang = data.get_value("Zustand")
+                    if vorgang == "Angebot": vorgang = "das " +  vorgang
+                    else: vorgang = "den " +  vorgang
+                else:
+                    vorgang = "die Rechnung"
+                vorgang += " Nr. " + data.get_string_value()
+                mtext,ok = AfpReq_Text("Bitte die Bemerkung für " + vorgang, "von " + name + " eigeben!", text, "Bemerkung")
+            if mtext and ok:
+                data.set_value(field, mtext)
+                data.store()
+                self.Pop_Auswahl()
         event.Skip()
 
     ## Eventhandler CHOICE - invoke new choice display to grid
@@ -501,20 +519,26 @@ class AfpDialog_FaCustomSelect(AfpDialog):
 # end of class AfpDialog_FaCustomSelect
 
 ## loader routine for custom Faktura selection
+# @param globals - global variables given (including mysql-connection)
+# @param inind - if given, initial grid index
 # returns the values Ok and data:
 # - if Ok = True: data is selected or generated the SelectionList
 # - if Ok = False: no data is returned, dialog has been canceled
 # - if Ok is a string, it hold the button label that has been pushed and data holds the selected radiobutton label
-def AfpLoad_FaCustomSelect(globals):
+# returns also actind - actuel index of grid selection
+def AfpLoad_FaCustomSelect(globals, inind = None):
     DiSelect = AfpDialog_FaCustomSelect(None)
     DiSelect.attach_globals(globals)
+    if inind: DiSelect.set_grid_ind(inind)
     DiSelect.ShowModal()
     Ok = DiSelect.get_Ok()
     data = None
+    actind = None
     if Ok:
         data = DiSelect.get_data()
+        actind = DiSelect.get_grid_ind()
     DiSelect.Destroy()
-    return Ok, data
+    return Ok, data, actind 
 
 ## allows the entry and modification of an invoice line
 class AfpDialog_FaLine(AfpDialog):
