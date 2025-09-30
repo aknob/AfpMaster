@@ -244,12 +244,12 @@ class AfpDialog_FaCustomSelect(AfpDialog):
         self.label_Zusatz = wx.StaticText(panel, -1, label="Zusatzfunktionen", pos=(518,10), size=(150,20), name="LZusatz")
         self.label_Auftrag= wx.StaticText(panel, -1, label="Auftragsverwaltung", pos=(15,160), size=(160,20), name="LAuftrag")
  
-        self.radio_Memo = wx.RadioButton(panel, -1,  label = "Memo", pos=(280,30), size=(80,15),  style=wx.RB_GROUP,  name="RMemo") 
-        self.radio_KVA = wx.RadioButton(panel, -1,  label = "KVA", pos=(280,55), size=(80,15),  name="RKVA") 
-        self.radio_Angebot = wx.RadioButton(panel, -1,  label = "Angebot", pos=(280,70), size=(80,15),  name="RAngebot") 
-        self.radio_Auftrag = wx.RadioButton(panel, -1,  label = "Auftrag", pos=(280,85), size=(80,15),  name="RAuftrag") 
-        self.radio_Rechnung = wx.RadioButton(panel, -1,  label = "Rechnung", pos=(280,100), size=(90,15),  name="RRechnung") 
-        self.radio_Bestellung = wx.RadioButton(panel, -1,  label = "Bestellung", pos=(280,125), size=(90,15),  name="RBestellung") 
+        self.radio_Memo = wx.RadioButton(panel, -1,  label = "Memo", pos=(280,30), size=(80,20),  style=wx.RB_GROUP,  name="RMemo") 
+        self.radio_KVA = wx.RadioButton(panel, -1,  label = "KVA", pos=(280,50), size=(80,20),  name="RKVA") 
+        self.radio_Angebot = wx.RadioButton(panel, -1,  label = "Angebot", pos=(280,70), size=(80,20),  name="RAngebot") 
+        self.radio_Auftrag = wx.RadioButton(panel, -1,  label = "Auftrag", pos=(280,90), size=(80,20),  name="RAuftrag") 
+        self.radio_Rechnung = wx.RadioButton(panel, -1,  label = "Rechnung", pos=(280,110), size=(90,20),  name="RRechnung") 
+        self.radio_Bestellung = wx.RadioButton(panel, -1,  label = "Bestellung", pos=(280,130), size=(90,20),  name="RBestellung") 
         
         self.choice_Art = wx.Choice(panel, -1,  pos=(175,150), size=(250,30),  choices=AfpFa_possibleOpenKinds(),  name="CArt")   
         self.Bind(wx.EVT_CHOICE, self.On_CArt, self.choice_Art)
@@ -330,7 +330,8 @@ class AfpDialog_FaCustomSelect(AfpDialog):
         if self.globals.os_is_windows():
             self.rows = int(1.4 * self.rows)
             self.minrows = int(1.4 * self.minrows)
-        self.choice_Art.SetSelection(0)
+        self.choice_Art.SetSelection(3)
+        self.radio_Angebot.SetValue(True)
         self.Populate()
         
     ## return label of selected radio button
@@ -356,7 +357,7 @@ class AfpDialog_FaCustomSelect(AfpDialog):
     def On_DClick(self,event):
         if self.debug: print("Event handler `AfpDialog_FaCustomSelect.On_DClick'")
         ind = event.GetRow()
-        print("Event handler `AfpDialog_FaCustomSelect.On_DClick'", ind, self.ident)
+        #print("Event handler `AfpDialog_FaCustomSelect.On_DClick'", ind, self.ident)
         event.Skip()        
         if ind < len(self.ident):
             RechNr = self.ident[ind]
@@ -631,6 +632,6 @@ def AfpLoad_FaLine( ident = None, name = False,  debug = False):
         else:
             Ok = False
     EditLine.Destroy()
-    print("AfpLoad_FaLine destroy:",Ok, action, res)
+    #print("AfpLoad_FaLine destroy:",Ok, action, res)
     return Ok, action
 

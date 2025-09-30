@@ -335,14 +335,14 @@ class AfpScreen(wx.Frame):
                 attr =  wx.grid.GridCellAttr()
                 attr.SetBackgroundColour(self.actuelbuttoncolor)
                 #print "AfpScreen.mark_grid_column normal attr:", attr, attr.GetFont()
-                grid.SetAttr(row, self.grid_sort_col[name], attr)
+                grid.SetAttr(row, self.grid_sort_col[name], attr.Clone())
             if not index: self.grid_sort_col.pop(name)
         if index:
             for row in range(grid.GetNumberRows()):
                 attr =  wx.grid.GridCellAttr()
                 attr.SetBackgroundColour(self.buttoncolor)
                 #print "AfpScreen.mark_grid_column attr:", attr, attr.GetFont()
-                grid.SetAttr(row, index, attr)
+                grid.SetAttr(row, index, attr.Clone())
             self.grid_sort_col[name] = index
 
     ## sort grid rows due to one column
@@ -681,6 +681,7 @@ class AfpEditScreen(AfpScreen):
         self.readonlycolor = None
         self.editcolor = (255,255,255)
         self.editcellcolor = (192, 192, 192)
+        self.event_id = None
         # set if keyboard entries should be deviated to the plugin
         # the plugin must supply the method 'catch_keydown(keycode)'
         self.catch_keydown = None
@@ -702,7 +703,7 @@ class AfpEditScreen(AfpScreen):
         
         # use_RETURN may be set in devired screen during activation
         self.use_RETURN = None
-        # automated_row_selection may be set to invoke edit_data automatically when last rowis selected
+        # automated_row_selection may be set to invoke edit_data automatically when last row is selected
         self.automated_row_selection = None
 
     ## connect to database and populate widgets
@@ -781,19 +782,19 @@ class AfpEditScreen(AfpScreen):
     # @param row - index of gridrow to be marked \n
     # - if row < 0: only marked row will be unmarked
     def select_row(self, row):
-        #print "AfpEditScreen.select_row invoked", row
+        #print ("AfpEditScreen.select_row invoked", row,  self.editable_rows, self.selected_row, self.editable_cols)
         if self.grid_editable and row <= self.editable_rows:
             if not self.selected_row is None and self.selected_row != row :
                 attrRO = wx.grid.GridCellAttr()
                 for col in range(0,self.editable_cols):
-                    #print "AfpEditScreen.On_LClick_Content RO:", self.selected_row, col, attrRO
-                    self.grid_editable.SetAttr(self.selected_row, col, attrRO)
+                    #print ("AfpEditScreen.On_LClick_Content RO:", self.selected_row, col, attrRO)
+                    self.grid_editable.SetAttr(self.selected_row, col, attrRO.Clone())
             if row > -1:
                 attrSel = wx.grid.GridCellAttr()
                 attrSel.SetBackgroundColour(self.editcellcolor)
                 for col in range(0,self.editable_cols):
                     #print "AfpEditScreen.On_LClick_Content Select:", row, col, attrSel
-                    self.grid_editable.SetAttr(row, col, attrSel)
+                    self.grid_editable.SetAttr(row, col, attrSel.Clone())
                 self.selected_row = row
             else:
                 self.selected_row = None
@@ -801,9 +802,15 @@ class AfpEditScreen(AfpScreen):
  
     ## Eventhandler Keyboard - handle key-down events
     def On_KeyDown(self, event):
+        # avoid multiple invokation of same event (id() is not enough, therefore Timestamp of event is used)
+        ident = event.Timestamp
+        #print ("AfpEditScreen.On_KeyDown ID:", self.event_id, ident, event, hex(ident), event.Timestamp)
+        if self.event_id and ident == self.event_id:
+            return
+        self.event_id = ident
         keycode = event.GetKeyCode()        
         if self.debug: print("AfpEditScreen Event handler `On_KeyDown'", keycode)
-        #print "AfpEditScreen Event handler `On_KeyDown'", keycode
+        #print ("AfpEditScreen.On_KeyDown:", keycode, event)
         caught = 0
         if keycode == wx.WXK_LEFT: caught = -1
         if keycode == wx.WXK_RIGHT: caught = 1

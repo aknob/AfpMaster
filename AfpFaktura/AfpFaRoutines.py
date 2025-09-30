@@ -89,7 +89,7 @@ def AfpFa_possibleKinds(name = None, table = None, filter = None):
     names = ["Ausgabe" , "Waren"     , "Bestellung", "Bestell-Liste", "Kostenvoranschlag","Angebot" , "Lieferschein", "Auftrag" , "Rechnung", "Mahnung", "Einnahme"]
     tables = ["BESTELL"  , "BESTELL" , "BESTELL"      , "BESTELL"           , "KVA"                           , "KVA"       , "KVA"                 , "KVA"         , "RECHNG"   , "RECHNG"   , "RECHNG"]
     filters =  ["closed"   ,"erhalten" , "open"           , "neu"                  , "KVA"                            , "Angebot",  "Liefer"          , "Auftrag" , "open"       ,  "Mahnung", "closed"]
-    print("AfpFa_possibleKinds:", name, table, filter)
+    #print("AfpFa_possibleKinds:", name, table, filter)
     if table and not filter is None:
         for i in range(len(tables)):
             if tables[i] == table and filters[i] == filter:
@@ -102,8 +102,8 @@ def AfpFa_possibleKinds(name = None, table = None, filter = None):
             if table == "RECHNG":
                 return names[8], 8
         return None, None
-    if name:
-        print("AfpFa_possibleKinds name:", name, names)
+    elif name:
+        #print("AfpFa_possibleKinds name:", name, names)
         if  name in names:
             ind = names.index(name)
             return tables[ind], filters[ind]
@@ -181,20 +181,20 @@ def AfpFa_colonInt(string):
 # @param debug - flag if debug text should be written
 def AfpFa_getSelectedRows(mysql, typ, debug):
     datei, filter = AfpFa_possibleKinds(typ)
-    print ("AfpFa_getSelectedRows:", typ, datei, filter)
+    #print ("AfpFa_getSelectedRows:", typ, datei, filter)
     if datei == "":
         datei = "ADMEMO"
         filter = "Zustand." + datei + " = \"open\""
     else:
         filter = "Zustand." + datei + " = \"" + filter + "\""
     select = filter + " AND KundenNr." + datei + " = KundenNr.ADRESSE"
-    print ("AfpFa_getSelectedRows:", typ, datei, filter, "Select:", select)
+    #print ("AfpFa_getSelectedRows:", typ, datei, filter, "Select:", select)
     if datei == "ADMEMO":
         rows = mysql.select_strings("Name.ADRESSE,Vorname.ADRESSE,Datum.ADMEMO,MemoNr.ADMEMO,Memo.ADMEMO", select, datei + " ADRESSE")
     else:
         rows = mysql.select_strings("Name.ADRESSE,Vorname.ADRESSE,Datum." + datei +",RechNr."+datei + ",Bem." + datei, select, datei + " ADRESSE")
     if debug: print("AfpFa_getSelectedRows:", select, rows)
-    print("AfpFa_getSelectedRows:", select, rows)
+    #print("AfpFa_getSelectedRows:", select, rows)
     return datei, rows
  
 ## baseclass for memo handling 
@@ -378,7 +378,7 @@ class AfpFaktura(AfpSelectionList):
     def gen_dependent_selects(self):
         self.selects["ARCHIV"] = ["ARCHIV", "Tab = \"" + self.maintable + "\" AND TabNr = RechNr.Main"] 
         self.selects["AUSGABE"] = [ "AUSGABE","Modul = \"Faktura\" AND Art = \"" + self.get_listname() + "\" AND Typ = Zustand.Main"] 
-        print("AfpFaktura.gen_dependent_selects:", self.selects["ARCHIV"], self.selects["AUSGABE"])
+        #print("AfpFaktura.gen_dependent_selects:", self.selects["ARCHIV"], self.selects["AUSGABE"])
     ## initialisation routine for the use of different database constructions
     # @param mainfield - name.tablename of the identifier of the mani selection
     # @param mainvalue - if given, value of the identifier of the main selection
@@ -415,13 +415,13 @@ class AfpFaktura(AfpSelectionList):
     ## return if editing is possible
     def is_editable(self):
         kind = self.get_kind()
-        print("AfpFaktura.is_editable:", kind)
+        #print("AfpFaktura.is_editable:", kind)
         return kind in AfpFa_editableKinds()
     ## return if further processing is possible
     def is_processable(self):
         if self.is_editable():
             kind = self.get_kind()
-            print("AfpFaktura.is_editable:", kind)
+            #print("AfpFaktura.is_processable:", kind)
             return kind in AfpFa_processableKinds()
         else:
             return False
@@ -453,7 +453,7 @@ class AfpFaktura(AfpSelectionList):
             self.create_selection("ADRESSE", False)
     ## complete datavalues needed for storing
     def complete_data(self):
-        print("AfpFaktura.complete_data")
+        #print("AfpFaktura.complete_data")
         Konto = self.get_account_number()
         self.set_value("Kontierung",Konto)
     ## get accountnumber for financial accounting
@@ -525,20 +525,20 @@ class AfpFaktura(AfpSelectionList):
             for value in values:
                 if value and value[0]: sum += Afp_floatString(value[0])
             self.set_value(field, sum)
-            print("AfpFaktura.update_fields total:",field, values, sum)
+            #print("AfpFaktura.update_fields total:",field, values, sum)
         for field in self.tax_fields:
             tax = self.get_value(self.tax_fields[field]) * self.standard_tax / 100
             self.set_value(field, tax)   
-            print("AfpFaktura.update_fields tax:",field, tax)
+            #print("AfpFaktura.update_fields tax:",field, tax)
         for field in self.brutto_fields:
             netto = self.get_value(self.brutto_fields[field]) 
             tax = netto * self.standard_tax / 100
             self.set_value(field, netto + tax)
-            print("AfpFaktura.update_fields brutto:",field, netto, tax, netto + tax)
+            #print("AfpFaktura.update_fields brutto:",field, netto, tax, netto + tax)
         for field in self.formula_fields:
             res = self.evaluate_formula(self.formula_fields[field])
             self.set_value(field, res)
-            print("AfpFaktura.update_fields formula:",field, self.formula_fields[field], res)
+            #print("AfpFaktura.update_fields formula:",field, self.formula_fields[field], res)
     ## checks if invoice content holds wage positions
     def content_holds_wage(self):
         wage = False
@@ -617,7 +617,7 @@ class AfpFaktura(AfpSelectionList):
     # @param index - index of row to be changed - outside valid rows, row will be added at end
     # @param row - values of new row data delivered from screen
     def change_content_row(self, index, row):
-        print("AfpFaktura.change_content_row:", index, row)
+        #print("AfpFaktura.change_content_row:", index, row)
         if row is None:
             self.content.delete_row(index)
         else:
@@ -634,11 +634,37 @@ class AfpFaktura(AfpSelectionList):
     def content_row_holds_wage(self, index):
         ANr = self.content.get_values("ErsatzteilNr", index)[0]
         return AfpFa_isWage(ANr)
-    ## swap all content selections to new selection list
-    # @param toObj - SelectionList where data shoulb be transfered to
-    def swap_contents(self, toObj):
-        print("AfpFaktura.swap_contents")
-        return toObj
+    ## conversion between different faktura types
+    # @param datei - tablename of targerttype
+    # @param filter - filter on targerttype
+    def get_converted_faktura(self, datei, filter):
+        print("AfpFaktura.get_converted_faktura ", datei, filter)
+        if datei == "RECHNG":
+            faktura = AfpInvoice(self.get_globals(), None, None, self.is_debug())
+        elif datei == "BESTELL":
+            faktura = AfpOrder(self.get_globals(), None, None, self.is_debug())
+        elif datei == "KVA":
+            faktura = AfpOffer(self.get_globals(), None, None, self.is_debug())
+        main = faktura.get_selection("Main")
+        main.new_data()
+        KNr = self.get_value("KundenNr")
+        data = {"KundenNr": KNr, "AttNr": self.get_value("AttNr"), "Datum": self.globals.today(), "Zustand": filter}
+        data["Pos"] = self.get_value("Pos")
+        data["Ust"] = self.get_value("Ust")
+        data["Kontierung"] = self.get_value("Kontierung")
+        data["Debitor"] = Afp_getIndividualAccount(self.get_mysql(), KNr)
+        data["Netto"] = self.get_value("Netto")
+        data["Betrag"] = self.get_value("Betrag")
+        data["Gewinn"] = self.get_value("Gewinn")
+        main.set_data_values(data)
+        # copy content
+        content = faktura.get_selection("Content")
+        data = Afp_copyArray(self.get_selection("Content").data)
+        # reset 'RechNr' on position 0
+        for i in range(len(data)):
+            data[i][0] = None
+        content.set_data(data)
+        return faktura
     ## financial transaction will be initated if the appropriate modul is installed
     # @param initial - flag for initial call of transaction (interal payment may be added)
     def execute_financial_transaction(self, initial):
@@ -717,8 +743,8 @@ class AfpFaktura(AfpSelectionList):
     # - overwritten from AfpSelectionList
     def store(self):
         self.complete_data()
-        print("AfpFaktura.store view:")
-        self.view()
+        #print("AfpFaktura.store view:")
+        #self.view()
         AfpSelectionList.store(self)
     ## return specific identification string to be used in dialogs \n
     # - overwritten from AfpSelectionList
@@ -753,11 +779,12 @@ class AfpFaktura(AfpSelectionList):
     def get_grid_columns(self, name="Content"):
         if name == "Content":
             return "Nr,ErsatzteilNr,Bezeichnung,Anzahl,Einzelpreis,Gesamtpreis,Gewinn,Zeile,ErsatzteilNr"
-     ## return names of data columns neede for different grids
+     ## return names of data columns needed for different grids
     # @param row - row to be modified
     # @param name - name of grid data is designed for
     def get_modified_grid_row(self, row, name="Content"):
-        print("AfpFaktura.get_modified_grid_row:", row)
+        # default implementation
+        #print("AfpFaktura.get_modified_grid_row:", row)
         return row
      ## routine to expand data from view to full datarow to be filled into content
     # @param row - data to be expanded
@@ -774,13 +801,7 @@ class AfpFaktura(AfpSelectionList):
             change["Gesamtpreis"] = row[5]
             change["Gewinn"] = row[6]
         return change
-    ## conversion between different faktura types
-    # @param datei - tablename of targerttype
-    # @param filter - filter on targerttype
-    def get_converted_faktura(self, datei, filter):
-        print("AfpFaktura.get_converted_faktura NOT YET IMPLEMENTED:", datei, filter)
-        return self
-        
+         
 ## baseclass for invoices in faktura handling         
 class AfpInvoice(AfpFaktura):
     ## initialize AfpInvoice class
@@ -813,7 +834,7 @@ class AfpInvoice(AfpFaktura):
             self.set_value("ZahlDat",self.get_value("Datum"))
             self.set_value("Zahlung",self.get_value("ZahlBetrag"))
         else:
-            if self.get_value("Zahlung") >= self.get_value("ZahlBetrag"):
+            if  self.get_value("Zahlung") and self.get_value("ZahlBetrag") and self.get_value("Zahlung") >= self.get_value("ZahlBetrag"):
                 self.set_value("Zustand","closed")
             if not self.get_value("Zustand"):
                 self.set_value("Zustand","open")
@@ -861,24 +882,9 @@ class AfpInvoice(AfpFaktura):
     def store(self):
         AfpFaktura.store(self)
         # book from/into stock due to changes
-        print("AfpInvoice.store book")   
+        #print("AfpInvoice.store book")   
         if self.content_has_changed(True):
             self.book_content()
-    ## conversion between different faktura types and return initalised object
-    # - overwritten from AfpFaktura
-    # @param datei - tablename of targerttype
-    # @param filter - filter on targerttype
-    def get_converted_faktura(self, datei, filter):
-        print("AfpInvoice.get_converted_faktura ", datei, filter)
-        data = {"Typ":"RECHNG", "TypNr": self.get_value("RechNr")}
-        if datei == "KVA":
-            faktura = AfpOffer(self.globals)
-            faktura.set_new(filter)
-        elif datei == "BESTELL":
-            faktura = AfpOrder(self.globals)
-            faktura.set_new("neu")
-        faktura.get_selection().set_data_values(data)
-        return faktura
     ## set all necessary values to keep track of the payments \n
     # - overwritten from AfpSelectionList
     # @param payment - amount that has been payed
@@ -915,47 +921,9 @@ class AfpOffer(AfpFaktura):
     ## destuctor
     def __del__(self):    
         if self.debug: print("AfpOffer Destruktor")
-    ## conversion between different faktura types and return initalised object
-    # - overwritten from AfpFaktura
-    # @param datei - tablename of targerttype
-    # @param filter - filter on targerttype
-    def get_converted_faktura(self, datei, filter):
-        print("AfpOffer.get_converted_faktura ", datei, filter)
-        data = {"Typ":"KVA", "TypNr": self.get_value("RechNr")}
-        if datei == "RECHNG":
-            faktura = AfpInvoice(self.globals)
-            faktura.set_new("open")
-            data["Debitor"] = Afp_getIndividualAccount(self.get_mysql(), self.get_value("KundenNr"))
-        elif datei == "BESTELL":
-            faktura = AfpOrder(self.globals)
-            faktura.set_new("neu")
-        faktura.get_selection().set_data_values(data)
-        return faktura
-
-    ## a separate invoice is created and filled with the appropriate values
-    def convert_to_invoice(self):
-        print("AfpOffer.convert_to_invoice")
-        invoice = AfpInvoice(self.get_globals(), None, None, self.is_debug())
-        main = invoice.get_selection("Main")
-        main.new_data()
-        KNr = self.get_value("KundenNr")
-        data = {"KundenNr": KNr, "AttNr": self.get_value("AttNr"), "Datum": self.globals.today(), "Typ":"KVA", "TypNr": self.get_value("RechNr")}
-        data["Pos"] = self.get_value("Pos")
-        data["Ust"] = self.get_value("Ust")
-        data["Kontierung"] = self.get_value("Kontierung")
-        data["Debitor"] = Afp_getIndividualAccount(self.get_mysql(), KNr)
-        data["Netto"] = self.get_value("Netto")
-        data["Betrag"] = self.get_value("Betrag")
-        data["Gewinn"] = self.get_value("Gewinn")
-        main.set_data_values(data)
-        content = invoice.get_selection("Content")
-        data = Afp_copyArray(self.get_selection("Content").data)
-        content.set_data(data)
-        return invoice
-
-    ## one line to hold all relevant values of this tour, to be displayed 
+    ## one line to hold all relevant values of this offer, to be displayed 
     def line(self):
-        zeile =  self.get_string_value("Kennung").rjust(8) + "  "  + self.get_string_value("Art") + " " +  self.get_string_value("AgentName") + " " + self.get_string_value("Abfahrt") + " " + self.get_string_value("Zielort")  
+        zeile =  self.get_string_value("RechNr") + " KVA " + self.get_string_value("Zustand").rjust(8) + " vom "  + self.get_string_value("Datum") + " " +  self.get_string_value("Betrag") + " " + self.get_string_value("ZahlBetrag") + " " + self.get_string_value("Zahlung")  
         return zeile
     ## return specific identification string to be used in dialogs \n
     # - overwritten from AfpSelectionList
@@ -983,26 +951,9 @@ class AfpOrder(AfpFaktura):
     ## destuctor
     def __del__(self):    
         if self.debug: print("AfpOrder Destruktor")
-
-    ## conversion between different faktura types and return initalised object
-    # - overwritten from AfpFaktura
-    # @param datei - tablename of targerttype
-    # @param filter - filter on targerttype
-    def get_converted_faktura(self, datei, filter):
-        print("AfpOrder.get_converted_faktura ", datei, filter)
-        data = {"Typ":"BESTELL", "TypNr": self.get_value("RechNr")}
-        if datei == "RECHNG":
-            faktura = AfpInvoice(self.globals)
-            faktura.set_new("open")
-        elif datei == "KVA":
-            faktura = AfpOrder(self.globals)
-            faktura.set_new(filter)
-        faktura.get_selection().set_data_values(data)
-        return faktura
-
-    ## one line to hold all relevant values of this tour, to be displayed 
+    ## one line to hold all relevant values of this order, to be displayed 
     def line(self):
-        zeile =  self.get_string_value("Kennung").rjust(8) + "  "  + self.get_string_value("Art") + " " +  self.get_string_value("AgentName") + " " + self.get_string_value("Abfahrt") + " " + self.get_string_value("Zielort")  
+        zeile =  self.get_string_value("RechNr") + " Bestellung " + self.get_string_value("Zustand").rjust(8) + " vom "  + self.get_string_value("Datum") + " " +  self.get_string_value("Betrag") + " " + self.get_string_value("ZahlBetrag") + " " + self.get_string_value("Zahlung")  
         return zeile
     ## set all necessary values to keep track of the payments \n
     # - overwritten from AfpSelectionList
@@ -1047,77 +998,6 @@ class AfpOrder(AfpFaktura):
             change["Gesamtpreis"] = row[5]
             change["Lieferung"] = row[6]
         return change
-
-
-## baseclass for tourist in faktura handling  (mainly for test-reasons)        
-class AfpFaTourist(AfpFaktura):
-    ## initialize AfpFaTourist class
-    # @param globals - global values including the mysql connection - this input is mandatory
-    # @param AnmeldNr - if given, data will be retrieved this database entry
-    # @param sb - if given data will  be retrieved from the actuel AfpSuperbase data
-    # @param debug - flag for debug information
-    # @param complete - flag if data from all tables should be retrieved during initialisation \n
-    # \n
-    # either KvaNr or sb (superbase) has to be given for initialisation, otherwise a new, clean object is created
-    def  __init__(self, globals, AnmeldNr = None, sb = None, debug = None, complete = False):
-        AfpFaktura.__init__(self, globals, debug, "Tourist-Faktura-View")
-        #  self.selects[name of selection]  [tablename,, select criteria, optional: unique fieldname]
-        self.selects["Content"] = [ "ANMELDEX","AnmeldNr = AnmeldNr.Main"] 
-        self.selects["REISEN"] = [ "REISEN","FahrtNr = FahrtNr.Main"]
-        self.tagmap = {"Tag#1.ADRESSATT":"Abfahrt.REISEN","Tag#3.ADRESSATT":"FahrtNr.REISEN","Tag#4.ADRESSATT":"Zielort.REISEN"}
-        self.initialize("AnmeldNr.ANMELD", AnmeldNr, sb)
-        if complete: self.create_selections()
-        if self.debug: print("AfpFaTourist Konstruktor AnmeldNr:", self.mainvalue)
-    ## destuctor
-    def __del__(self):    
-        if self.debug: print("AfpFaTourist Destruktor")
-    ## a separate invoice is created and filled with the appropriate values
-    def add_invoice(self):
-        print("AfpFaTourist.add_invoice")
-        invoice = AfpSQLTableSelection(self.get_mysql(), "RECHNG", self.debug, "RechNr")
-        KNr = self.get_value("KundenNr")
-        data = {"Datum": self.globals.today(), "KundenNr": KNr, "Name": self.get_name(True), "Anmeld": self.get_value("AnmeldNr")}
-        data["Debitor"] = Afp_getIndividualAccount(self.get_mysql(), KNr)
-        betrag = self.get_value("Preis")
-        data["Zahlbetrag"] = betrag
-        #betrag2 = self.extract_taxfree_portion()
-        #if betrag2:
-            #betrag -= betrag2
-            #data["Betrag2"] = betrag
-            #data["Konto2"] = Afp_getSpecialAccount(self.get_mysql(), "EMFA")
-        data["Betrag"] = betrag
-        data["Kontierung"] = Afp_getSpecialAccount(self.get_mysql(), "ERL")
-        data["Zustand"] = "open"
-        data["Wofuer"] = "Reiseanmeldung Nr " + self.get_string_value("AnmeldNr") + " am " + self.get_string_value("Abfahrt.REISEN") + " nach " + self.get_string_value("Zielort.REISEN")
-        if self.get_value("ZahlDat"):
-            data["Zahlung"] = self.get_value("Zahlung")
-            data["ZahlDat"] = self.get_value("ZahlDat")
-            if data["Zahlung"] >= betrag: data["Zustand"] = "closed"
-        invoice.new_data()
-        invoice.set_data_values(data)
-        self.selections["RECHNG"] = invoice
-
-    ## one line to hold all relevant values of this tour, to be displayed 
-    def line(self):
-        zeile =  self.get_string_value("Kennung").rjust(8) + "  "  + self.get_string_value("Art") + " " +  self.get_string_value("AgentName") + " " + self.get_string_value("Abfahrt") + " " + self.get_string_value("Zielort")  
-        return zeile
-    ## return names of columns of different grids - overwritten from AfpFaktura
-    # @param name - name of grid data is designed for
-    def get_grid_colnames(self, name="Content"):
-        if name == "Content":
-            return ["Kennung","Bezeichnung","Preis","",""]
-    ## return rows of different grids - overwritten from AfpFaktura
-    # @param name - name of grid data is designed for
-    def get_grid_rows(self, name="Content"):
-        rows = []
-        if name == "Content":
-            rows = self.get_string_rows("Content","Kennung,Bezeichnung,Preis,AnmeldNr")
-            rows = Afp_MatrixSplitCol(rows, 2, 3)
-        return rows   
-    ## return specific identification string to be used in dialogs \n
-    # - overwritten from AfpSelectionList
-    def get_identification_string(self):
-        return "KVA vom "  +  self.get_string_value("Datum") + " über " + self.get_string_value("Preis") + " an " + self.get_name()
 
     
 

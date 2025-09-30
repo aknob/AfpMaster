@@ -96,21 +96,21 @@ class AfpFaScreen_EditLinePlugIn(object):
                 attrSel.SetBackgroundColour(self.selectlinecolor)
             else:
                 attrSel.SetBackgroundColour(self.editlinecolor)
-            print("AfpFaScreen_EditLinePlugIn.select_row:", self.row, self.cols, attrSel)
+            #print("AfpFaScreen_EditLinePlugIn.select_row:", self.row, self.cols, attrSel)
             for col in range(0,self.cols):
                 self.grid.SetAttr(self.row, col, attrSel)
                 attrSel.IncRef()
         ## mark indicates row for row edit mode
         # @param release - reset original color
         def select_col(self, release = False):
-            print("AfpFaScreen_EditLinePlugIn.select_col:", self.edit_col)
+            #print("AfpFaScreen_EditLinePlugIn.select_col:", self.edit_col)
             if self.edit_col:
                 attrSel = wx.grid.GridCellAttr()
                 if release:
                     attrSel.SetBackgroundColour(self.editlinecolor)
                 else:
                     attrSel.SetBackgroundColour(self.editcolcolor)
-                print("AfpFaScreen_EditLinePlugIn.select_col:", self.row, self.edit_col, attrSel)
+                #print("AfpFaScreen_EditLinePlugIn.select_col:", self.row, self.edit_col, attrSel)
                 self.grid.SetAttr(self.row, self.edit_col, attrSel)
         ## handle keydown events, supplied from AfpEditScreen
         # @param event - that initiated this catch
@@ -130,7 +130,7 @@ class AfpFaScreen_EditLinePlugIn(object):
                 elif keycode == wx.WXK_RIGHT: 
                     self.select_following_row_data()
                     caught = True
-                print("AfpFaScreen_EditLinePlugIn.catch_keydown:", keycode, caught)
+                #print("AfpFaScreen_EditLinePlugIn.catch_keydown:", keycode, caught)
             else:
                 if keycode != wx.WXK_SHIFT:
                     if  keycode == wx.WXK_RETURN:
@@ -143,7 +143,7 @@ class AfpFaScreen_EditLinePlugIn(object):
                     else:
                         upcase = event.ShiftDown()
                         char = self.get_char(keycode, upcase)
-                        print("AfpFaScreen_EditLinePlugIn.catch_keydown Edit:", keycode, upcase, char)
+                        #print("AfpFaScreen_EditLinePlugIn.catch_keydown Edit:", keycode, upcase, char)
                         self.edit_value += char
                         self.grid.SetCellValue(self.row, self.edit_col, self.edit_value.encode("UTF-8"))
             if self.debug: print("AfpFaScreen_EditLinePlugIn.catch_keydown:", keycode, caught)
@@ -253,10 +253,10 @@ class AfpFaScreen_EditLinePlugIn(object):
                 self.update = None
                 # invoke next step
                 self.process_step_index += 1
-                print("AfpFaScreen_EditLinePlugIn.next_process_step cleard next:",  self.process_step_index, len(self.process))
+                #print("AfpFaScreen_EditLinePlugIn.next_process_step cleard next:",  self.process_step_index, len(self.process))
                 if self.process_step_index < len(self.process):
                     process = self.process[self.process_step_index]
-                    print("AfpFaScreen_EditLinePlugIn.next_process:", process)
+                    #print("AfpFaScreen_EditLinePlugIn.next_process:", process)
                     if process[0] == "choose":
                     # process = ["choose",",ArtikelNr,Bezeichnung,,Nettopreis,Nettopreis"]
                         self.choose = True
@@ -277,7 +277,7 @@ class AfpFaScreen_EditLinePlugIn(object):
                             self.edit_value = self.initial_row[self.edit_col]
                     #print "AfpFaScreen_EditLinePlugIn.next_process_step executed:", self.choose, self.columns, self.edit_col, self.postprocess, self.update
                 else:
-                    print("AfpFaScreen_EditLinePlugIn.next_process_step: ENDED")
+                    #print("AfpFaScreen_EditLinePlugIn.next_process_step: ENDED")
                     done = True
             self.grid.Refresh()
             return done
@@ -342,14 +342,14 @@ class AfpFaScreen_EditLinePlugIn(object):
         ## get data for gridrow due to the 'left arrow' key
         # to be overwritten in devired class
         def get_previous_row_data(self):
-            print("AfpFaScreen_EditLinePlugIn.get_previous_row")
+            #print("AfpFaScreen_EditLinePlugIn.get_previous_row_data")
             self.sb.select_previous()
             self.initial_row = self.read_columns()
             return self.initial_row 
         ## get data for gridrow due to the 'right arrow' key
         # to be overwritten in devired class
         def get_following_row_data(self):
-            print("AfpFaScreen_EditLinePlugIn.get_following_row")
+            #print("AfpFaScreen_EditLinePlugIn.get_following_row_data")
             self.sb.select_next()
             self.initial_row  = self.read_columns()
             return self.initial_row 
@@ -735,7 +735,7 @@ class AfpFaScreen(AfpEditScreen):
             return
         datei, filter = AfpFa_possibleKinds(value)
         reset = False
-        print("AfpFaScreen.On_Filter:", datei, filter, self.sb_master)
+        #print("AfpFaScreen.On_Filter:", datei, filter, self.sb_master)
         if not datei: 
             datei = self.sb_master
             reset = True
@@ -836,7 +836,7 @@ class AfpFaScreen(AfpEditScreen):
         zahlbetrag = self.data.get_value("ZahlBetrag")
         netto = self.data.get_value("Netto")
         gewinn = self.data.get_value("Gewinn")
-        print("AfpFaScreen.Pop_special:", brutto, netto, gewinn, zahlbetrag)
+        #print("AfpFaScreen.Pop_special:", brutto, netto, gewinn, zahlbetrag)
         if self.is_editable():
             if not gewinn is None:
                 if netto:
@@ -903,7 +903,7 @@ class AfpFaScreen(AfpEditScreen):
     # @param index - sortindex in database table
     # @param rowNr - number of row to be edited
     def edit_line(self, typ, value, index, rowNr):
-        print("AfpFaScreen.edit_line:", value, index, rowNr)
+        #print("AfpFaScreen.edit_line:", value, index, rowNr)
         if typ is None:
             #self.sb.set_debug()
             self.sb.CurrentIndexName(index, "ARTIKEL")
@@ -917,7 +917,7 @@ class AfpFaScreen(AfpEditScreen):
             rowNr = self.data.get_content_length()
         self.catch_keydown = EditLine = AfpFaScreen_EditLinePlugIn( self.grid_editable, rowNr, self.sb, process, self.debug)
         self.postprocess_keydown = self.get_edit_line_result
-        print("AfpFaScreen.edit_line catch:",  self.catch_keydown, self.postprocess_keydown)
+        #print("AfpFaScreen.edit_line catch:",  self.catch_keydown, self.postprocess_keydown)
         EditLine.display_row()
         #self.sb.unset_debug()
     ## get edit line results from plugin
@@ -942,7 +942,7 @@ class AfpFaScreen(AfpEditScreen):
     ## invoke selection
     def invoke_selection(self):
         if self.use_custom_selection:
-            print("AfpFaScreen.invoke_selection: invoke custom selection")
+            #print("AfpFaScreen.invoke_selection: invoke custom selection")
             self.invoke_custom_select()
         else:    
             index = self.index
@@ -979,7 +979,7 @@ class AfpFaScreen(AfpEditScreen):
     # - Ok = string, (optional: data = string): Ok triggers routine, data triggers databasetable
     def invoke_custom_select(self):
         Ok, data, self.custom_index = AfpLoad_FaCustomSelect(self.globals, self.custom_index)
-        print("AfpFaScreen.invoke_custom_select:", Ok, data)
+        #print("AfpFaScreen.invoke_custom_select:", Ok, data)
         # fork to the different tasks, standard way Ok == True
         if Ok and data:
             if Ok == True:
@@ -997,7 +997,7 @@ class AfpFaScreen(AfpEditScreen):
                         self.combo_Filter.SetValue(data)
                         #self.On_Filter()
                 elif Ok == "Neu":
-                    print("AfpFaScreen.invoke_custom_select Neu:", data)
+                    #print("AfpFaScreen.invoke_custom_select Neu:", data)
                     if data: self.generate_new_data(data, None)
         elif Ok:
             if Ok == "Bar":
@@ -1157,7 +1157,7 @@ class AfpFaScreen(AfpEditScreen):
     ## edit content data -  overwritten from AfpEditScreen
     # @param rowNr - if given, index of row to be changed
     def edit_data(self, rowNr = None):
-        print("AfpFaScreen.edit_data invoked", rowNr)
+        #print("AfpFaScreen.edit_data invoked", rowNr)
         ident = None
         name = ""
         text = [None, None]
@@ -1169,7 +1169,7 @@ class AfpFaScreen(AfpEditScreen):
             ident, name, text, anz = self.get_content_indicators(rowNr)
         else:
             if direct: edit_next = False
-        print("AfpFaScreen.edit_data while outside:", ident, name, text, edit_next, self.debug)
+        #print("AfpFaScreen.edit_data while outside:", ident, name, text, edit_next, self.debug)
         while edit_next:
             edit_next = False
             edit_text = False
@@ -1185,7 +1185,7 @@ class AfpFaScreen(AfpEditScreen):
                 if not Ok is None:
                     if Ok:
                         if action[1] == "frei":
-                            print("AfpFaScreen.edit_data frei:", action)
+                            #print("AfpFaScreen.edit_data frei:", action)
                             self.edit_line("free", action[0], None, rowNr)
                         else:
                             self.edit_line(None, action[0], action[1], rowNr)
@@ -1198,11 +1198,11 @@ class AfpFaScreen(AfpEditScreen):
                     if not ident: ask = True
                     else: ask = False
                     res = AfpLoad_FaArtikelAusw(self.globals, "ArtikelNr", ident, None, ask)
-                    print("AfpFaScreen.edit_data:", res)
+                    #print("AfpFaScreen.edit_data:", res)
                     # ToDo: res has to be expanded to row
             if edit_text:
                 newtext = self.edit_text(text)
-                print("AfpFaScreen.edit_data text:", newtext)
+                #print("AfpFaScreen.edit_data text:", newtext)
                 if not newtext is None: 
                     if newtext[1] is None: lastrow = self.data.get_content_length()
                     else: lastrow = newtext[1][1]
@@ -1215,7 +1215,7 @@ class AfpFaScreen(AfpEditScreen):
                     edit_next = True
                 row = None
                 delete = False
-            print("AfpFaScreen.edit_data while inside", edit_next, self.catch_keydown, self.edit_data_postprocess)
+            #print("AfpFaScreen.edit_data while inside", edit_next, self.catch_keydown, self.edit_data_postprocess)
     ## check if data should or has to be stored - overwritten from AfpEditScreen \n
    # three return values are possible:
    # - None: no data to be saved
@@ -1243,19 +1243,24 @@ class AfpFaScreen(AfpEditScreen):
    ## store data - overwritten from AfpEditScreen
     def store_data(self):
         # ToDo: add data from widgets (combo box)
+        data = None
         value = self.combo_Filter.GetValue()
         datei, filter = AfpFa_possibleKinds(value)
         if datei != self.sb_master:
             # conversion necessary
-            selnames = ["ADRESSE","ADRESATT","Content"]
-            faktura = self.data.get_converted_faktura(datei, filter)
-            faktura.cannibalise(self.data, selnames)
-            self.data = faktura
+            if datei == "RECHNG": data = self.data
+            self.data = self.data.get_converted_faktura(datei, filter)
         elif filter != self.sb_filter:
             # kind changed
             self.data.set_value("Zustand", filter)
         if self.data.has_changed():
-            self.data.store()    
+            self.data.store()
+            if data:
+                data.set_value("Zustand", value)
+                data.set_value("Typ", datei)
+                data.set_value("TypNr", self.data.get_value())
+                data.store()
+                
     
     ## expand data to complete row. depending on input
     # @param value - value to be looked for, if dateifeld = None: line in grid data, else: identifier in database table
@@ -1298,7 +1303,7 @@ class AfpFaScreen(AfpEditScreen):
                     text += self.grid_content.GetCellValue(row, 1)
                     if text: text += '\n'
                 trange = [start, ende-1]
-        print("AfpFaScreen.get_content_indicators:", rowNr, ident, name, [text, trange], [anz, lief])
+        #print("AfpFaScreen.get_content_indicators:", rowNr, ident, name, [text, trange], [anz, lief])
         return ident, name, [text, trange], [anz, lief]
 
     ## insert row in content data -  overwritten from AfpEditScreen
@@ -1402,6 +1407,7 @@ class AfpFaScreen(AfpEditScreen):
     def CurrentData(self, plus = 0):
         if self.debug: print("AfpFaScreen.CurrentData", plus)
         #self.sb.set_debug()
+        self.sb.CurrentFileName(self.sb_master)
         done = None
         while not done:
             if plus == 1:
