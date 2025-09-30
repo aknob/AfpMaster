@@ -31,7 +31,7 @@
 
 from AfpBase.AfpDatabase.AfpSQL import AfpSQLTableSelection
 from AfpBase.AfpBaseRoutines import *
-from AfpBase.AfpSelectionLists import AfpSelectionList
+from AfpBase.AfpSelectionLists import AfpSelectionList, AfpPaymentList
 #from AfpBase.AfpBaseAdRoutines import AfpAdresse, AfpAdresse_getListOfTable
 
 ## returns all payable incidents
@@ -328,18 +328,18 @@ class AfpArtikel(AfpSelectionList):
                     sel.set_value(self.amount_column, anz, row) 
     ## get columns for line display
     def get_columns_for_line_display(self):
-        line = "," + self.id_column + "," + self.name_column+ ",,"+ self.sell_column + ","+ self.sell_column+ "," + self.buy_column
+        line = "," + self.id_column + "," + self.name_column+ "," + self.amount_column + ","+ self.sell_column + ","+ self.sell_column+ "," + self.buy_column
         return line
         
 ## baseclass for invoice handling         
-class AfpFaktura(AfpSelectionList):
+class AfpFaktura(AfpPaymentList):
     ## initialize AfpFaktura class
     # @param globals - global values including the mysql connection - this input is mandatory
     # @param debug - flag for debug information
     # @param name - name of selection list
     # this is the 'Faktura' baseclass, actually initialization is done by calling the 'initialize' method
     def  __init__(self, globals, debug = None, name = "Faktura"):
-        AfpSelectionList.__init__(self, globals, name, debug)
+        AfpPaymentList.__init__(self, globals, name, debug)
         if debug: self.debug = debug
         else: self.debug = globals.is_debug()
         self.finance = None
@@ -825,19 +825,20 @@ class AfpInvoice(AfpFaktura):
         if self.debug: print("AfpInvoice Destruktor")
     ## complete datavalues needed for storing
     def complete_data(self):
-        print("AfpInvoice.complete_data")
-        AfpFaktura.complete_data(self)
-        Konto = self.get_indi_account()
-        self.set_value("Debitor",Konto)
-        if not self.get_value("KundenNr"):
-            self.set_value("Zustand","closed")
-            self.set_value("ZahlDat",self.get_value("Datum"))
-            self.set_value("Zahlung",self.get_value("ZahlBetrag"))
-        else:
+        #print("AfpInvoice.complete_data")
+        AfpFaktura.complete_data(self) 
+        KNr = self.get_value("KundenNr")
+        if KNr: 
+            Konto = self.get_indi_account(KNr)
+            self.set_value("Debitor",Konto)
             if  self.get_value("Zahlung") and self.get_value("ZahlBetrag") and self.get_value("Zahlung") >= self.get_value("ZahlBetrag"):
                 self.set_value("Zustand","closed")
             if not self.get_value("Zustand"):
                 self.set_value("Zustand","open")
+        else:
+            self.set_value("Zustand","closed")
+            self.set_value("ZahlDat",self.get_value("Datum"))
+            self.set_value("Zahlung",self.get_value("ZahlBetrag"))
     ## book content difference into stock
     def book_content(self):
         complete = [self.initial_content, self.content]
@@ -863,7 +864,7 @@ class AfpInvoice(AfpFaktura):
         self.selection_table.add_amount(amount)
         self.selection_table.store_stack()
    ## get individual accountnumber for financial accounting
-    def get_indi_account(self):
+    def get_indi_account(self, KNr):
         konto = 0
         if self.finance:
              konto = self.finance.get_individual_account(KNr)

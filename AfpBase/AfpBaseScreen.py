@@ -678,7 +678,7 @@ class AfpEditScreen(AfpScreen):
     def __init__(self):
         AfpScreen.__init__(self,None, -1, "")
         self.editable = False
-        self.readonlycolor = None
+        self.readonlycolor = (192,192,192)
         self.editcolor = (255,255,255)
         self.editcellcolor = (192, 192, 192)
         self.event_id = None

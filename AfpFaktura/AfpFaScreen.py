@@ -102,7 +102,8 @@ class AfpFaScreen_EditLinePlugIn(object):
                 attrSel.IncRef()
         ## mark indicates row for row edit mode
         # @param release - reset original color
-        def select_col(self, release = False):
+        # @param clear - if release is not set, clear grid entry, 
+        def select_col(self, release = False, clear = True):
             #print("AfpFaScreen_EditLinePlugIn.select_col:", self.edit_col)
             if self.edit_col:
                 attrSel = wx.grid.GridCellAttr()
@@ -110,6 +111,10 @@ class AfpFaScreen_EditLinePlugIn(object):
                     attrSel.SetBackgroundColour(self.editlinecolor)
                 else:
                     attrSel.SetBackgroundColour(self.editcolcolor)
+                    if clear:  
+                        self.grid.SetCellValue(self.row, self.edit_col, "")
+                        if self.grid.GetCellValue(self.row, 0) == "L:":
+                             self.grid.SetCellValue(self.row, 0, "")
                 #print("AfpFaScreen_EditLinePlugIn.select_col:", self.row, self.edit_col, attrSel)
                 self.grid.SetAttr(self.row, self.edit_col, attrSel)
         ## handle keydown events, supplied from AfpEditScreen
@@ -143,7 +148,7 @@ class AfpFaScreen_EditLinePlugIn(object):
                     else:
                         upcase = event.ShiftDown()
                         char = self.get_char(keycode, upcase)
-                        #print("AfpFaScreen_EditLinePlugIn.catch_keydown Edit:", keycode, upcase, char)
+                        print("AfpFaScreen_EditLinePlugIn.catch_keydown Edit:", keycode, upcase, char, self.edit_value, type(self.edit_value))
                         self.edit_value += char
                         self.grid.SetCellValue(self.row, self.edit_col, self.edit_value.encode("UTF-8"))
             if self.debug: print("AfpFaScreen_EditLinePlugIn.catch_keydown:", keycode, caught)
@@ -196,6 +201,7 @@ class AfpFaScreen_EditLinePlugIn(object):
         ## complete actuel step and invoke the next process step for row editing
         def next_process_step(self):
             #print "AfpFaScreen_EditLinePlugIn.next_process_step last index:", self.process_step_index
+            #breakpoint()
             done = False
             # postprocess last step
             if self.process_step_index is None:
@@ -273,8 +279,8 @@ class AfpFaScreen_EditLinePlugIn(object):
                             if len(process) > 2:
                                 self.update = process[2]
                         self.select_col()
-                        if self.initial_row and self.initial_row[self.edit_col]:
-                            self.edit_value = self.initial_row[self.edit_col]
+                        #if self.initial_row and self.initial_row[self.edit_col]:
+                            #self.edit_value = self.initial_row[self.edit_col]
                     #print "AfpFaScreen_EditLinePlugIn.next_process_step executed:", self.choose, self.columns, self.edit_col, self.postprocess, self.update
                 else:
                     #print("AfpFaScreen_EditLinePlugIn.next_process_step: ENDED")
@@ -287,6 +293,8 @@ class AfpFaScreen_EditLinePlugIn(object):
             if row is None:
                 row = self.initial_row
             if row:
+                if row[0] == "" and row[1]:
+                    row[0] = "L:"
                 for col in range(self.cols):
                     value = row[col]
                     if value is None: value = ""
@@ -396,7 +404,7 @@ class AfpFaScreen(AfpEditScreen):
         #self.readonlycolor = (212, 212, 212)
         self.changecolor = (220, 192, 192)
         self.SetSize((800, 600))
-        #self.SetBackgroundColour(self.readonlycolor)
+        self.SetBackgroundColour(self.readonlycolor)
         self.SetForegroundColour(wx.Colour(20, 19, 18))
         self.SetFont(wx.Font(9, wx.DEFAULT, wx.NORMAL, wx.NORMAL, 0, "DejaVu Sans"))
         self.InitWx()
@@ -947,7 +955,7 @@ class AfpFaScreen(AfpEditScreen):
         else:    
             index = self.index
             where = AfpSelectEnrich_dbname(self.sb.identify_index().get_where(), self.sb_master)
-            value = self.sb.identify_index().get_indexwert()
+            value = Afp_fromString(self.sb.identify_index().get_indexwert()[0])
             if index == "KundenNr":
                 value = self.data.get_value("Name.ADRESSE")
             self.invoke_regular_selection(self.sb_master, value, where)
@@ -1012,16 +1020,14 @@ class AfpFaScreen(AfpEditScreen):
                 self.On_Extra()
     ## generate a new data record
     # @param typ - if given, typ of incident to be created, default: "Rechnung" (Invoice)
-    # @param KNr - identifier of address fornthis new incident,
+    # @param KNr - identifier of address for this new incident,
     # - 0: direct invoice without address; cash sale (default) 
     # - None: address has to be selected                      
     def generate_new_data(self, typ = "Rechnung", KNr = 0, GNr = None):
         table, subtyp = AfpFa_possibleKinds(typ)
         if KNr is None:
             GNr = None
-            name = self.data.get_value("Name.ADRESSE")
-            if not name:
-                name, ok = AfpReq_Text("Bitte Namen für Auftraggeber eingeben!","","","Namenseingabe")
+            name, ok = AfpReq_Text("Bitte Namen für Auftraggeber eingeben!","","","Namenseingabe")
             text = "Bitte Auftraggeber für " + typ + " auswählen:"
             KNr = AfpLoad_AdAusw(self.globals,"ADRESSE","NamSort",name, None, text)
         if not KNr is None:
@@ -1209,6 +1215,7 @@ class AfpFaScreen(AfpEditScreen):
                     if self.automated_selection and lastrow  == self.data.get_content_length():
                         edit_next = True
                     self.edit_text_postprocess(newtext)
+                    text = [None,None]
             elif row or delete:
                 self.edit_data_postprocess(row, rowNr, delete)
                 if not delete and self.automated_selection and self.selected_row  == self.data.get_content_length():
@@ -1300,7 +1307,7 @@ class AfpFaScreen(AfpEditScreen):
                         start = rang[0]
                         ende = rang[1] + 1
                 for row in range(start, ende):
-                    text += self.grid_content.GetCellValue(row, 1)
+                    text += self.grid_content.GetCellValue(row, 2)
                     if text: text += '\n'
                 trange = [start, ende-1]
         #print("AfpFaScreen.get_content_indicators:", rowNr, ident, name, [text, trange], [anz, lief])
