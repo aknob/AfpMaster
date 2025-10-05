@@ -946,7 +946,8 @@ class AfpImport(object):
                 
     ## read a csv file according to given parameters
     # @param data - AfpSelectionList where data has to be filled into the main selection
-    def read_from_csv_file(self, data):
+    # @param selname - if given, name of selection where data has to be filled
+    def read_from_csv_file(self, data, selname = None):
         fdata = Afp_importFileLines(self.filename)
         if  self.csv_use_column_header:
             self.set_column_map(fdata[0])
@@ -956,7 +957,7 @@ class AfpImport(object):
             list = self.split_csv_line(line)
             #print ("AfpImport.read_from_csv_file:", list)
             new_data = self.read_column_data(list)
-            data.set_data_values(new_data, None, -1)
+            data.set_data_values(new_data, selname, -1)
         return [data]
     #
     # specific methods for xml import

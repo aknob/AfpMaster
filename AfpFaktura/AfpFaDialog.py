@@ -32,6 +32,8 @@ import wx
 import wx.grid
 
 from AfpBase.AfpDatabase.AfpSuperbase import AfpSuperbase
+from AfpBase.AfpDatabase.AfpSQL import AfpSQLTableSelection
+from AfpBase.AfpUtilities.AfpStringUtilities import Afp_isEAN
 from AfpBase.AfpBaseRoutines import *
 from AfpBase.AfpBaseDialog import *
 from AfpBase.AfpBaseDialogCommon import *
@@ -42,6 +44,27 @@ from AfpBase.AfpBaseFiDialog import AfpLoad_DiFiZahl
 #from AfpEvent.AfpEvRoutines import *
 from AfpFaktura.AfpFaRoutines import *
 
+## dialog for selection of faktura data \n
+# selects an entry from the different faktura tables
+def AfpFaktura_selectManufacturer(globals, debug):
+    hersdat = None
+    hersteller = AfpSQLTableSelection(globals.get_mysql(), "ARTHERS", debug, "HersNr")
+    hersteller.load_data("")
+    liste = ["--- Neuen Hersteller anlegen ---"]
+    ident = [None]
+    rows = hersteller.get_values("Kennung,Hersteller,HersNr,KundenNr")
+    for row in rows:
+        adresse = AfpAdresse(globals, row[3])
+        liste.append(row[0] + "  " + row[1] + "   " + adresse.get_name(True) + " " + adresse.get_value("Ort"))
+        ident.append(row[2])
+    nr, ok = AfpReq_Selection("Bitte Hersteller oder Lieferanten " + Afp_setUml("auswaehlen"), Afp_setUml("fuer") + " den die Artikeldaten importiert werden sollen.", liste, "Herstellerauswahl", ident)
+    if ok: 
+        if nr:
+            hersdat = AfpManufact(globals, nr, debug)
+        else:
+            print ("AfpFaktura_selectManufacturer neuen Hersteller anlegen!")
+    return hersdat, ok
+            
 ## dialog for selection of faktura data \n
 # selects an entry from the different faktura tables
 class AfpDialog_FaAusw(AfpDialog_Auswahl):
@@ -56,7 +79,7 @@ class AfpDialog_FaAusw(AfpDialog_Auswahl):
     # (has to have certain columns defined)
     def set_type(self, tablename):
         self.datei = tablename
-        self.typ = AfpFa_getClearName(tablename) + "sauswahl"
+        self.typ = AfpFaktura_getClearName(tablename) + "sauswahl"
     ## get the definition of the selection grid content \n
     # overwritten for "Faktura" use
     def get_grid_felder(self): 
@@ -90,12 +113,12 @@ class AfpDialog_FaAusw(AfpDialog_Auswahl):
 def AfpLoad_FaAusw(globals, table, index, value = "", where = None, ask = False):
     result = None
     Ok = True
-    print("AfpLoad_FaAusw input:", table, index, value, where, ask)
-    kind = AfpFa_getClearName(table)
+    #print("AfpLoad_FaAusw input:", table, index, value, where, ask)
+    kind = AfpFaktura_getClearName(table)
     if ask:
-        sort_list = AfpFa_getOrderlistOfTable()        
+        sort_list = AfpFaktura_getOrderlistOfTable()        
         value, index, Ok = Afp_autoEingabe(value, index, sort_list, kind + "s")
-        print("AfpLoad_FaAusw index:", index, value, Ok)
+        #print("AfpLoad_FaAusw index:", index, value, Ok)
     if Ok:
         if index == "KundenNr":
             text = "Bitte Auftraggeber von " + kind + " auswählen:"
@@ -133,7 +156,7 @@ def AfpLoad_FaAusw(globals, table, index, value = "", where = None, ask = False)
     elif Ok is None:
         # flag for direct selection
         result = Afp_selectGetValue(globals.get_mysql(), "RECHNG", "RechNr", index, value)
-    print("AfpLoad_FaAusw result:", result)
+    #print("AfpLoad_FaAusw result:", result)
     return result      
 
 ## simple select requester for selection of a indicated typ
@@ -142,7 +165,7 @@ def AfpLoad_FaAusw(globals, table, index, value = "", where = None, ask = False)
 # @param text - text to be displayed in requester
 # @param debug - flag if debug text should be written
 def AfpReq_FaSelectedRow(mysql, typ, text, debug):
-    datei, rows = AfpFa_getSelectedRows(mysql, typ, debug)
+    datei, rows = AfpFaktura_getSelectedRows(mysql, typ, debug)
     liste = []
     ident = []
     for row in rows:
@@ -192,26 +215,25 @@ def AfpLoad_FaArtikelAusw(globals, index, value = "", where = None, ask = False)
     Ok = True
     #globals.mysql.set_debug()
     if ask:
+        if not value: value = ""
         value, Ok = AfpReq_Text("Bitte Suchbegriff für Artikelauswahl eingeben:", "", value, "Artikelauswahl")
-        if Ok:
-            if len(value) > 2 and value[2] == " ":
-                index = "ArtikelNr"
-                #Ok = None
-            elif len(value) == 13:
-                index = "EAN"
-                Ok = None
-            else:
-                index = "Bezeichnung"
-        print("AfpLoad_FaArtikelAusw index:", index, value, Ok)
+    if Ok and value:
+        if len(value) > 2 and value[2] == " ":
+            index = "ArtikelNr"
+            #Ok = None
+        elif Afp_isEAN(value):
+            index = "EAN"
+            Ok = None
+        else:
+            index = "Bezeichnung"
+    #print("AfpLoad_FaArtikelAusw index:", index, value, Ok)
     if Ok:
         DiArtikel = AfpDialog_FaArtikelAusw()
-        print("AfpLoad_FaArtikelAusw dialog invoked:", index, value, where)
         text = "Bitte Artikel auswählen:"
         DiArtikel.initialize(globals, index, value, where, text)
-        print("AfpLoad_FaArtikelAusw dialog initialised:", index, value, where, text)
         DiArtikel.ShowModal()
         result = DiArtikel.get_result()
-        print("AfpLoad_FaArtikelAusw result:", result)
+        #print("AfpLoad_FaArtikelAusw result:", result)
         DiArtikel.Destroy()
     elif Ok is None:
         # flag for direct selection
@@ -251,7 +273,7 @@ class AfpDialog_FaCustomSelect(AfpDialog):
         self.radio_Rechnung = wx.RadioButton(panel, -1,  label = "Rechnung", pos=(280,110), size=(90,20),  name="RRechnung") 
         self.radio_Bestellung = wx.RadioButton(panel, -1,  label = "Bestellung", pos=(280,130), size=(90,20),  name="RBestellung") 
         
-        self.choice_Art = wx.Choice(panel, -1,  pos=(175,150), size=(250,30),  choices=AfpFa_possibleOpenKinds(),  name="CArt")   
+        self.choice_Art = wx.Choice(panel, -1,  pos=(175,150), size=(250,30),  choices=AfpFaktura_possibleOpenKinds(),  name="CArt")   
         self.Bind(wx.EVT_CHOICE, self.On_CArt, self.choice_Art)
          
         self.button_Bar = wx.Button(panel, -1, label="&Bar", pos=(20,30), size=(100,50), name="Bar")
@@ -302,7 +324,7 @@ class AfpDialog_FaCustomSelect(AfpDialog):
     # this routine is called from the AfpDialog.Populate
     def Pop_Auswahl(self):
         typ = self.choice_Art.GetStringSelection()
-        self.datei, rows = AfpFa_getSelectedRows(self.globals.get_mysql(), typ, self.debug)
+        self.datei, rows = AfpFaktura_getSelectedRows(self.globals.get_mysql(), typ, self.debug)
         lgh = len(rows)
         rows = Afp_MatrixJoinCol(reversed(rows))
         #print "AfpDialog_FaCustomSelect.Pop_Auswahl:", lgh, rows
@@ -361,7 +383,7 @@ class AfpDialog_FaCustomSelect(AfpDialog):
         event.Skip()        
         if ind < len(self.ident):
             RechNr = self.ident[ind]
-            data = AfpFa_getSelectionList(self.globals, RechNr, self.datei)
+            data = AfpFaktura_getSelectionList(self.globals, RechNr, self.datei)
             if self.datei == "ADMEMO":
                 name = data.get_name()
                 ok = AfpReq_Question("Soll das Memo von", name + " deaktiviert werden?", "Memo")
@@ -380,7 +402,7 @@ class AfpDialog_FaCustomSelect(AfpDialog):
         print("Event handler `AfpDialog_FaCustomSelect.On_RClick' not implemented!", ind)
         if ind < len(self.ident):
             RechNr = self.ident[ind]
-            data = AfpFa_getSelectionList(self.globals, RechNr, self.datei)
+            data = AfpFaktura_getSelectionList(self.globals, RechNr, self.datei)
             name = data.get_name()
             if self.datei == "ADMEMO":
                 field = "Memo"
@@ -554,14 +576,15 @@ class AfpDialog_FaLine(AfpDialog):
     def InitWx(self):
         panel = wx.Panel(self, -1)
         self.label_TArtikelt = wx.StaticText(panel, -1, label="Artikelauswahl", pos=(10,10), size=(160,20), name="TArtikel")
-        self.text = wx.TextCtrl(panel, -1, value="", pos=(10,40), size=(180,22), style=0, name="Text")
+        self.text = wx.TextCtrl(panel, -1, value="", pos=(10,30), size=(180,22), style=0, name="Text")
         
-        self.radio_Artikel = wx.RadioButton(panel, -1,  label = "Artikel &Nr.", pos=(10,70), size=(120,15),  style=wx.RB_GROUP,  name="RArtikel") 
-        self.radio_Bez = wx.RadioButton(panel, -1,  label = "&Bezeichnung", pos=(10,85), size=(120,15),  name="RBez") 
-        self.radio_Ohne = wx.RadioButton(panel, -1,  label = "&ohne Artikelnummer", pos=(10,100), size=(180,15),  name="ROhne") 
+        self.radio_Artikel = wx.RadioButton(panel, -1,  label = "Artikel &Nr.", pos=(10,55), size=(120,20),  style=wx.RB_GROUP,  name="RArtikel") 
+        self.radio_Bez = wx.RadioButton(panel, -1,  label = "&Bezeichnung", pos=(10,75), size=(120,20),  name="RBez") 
+        self.radio_Ohne = wx.RadioButton(panel, -1,  label = "&ohne Artikelnummer", pos=(10,95), size=(180,20),  name="ROhne") 
+        self.radio_Text = wx.RadioButton(panel, -1,  label = "&Text", pos=(10,115), size=(180,20),  name="RText") 
  
-        self.button_Text = wx.Button(panel, -1, label="&Text", pos=(200,10), size=(70,35), name="BText")
-        self.Bind(wx.EVT_BUTTON, self.On_Text, self.button_Text)
+        self.button_Ausw= wx.Button(panel, -1, label="&Auswahl", pos=(200,10), size=(70,35), name="BAusw")
+        self.Bind(wx.EVT_BUTTON, self.On_Ausw, self.button_Ausw)
         self.button_Abbr = wx.Button(panel, id=wx.ID_CANCEL, label="&Abbruch", pos=(200,50), size=(70,35), name="BEnde")
         self.Bind(wx.EVT_BUTTON, self.On_Ende, self.button_Abbr)
         self.button_Artikel = wx.Button(panel, id=wx.ID_OK, label="&Ok", pos=(200,90), size=(70,35), name="BArtikel")
@@ -587,6 +610,7 @@ class AfpDialog_FaLine(AfpDialog):
         if self.radio_Artikel.GetValue(): label = "ArtikelNr"
         elif self.radio_Bez.GetValue(): label = "Bezeichnung"
         elif self.radio_Ohne.GetValue(): label = "frei"
+        elif self.radio_Text.GetValue(): label = "Text"
         return label
     ## retrieve action set
     def get_action(self):
@@ -602,8 +626,9 @@ class AfpDialog_FaLine(AfpDialog):
         self.EndModal(wx.ID_OK)
     ##  Eventhandler BUTTON  insert a plain text line into invoice
     # @param event - event which initiated this action   
-    def On_Text(self,event):
-        if self.debug: print("Event handler `On_Text'")
+    def On_Ausw(self,event):
+        if self.debug: print("Event handler `On_Ausw'")
+        self.action = self.text.GetValue()
         event.Skip()
         self.EndModal(wx.ID_OK)
     ##  Eventhandler BUTTON  end invoice line editing modus
@@ -627,7 +652,7 @@ def AfpLoad_FaLine( ident = None, name = False,  debug = False):
     action = None
     if res == wx.ID_OK:
         action = EditLine.get_action()
-        if action:
+        if action and not Afp_isString(action):
             Ok = True
         else:
             Ok = False

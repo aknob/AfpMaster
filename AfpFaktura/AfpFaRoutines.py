@@ -35,44 +35,44 @@ from AfpBase.AfpSelectionLists import AfpSelectionList, AfpPaymentList
 #from AfpBase.AfpBaseAdRoutines import AfpAdresse, AfpAdresse_getListOfTable
 
 ## returns all payable incidents
-def AfpFa_payableKinds():
+def AfpFaktura_payableKinds():
     return ["Ausgabe","Waren","Bestellung","Rechnung","Mahnung","Einnahme"]
 ## returns all editable kinds which allow further processing
-def AfpFa_processableKinds():
+def AfpFaktura_processableKinds():
     return ["Ausgabe","Waren","Bestellung"]
 ## returns all editable incidents
-def AfpFa_editableKinds():
-    names, tables = AfpFa_possibleKinds()
+def AfpFaktura_editableKinds():
+    names, tables = AfpFaktura_possibleKinds()
     return names[:-2]
 ## returns all possible entries for open incidents
-def AfpFa_possibleOpenKinds():
-    names, tables = AfpFa_possibleKinds()
+def AfpFaktura_possibleOpenKinds():
+    names, tables = AfpFaktura_possibleKinds()
     return ["Merkzettel (Memo)"] + names[2:-2]
 ## returns possible change kind
 # @param name - name of kind to be checked
 # @param kind - name of actuel kind, if given
-def AfpFa_changeKind(name, kind = None):
+def AfpFaktura_changeKind(name, kind = None):
     change = ""
     table = ""
-    newtable, filter = AfpFa_possibleKinds(name)    
+    newtable, filter = AfpFaktura_possibleKinds(name)    
     if kind:
-        table, filter = AfpFa_possibleKinds(kind)
+        table, filter = AfpFaktura_possibleKinds(kind)
         if not newtable: name = kind
     if newtable == "KVA" or newtable == table or not newtable:
         change = name
     elif newtable == "BESTELL":
-        change, ind = AfpFa_possibleKinds(None, "BESTELL", "neu")
+        change, ind = AfpFaktura_possibleKinds(None, "BESTELL", "neu")
     elif newtable == "RECHNG":
-        change, ind = AfpFa_possibleKinds(None, "RECHNG", "open")
+        change, ind = AfpFaktura_possibleKinds(None, "RECHNG", "open")
     return change, newtable == table or not newtable
  
  ## return index of name in filter list
  # @param name - if filter is None: name to be looked for in filter list, else: table indicator
  # @param filter - if given, filter on given table indicator
-def AfpFa_inFilterList(name, filter = None):
-    names =  AfpFa_FilterList()
+def AfpFaktura_inFilterList(name, filter = None):
+    names =  AfpFaktura_FilterList()
     if filter:
-        name, ind = AfpFa_possibleKinds(None, name, filter)
+        name, ind = AfpFaktura_possibleKinds(None, name, filter)
     if name in names:
         return names.index(name)
     return None
@@ -85,11 +85,11 @@ def AfpFa_inFilterList(name, filter = None):
 # - if name is given and found in 'names', the appropriate 'tables' and 'filters' entry are returned
 # - if name is given and not found, two empty strings are returned
 # - else: the 'names' and 'tables' lists are returned
-def AfpFa_possibleKinds(name = None, table = None, filter = None):
+def AfpFaktura_possibleKinds(name = None, table = None, filter = None):
     names = ["Ausgabe" , "Waren"     , "Bestellung", "Bestell-Liste", "Kostenvoranschlag","Angebot" , "Lieferschein", "Auftrag" , "Rechnung", "Mahnung", "Einnahme"]
     tables = ["BESTELL"  , "BESTELL" , "BESTELL"      , "BESTELL"           , "KVA"                           , "KVA"       , "KVA"                 , "KVA"         , "RECHNG"   , "RECHNG"   , "RECHNG"]
     filters =  ["closed"   ,"erhalten" , "open"           , "neu"                  , "KVA"                            , "Angebot",  "Liefer"          , "Auftrag" , "open"       ,  "Mahnung", "closed"]
-    #print("AfpFa_possibleKinds:", name, table, filter)
+    #print("AfpFaktura_possibleKinds:", name, table, filter)
     if table and not filter is None:
         for i in range(len(tables)):
             if tables[i] == table and filters[i] == filter:
@@ -103,7 +103,7 @@ def AfpFa_possibleKinds(name = None, table = None, filter = None):
                 return names[8], 8
         return None, None
     elif name:
-        #print("AfpFa_possibleKinds name:", name, names)
+        #print("AfpFaktura_possibleKinds name:", name, names)
         if  name in names:
             ind = names.index(name)
             return tables[ind], filters[ind]
@@ -112,8 +112,8 @@ def AfpFa_possibleKinds(name = None, table = None, filter = None):
     else:
         return names, tables
 ## returns entries for filter list
-def AfpFa_FilterList():
-    names, tables = AfpFa_possibleKinds()
+def AfpFaktura_FilterList():
+    names, tables = AfpFaktura_possibleKinds()
     list = []
     table = tables[0]
     for name in names:
@@ -125,13 +125,13 @@ def AfpFa_FilterList():
     return list
 
 ##  get the list of indecies of the appropriate faktura table,
-def AfpFa_getOrderlistOfTable():
+def AfpFaktura_getOrderlistOfTable():
     #liste = {'RechNr':'int','Datum':'date', 'KundenNr':'string'}
     liste = {'RechNr':None,'Datum':'date', 'KundenNr':'string'}
     return liste
     
 ## get clear name for dialogs from database tablename
-def AfpFa_getClearName(tablename):
+def AfpFaktura_getClearName(tablename):
     if tablename == "KVA":
         return  "Kostenvoranschlag"
     elif tablename == "BESTELL":
@@ -140,7 +140,7 @@ def AfpFa_getClearName(tablename):
         return  "Rechnung"
         
 ## get the appropriate data object from database selection
-def AfpFa_getSelectionList( globals, RechNr, tablename):
+def AfpFaktura_getSelectionList( globals, RechNr, tablename):
     if tablename == "ADMEMO":
         return  AfpMemo(globals, RechNr)
     elif tablename == "KVA":
@@ -152,7 +152,7 @@ def AfpFa_getSelectionList( globals, RechNr, tablename):
 
 ## decides if entry string indicates a wage entry
 # @param id_string - string to be analysed
-def AfpFa_isWage(id_string):
+def AfpFaktura_isWage(id_string):
     if id_string[:2] == "00": # this is very special to AfpMotor
         return True
     else:
@@ -160,7 +160,7 @@ def AfpFa_isWage(id_string):
         
 ## special handling for float string prepended by a colon endend string
 # @param string - string to be converted
-def AfpFa_colonFloat(string):
+def AfpFaktura_colonFloat(string):
     fstring = string
     split = string.split(":")
     if len(split) == 2:
@@ -168,7 +168,7 @@ def AfpFa_colonFloat(string):
     return Afp_floatString(fstring)
 ## special handling for float string prepended by a colon endend string
 # @param string - string to be converted
-def AfpFa_colonInt(string):
+def AfpFaktura_colonInt(string):
     fstring = string
     split = string.split(":")
     if len(split) == 2:
@@ -179,24 +179,56 @@ def AfpFa_colonInt(string):
 # @param mysql - database handle to retrieve data from
 # @param typ - indicated typ, where rows should be retrieved
 # @param debug - flag if debug text should be written
-def AfpFa_getSelectedRows(mysql, typ, debug):
-    datei, filter = AfpFa_possibleKinds(typ)
-    #print ("AfpFa_getSelectedRows:", typ, datei, filter)
+def AfpFaktura_getSelectedRows(mysql, typ, debug):
+    datei, filter = AfpFaktura_possibleKinds(typ)
+    #print ("AfpFaktura_getSelectedRows:", typ, datei, filter)
     if datei == "":
         datei = "ADMEMO"
         filter = "Zustand." + datei + " = \"open\""
     else:
         filter = "Zustand." + datei + " = \"" + filter + "\""
     select = filter + " AND KundenNr." + datei + " = KundenNr.ADRESSE"
-    #print ("AfpFa_getSelectedRows:", typ, datei, filter, "Select:", select)
+    #print ("AfpFaktura_getSelectedRows:", typ, datei, filter, "Select:", select)
     if datei == "ADMEMO":
         rows = mysql.select_strings("Name.ADRESSE,Vorname.ADRESSE,Datum.ADMEMO,MemoNr.ADMEMO,Memo.ADMEMO", select, datei + " ADRESSE")
     else:
         rows = mysql.select_strings("Name.ADRESSE,Vorname.ADRESSE,Datum." + datei +",RechNr."+datei + ",Bem." + datei, select, datei + " ADRESSE")
-    if debug: print("AfpFa_getSelectedRows:", select, rows)
-    #print("AfpFa_getSelectedRows:", select, rows)
+    if debug: print("AfpFaktura_getSelectedRows:", select, rows)
+    #print("AfpFaktura_getSelectedRows:", select, rows)
     return datei, rows
- 
+## import articles from csv-file into manufacturer database
+# @param globals - global data, inclsive mysql connection
+# @param hersdat - AfpManufact selection-list
+# @param filename - name of csv-file to be imported
+# @param debug - if given, flag for debug-modus
+def AfpFaktura_importArtikels(globals, hersdat, filename, debug = False):
+    paras = globals.get_value("fabricator-import", "Faktura")
+    ken = hersdat.get_value("Kennung")
+    if ken in paras:
+        par = paras[ken][1]
+        deli = paras[ken][0]
+        #breakpoint()
+        mantable = hersdat.get_manufact_table()
+        if mantable in globals.get_mysql().get_tables():
+            #befehl = "TRUNCATE TABLE " + mantable + ";"
+            befehl = "DELETE FROM " + mantable + ";"
+        else:
+            befehl = "CREATE TABLE `" + mantable + "` (`ArtikelNr` tinytext CHARACTER SET latin1 COLLATE latin1_german2_ci NOT NULL,`Bezeichnung` tinytext CHARACTER SET latin1 COLLATE latin1_german2_ci NOT NULL, `Listenpreis` float(9,2) NOT NULL, `PreisGrp` char(5) CHARACTER SET latin1 COLLATE latin1_german2_ci NOT NULL, `EAN` char(13) CHARACTER SET latin1 COLLATE latin1_german2_ci DEFAULT NULL, KEY `ArtikelNr` (`ArtikelNr`(50)), KEY `Bezeichnung` (`Bezeichnung`(50)), KEY `EAN` (`EAN`)) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_german2_ci;"
+        if debug: print("AfpFaktura_importArtikels create/truncate mysql table:", befehl)
+        globals.get_mysql().execute(befehl)
+        imp = AfpImport(globals, filename, par, debug)
+        #data = AfpArtikel(globals, None, debug, mantable)
+        data = hersdat
+        if deli:
+            imp.set_csv_parameter(deli[0], deli[1])
+        data = imp.read_from_csv_file(data, mantable)[0]
+        if debug: print("AfpFaktura_importArtikels imported:", data, data.get_value_length(mantable))
+        sel = data.get_selection(mantable)
+        sel.new = True
+        sel.store()
+        return True
+    else:
+        return False
 ## baseclass for memo handling 
 class AfpMemo(AfpSelectionList):
     ## initialize AfpMemo class
@@ -243,6 +275,41 @@ class AfpMemo(AfpSelectionList):
         self.set_value("Zustand", "closed")
         self. store()
         
+        
+## baseclass for manufaturer handling 
+class AfpManufact(AfpSelectionList):
+    ## initialize AfpManufact class
+    # @param globals - global values including the mysql connection - this input is mandatory
+    # @param value - mainvalue to initialise this class
+    # @param debug - flag for debug information
+    def  __init__(self, globals, value = None, debug = None):
+        AfpSelectionList.__init__(self, globals, "Manufact", debug)
+        if debug: self.debug = debug
+        else: self.debug = globals.is_debug()
+        self.mainindex = "HersNr"
+        self.mainselection = "ARTHERS"
+        self.mainvalue = ""
+        if value: 
+            self.mainvalue = Afp_toQuotedString(value)
+        else:
+            self.new = True
+        self.set_main_selects_entry()
+        self.create_selection(self.mainselection)
+        self.herstable = "ART_" + Afp_toIntString(self.get_value("HersNr"))
+        self.selects["ADRESSE"] = [ "ADRESSE","KundenNr = KundenNr.ARTHERS"] 
+        self.selects["ARTDIS"] = [ "ARTDIS","HersNr = HersNr.ARTHERS"] 
+        self.selects["ARTSUP"] = [ "ARTSUP","HersNr = HersNr.ARTHERS"] 
+        self.selects["ARTIKEL"] = [ "ARTIKEL","HersNr = HersNr.ARTHERS"] 
+        self.selects["GlobSUP"] = [ "ARTSUP","HersNr = 0"] 
+        self.selects[self.herstable] = [ self.herstable,""] 
+        if self.debug: print("AfpManufact Konstruktor")
+    ## destructor
+    def __del__(self):    
+        if self.debug: print("AfpManufact Destruktor")
+        
+    ## get manufactur selection table
+    def get_manufact_table(self):
+        return self.herstable
         
 ## baseclass for article handling during faktura        
 class AfpArtikel(AfpSelectionList):
@@ -316,8 +383,8 @@ class AfpArtikel(AfpSelectionList):
         amount_rows = sel.get_values(self.amount_column)
         #print "AfpArtikel.add_amount ID:", self.id_column, id_rows, "Amount:", self.amount_column, amount_rows
         for entry in amount:
-            #print "AfpArtikel.add_amount entry:", entry, AfpFa_isWage(entry), amount[entry]
-            if not AfpFa_isWage(entry):
+            #print "AfpArtikel.add_amount entry:", entry, AfpFaktura_isWage(entry), amount[entry]
+            if not AfpFaktura_isWage(entry):
                 value = amount[entry]
                 if [entry] in id_rows and Afp_isEps(value):
                     row = id_rows.index([entry])
@@ -411,18 +478,18 @@ class AfpFaktura(AfpPaymentList):
     def is_payable(self):
         kind = self.get_kind()
         print("AfpFaktura.is_payable:", kind)
-        return kind in AfpFa_payableKinds()
+        return kind in AfpFaktura_payableKinds()
     ## return if editing is possible
     def is_editable(self):
         kind = self.get_kind()
         #print("AfpFaktura.is_editable:", kind)
-        return kind in AfpFa_editableKinds()
+        return kind in AfpFaktura_editableKinds()
     ## return if further processing is possible
     def is_processable(self):
         if self.is_editable():
             kind = self.get_kind()
             #print("AfpFaktura.is_processable:", kind)
-            return kind in AfpFa_processableKinds()
+            return kind in AfpFaktura_processableKinds()
         else:
             return False
     ## set other selection table where data is used to fill content
@@ -473,7 +540,7 @@ class AfpFaktura(AfpPaymentList):
         return self.maintable
     ## get kind of faktura 
     def get_kind(self):
-        kind, ind = AfpFa_possibleKinds(None, self.maintable, self.get_value("Zustand"))
+        kind, ind = AfpFaktura_possibleKinds(None, self.maintable, self.get_value("Zustand"))
         return kind
     ## get number of rows in content
     def get_content_length(self):
@@ -633,7 +700,7 @@ class AfpFaktura(AfpPaymentList):
     # @param index - index of row to be checked
     def content_row_holds_wage(self, index):
         ANr = self.content.get_values("ErsatzteilNr", index)[0]
-        return AfpFa_isWage(ANr)
+        return AfpFaktura_isWage(ANr)
     ## conversion between different faktura types
     # @param datei - tablename of targerttype
     # @param filter - filter on targerttype
@@ -761,13 +828,13 @@ class AfpFaktura(AfpPaymentList):
         if typ: 
             if typ == "free":
                 if param: 
-                    return  [ ["set",[2,param]], [3,"Afp_intString"], ["set",[4,"EK:"]], [4,"AfpFa_colonFloat","$6 = $4"], ["set",[4,""]], [4,"Afp_floatString","$5 = $4 * $3,$6 =( $4 - $6 )* $3"] ] 
+                    return  [ ["set",[2,param]], [3,"Afp_intString"], ["set",[4,"EK:"]], [4,"AfpFaktura_colonFloat","$6 = $4"], ["set",[4,""]], [4,"Afp_floatString","$5 = $4 * $3,$6 =( $4 - $6 )* $3"] ] 
                 else:
-                   return  [ [2], [3,"Afp_intString"], ["set",[4,"EK:"]], [4,"AfpFa_colonFloat","$6 = $4"], ["set",[4,""]], [4,"Afp_floatString","$5 = $4 * $3,$6 =( $4 - $6 )* $3"] ] 
+                   return  [ [2], [3,"Afp_intString"], ["set",[4,"EK:"]], [4,"AfpFaktura_colonFloat","$6 = $4"], ["set",[4,""]], [4,"Afp_floatString","$5 = $4 * $3,$6 =( $4 - $6 )* $3"] ] 
                 #return  [ ["set",",,"+ value + ",,,,"], [3,"Afp_intString"], [4,"Afp_floatString","$6 = $4"], [4,"Afp_floatString","$5 = $4 * $3,$6 =( $4 - $6 )* $3"]] 
             elif typ == "stock":
                 # param = [requested, delivered]
-                return [["set",[3,Afp_intString(param[0]) + ":"]],[3,"AfpFa_colonInt"]]
+                return [["set",[3,Afp_intString(param[0]) + ":"]],[3,"AfpFaktura_colonInt"]]
             else:
                 typ = None
         if not typ:
@@ -789,7 +856,7 @@ class AfpFaktura(AfpPaymentList):
      ## routine to expand data from view to full datarow to be filled into content
     # @param row - data to be expanded
     def expand_grid_row(self, row):
-        # row == [ArtikelNr, Bezeichnung, Anzahl, Einzelpreis, Gesamtpreis, Gewinn]
+        # row == [None, ArtikelNr, Bezeichnung, Anzahl, Einzelpreis, Gesamtpreis, Gewinn]
         change = {}
         if len(row) == 1:
             change["Zeile"] = row[0]

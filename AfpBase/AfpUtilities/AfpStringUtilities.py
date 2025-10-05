@@ -565,6 +565,21 @@ def Afp_isIBAN(iban):
         if number % 97 == 1:
             check = True
     return check
+## check if string is an EAN-Code
+# @param ean - string to be checked
+def Afp_isEAN(ean):
+    isEan = False
+    lgh = len(ean)
+    sum = 0
+    if lgh == 13:
+        fac = 3
+        for i in range(lgh-1,-1,-1):
+            sum += fac*int(ean[i])
+            if fac == 3: fac = 1
+            else: fac = 3
+        diff = int(sum/10)*10 + 10 - sum
+        if diff == int(ean[-1]): isEan = True
+    return isEan
 ## flag if string may represent a numeric value
 # @param string - string to be analysed
 # @param check - maximum number of parts accepted when split at a "." \n

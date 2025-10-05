@@ -110,7 +110,7 @@ class AfpSQL(object):
    ## add one more database connection
     # @param dbname - name of database
     # @param tables - comma separated list of tables using this database
-    # @param readonly - flag is database is readonly
+    # @param readonly - flag if database is readonly
     # @param ro_db - flag if original database used in connection should be readonly
     def add_database(self, dbname, tables, readonly = False, ro_db = True):
         if self.tableto_db is None: 
@@ -482,7 +482,7 @@ class AfpSQLTableSelection(object):
     # @param feldnamen - names of columns, if not given they will be retrieved from database
     def  __init__(self, mysql, tablename, debug = False, unique_feldname = None, feldnamen = None):
         self.dbg = False # hardcode switch for storage logging
-        #if tablename == "AUSZUG": debug = True
+        #if tablename == "ART_002": debug = True
         if debug: 
             print("AfpSQLTableSelection Konstruktor dbg On:", tablename)
             print("AfpSQLTableSelection Konstruktor input:", tablename, debug, unique_feldname, feldnamen)
