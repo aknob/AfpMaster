@@ -813,6 +813,7 @@ class AfpImport(object):
         self.csv_textbrackets = ["\""]
         self.csv_use_column_header = None
         self.column_map = None
+        self.direct_mysql_storing = None
         # values used for xml-import
         self.value_tags =  ["AfpValue"]
         self.value_end_tags =  ["/AfpValue"]
@@ -933,16 +934,22 @@ class AfpImport(object):
         return list
     ## load data from column data into dictionary
     # @param list - list of columns of one row
-    def read_column_data(self, list):
+    # @param as_list -flag if result should be retunrd as a list, otherwise a dictionay is returned
+    def read_column_data(self, list, aslist = False):
         data = None
         if self.column_map and list:
             data = {}
+            ldata = []
             lgh = len(list)
             for entry in self.column_map:
                 index = self.column_map[entry]
-                if index < lgh and list[index] != "":
+                if index < lgh and (list[index] != "" or aslist):
                     data[entry] = Afp_fromString(list[index])
-        return data
+                    ldata.append(Afp_toString(Afp_fromString(list[index])))
+        if aslist:
+            return ldata
+        else:
+            return data
                 
     ## read a csv file according to given parameters
     # @param data - AfpSelectionList where data has to be filled into the main selection
@@ -953,12 +960,48 @@ class AfpImport(object):
             self.set_column_map(fdata[0])
             fdata = fdata[1:]
         if self.csv_reverseflag: fdata.reverse()
+        if self.direct_mysql_storing or len(fdata) > 10000:
+            self.write_to_database(fdata, data, selname)
+            return None
+        else:
+            data = self.write_to_data(fdata, data, selname)
+            return [data]
+    ## fill file-data into the appropriate selection-list in data
+    # @param fdata - lines of filedata to be read
+    # @param data - AfpSelectionList where data has to be filled into the main selection
+    # @param selname - if given, name of selection where data has to be filled
+    def write_to_data(self, fdata, data, selname = None):
+        cnt = 0
+        interval = int(len(fdata)/20)
+        if interval < 50: interval = 0
         for line in fdata:
             list = self.split_csv_line(line)
-            #print ("AfpImport.read_from_csv_file:", list)
             new_data = self.read_column_data(list)
+            cnt += 1
+            if interval and cnt%interval == 0: print ("AfpImport.read_from_csv_file:", cnt, Afp_getNow().time(), cols, new_data)
             data.set_data_values(new_data, selname, -1)
-        return [data]
+        return data
+    ## write file-data directyl into the mysql database table
+    # @param fdata - lines of filedata to be read
+    # @param data - AfpSelectionList where data has to be filled into the main selection
+    # @param selname - if given, name of selection where data has to be filled
+    def write_to_database(self, fdata, data, selname = None):
+        table = data.get_selection(selname).get_tablename()
+        mysql = data.get_mysql()
+        cols = []
+        for col in self.column_map:
+            cols.append(col)
+        cnt = 0
+        interval = int(len(fdata)/20)
+        if interval < 50: interval = 0
+        for line in fdata:
+            list = self.split_csv_line(line)
+            new_data = self.read_column_data(list,  True)
+            cnt += 1
+            if interval and cnt%interval == 0: print ("AfpImport.read_from_csv_file:", cnt, Afp_getNow().time(), cols, new_data)
+            #print ("AfpImport.read_from_csv_file:", cnt, Afp_getNow().time(), cols, new_data)
+            #if cnt > 46510 and cnt < 46530: print ("AfpImport.read_from_csv_file:", cnt, Afp_getNow().time(), cols, new_data)
+            mysql.write_insert(table, cols, [new_data])
     #
     # specific methods for xml import
     #

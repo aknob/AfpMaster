@@ -1237,7 +1237,7 @@ class AfpDialog_Auswahl(wx.Dialog):
     def extract_grid_column_values(self): 
          # initialize grid
         felder = self.get_grid_felder()
-        #print "AfpDialog_Auswahl.extract_grid_column_values:", felder
+        #print ("AfpDialog_Auswahl.extract_grid_column_values:", felder)
         self.feldlist = ""
         self.selectname = ""
         lgh = len(felder)

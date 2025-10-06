@@ -254,7 +254,7 @@ class AfpSQL(object):
     # @param  where         -  "[field1.table1 (>,<,>=,<=,==) (field2.table2,value)[(and,or) ...]]"
     # @param link            - "[field1.table1 == field2.table2 [and ...]]"
     def extract_clauses(self, feldnamen, select, dateinamen, order = None, limit = None, where=None, link=None):
-        #print "AfpSQL.extract_clause:", feldnamen,'\n', select,'\n', dateinamen,'\n', order,'\n', limit,'\n',where,'\n',link
+        #print ("AfpSQL.extract_clause:", feldnamen,'\n', select,'\n', dateinamen,'\n', order,'\n', limit,'\n',where,'\n',link)
         if  feldnamen.strip() == "*": all_fields = True
         else: all_fields = False
         limit_clause = ""
@@ -274,7 +274,6 @@ class AfpSQL(object):
                 dat_clause += komma +  self.get_dbname(dateien[i].upper()) + "." + dateien[i].upper() 
             else:
                 dat_clause += komma +  self.get_dbname(dateien[i].upper()) + "." + dateien[i].upper() + " D" + str(i)
-
         if all_fields:
             feld_clause = "*"
         else:
@@ -294,7 +293,7 @@ class AfpSQL(object):
                 if len(fld) > 1 and not Afp_isFloatString(feld): 
                     if fld[1] in dateien: i = dateien.index(fld[1])
                     else: i = dateien.index(fld[1].upper())
-                    if i > -1: dat = "D" + str(i) + "."
+                    if i > -1 and not no_indicator: dat = "D" + str(i) + "."
                     if len(fld) > 2: connew = fld[2]
                 if not connew == concat:
                     if concat:
@@ -340,6 +339,7 @@ class AfpSQL(object):
     def select(self, feldnamen, select, dateinamen, order = None, limit = None, where=None, link=None):      
         if self.debug: print ("AfpSQL.select:", feldnamen, select, dateinamen, order, limit, where, link)
         clauses = self.extract_clauses(feldnamen, select, dateinamen, order, limit, where, link)
+        #print ("AfpSQL.select clauses:", clauses)
         Befehl = "SELECT "+ clauses[0] + " FROM " + clauses[1]  # feld_clause, dat_clause
         if not clauses[2] == "": Befehl += " WHERE "+ clauses[2]# where_clause 
         if not clauses[3] == "": Befehl += " ORDER BY "+ clauses[3] # order_clause 
@@ -467,7 +467,7 @@ class AfpSQL(object):
                     if self.debug: print("AfpSQL.execute:", befehl + ";")
                     retval = self.db_cursor.execute(befehl + ";") 
                     if retval: retval = self.db_cursor.fetchall ()
-                    #print "AfpSQL.execute:", befehl, retval
+                    #print ("AfpSQL.execute:", befehl, retval)
             #if not befehle is None:
                 #self.db_cursor.execute("COMMIT;")
         return retval

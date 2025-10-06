@@ -30,6 +30,7 @@
 
 
 from AfpBase.AfpDatabase.AfpSQL import AfpSQLTableSelection
+from AfpBase.AfpUtilities.AfpBaseUtilities import Afp_getNow
 from AfpBase.AfpBaseRoutines import *
 from AfpBase.AfpSelectionLists import AfpSelectionList, AfpPaymentList
 #from AfpBase.AfpBaseAdRoutines import AfpAdresse, AfpAdresse_getListOfTable
@@ -198,34 +199,43 @@ def AfpFaktura_getSelectedRows(mysql, typ, debug):
     return datei, rows
 ## import articles from csv-file into manufacturer database
 # @param globals - global data, inclsive mysql connection
-# @param hersdat - AfpManufact selection-list
+# @param data - AfpManufact selection-list
 # @param filename - name of csv-file to be imported
 # @param debug - if given, flag for debug-modus
-def AfpFaktura_importArtikels(globals, hersdat, filename, debug = False):
+def AfpFaktura_importArtikels(globals, data, filename, debug = False):
+    deli = None
+    ken = data.get_value("Kennung")
+    delis = globals.get_value("fabricator-delimiter", "Faktura")
+    if ken in delis:
+        deli = delis[ken]
+    elif "default" in delis:
+        deli = delis["default"]
     paras = globals.get_value("fabricator-import", "Faktura")
-    ken = hersdat.get_value("Kennung")
     if ken in paras:
-        par = paras[ken][1]
-        deli = paras[ken][0]
-        #breakpoint()
-        mantable = hersdat.get_manufact_table()
+        par = paras[ken]
+        mantable = data.get_manufact_table()
         if mantable in globals.get_mysql().get_tables():
             #befehl = "TRUNCATE TABLE " + mantable + ";"
-            befehl = "DELETE FROM " + mantable + ";"
+            befehl = "DELETE FROM " + mantable + "; COMMIT;"
+            if debug: print("AfpFaktura_importArtikels delete/truncate mysql table:", befehl)
+            globals.get_mysql().execute(befehl)
         else:
-            befehl = "CREATE TABLE `" + mantable + "` (`ArtikelNr` tinytext CHARACTER SET latin1 COLLATE latin1_german2_ci NOT NULL,`Bezeichnung` tinytext CHARACTER SET latin1 COLLATE latin1_german2_ci NOT NULL, `Listenpreis` float(9,2) NOT NULL, `PreisGrp` char(5) CHARACTER SET latin1 COLLATE latin1_german2_ci NOT NULL, `EAN` char(13) CHARACTER SET latin1 COLLATE latin1_german2_ci DEFAULT NULL, KEY `ArtikelNr` (`ArtikelNr`(50)), KEY `Bezeichnung` (`Bezeichnung`(50)), KEY `EAN` (`EAN`)) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_german2_ci;"
-        if debug: print("AfpFaktura_importArtikels create/truncate mysql table:", befehl)
-        globals.get_mysql().execute(befehl)
+            befehl = "CREATE TABLE `" + mantable + "` (`ArtikelNr` tinytext CHARACTER SET latin1 COLLATE latin1_german2_ci NOT NULL,`Bezeichnung` tinytext CHARACTER SET latin1 COLLATE latin1_german2_ci DEFAULT NULL, `Listenpreis` float(9,2) DEFAULT NULL, `PreisGrp` char(5) CHARACTER SET latin1 COLLATE latin1_german2_ci DEFAULT NULL, `EAN` char(25) CHARACTER SET latin1 COLLATE latin1_german2_ci DEFAULT NULL, KEY `ArtikelNr` (`ArtikelNr`(50)), KEY `Bezeichnung` (`Bezeichnung`(50)), KEY `EAN` (`EAN`)) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_german2_ci;"
+            if debug: print("AfpFaktura_importArtikels create mysql table:", befehl)
+            globals.get_mysql().execute(befehl)
+            data = AfpManufact(globals, data.get_value())
+        if debug: print ("AfpFaktura_importArtikels started:", Afp_getNow().time())
         imp = AfpImport(globals, filename, par, debug)
-        #data = AfpArtikel(globals, None, debug, mantable)
-        data = hersdat
+        imp.direct_mysql_storing = True
         if deli:
             imp.set_csv_parameter(deli[0], deli[1])
-        data = imp.read_from_csv_file(data, mantable)[0]
-        if debug: print("AfpFaktura_importArtikels imported:", data, data.get_value_length(mantable))
-        sel = data.get_selection(mantable)
-        sel.new = True
-        sel.store()
+        res = imp.read_from_csv_file(data, mantable)
+        if debug: print ("AfpFaktura_importArtikels loaded:", Afp_getNow().time(), data.get_value_length(mantable))
+        if res:
+            sel = res[0].get_selection(mantable)
+            sel.new = True
+            sel.store()
+        if debug: print ("AfpFaktura_importArtikels stored:", Afp_getNow().time())
         return True
     else:
         return False

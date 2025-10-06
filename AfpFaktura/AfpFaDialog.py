@@ -44,9 +44,11 @@ from AfpBase.AfpBaseFiDialog import AfpLoad_DiFiZahl
 #from AfpEvent.AfpEvRoutines import *
 from AfpFaktura.AfpFaRoutines import *
 
-## dialog for selection of faktura data \n
-# selects an entry from the different faktura tables
-def AfpFaktura_selectManufacturer(globals, debug):
+## dialog for selection of manufacurer data \n
+# @param globals - global data, inclsive mysql connection
+# @param text - to be displayed in second line
+# @param debug - if given, flag for debug-modus
+def AfpFaktura_selectManufacturer(globals, text, debug = False):
     hersdat = None
     hersteller = AfpSQLTableSelection(globals.get_mysql(), "ARTHERS", debug, "HersNr")
     hersteller.load_data("")
@@ -57,7 +59,7 @@ def AfpFaktura_selectManufacturer(globals, debug):
         adresse = AfpAdresse(globals, row[3])
         liste.append(row[0] + "  " + row[1] + "   " + adresse.get_name(True) + " " + adresse.get_value("Ort"))
         ident.append(row[2])
-    nr, ok = AfpReq_Selection("Bitte Hersteller oder Lieferanten " + Afp_setUml("auswaehlen"), Afp_setUml("fuer") + " den die Artikeldaten importiert werden sollen.", liste, "Herstellerauswahl", ident)
+    nr, ok = AfpReq_Selection("Bitte Hersteller oder Lieferanten auswaehlen,", text, liste, "Herstellerauswahl", ident)
     if ok: 
         if nr:
             hersdat = AfpManufact(globals, nr, debug)
@@ -93,7 +95,7 @@ class AfpDialog_FaAusw(AfpDialog_Auswahl):
                             ["RechNr.RECHNG",None]] # Ident column
         return Felder
     ## invoke the dialog for a new entry \n
-    # overwritten for "Tourist" use
+    # overwritten for "Faktura" use
     def invoke_neu_dialog(self, globals, eingabe, filter):
         print("AfpDialog_FaAusw.invoke_neu_dialog not implemented!")
         return
@@ -202,15 +204,54 @@ class AfpDialog_FaArtikelAusw(AfpDialog_Auswahl):
     ## invoke the dialog for a new entry \n
     # overwritten for "Artikel" use
     def invoke_neu_dialog(self, globals, eingabe, filter):
-        print("AfpDialog_FaArtikelAusw.invoke_neu_dialog not implemented!")
+        hers, ok = AfpFaktura_selectManufacturer(self.globals, "aus dessen Datei ein Artikel übenommen werden soll.", self.debug) 
+        if ok and hers:
+            dlgres = AfpLoad_FaArtikelAusw(self.globals, "ArtikelNr", eingabe, hers.get_manufact_table(), filter, self.debug, hers)
+            print("AfpDialog_FaArtikelAusw.invoke_neu_dialog Hersteller", hers.get_value("Hersteller") , "auswählen:", hers.get_value("Kennung"),  dlgres)
         return
+## dialog for selection of manufacturer content data \n
+class AfpDialog_FaManufactArtikelAusw(AfpDialog_Auswahl):
+    ## initialise dialog
+    def __init__(self, datei):
+        self.table = datei # needed, as get_grid_felder is used in 'AfpDialog_Auswahl.__init__'
+        AfpDialog_Auswahl.__init__(self,None, -1, "", style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER)
+        self.typ = "Hersteller-Artikelauswahl"
+        self.datei = datei
+        self.modul = "Faktura"
+        self.SetBackgroundColour(wx.Colour(212, 212, 212))
+    ## get the definition of the selection grid content \n
+    # overwritten for "Faktura" use
+    def get_grid_felder(self): 
+        Felder = [["ArtikelNr." + self.table,30], 
+                            ["Bezeichnung." + self.table,40], 
+                            ["PreisGrp." + self.table,10], 
+                            ["Listenpreis." + self.table,20], 
+                            ["ArtikelNr." + self.table,None]] # Ident column
+        return Felder
+    ## invoke the dialog for a new entry \n
+    # overwritten for "Artikel" use
+    def invoke_neu_dialog(self, globals, eingabe, filter):
+        print("AfpDialog_FaManufactArtikelAusw.invoke_neu_dialog not implemented!")
+        return
+    ## return result
+    # overwritten for row return
+    def get_result(self):
+        row = None
+        befehl = "SELECT * FROM " + self.datei + " WHERE ArtikelNr = '" + self.result + "';"
+        rows = self.mysql.execute(befehl)
+        #print("AfpDialog_FaManufactArtikelAusw.get_result:", befehl, rows)
+        if rows: row = rows[0]
+        return row
+
 ## loader routine for artikel selection dialog 
 # @param globals - global variables including database connection
 # @param index - column which should give the order
 # @param value -  if given,initial value to be searched
+# @param datei -  database table to be searched
 # @param where - if given, filter for search in table
 # @param ask - flag if it should be asked for a string before filling dialog
-def AfpLoad_FaArtikelAusw(globals, index, value = "", where = None, ask = False):
+# @param manu - if datei is set, manufacturer data may be submitted here 
+def AfpLoad_FaArtikelAusw(globals, index, value = "", datei = "Artikel", where = None, ask = False, manu = None):
     result = None
     Ok = True
     #globals.mysql.set_debug()
@@ -228,13 +269,25 @@ def AfpLoad_FaArtikelAusw(globals, index, value = "", where = None, ask = False)
             index = "Bezeichnung"
     #print("AfpLoad_FaArtikelAusw index:", index, value, Ok)
     if Ok:
-        DiArtikel = AfpDialog_FaArtikelAusw()
-        text = "Bitte Artikel auswählen:"
-        DiArtikel.initialize(globals, index, value, where, text)
-        DiArtikel.ShowModal()
-        result = DiArtikel.get_result()
-        #print("AfpLoad_FaArtikelAusw result:", result)
-        DiArtikel.Destroy()
+        if datei == "Artikel":
+            DiArtikel = AfpDialog_FaArtikelAusw()
+            text = "Bitte Artikel auswählen:"
+            DiArtikel.initialize(globals, index, value, where, text)
+            DiArtikel.ShowModal()
+            result = DiArtikel.get_result()
+            #print("AfpLoad_FaArtikelAusw result:", result)
+            DiArtikel.Destroy()
+        else:
+            if manu:
+                text = "Bitte Artikel aus der Herstellerdatei '" + manu.get_value("Hersteller") + "' auswählen:"
+            else:
+                text = "Bitte Artikel aus Herstellerdatei auswählen:"
+            DiArtikel = AfpDialog_FaManufactArtikelAusw(datei)
+            DiArtikel.initialize(globals, index, value, where, text)
+            DiArtikel.ShowModal()
+            result = DiArtikel.get_result()
+            #print("AfpLoad_FaArtikelAusw result:", result)
+            DiArtikel.Destroy()
     elif Ok is None:
         # flag for direct selection
         result = Afp_selectGetValue(globals.get_mysql(), "ARTIKEL", "ArtikelNr", index, value)

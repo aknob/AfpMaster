@@ -210,6 +210,7 @@ def Afp_fromString(string):
             split = string.split(",")
         else:
             split = [string]
+        #print ("Afp_fromString split:", split)
         if len(split) > 2 and len(string) < 11:
             day = 0
             if split[0].isdigit(): day = int(split[0])
@@ -233,7 +234,14 @@ def Afp_fromString(string):
                         year -= 100
                 data = datetime.date(year, month, day)
         elif len(split) > 1:
-            left = 0    
+            left = 0
+            if "," in split[0]: 
+                sp = split[0].split(",")
+                split[0] = sp[0] + sp[1]
+            if "," in split[1]:
+                sp = split[1].split(",")
+                split[0] += sp[0]
+                split[1] = sp[1]
             if split[0].isdigit(): left = int(split[0])
             elif len(split[0]) > 1 and split[0][0] == "-" and split[0][1:].isdigit():
                 left =  - int(split[0][1:])
