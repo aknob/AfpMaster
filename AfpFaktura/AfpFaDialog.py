@@ -62,7 +62,7 @@ def AfpFaktura_selectManufacturer(globals, text, debug = False):
     nr, ok = AfpReq_Selection("Bitte Hersteller oder Lieferanten auswaehlen,", text, liste, "Herstellerauswahl", ident)
     if ok: 
         if nr:
-            hersdat = AfpManufact(globals, nr, debug)
+            hersdat = AfpManufact(globals, nr, None, debug)
         else:
             print ("AfpFaktura_selectManufacturer neuen Hersteller anlegen!")
     return hersdat, ok
@@ -188,27 +188,36 @@ class AfpDialog_FaArtikelAusw(AfpDialog_Auswahl):
     def __init__(self):
         AfpDialog_Auswahl.__init__(self,None, -1, "", style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER)
         self.typ = "Artikelauswahl"
-        self.datei = "Artikel"
+        self.datei = "ARTIKEL"
         self.modul = "Faktura"
     ## get the definition of the selection grid content \n
     # overwritten for "Faktura" use
     def get_grid_felder(self): 
         Felder = [["ArtikelNr.ARTIKEL",30], 
                             ["Bezeichnung.ARTIKEL",30], 
-                            ["Name.ADRESSE",15], 
+                            ["Hersteller.ARTHERS",15], 
                             ["Lagerort.ARTIKEL",10], 
                             ["Nettopreis.ARTIKEL",15], 
-                            ["KundenNr.ADRESSE = HersNr.ARTIKEL",None],
+                            ["HersNr.ARTHERS = HersNr.ARTIKEL",None],
                             ["ArtikelNr.ARTIKEL",None]] # Ident column
         return Felder
     ## invoke the dialog for a new entry \n
     # overwritten for "Artikel" use
     def invoke_neu_dialog(self, globals, eingabe, filter):
-        hers, ok = AfpFaktura_selectManufacturer(self.globals, "aus dessen Datei ein Artikel übenommen werden soll.", self.debug) 
+        ken = AfpFaktura_getShortManu(globals, eingabe)
+        if ken:
+            hers = AfpManufact(globals, ken, "Kennung", self.debug)
+            ok = True
+            eingabe = "!" + eingabe[len(ken) + 1:]
+        else:
+            hers, ok = AfpFaktura_selectManufacturer(self.globals, "aus dessen Datei ein Artikel übenommen werden soll.", self.debug) 
         if ok and hers:
-            dlgres = AfpLoad_FaArtikelAusw(self.globals, "ArtikelNr", eingabe, hers.get_manufact_table(), filter, self.debug, hers)
-            print("AfpDialog_FaArtikelAusw.invoke_neu_dialog Hersteller", hers.get_value("Hersteller") , "auswählen:", hers.get_value("Kennung"),  dlgres)
-        return
+            newarticle = AfpLoad_FaArtikelAusw(self.globals, "ArtikelNr", eingabe, hers.get_manufact_table(), filter, False, hers)
+            breakpoint()
+            if newarticle:
+                newarticle.store()
+                return True
+        return False
 ## dialog for selection of manufacturer content data \n
 class AfpDialog_FaManufactArtikelAusw(AfpDialog_Auswahl):
     ## initialise dialog
@@ -218,6 +227,7 @@ class AfpDialog_FaManufactArtikelAusw(AfpDialog_Auswahl):
         self.typ = "Hersteller-Artikelauswahl"
         self.datei = datei
         self.modul = "Faktura"
+        self.manu = None
         self.SetBackgroundColour(wx.Colour(212, 212, 212))
     ## get the definition of the selection grid content \n
     # overwritten for "Faktura" use
@@ -232,16 +242,28 @@ class AfpDialog_FaManufactArtikelAusw(AfpDialog_Auswahl):
     # overwritten for "Artikel" use
     def invoke_neu_dialog(self, globals, eingabe, filter):
         print("AfpDialog_FaManufactArtikelAusw.invoke_neu_dialog not implemented!")
-        return
+        if self.manu:
+            print("AfpDialog_FaManufactArtikelAusw.invoke_neu_dialog Artikeldialog für:", eingabe)
+        return False
     ## return result
     # overwritten for row return
     def get_result(self):
-        row = None
-        befehl = "SELECT * FROM " + self.datei + " WHERE ArtikelNr = '" + self.result + "';"
-        rows = self.mysql.execute(befehl)
-        #print("AfpDialog_FaManufactArtikelAusw.get_result:", befehl, rows)
-        if rows: row = rows[0]
-        return row
+        if self.result:
+            if Afp_isString(self.result):
+                if self.manu:
+                    article = self.manu.get_articles(self.result)
+                    print("AfpDialog_FaManufactArtikelAusw.get_result:", article)
+                    article.view()
+                    return article
+                else:
+                    print("WARNING in AfpDialog_FaManufactArtikelAusw: Manufacturer not provided for function.")
+            else:
+                return self.result
+        return None
+    ## set manufacturer
+    # @param manu - AfpManucaft SelectionList
+    def set_manufacturer(self, manu):
+        self.manu = manu
 
 ## loader routine for artikel selection dialog 
 # @param globals - global variables including database connection
@@ -251,15 +273,20 @@ class AfpDialog_FaManufactArtikelAusw(AfpDialog_Auswahl):
 # @param where - if given, filter for search in table
 # @param ask - flag if it should be asked for a string before filling dialog
 # @param manu - if datei is set, manufacturer data may be submitted here 
-def AfpLoad_FaArtikelAusw(globals, index, value = "", datei = "Artikel", where = None, ask = False, manu = None):
+def AfpLoad_FaArtikelAusw(globals, index, value = "", datei = "ARTIKEL", where = None, ask = False, manu = None):
     result = None
     Ok = True
+    direct = False
     #globals.mysql.set_debug()
     if ask:
         if not value: value = ""
         value, Ok = AfpReq_Text("Bitte Suchbegriff für Artikelauswahl eingeben:", "", value, "Artikelauswahl")
+    else:
+        if len(value) and value[0] == "!":
+            value = value[1:]
+            direct = True
     if Ok and value:
-        if len(value) > 2 and value[2] == " ":
+        if AfpFaktura_getShortManu(globals, value) or direct:
             index = "ArtikelNr"
             #Ok = None
         elif Afp_isEAN(value):
@@ -269,7 +296,7 @@ def AfpLoad_FaArtikelAusw(globals, index, value = "", datei = "Artikel", where =
             index = "Bezeichnung"
     #print("AfpLoad_FaArtikelAusw index:", index, value, Ok)
     if Ok:
-        if datei == "Artikel":
+        if datei == "ARTIKEL" or datei == "Artikel":
             DiArtikel = AfpDialog_FaArtikelAusw()
             text = "Bitte Artikel auswählen:"
             DiArtikel.initialize(globals, index, value, where, text)
@@ -278,11 +305,12 @@ def AfpLoad_FaArtikelAusw(globals, index, value = "", datei = "Artikel", where =
             #print("AfpLoad_FaArtikelAusw result:", result)
             DiArtikel.Destroy()
         else:
+            DiArtikel = AfpDialog_FaManufactArtikelAusw(datei)
             if manu:
                 text = "Bitte Artikel aus der Herstellerdatei '" + manu.get_value("Hersteller") + "' auswählen:"
+                DiArtikel.set_manufacturer(manu)
             else:
                 text = "Bitte Artikel aus Herstellerdatei auswählen:"
-            DiArtikel = AfpDialog_FaManufactArtikelAusw(datei)
             DiArtikel.initialize(globals, index, value, where, text)
             DiArtikel.ShowModal()
             result = DiArtikel.get_result()

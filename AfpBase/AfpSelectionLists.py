@@ -331,6 +331,7 @@ class AfpSelectionList(object):
             else: selection.load_data(select_clause, order_clause)
         elif selection is None and name == self.mainselection:
             selection = AfpSQLTableSelection(self.mysql, name, self.debug, self.mainindex)
+            if new: selection.new_data()
         if not selection is None:
             self.selections[name] = selection
     ## create all TableSelections
@@ -623,7 +624,8 @@ class AfpSelectionList(object):
     ## get index of first row with given value in column of the appropriate table
     # @param value -  value to be found in indicated column
     # @param DateiFeld - column.selection name where data has to be found
-    def find_value_row(self, value, DateiFeld):
+    # @param all - flag, if all rows with this vale should be extracted
+    def find_value_row(self, value, DateiFeld, all = False):
         split = DateiFeld.split(".")
         feld = split[0]
         if len(split) > 1: 
@@ -631,7 +633,7 @@ class AfpSelectionList(object):
         else:
             selname = self.mainselection
         #print ("AfpSelectionList.find_value_row:", value, feld, selname)
-        return self.get_selection(selname).find_value_row(value, feld)
+        return self.get_selection(selname).find_value_row(value, feld, all)
         
     ## set a single value of individual TableSelection 
     # @param DateiFeld - column.selection name where data has to be written to

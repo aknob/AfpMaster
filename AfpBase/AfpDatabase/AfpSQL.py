@@ -378,7 +378,7 @@ class AfpSQL(object):
     def write_unique(self, datei, felder, data, select):
         if self.get_readonly(datei): return
         if select is None:
-            self.write_insert(datei, felder, data)
+            self.write_insert(datei, felder, [data])
         else:
             self.write_update(datei, felder, data, select)
     ## insert data into database
@@ -412,7 +412,7 @@ class AfpSQL(object):
     # for tables with a primary key
     # @param datei - name of table
     # @param felder - list of column names in table, where data is written to 
-    # @param data - list of data rows, each written to the columns indicated above (nomally one row is delivered)
+    # @param data - one data row, written to the columns indicated above 
     # @param select - select clause for database entries to be updated (normally points to a unique entry)
     # @param no_commit - omit COMMIT statement at the end of this routine (if more database interactions should be done in one step)
     def write_update(self, datei, felder, data, select, no_commit= False):
@@ -968,8 +968,10 @@ class AfpSQLTableSelection(object):
     ## get index of first row with given value in column
     # @param value -  value to be found in indicated column
     # @param feldname - indicated column name
-    def find_value_row(self, value, feldname):
+    # @param all - flag, if all rows with this vale should be extracted
+    def find_value_row(self, value, feldname, all = False):
         index = None
+        rows = []
         feld = feldname.strip()
         if feld in self.feldnamen:  index = self.feldnamen.index(feld) 
         #print("AfpSQLTableSelection.find_value_row:", value, feldname, feld, index)
@@ -977,8 +979,13 @@ class AfpSQLTableSelection(object):
             for row in self.data: 
                 #print("AfpSQLTableSelection.find_value_row row:", value, type(value), index, row[index], type(row[index]), value == row[index], row)
                 if value == row[index]:
-                    return row
-                    break
+                    if all:
+                        rows.append(row)
+                    else:
+                        return row
+                        break
+        if rows:
+            return rows
         return None
     ## set indicated column to a given value
     # @param feldname - indicated column name
@@ -1085,7 +1092,10 @@ class AfpSQLTableSelection(object):
                     if self.dbg: print("AfpSQLTableSelection.store unique last_inserted_id:",  self.last_inserted_id)
                     self.set_last_inserted_id(self.unique_feldname, row)
                 else:
-                    select = self.unique_feldname + " = " + Afp_toQuotedString(unique_value)
+                    if self.new: 
+                        select = None
+                    else:
+                        select = self.unique_feldname + " = " + Afp_toQuotedString(unique_value)
                     if self.dbg: print("AfpSQLTableSelection.store unique value already set:", select, self.get_values(None, row)[0])
                     self.mysql.write_unique( self.tablename,  self.feldnamen, self.get_values(None, row)[0], select)  
             if self.get_data_length() == 0:

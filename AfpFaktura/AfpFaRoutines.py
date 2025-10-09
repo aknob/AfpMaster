@@ -158,7 +158,17 @@ def AfpFaktura_isWage(id_string):
         return True
     else:
         return False
-        
+## extract manufacturer short name from article-number string
+# @param globals - global data
+# @param string - string to be tested
+def AfpFaktura_getShortManu(globals, number):
+    ken = number.split(" ")[0]
+    mlen = globals.get_value("short-manu-max-len", "Faktura")
+    if not mlen: mlen = 2
+    if len(ken) <= mlen:
+        return ken
+    else:
+        return None
 ## special handling for float string prepended by a colon endend string
 # @param string - string to be converted
 def AfpFaktura_colonFloat(string):
@@ -198,7 +208,7 @@ def AfpFaktura_getSelectedRows(mysql, typ, debug):
     #print("AfpFaktura_getSelectedRows:", select, rows)
     return datei, rows
 ## import articles from csv-file into manufacturer database
-# @param globals - global data, inclsive mysql connection
+# @param globals - global data, inclusive mysql connection
 # @param data - AfpManufact selection-list
 # @param filename - name of csv-file to be imported
 # @param debug - if given, flag for debug-modus
@@ -291,12 +301,14 @@ class AfpManufact(AfpSelectionList):
     ## initialize AfpManufact class
     # @param globals - global values including the mysql connection - this input is mandatory
     # @param value - mainvalue to initialise this class
+    # @param index - index in table to look for value
     # @param debug - flag for debug information
-    def  __init__(self, globals, value = None, debug = None):
+    def  __init__(self, globals, value = None, index = None, debug = None):
         AfpSelectionList.__init__(self, globals, "Manufact", debug)
         if debug: self.debug = debug
         else: self.debug = globals.is_debug()
         self.mainindex = "HersNr"
+        if index: self.mainindex = index
         self.mainselection = "ARTHERS"
         self.mainvalue = ""
         if value: 
@@ -308,9 +320,9 @@ class AfpManufact(AfpSelectionList):
         self.herstable = "ART_" + Afp_toIntString(self.get_value("HersNr"))
         self.selects["ADRESSE"] = [ "ADRESSE","KundenNr = KundenNr.ARTHERS"] 
         self.selects["ARTDIS"] = [ "ARTDIS","HersNr = HersNr.ARTHERS"] 
-        self.selects["ARTSUP"] = [ "ARTSUP","HersNr = HersNr.ARTHERS"] 
+        self.selects["ARTSUR"] = [ "ARTSUR","HersNr = HersNr.ARTHERS"] 
         self.selects["ARTIKEL"] = [ "ARTIKEL","HersNr = HersNr.ARTHERS"] 
-        self.selects["GlobSUP"] = [ "ARTSUP","HersNr = 0"] 
+        self.selects["GlobSUR"] = [ "ARTSUR","HersNr = 0"] 
         self.selects[self.herstable] = [ self.herstable,""] 
         if self.debug: print("AfpManufact Konstruktor")
     ## destructor
@@ -320,6 +332,97 @@ class AfpManufact(AfpSelectionList):
     ## get manufactur selection table
     def get_manufact_table(self):
         return self.herstable
+    ## generate the manufacturer discount for this AfpArtikel SelectionList
+    # @param article -  AfpArtikel SelectionList
+    def gen_discount(self, article):
+        lstp = article.get_value("Listenpreis")
+        prsgrp = article.get_value("PreisGrp")
+        print("AfpManufact.gen_discount:", lstp, prsgrp)
+        row = self.find_value_row(prsgrp, "PreisGrp.ARTDIS")
+        if not row:
+            row = self.find_value_row(None, "PreisGrp.ARTDIS")
+        if row: 
+            fac = (100.0 - row[-1])/100.0
+            print("AfpManufact.gen_discount row:", fac, row)
+            ek = int(100*fac*lstp)/100.0
+        else:
+            ek = lstp
+        article.set_value("Einkaufspreis", ek)
+        return article
+    ## generate the manufacturer surcharge (supplement) for this AfpArtikel SelectionList
+    # @param article -  AfpArtikel SelectionList
+    def gen_surcharge(self, article):
+        lstp = article.get_value("Listenpreis")
+        prsgrp = article.get_value("PreisGrp")
+        ek = article.get_value("Einkaufspreis")
+        print("AfpManufact.gen_surcharge:", lstp, prsgrp)
+        # find surcharge for price-group of manufacturer
+        row = self.find_value_row(prsgrp, "PreisGrp.ARTSUR")
+        if not row: # find surcharge for individual price for manufacturer, resp. surcharge of manufacturer
+            row = self.extract_surcharge(lstp, "ARTSUR")
+        if not row:# find global surcharge for individual price resp. global surcharge
+            row = self.extract_surcharge(lstp, "GlobSUR")
+        if row:
+            fac = (100.0 + row[-1])/100.0
+            print("AfpManufact.gen_surcharge row:", fac, row) 
+            netto = int(100*fac*ek)/100.0
+        else:
+            netto = lstp
+        article.set_value("Nettopreis", netto)
+        #article.set_value("Gewinn", netto - ek)
+        return article
+    ## extract surchage from database table
+    # @param preis -  price of article to be used fpr seaqrch
+    # @param tablename -  name of table, where price debendent surcharge has to be extracted
+    def extract_surcharge(self, preis, tablename):
+        row = None
+        rows = self.find_value_row(None, "PreisGrp." + tablename, True)
+        print("AfpManufact.extract_surcharge rows:", tablename, rows)
+        if rows:
+            liste = {}
+            for r in rows:
+                if not r[2] is None:
+                    liste[r[2]] = r
+                else:
+                    single = r
+            for s in reversed(sorted(liste)):
+                if preis >= s:
+                    row = liste[s]
+                    break
+            # fallback in case price is below first value
+            if row is None and liste:
+                first = next(iter(sorted(liste)))
+                row = liste[first]
+            if row is None and single:
+                row = single
+        return row
+    ## generate the prices for this AfpArtikel SelectionList
+    # @param article -  AfpArtikel SelectionList
+    def gen_prices(self, article):
+        article = self.gen_discount(article)
+        article = self.gen_surcharge(article)
+        return article
+    
+    ## get new AfpArtikel SelectionList holding the data from the manufacturer database
+    # @param ident - identifier of article in manufacturer database
+    # @param index - if given, field to look for the ident value
+    def get_articles(self, ident, index = None):
+        article = None
+        if not index: index = "ArtikelNr"
+        sel = self.get_selection(self.herstable)
+        sel.load_data(index + " = '" + ident + "'")
+        print("AfpManufact.get_articles:", sel.data)
+        anumber =  self.get_value("Kennung") + " " + sel.get_value("ArtikelNr")
+        check = AfpSQLTableSelection(self.get_mysql(), "ARTIKEL")
+        check.load_data("HersNr = " + self.get_string_value("HersNr") + " AND ArtikelNr = '" + anumber + "'") 
+        print("AfpManufact.get_articles check:", check.data)
+        if check.get_data_length() == 0:
+            data = {"ArtikelNr": self.get_value("Kennung") + " " + sel.get_value("ArtikelNr"), "Bezeichnung": sel.get_value("Bezeichnung"), "Listenpreis": sel.get_value("Listenpreis"), "PreisGrp": sel.get_value("PreisGrp"), "HersNr": self.get_value("HersNr"), "EAN": sel.get_value("EAN")}
+            print("AfpManufact.get_articles data:", data)
+            article = AfpArtikel(self.globals, None)
+            article.set_data_values(data)
+            article = self.gen_prices(article)
+        return article
         
 ## baseclass for article handling during faktura        
 class AfpArtikel(AfpSelectionList):
@@ -340,8 +443,11 @@ class AfpArtikel(AfpSelectionList):
         self.amount_column = "Bestand"
         self.mainindex = index
         self.mainselection = table
-        self.mainvalue = Afp_toQuotedString(value)
-        self.set_main_selects_entry()
+        if value:
+            self.mainvalue = Afp_toQuotedString(value)
+            self.set_main_selects_entry()
+        else:
+            self.new = True
         self.create_selection(self.mainselection)
         if self.mainselection in self.selects:
             self.selects["Stack"] = self.selects[self.mainselection]

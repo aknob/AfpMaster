@@ -1206,14 +1206,14 @@ class AfpFaScreen(AfpEditScreen):
                         if action: 
                             ident = action
                             ask = False
-                        dlgres = AfpLoad_FaArtikelAusw(self.globals, "ArtikelNr", ident, "Artikel", None, ask)
+                        dlgres = AfpLoad_FaArtikelAusw(self.globals, "ArtikelNr", ident, "ARTIKEL", None, ask)
                         if dlgres:
                             self.edit_line(None, dlgres, "ArtikelNr", rowNr)
             else:
                 if text[0]:
                     edit_text = True
                 else:
-                    dlgres = AfpLoad_FaArtikelAusw(self.globals, "ArtikelNr", ident, "Artikel", None, ask)
+                    dlgres = AfpLoad_FaArtikelAusw(self.globals, "ArtikelNr", ident, "ARTIKEL", None, ask)
                     if dlgres:
                         row = self.expand_to_row(dlgres)
             if edit_text:

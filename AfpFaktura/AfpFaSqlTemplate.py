@@ -56,7 +56,7 @@ def AfpFaktura_getSqlTables(flavour = None):
   KEY `HersNr` (`HersNr`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_german2_ci;"""
     # article manufacturer  table
-    required["ARTMANU"] = """CREATE TABLE `ARTMANU` (
+    required["ARTHERS"] = """CREATE TABLE `ARTHERS` (
   `HersNr` smallint NOT NULL AUTO_INCREMENT,
   `Hersteller` varchar(20) NOT NULL,
   `KundenNr` smallint NOT NULL,
@@ -69,8 +69,8 @@ def AfpFaktura_getSqlTables(flavour = None):
     required["ARTIKEL"] = """CREATE TABLE `ARTIKEL` (
   `ArtikelNr` tinytext CHARACTER SET latin1 COLLATE latin1_german2_ci NOT NULL,
   `Bezeichnung` tinytext CHARACTER SET latin1 COLLATE latin1_german2_ci NOT NULL,
-  `Bestand` float(6,1) NOT NULL,
-  `Mindestbestand` float(4,0) DEFAULT NULL,
+  `Bestand` float(6,1) DEFAULT '0.0',
+  `Mindestbestand` float(4,0) DEFAULT '0',
   `Einkaufspreis` float(9,2) NOT NULL,
   `Eingang` date DEFAULT NULL,
   `Rabatt` tinyint DEFAULT NULL,
