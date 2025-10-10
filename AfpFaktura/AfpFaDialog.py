@@ -46,20 +46,31 @@ from AfpFaktura.AfpFaRoutines import *
 
 ## dialog for selection of manufacurer data \n
 # @param globals - global data, inclsive mysql connection
-# @param text - to be displayed in second line
+# @param new - flag if additional line for creation of a new manufacturere should be included
 # @param debug - if given, flag for debug-modus
-def AfpFaktura_selectManufacturer(globals, text, debug = False):
-    hersdat = None
+def AfpFaktura_listManufacturer(globals, new = False, debug = False):
     hersteller = AfpSQLTableSelection(globals.get_mysql(), "ARTHERS", debug, "HersNr")
     hersteller.load_data("")
-    liste = ["--- Neuen Hersteller anlegen ---"]
-    ident = [None]
+    if new:
+        liste = ["--- Neuen Hersteller anlegen ---"]
+        ident = [None]
+    else:
+        liste = []
+        ident = []
     rows = hersteller.get_values("Kennung,Hersteller,HersNr,KundenNr")
     for row in rows:
         adresse = AfpAdresse(globals, row[3])
         liste.append(row[0] + "  " + row[1] + "   " + adresse.get_name(True) + " " + adresse.get_value("Ort"))
         ident.append(row[2])
-    nr, ok = AfpReq_Selection("Bitte Hersteller oder Lieferanten auswaehlen,", text, liste, "Herstellerauswahl", ident)
+    return liste, ident
+## dialog for selection of manufacurer data \n
+# @param globals - global data, inclsive mysql connection
+# @param text - to be displayed in second line
+# @param debug - if given, flag for debug-modus
+def AfpFaktura_selectManufacturer(globals, text, debug = False):
+    hersdat = None
+    liste, ident =  AfpFaktura_listManufacturer(globals, True, debug)
+    nr, ok = AfpReq_Selection("Bitte Hersteller oder Lieferanten auswählen,", text, liste, "Herstellerauswahl", ident)
     if ok: 
         if nr:
             hersdat = AfpManufact(globals, nr, None, debug)
@@ -213,10 +224,11 @@ class AfpDialog_FaArtikelAusw(AfpDialog_Auswahl):
             hers, ok = AfpFaktura_selectManufacturer(self.globals, "aus dessen Datei ein Artikel übenommen werden soll.", self.debug) 
         if ok and hers:
             newarticle = AfpLoad_FaArtikelAusw(self.globals, "ArtikelNr", eingabe, hers.get_manufact_table(), filter, False, hers)
-            breakpoint()
             if newarticle:
-                newarticle.store()
-                return True
+                ok = AfpLoad_FaArticle(newarticle)
+                if ok:
+                    newarticle.store()
+                    return True
         return False
 ## dialog for selection of manufacturer content data \n
 class AfpDialog_FaManufactArtikelAusw(AfpDialog_Auswahl):
@@ -253,7 +265,7 @@ class AfpDialog_FaManufactArtikelAusw(AfpDialog_Auswahl):
                 if self.manu:
                     article = self.manu.get_articles(self.result)
                     print("AfpDialog_FaManufactArtikelAusw.get_result:", article)
-                    article.view()
+                    if article: article.view()
                     return article
                 else:
                     print("WARNING in AfpDialog_FaManufactArtikelAusw: Manufacturer not provided for function.")
@@ -621,7 +633,6 @@ class AfpDialog_FaCustomSelect(AfpDialog):
             print("Event handler `On_Activate' not implemented")
      
 # end of class AfpDialog_FaCustomSelect
-
 ## loader routine for custom Faktura selection
 # @param globals - global variables given (including mysql-connection)
 # @param inind - if given, initial grid index
@@ -740,4 +751,248 @@ def AfpLoad_FaLine( ident = None, name = False,  debug = False):
     EditLine.Destroy()
     #print("AfpLoad_FaLine destroy:",Ok, action, res)
     return Ok, action
+## dialog to maintain articles
+class AfpDialog_FaArticle(AfpDialog):
+    def __init__(self, *args, **kw):
+        AfpDialog.__init__(self,None, -1, "")
+        self.hersteller = None
+        self.hers_idents = None
+        self.fix_hersteller = False
+        self.SetTitle("Artikelpflege")
 
+    ## set up dialog widgets - overwritten from AfpDialog
+    def InitWx(self):
+        self.sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.left_sizer = wx.BoxSizer(wx.VERTICAL)
+        
+        self.label_ArtikelNr = wx.StaticText(self, -1, label="Artikelnummer:", name="LArtikelNr")
+        self.label_Bez = wx.StaticText(self, -1, label="Bezeichnung:", name="LBez")
+        self.label_Bestand = wx.StaticText(self, -1, label="Bestand:", name="LBestand")
+        self.label_Lager = wx.StaticText(self, -1, label="Lager:", name="LLager")
+        self.text_ArtikelNr = wx.TextCtrl(self, -1, value="", style=0, name="ArtikelNr_Artikel")
+        self.textmap["ArtikelNr_Artikel"] = "ArtikelNr.ARTIKEL"
+        self.text_ArtikelNr.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
+        self.text_Bez = wx.TextCtrl(self, -1, value="", style=0, name="Bez_Artikel")
+        self.textmap["Bez_Artikel"] = "Bezeichnung.ARTIKEL"
+        self.text_Bez.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
+        self.text_Bestand = wx.TextCtrl(self, -1, value="", style=0, name="Bestand_Artikel")
+        self.textmap["Bestand_Artikel"] = "Bestand.ARTIKEL"
+        self.text_Bestand.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
+        self.text_Lager = wx.TextCtrl(self, -1, value="", style=0, name="Lager_Artikel")
+        self.textmap["Lager_Artikel"] = "Lagerort.ARTIKEL"
+        self.text_Lager.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
+        self.line1a_sizer = wx.BoxSizer(wx.VERTICAL)
+        self.line1a_sizer.Add(self.label_ArtikelNr,0,wx.EXPAND)
+        self.line1a_sizer.Add(self.text_ArtikelNr,0,wx.EXPAND)
+        self.line1b_sizer = wx.BoxSizer(wx.VERTICAL)
+        self.line1b_sizer.Add(self.label_Bez,0,wx.EXPAND)
+        self.line1b_sizer.Add(self.text_Bez,0,wx.EXPAND)
+        self.line1c_sizer = wx.BoxSizer(wx.VERTICAL)
+        self.line1c_sizer.Add(self.label_Bestand,0,wx.EXPAND)
+        self.line1c_sizer.Add(self.text_Bestand,0,wx.EXPAND)
+        self.line1d_sizer = wx.BoxSizer(wx.VERTICAL)
+        self.line1d_sizer.Add(self.label_Lager,0,wx.EXPAND)
+        self.line1d_sizer.Add(self.text_Lager,0,wx.EXPAND)
+        self.line1_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.line1_sizer.AddSpacer(10)
+        self.line1_sizer.Add(self.line1a_sizer,2,wx.EXPAND)
+        self.line1_sizer.AddSpacer(10)
+        self.line1_sizer.Add(self.line1b_sizer,2,wx.EXPAND)
+        self.line1_sizer.AddSpacer(10)
+        self.line1_sizer.Add(self.line1c_sizer,0,wx.EXPAND)
+        self.line1_sizer.AddSpacer(10)
+        self.line1_sizer.Add(self.line1d_sizer,1,wx.EXPAND) 
+        self.line1_sizer.AddSpacer(10)
+
+        self.label_Hers = wx.StaticText(self, -1, label="Hersteller:", name="LHers")
+        self.label_PrsGrp = wx.StaticText(self, -1, label="Preisgruppe:", name="LPrsGrp")
+        self.label_EAN = wx.StaticText(self, -1, label="EAN:", name="LEAN")
+        self.label_Sonder = wx.StaticText(self, -1, label="Sonderpreis:", name="LSonder")
+        self.combo_Hers = wx.ComboBox(self, -1, value="", style=wx.CB_DROPDOWN, name="CHers") 
+        self.Bind(wx.EVT_COMBOBOX, self.On_Hersteller, self.combo_Hers)
+        self.text_PrsGrp = wx.TextCtrl(self, -1, value="", style=wx.TE_READONLY, name="PrsGrp_Artikel")
+        self.textmap["PrsGrp_Artikel"] = "PreisGrp.ARTIKEL"
+        self.text_PrsGrp.SetBackgroundColour(self.readonlycolor)
+        self.text_EAN = wx.TextCtrl(self, -1, value="", style=0, name="EAN_Artikel")
+        self.textmap["EAN_Artikel"] = "EAN.ARTIKEL"
+        self.text_Sonder = wx.TextCtrl(self, -1, value="", style=0, name="Sonder_Artikel")
+        self.textmap["Sonder_Artikel"] = "Sonderpreis.ARTIKEL"
+        self.text_EAN.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
+        self.line2a_sizer = wx.BoxSizer(wx.VERTICAL)
+        self.line2a_sizer.Add(self.label_Hers,0,wx.EXPAND)
+        self.line2a_sizer.Add(self.combo_Hers,0,wx.EXPAND)
+        self.line2b_sizer = wx.BoxSizer(wx.VERTICAL)
+        self.line2b_sizer.Add(self.label_PrsGrp,0,wx.EXPAND)
+        self.line2b_sizer.Add(self.text_PrsGrp,0,wx.EXPAND)
+        self.line2c_sizer = wx.BoxSizer(wx.VERTICAL)
+        self.line2c_sizer.Add(self.label_EAN,0,wx.EXPAND)
+        self.line2c_sizer.Add(self.text_EAN,0,wx.EXPAND)
+        self.line2d_sizer = wx.BoxSizer(wx.VERTICAL)
+        self.line2d_sizer.Add(self.label_Sonder,0,wx.EXPAND)
+        self.line2d_sizer.Add(self.text_Sonder,0,wx.EXPAND)
+        self.line2_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.line2_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.line2_sizer.AddSpacer(10)
+        self.line2_sizer.Add(self.line2a_sizer,2,wx.EXPAND)
+        self.line2_sizer.AddSpacer(10)
+        self.line2_sizer.Add(self.line2b_sizer,1,wx.EXPAND)
+        self.line2_sizer.AddSpacer(10)
+        self.line2_sizer.Add(self.line2c_sizer,2,wx.EXPAND)
+        self.line2_sizer.AddSpacer(10)
+        self.line2_sizer.Add(self.line2d_sizer,1,wx.EXPAND)
+        self.line2_sizer.AddSpacer(10)
+
+        self.label_Einkauf = wx.StaticText(self, -1, label="Einkaufspreis:", name="LEinkauf")
+        self.label_Rabatt = wx.StaticText(self, -1, label="%Rabatt:", name="LRabatt")
+        self.label_Liste = wx.StaticText(self, -1, label="Listenpreis:", name="LListe")
+        self.label_Hsp = wx.StaticText(self, -1, label="%Hsp:", name="LHsp")
+        self.label_Preis = wx.StaticText(self, -1, label="Preis:", name="LPreis")
+        self.text_Einkauf = wx.TextCtrl(self, -1, value="", style=0, name="Einkauf_Artikel")
+        self.textmap["Einkauf_Artikel"] = "Einkaufspreis.ARTIKEL"
+        self.text_Einkauf.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
+        self.text_Rabatt = wx.TextCtrl(self, -1, value="", style=0, name="Rabatt_Artikel")
+        self.textmap["Rabatt_Artikel"] = "Rabatt.ARTIKEL"
+        self.text_Rabatt.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
+        self.text_Liste = wx.TextCtrl(self, -1, value="", style=0, name="Liste_Artikel")
+        self.textmap["Liste_Artikel"] = "Listenpreis.ARTIKEL"
+        self.text_Hsp = wx.TextCtrl(self, -1, value="", style=0, name="Hsp_Artikel")
+        self.textmap["Hsp_Artikel"] = "Handelsspanne.ARTIKEL"
+        self.text_Hsp.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
+        self.text_Preis = wx.TextCtrl(self, -1, value="", style=0, name="Preis_Artikel")
+        self.textmap["Preis_Artikel"] = "Nettopreis.ARTIKEL"
+        self.text_Preis.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
+        self.line3a_sizer = wx.BoxSizer(wx.VERTICAL)
+        self.line3a_sizer.Add(self.label_Einkauf,0,wx.EXPAND)
+        self.line3a_sizer.Add(self.text_Einkauf,0,wx.EXPAND)
+        self.line3b_sizer = wx.BoxSizer(wx.VERTICAL)
+        self.line3b_sizer.Add(self.label_Rabatt,0,wx.EXPAND)
+        self.line3b_sizer.Add(self.text_Rabatt,0,wx.EXPAND)
+        self.line3c_sizer = wx.BoxSizer(wx.VERTICAL)
+        self.line3c_sizer.Add(self.label_Liste,0,wx.EXPAND)
+        self.line3c_sizer.Add(self.text_Liste,0,wx.EXPAND)
+        self.line3d_sizer = wx.BoxSizer(wx.VERTICAL)
+        self.line3d_sizer.Add(self.label_Hsp,0,wx.EXPAND)
+        self.line3d_sizer.Add(self.text_Hsp,0,wx.EXPAND)
+        self.line3e_sizer = wx.BoxSizer(wx.VERTICAL)
+        self.line3e_sizer.Add(self.label_Preis,0,wx.EXPAND)
+        self.line3e_sizer.Add(self.text_Preis,0,wx.EXPAND)
+        self.line3_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.line3_sizer.AddSpacer(10)
+        self.line3_sizer.Add(self.line3a_sizer,2,wx.EXPAND)
+        self.line3_sizer.AddSpacer(10)
+        self.line3_sizer.Add(self.line3b_sizer,1,wx.EXPAND)
+        self.line3_sizer.AddSpacer(10)
+        self.line3_sizer.Add(self.line3c_sizer,2,wx.EXPAND)
+        self.line3_sizer.AddSpacer(10)
+        self.line3_sizer.Add(self.line3d_sizer,1,wx.EXPAND)
+        self.line3_sizer.AddSpacer(10)
+        self.line3_sizer.Add(self.line3e_sizer,2,wx.EXPAND)
+        self.line3_sizer.AddSpacer(10)
+       
+        self.left_sizer.AddSpacer(10)
+        self.left_sizer.Add(self.line1_sizer,2,wx.EXPAND)
+        self.left_sizer.AddSpacer(10)
+        self.left_sizer.Add(self.line2_sizer,2,wx.EXPAND)
+        self.left_sizer.AddSpacer(10)
+        self.left_sizer.Add(self.line3_sizer,2,wx.EXPAND)
+        self.left_sizer.AddSpacer(10)
+        #self.left_sizer.Add(self.line4_sizer,1,wx.EXPAND)
+        #self.left_sizer.AddSpacer(10)
+
+        self.button_Neu = wx.Button(self, -1, label="&Neu", name="Neu_FaArticle")
+        self.Bind(wx.EVT_BUTTON, self.On_Neu, self.button_Neu)
+        self.button_Ablage = wx.Button(self, -1, label="Ab&lage", name="Ablage")
+        self.Bind(wx.EVT_BUTTON, self.On_Ablage, self.button_Ablage)
+        self.button_sizer = wx.BoxSizer(wx.VERTICAL)
+        self.button_sizer.AddSpacer(10)
+        self.button_sizer.AddStretchSpacer(1)
+        self.button_sizer.Add(self.button_Neu,0,wx.EXPAND)
+        self.button_sizer.AddStretchSpacer(1)
+        self.button_sizer.Add(self.button_Ablage,0,wx.EXPAND)
+        self.setWx(self.button_sizer, [1, 0, 0], [1, 0, 1]) # set Edit and Ok widgets
+        self.button_sizer.AddSpacer(10)
+        
+        #self.left_sizer.Add(self.button_sizer,2,wx.EXPAND)
+        #self.left_sizer.AddSpacer(10)
+      
+        self.sizer.AddSpacer(10)
+        self.sizer.Add(self.left_sizer,1,wx.EXPAND)
+        self.sizer.AddSpacer(10)
+        self.sizer.Add(self.button_sizer,0,wx.EXPAND)
+        self.sizer.AddSpacer(10)   
+        self.SetSizerAndFit(self.sizer)
+        #self.SetAutoLayout(1)
+        #self.sizer.Fit(self)
+    ## set fixed manufacturer
+    def set_fix_manufacturer(self):
+        self.fix_hersteller = True
+    ## population routine for comboboxes
+    #overwritten from AfpDialog
+    def Pop_combo(self):
+        if not self.hers_idents:
+            self.hersteller, self.hers_idents = AfpFaktura_listManufacturer(self.data.get_globals(), True, self.debug)
+        if self.hers_idents:
+            hnr = self.data.get_value("HersNr")
+            if hnr:
+                ind = self.hers_idents.index(hnr)
+                if ind:
+                    self.combo_Hers.SetValue(self.hersteller[ind])
+        if self.fix_hersteller:
+             self.combo_Hers.SetBackgroundColour(self.readonlycolor)
+
+    ## execution in case the OK button ist hit - overwritten from AfpDialog
+    def execute_Ok(self):
+        self.store_data()
+
+   ## read values from dialog and invoke writing into database         
+    def store_data(self):
+        self.Ok = False
+        data = {}
+        for entry in self.changed_text:
+            name, wert = self.Get_TextValue(entry)
+            data[name] = wert
+        if data and (len(data) > 2 or not self.new):
+            if self.new: data = self.complete_data(data)
+            self.data.set_data_values(data)
+            self.data.store()
+            self.Ok = True
+        self.changed_text = []   
+        
+    ## initialise new empty data with all necessary values \n
+    # or the other way round, complete new data entries with all needed input
+    # @param data - data to be completed
+    def complete_data(self, data):
+        return data
+   # Event Handlers 
+    ##  Eventhandler ComboBox  select manufacurer\n
+    # @param event - event which initiated this action   
+    def On_Hersteller(self,event):
+        if self.debug: print("AfpDialog_FaArticle Event handler `On_Hersteller'")
+        if self.fix_hersteller:
+            self.Pop_combo()
+        else:
+            print("AfpDialog_FaArticle.On_Hersteller' not yet implemented")
+    ##  Eventhandler BUTTON  create new article entry\n
+    # @param event - event which initiated this action   
+    def On_Neu(self,event):
+        if self.debug: print("AfpDialog_FaArticle Event handler `On_Neu'")
+        print("AfpDialog_FaArticle.On_Neu' not yet implemented")
+    ##  Eventhandler BUTTON  create new article entry\n
+    # @param event - event which initiated this action   
+    def On_Ablage(self,event):
+        if self.debug: print("AfpDialog_FaArticle Event handler `On_Ablage'")
+        print("AfpDialog_FaArticle.On_Ablage' not yet implemented")
+
+## loader routine for dialog for editing articles, returns Ok flag 
+# @param article - AfpArtikel SelectionList to be edited
+# @param debug - debug flag
+def AfpLoad_FaArticle(article):
+    EditArticle = AfpDialog_FaArticle(None)
+    EditArticle.attach_data(article, True)
+    res = EditArticle.ShowModal()
+    if res == wx.ID_OK:
+        Ok = True
+    else:
+        Ok = False
+    EditArticle.Destroy()
+    return Ok

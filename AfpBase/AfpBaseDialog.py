@@ -901,12 +901,12 @@ class AfpDialog(wx.Dialog):
         for entry in self.textmap:
             TextBox = self.FindWindowByName(entry)
             value = self.data.get_tagged_value(self.textmap[entry])
-            #print ("AfpDialog.Pop_text:", entry, self.textmap[entry], "=", value)
+            #print ("AfpDialog.Pop_text:", entry, self.textmap[entry], "=", value, type(value))
             TextBox.SetValue(value)
         for entry in self.vtextmap:
             TextBox = self.FindWindowByName(entry)
             value = self.data.get_string_value(self.vtextmap[entry])
-            #print ("AfpDialog.Pop_text:", entry, self.vtextmap[entry], "=", value)
+            #print ("AfpDialog.Pop_text v:", entry, self.vtextmap[entry], "=", value, type(value))
             TextBox.SetValue(value)
     ## population routine for labels \n
     # covention: labelmap holds the entryname to retrieve value from self.data
