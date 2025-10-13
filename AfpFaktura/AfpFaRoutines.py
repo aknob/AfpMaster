@@ -338,17 +338,25 @@ class AfpManufact(AfpSelectionList):
         lstp = article.get_value("Listenpreis")
         prsgrp = article.get_value("PreisGrp")
         print("AfpManufact.gen_discount:", lstp, prsgrp)
-        row = self.find_value_row(prsgrp, "PreisGrp.ARTDIS")
-        if not row:
-            row = self.find_value_row(None, "PreisGrp.ARTDIS")
-        if row: 
-            fac = (100.0 - row[-1])/100.0
-            print("AfpManufact.gen_discount row:", fac, row)
+        disc = self.get_discount(prsgrp)
+        if disc: 
+            fac = (100.0 - disc)/100.0
+            print("AfpManufact.gen_discount disc:", fac, disc)
             ek = int(100*fac*lstp)/100.0
         else:
             ek = lstp
         article.set_value("Einkaufspreis", ek)
         return article
+    ## generate the manufacturer discount for the given in put
+    # @param prsgrp -  group of price
+    def get_discount(self, prsgrp):
+        row = self.find_value_row(prsgrp, "PreisGrp.ARTDIS")
+        if not row:
+            row = self.find_value_row(None, "PreisGrp.ARTDIS")
+        if row: 
+            return int(row[-1])
+        else:
+            return None
     ## generate the manufacturer surcharge (supplement) for this AfpArtikel SelectionList
     # @param article -  AfpArtikel SelectionList
     def gen_surcharge(self, article):
@@ -357,20 +365,29 @@ class AfpManufact(AfpSelectionList):
         ek = article.get_value("Einkaufspreis")
         print("AfpManufact.gen_surcharge:", lstp, prsgrp)
         # find surcharge for price-group of manufacturer
-        row = self.find_value_row(prsgrp, "PreisGrp.ARTSUR")
-        if not row: # find surcharge for individual price for manufacturer, resp. surcharge of manufacturer
-            row = self.extract_surcharge(lstp, "ARTSUR")
-        if not row:# find global surcharge for individual price resp. global surcharge
-            row = self.extract_surcharge(lstp, "GlobSUR")
-        if row:
-            fac = (100.0 + row[-1])/100.0
-            print("AfpManufact.gen_surcharge row:", fac, row) 
+        sur = self.get_surcharge(prsgrp, lstp)
+        if sur:
+            fac = (100.0 + sur)/100.0
+            print("AfpManufact.gen_surcharge sur:", fac, sur) 
             netto = int(100*fac*ek)/100.0
         else:
             netto = lstp
         article.set_value("Nettopreis", netto)
         #article.set_value("Gewinn", netto - ek)
         return article
+    ## generate the manufacturer surcharge for the given in put
+    # @param prsgrp -  group of price
+    # @param lstp - reference price
+    def get_surcharge(self, prsgrp, lstp):
+        row = self.find_value_row(prsgrp, "PreisGrp.ARTSUR")
+        if not row: # find surcharge for individual price for manufacturer, resp. surcharge of manufacturer
+            row = self.extract_surcharge(lstp, "ARTSUR")
+        if not row:# find global surcharge for individual price resp. global surcharge
+            row = self.extract_surcharge(lstp, "GlobSUR")
+        if row:
+            return int(row[-1])
+        else:
+            return None
     ## extract surchage from database table
     # @param preis -  price of article to be used fpr seaqrch
     # @param tablename -  name of table, where price debendent surcharge has to be extracted

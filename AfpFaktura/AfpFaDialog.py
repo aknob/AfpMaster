@@ -225,7 +225,7 @@ class AfpDialog_FaArtikelAusw(AfpDialog_Auswahl):
         if ok and hers:
             newarticle = AfpLoad_FaArtikelAusw(self.globals, "ArtikelNr", eingabe, hers.get_manufact_table(), filter, False, hers)
             if newarticle:
-                ok = AfpLoad_FaArticle(newarticle)
+                ok = AfpLoad_FaArticle(newarticle, True)
                 if ok:
                     newarticle.store()
                     return True
@@ -753,11 +753,17 @@ def AfpLoad_FaLine( ident = None, name = False,  debug = False):
     return Ok, action
 ## dialog to maintain articles
 class AfpDialog_FaArticle(AfpDialog):
-    def __init__(self, *args, **kw):
+    def __init__(self, hersteller, idents):
+        self.hers_liste = hersteller
+        self.hers_idents = idents
         AfpDialog.__init__(self,None, -1, "")
         self.hersteller = None
-        self.hers_idents = None
         self.fix_hersteller = False
+        self.readonly = ["PrsGrp_Artikel"]
+        self.preset =  {}
+        self.presetedit = []
+        self.preseteditcolor = (245,245,220)
+        self.changecolor = (220, 192, 192)
         self.SetTitle("Artikelpflege")
 
     ## set up dialog widgets - overwritten from AfpDialog
@@ -808,7 +814,7 @@ class AfpDialog_FaArticle(AfpDialog):
         self.label_PrsGrp = wx.StaticText(self, -1, label="Preisgruppe:", name="LPrsGrp")
         self.label_EAN = wx.StaticText(self, -1, label="EAN:", name="LEAN")
         self.label_Sonder = wx.StaticText(self, -1, label="Sonderpreis:", name="LSonder")
-        self.combo_Hers = wx.ComboBox(self, -1, value="", style=wx.CB_DROPDOWN, name="CHers") 
+        self.combo_Hers = wx.ComboBox(self, -1, value="", choices=self.hers_liste, style=wx.CB_DROPDOWN, name="CHers") 
         self.Bind(wx.EVT_COMBOBOX, self.On_Hersteller, self.combo_Hers)
         self.text_PrsGrp = wx.TextCtrl(self, -1, value="", style=wx.TE_READONLY, name="PrsGrp_Artikel")
         self.textmap["PrsGrp_Artikel"] = "PreisGrp.ARTIKEL"
@@ -843,24 +849,25 @@ class AfpDialog_FaArticle(AfpDialog):
         self.line2_sizer.AddSpacer(10)
 
         self.label_Einkauf = wx.StaticText(self, -1, label="Einkaufspreis:", name="LEinkauf")
-        self.label_Rabatt = wx.StaticText(self, -1, label="%Rabatt:", name="LRabatt")
+        self.label_Rabatt = wx.StaticText(self, -1, label="% Rabatt:", name="LRabatt")
         self.label_Liste = wx.StaticText(self, -1, label="Listenpreis:", name="LListe")
-        self.label_Hsp = wx.StaticText(self, -1, label="%Hsp:", name="LHsp")
+        self.label_Hsp = wx.StaticText(self, -1, label="% Hsp:", name="LHsp")
         self.label_Preis = wx.StaticText(self, -1, label="Preis:", name="LPreis")
         self.text_Einkauf = wx.TextCtrl(self, -1, value="", style=0, name="Einkauf_Artikel")
         self.textmap["Einkauf_Artikel"] = "Einkaufspreis.ARTIKEL"
-        self.text_Einkauf.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
+        self.text_Einkauf.Bind(wx.EVT_KILL_FOCUS, self.On_handlePricing)
         self.text_Rabatt = wx.TextCtrl(self, -1, value="", style=0, name="Rabatt_Artikel")
         self.textmap["Rabatt_Artikel"] = "Rabatt.ARTIKEL"
-        self.text_Rabatt.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
+        self.text_Rabatt.Bind(wx.EVT_KILL_FOCUS, self.On_handlePricing)
         self.text_Liste = wx.TextCtrl(self, -1, value="", style=0, name="Liste_Artikel")
+        self.text_Liste.Bind(wx.EVT_KILL_FOCUS, self.On_handlePricing)
         self.textmap["Liste_Artikel"] = "Listenpreis.ARTIKEL"
         self.text_Hsp = wx.TextCtrl(self, -1, value="", style=0, name="Hsp_Artikel")
         self.textmap["Hsp_Artikel"] = "Handelsspanne.ARTIKEL"
-        self.text_Hsp.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
+        self.text_Hsp.Bind(wx.EVT_KILL_FOCUS, self.On_handlePricing)
         self.text_Preis = wx.TextCtrl(self, -1, value="", style=0, name="Preis_Artikel")
         self.textmap["Preis_Artikel"] = "Nettopreis.ARTIKEL"
-        self.text_Preis.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
+        self.text_Preis.Bind(wx.EVT_KILL_FOCUS, self.On_handlePricing)
         self.line3a_sizer = wx.BoxSizer(wx.VERTICAL)
         self.line3a_sizer.Add(self.label_Einkauf,0,wx.EXPAND)
         self.line3a_sizer.Add(self.text_Einkauf,0,wx.EXPAND)
@@ -926,19 +933,119 @@ class AfpDialog_FaArticle(AfpDialog):
     ## set fixed manufacturer
     def set_fix_manufacturer(self):
         self.fix_hersteller = True
-    ## population routine for comboboxes
-    #overwritten from AfpDialog
+    ## update prices due to changed value
+    # @param name - name of ui-object that has been changed
+    def reset_prices(self, name):
+        go = False
+        if name == "Liste_Artikel" or name == "Rabatt_Artikel":
+            lstp = Afp_fromString(self.text_Liste.GetValue())
+            disc = Afp_fromString(self.text_Rabatt.GetValue())
+            go = True
+        if name == "Einkauf_Artikel" or name == "Hsp_Artikel" or go:
+            if go:
+                ek = int(100*((100.0 - disc)/100.0)*lstp)/100.0
+                self.text_Einkauf.SetValue(Afp_toString(ek))
+                if Afp_isEps(ek - self.data.get_value("Einkaufspreis")):
+                    self.text_Einkauf.SetBackgroundColour(self.changecolor)
+                else:
+                    self.text_Einkauf.SetBackgroundColour(self.editcolor)
+            else:
+                ek = Afp_fromString(self.text_Einkauf.GetValue())
+            sur = Afp_fromString(self.text_Hsp.GetValue())
+            if name == "Einkauf_Artikel":
+                lstp = Afp_fromString(self.text_Liste.GetValue())
+                disc = 100 - int(100*ek/lstp)
+                self.text_Rabatt.SetValue(Afp_toString(disc))
+                if "Rabatt_Artikel" in self.preset and Afp_toString(disc) == self.preset["Rabatt_Artikel"]:
+                    self.text_Rabatt.SetBackgroundColour(self.preseteditcolor)
+                elif disc == self.data.get_value("Rabatt"):
+                    self.text_Rabatt.SetBackgroundColour(self.editcolor)
+                else:
+                    self.text_Rabatt.SetBackgroundColour(self.changecolor)
+            go = True
+        if  name == "Preis_Artikel" or go:
+            if go:
+                prs = int(100*((100.0 + sur)/100.0)*ek)/100.0
+                self.text_Preis.SetValue(Afp_toString(prs))
+                if Afp_isEps(prs - self.data.get_value("Nettopreis")):
+                    self.text_Preis.SetBackgroundColour(self.changecolor)
+                else:
+                    self.text_Preis.SetBackgroundColour(self.editcolor)
+            elif name == "Preis_Artikel":
+                ek = Afp_fromString(self.text_Einkauf.GetValue())
+                prs = Afp_fromString(self.text_Preis.GetValue())
+                sur = 100 - int(100*prs/ek)
+                self.text_Hsp.SetValue(Afp_toString(sur))
+                if "Hsp_Artikel" in self.preset and Afp_toString(sur) == self.preset["Hsp_Artikel"]:
+                    self.text_Hsp.SetBackgroundColour(self.preseteditcolor)
+                elif sur == self.data.get_value("Handelsspanne"):
+                    self.text_Hsp.SetBackgroundColour(self.editcolor)
+                else:
+                    self.text_Hsp.SetBackgroundColour(self.changecolor)
+  ## population routine for comboboxes
+    # overwritten from AfpDialog
     def Pop_combo(self):
-        if not self.hers_idents:
-            self.hersteller, self.hers_idents = AfpFaktura_listManufacturer(self.data.get_globals(), True, self.debug)
-        if self.hers_idents:
-            hnr = self.data.get_value("HersNr")
-            if hnr:
-                ind = self.hers_idents.index(hnr)
-                if ind:
-                    self.combo_Hers.SetValue(self.hersteller[ind])
+        hnr = self.data.get_value("HersNr")
+        if hnr:
+            ind = self.hers_idents.index(hnr)
+            if ind:
+                self.combo_Hers.SetValue(self.hers_liste[ind])
         if self.fix_hersteller:
              self.combo_Hers.SetBackgroundColour(self.readonlycolor)
+   ## population routine for special values
+    # overwritten from AfpDialog
+    def Pop_intristic(self):
+        if not self.hersteller:
+            self.hersteller = AfpManufact(self.data.get_globals(), self.data.get_value("HersNr"))
+        disc = self.text_Rabatt.GetValue()
+        sur = self.text_Hsp.GetValue()
+        #print("AfpDialog_FaArticle.Pop_intristic start:", disc, sur)
+        if not disc or not Afp_isEps(Afp_fromString(disc)):
+            prsg = self.text_PrsGrp.GetValue()
+            disc = self.hersteller.get_discount(prsg)
+            self.text_Rabatt.SetValue(Afp_toString(disc))
+            self.text_Rabatt.SetBackgroundColour(self.preseteditcolor)
+            if not "Rabatt_Artikel" in self.presetedit: self.presetedit.append("Rabatt_Artikel")
+            if not "Rabatt_Artikel" in self.preset: self.preset["Rabatt_Artikel"] = Afp_toString(disc)
+        if not sur or not Afp_isEps(Afp_fromString(sur)):
+            prsg = self.text_PrsGrp.GetValue()
+            lstp = Afp_fromString(self.text_Liste.GetValue())
+            sur = self.hersteller.get_surcharge(prsg, lstp)
+            self.text_Hsp.SetValue(Afp_toString(sur))
+            self.text_Hsp.SetBackgroundColour(self.preseteditcolor)
+            if not "Hsp_Artikel" in self.presetedit: self.presetedit.append("Hsp_Artikel")
+            if not "Hsp_Artikel" in self.preset: self.preset["Hsp_Artikel"] = Afp_toString(sur)
+        #print("AfpDialog_FaArticle.Pop_intristic end:", disc, sur, self.presetedit)
+    ## dis- or enable editing of dialog widgets - overwritten from AfpDialog
+    # @param ed_flag - flag to turn editing on or off
+    # @param lock_data - flag if invoking of dialog needs a lock on the database
+    def Set_Editable(self, ed_flag, lock_data = None):
+        if lock_data is None: lock_data = self.lock_data
+        #print("AfpDialog_FaArticle.Set_Editable:", self.presetedit)
+        for entry in self.textmap:
+            TextBox = self.FindWindowByName(entry)
+            if entry in self.readonly: continue
+            TextBox.SetEditable(ed_flag)
+            if ed_flag:
+                if entry in self.presetedit:
+                    TextBox.SetBackgroundColour(self.preseteditcolor)
+                else:
+                    TextBox.SetBackgroundColour(self.editcolor)
+            else: TextBox.SetBackgroundColour(self.readonlycolor)    
+        if not self.fix_hersteller:
+            self.combo_Hers.Enable(ed_flag)
+            if ed_flag: self.combo_Hers.SetBackgroundColour(self.editcolor)
+            else: self.combo_Hers.SetBackgroundColour(self.readonlycolor)    
+        if ed_flag:
+            if self.wx_edit_choice and self.choice_Edit.GetCurrentSelection() != 1: 
+                self.choice_Edit.SetSelection(1)
+        else:
+            self.changelist = []
+        if lock_data:
+            if ed_flag:
+                if not self.new: self.data.lock_data()
+            else: 
+                if not self.new: self.data.unlock_data()
 
     ## execution in case the OK button ist hit - overwritten from AfpDialog
     def execute_Ok(self):
@@ -964,6 +1071,38 @@ class AfpDialog_FaArticle(AfpDialog):
     def complete_data(self, data):
         return data
    # Event Handlers 
+     ## common Eventhandler TEXTBOX - when leaving the textboxes - overwritten from AfpDialog
+    # @param event - event which initiated this action
+    def On_KillFocus(self,event):
+        name = event.GetEventObject().GetName()
+        AfpDialog.On_KillFocus(self, event)
+        TextBox = self.FindWindowByName(name)
+        #print("AfpDialog_FaArticle.On_KillFocus:", name, name in self.textmap,  name in self.preset, TextBox.GetValue(), self.data.get_string_value(self.textmap[name]), TextBox.GetValue() == self.data.get_string_value(self.textmap[name]))
+        if name in self.textmap:
+            if name in self.preset:
+                if TextBox.GetValue() == self.preset[name]:
+                    TextBox.SetBackgroundColour(self.preseteditcolor)
+                    return
+            val = self.data.get_value(self.textmap[name])
+            breakpoint()
+            if (Afp_isNumeric(val) and not Afp_isEps(Afp_fromString(TextBox.GetValue()) - val)) or (TextBox.GetValue() == Afp_toString(val)):
+                TextBox.SetBackgroundColour(self.editcolor)
+                return
+        TextBox.SetBackgroundColour(self.changecolor)
+    ##  Eventhandler killfocus of possiby presetted textboxes\n
+    # @param event - event which initiated this action   
+    def On_handlePricing(self,event):
+        if self.debug: print("AfpDialog_FaArticle Event handler `On_PresetEdit'")
+        name = event.GetEventObject().GetName()
+        self.reset_prices(name)
+        if name in self.preset:
+            for i in range(len(self.presetedit)):
+                if self.presetedit[i] == name:
+                    self.presetedit.pop(i)
+                    break
+            #print("AfpDialog_FaArticle.On_handlePricing:", name, self.presetedit)
+        self.Pop_intristic()
+        self.On_KillFocus(event)
     ##  Eventhandler ComboBox  select manufacurer\n
     # @param event - event which initiated this action   
     def On_Hersteller(self,event):
@@ -971,12 +1110,12 @@ class AfpDialog_FaArticle(AfpDialog):
         if self.fix_hersteller:
             self.Pop_combo()
         else:
-            print("AfpDialog_FaArticle.On_Hersteller' not yet implemented")
+            print("AfpDialog_FaArticle.On_Hersteller not yet implemented")
     ##  Eventhandler BUTTON  create new article entry\n
     # @param event - event which initiated this action   
     def On_Neu(self,event):
         if self.debug: print("AfpDialog_FaArticle Event handler `On_Neu'")
-        print("AfpDialog_FaArticle.On_Neu' not yet implemented")
+        print("AfpDialog_FaArticle.On_Neu not yet implemented")
     ##  Eventhandler BUTTON  create new article entry\n
     # @param event - event which initiated this action   
     def On_Ablage(self,event):
@@ -985,10 +1124,12 @@ class AfpDialog_FaArticle(AfpDialog):
 
 ## loader routine for dialog for editing articles, returns Ok flag 
 # @param article - AfpArtikel SelectionList to be edited
-# @param debug - debug flag
-def AfpLoad_FaArticle(article):
-    EditArticle = AfpDialog_FaArticle(None)
+# @param fix_manu - flag if manufacturer is fix in dialog
+def AfpLoad_FaArticle(article, fix_manu = False):
+    hersteller, idents = AfpFaktura_listManufacturer(article.get_globals(), True, article.is_debug())
+    EditArticle = AfpDialog_FaArticle(hersteller, idents)
     EditArticle.attach_data(article, True)
+    if fix_manu: EditArticle.set_fix_manufacturer()
     res = EditArticle.ShowModal()
     if res == wx.ID_OK:
         Ok = True
