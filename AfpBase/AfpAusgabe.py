@@ -147,7 +147,7 @@ class AfpAusgabe(object):
     ## set variables directly
     # @param vars - dictionary holding variable values
     def set_variables(self, vars):
-        print ("AfpAusgabe.set_variables:", vars)
+        #print ("AfpAusgabe.set_variables:", vars)
         for var in vars:
             self.variables[var] = Afp_fromString(vars[var])
     ## check if line is part of a 'while' statement \n

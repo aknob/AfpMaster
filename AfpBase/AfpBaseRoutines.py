@@ -1322,7 +1322,7 @@ class AfpExport(object):
             lgh = len(fields)
         for i in range(lgh):
             if  self.xml_force_utf8:
-                fout.write(preind + indent + "<AfpValue name=\"" + fields[i] + "\">" + Afp_toString(values[i]).encode("UTF-8") + "</AfpValue> \n")
+                fout.write(preind + indent + "<AfpValue name=\"" + fields[i] + "\">" + Afp_toString(values[i]).encode("UTF-8").decode("UTF-8") + "</AfpValue> \n")
             else:
                 fout.write(preind + indent + "<AfpValue name=\"" + fields[i] + "\">" + Afp_toString(values[i]) + "</AfpValue> \n")
         fout.write(preind + "</AfpTableRow> \n")
