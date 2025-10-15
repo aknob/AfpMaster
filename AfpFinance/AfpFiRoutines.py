@@ -1567,8 +1567,11 @@ class AfpFinance(AfpFinanceTransactions):
         if parlist and "Konto" in parlist and "Gegenkonto" in parlist:
             konto = Afp_toString(parlist["Konto"])
             gkonto = Afp_toString(parlist["Gegenkonto"])
-            self.mainfilter ="Period = \"" + self.period + "\" AND (Konto = " + konto + " OR Gegenkonto = " + gkonto + ")"
             self.konto = konto
+            if self.order_by_docnum():
+                self.mainfilter ="Period = \"" + self.period + "\" AND (Konto = " + konto + " OR Gegenkonto = " + gkonto + ") ORDER BY Beleg"
+            else:
+                self.mainfilter ="Period = \"" + self.period + "\" AND (Konto = " + konto + " OR Gegenkonto = " + gkonto + ")"
             self.set_main_selects_entry() 
         #print ("AfpFinance.init set_auszug:", self.auszug, self.mainfilter, self.konto)
         if self.auszug:
@@ -1612,6 +1615,20 @@ class AfpFinance(AfpFinanceTransactions):
             return True
         else:
             return False
+     ## return if data has to  be ordered by document number 
+    def order_by_docnum(self):
+        ktnr = Afp_fromString(self.konto)
+        if self.is_cash(ktnr):
+            res = self.get_mysql().execute("SELECT Beleg FROM BUCHUNG  WHERE Period = 2025 AND (Konto = " + self.konto + " OR Gegenkonto = " + self.konto + ") AND NOT Beleg IS Null LIMIT 0,1;")
+            #print("AfpFinance.order_by_docnum:", self.konto, res)
+            if res: 
+                nr = Afp_fromString(res[0][0])
+            else:
+                nr = self.gen_first_rcptnr()
+            if nr and Afp_isNumeric(nr):
+                if not Afp_isInteger(nr):
+                    return True
+        return False
     ## set identifier of statement of account (Auszug)
     # @param batchname - identifier of batch-bookings for statement of account 
     # @param datum, - if given, date of batch-bookings 
