@@ -2176,7 +2176,8 @@ class AfpFinance(AfpFinanceTransactions):
 
     ## absorb finance bookings from another AfpFinance object
     # @param object - AfpFinance object where to absorb data
-    def booking_absorber(self, object):
+    # @param avoid_double - flag if same identifier (BuchungsNr) should be avoided
+    def booking_absorber(self, object, avoid_double = False):
         #print ("AfpFinance.booking_absorber:", type(self), type(object), object.get_value_length("BUCHUNG"))
         if type(self) == type(object) and object.get_value_length("BUCHUNG"):
             if self.client_factory:
@@ -2196,7 +2197,26 @@ class AfpFinance(AfpFinanceTransactions):
                 if splist:
                     object.split_bookings(splist)
             if object.get_value_length("BUCHUNG"):
-                self.get_selection("BUCHUNG").data += object.get_selection("BUCHUNG").data
+                odata = object.get_selection("BUCHUNG").data
+                sdata = self.get_selection("BUCHUNG").data
+                if avoid_double:
+                    pop = []
+                    #print ("AfpFinance.booking_absorber:", sdata, "\n",  odata)
+                    for i in range(len(sdata)):
+                        for j in range(len(odata)):
+                            if odata[j][0] and sdata[i][0]:
+                                if sdata[i][0] == odata[j][0]:
+                                    print ("AfpFinance.booking_absorber avoid:", i, j, sdata[i][0], odata[j][0], " found!")
+                                    for k in range(len(odata[j])):
+                                        sdata[i][k] = odata[j][k] 
+                                    pop.append(j)
+                            else:
+                                continue
+                    if pop:
+                        for j in reversed(pop):
+                            odata.pop(j)
+                    #print ("AfpFinance.booking_absorber pop:", sdata, "\n",  odata)
+                self.get_selection("BUCHUNG").data += odata
                 self.data_added = True
     ## add split bookings to given booking row
     # @param split_values - list of [accoutNr, value, name of account, rowNr] to be used in splitting
