@@ -805,7 +805,10 @@ class AfpDialog(wx.Dialog):
             self.Bind(wx.EVT_BUTTON, self.On_Button_Ok, self.button_Ok)
             parent.AddStretchSpacer(edit[0])
             parent.Add(self.choice_Edit,edit[1],wx.EXPAND)
-            parent.AddStretchSpacer(edit[2] + ok[0])
+            if edit[2] + ok[0] == 0:
+                parent.AddSpacer(10)
+            else:
+                parent.AddStretchSpacer(edit[2] + ok[0])
             parent.Add(self.button_Ok,ok[1],wx.EXPAND)
             parent.AddStretchSpacer(ok[2])
       

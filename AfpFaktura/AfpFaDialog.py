@@ -14,7 +14,7 @@
 #  AfpTechnologies (afptech.de)
 #
 #    BusAfp is a software to manage coach and travel activities
-#    Copyright© 1989 - 2023  afptech.de (Andreas Knoblauch)
+#    Copyright© 1989 - 2025  afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -71,11 +71,8 @@ def AfpFaktura_selectManufacturer(globals, text, debug = False):
     hersdat = None
     liste, ident =  AfpFaktura_listManufacturer(globals, True, debug)
     nr, ok = AfpReq_Selection("Bitte Hersteller oder Lieferanten auswählen,", text, liste, "Herstellerauswahl", ident)
-    if ok: 
-        if nr:
-            hersdat = AfpManufact(globals, nr, None, debug)
-        else:
-            print ("AfpFaktura_selectManufacturer neuen Hersteller anlegen!")
+    if ok and nr:
+        hersdat = AfpManufact(globals, nr, None, debug)
     return hersdat, ok
             
 ## dialog for selection of faktura data \n
@@ -222,6 +219,9 @@ class AfpDialog_FaArtikelAusw(AfpDialog_Auswahl):
             eingabe = "!" + eingabe[len(ken) + 1:]
         else:
             hers, ok = AfpFaktura_selectManufacturer(self.globals, "aus dessen Datei ein Artikel übenommen werden soll.", self.debug) 
+            print ("AfpDialog_FaArtikelAusw.invoke_neu_dialog Hers:", hers, ok)
+        if ok and not hers:
+                ok, hers = AfpLoad_FaManufact(self.globals, None)
         if ok and hers:
             newarticle = AfpLoad_FaArtikelAusw(self.globals, "ArtikelNr", eingabe, hers.get_manufact_table(), filter, False, hers)
             if newarticle:
@@ -1137,3 +1137,326 @@ def AfpLoad_FaArticle(article, fix_manu = False):
         Ok = False
     EditArticle.Destroy()
     return Ok
+## dialog to maintain manufacturers
+class AfpDialog_FaManufact(AfpDialog):
+    def __init__(self):
+        AfpDialog.__init__(self,None, -1, "")
+        self.changed = False
+        self.preseteditcolor = (245,245,220)
+        self.changecolor = (220, 192, 192)
+        self.SetTitle("Hersteller")
+
+    ## set up dialog widgets - overwritten from AfpDialog
+    def InitWx(self):
+        self.sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.left_sizer = wx.BoxSizer(wx.VERTICAL)
+        
+        self.label_Kennung = wx.StaticText(self, -1, label="Kennung:", name="LKennung")
+        self.label_Name = wx.StaticText(self, -1, label="Hersteller:", name="LHersName")
+        self.text_Kennung = wx.TextCtrl(self, -1, value="", style=0, name="Kennung_ArtHers")
+        self.textmap["Kennung_ArtHers"] = "Kennung.ARTHERS"
+        self.text_Kennung.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
+        self.text_Name = wx.TextCtrl(self, -1, value="", style=0, name="Hersteller_ArtHers")
+        self.textmap["Hersteller_ArtHers"] = "Hersteller.ARTHERS"
+        self.text_Name.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
+        self.line1a_sizer = wx.BoxSizer(wx.VERTICAL)
+        self.line1a_sizer.Add(self.label_Kennung,0,wx.EXPAND)
+        self.line1a_sizer.Add(self.text_Kennung,0,wx.EXPAND)
+        self.line1b_sizer = wx.BoxSizer(wx.VERTICAL)
+        self.line1b_sizer.Add(self.label_Name,0,wx.EXPAND)
+        self.line1b_sizer.Add(self.text_Name,0,wx.EXPAND)
+        self.line1_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.line1_sizer.AddSpacer(10)
+        self.line1_sizer.Add(self.line1a_sizer,2,wx.EXPAND)
+        self.line1_sizer.AddSpacer(10)
+        self.line1_sizer.Add(self.line1b_sizer,2,wx.EXPAND)
+        self.line1_sizer.AddSpacer(10)
+
+        self.label_AdName = wx.StaticText(self, -1, label="", name="LAdName")
+        self.labelmap["LAdName"] = "Name.ADRESSE"
+        self.label_AdVorname = wx.StaticText(self, -1, label="", name="LAdVorname")
+        self.labelmap["LAdVorname"] = "Vorname.ADRESSE"
+        self.label_AdOrt = wx.StaticText(self, -1, label="", name="LAdOrt")
+        self.labelmap["LAdOrt"] = "Ort.ADRESSE"
+        self.line2_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.line2_sizer.AddSpacer(10)
+        self.line2_sizer.Add(self.label_AdName,2,wx.EXPAND)
+        self.line2_sizer.AddSpacer(10)
+        self.line2_sizer.Add(self.label_AdVorname,1,wx.EXPAND)
+        self.line2_sizer.AddSpacer(10)
+        self.line2_sizer.Add(self.label_AdOrt,2,wx.EXPAND)
+        self.line2_sizer.AddSpacer(10)
+
+        self.label_Rabatt = wx.StaticText(self, -1, label="Einkaufsrabatte:", name="LRabatt")
+        self.liste_Einkauf = wx.ListBox(self, -1, name="Liste_Einkauf")
+        self.Bind(wx.EVT_LISTBOX_DCLICK, self.On_DClick, self.liste_Einkauf)
+        self.listmap.append("Liste_Einkauf")
+        #self.keepeditable.append("Liste_Einkauf")       
+        self.line3a_sizer = wx.BoxSizer(wx.VERTICAL)
+        self.line3a_sizer.Add(self.label_Rabatt,0,wx.EXPAND)
+        self.line3a_sizer.Add(self.liste_Einkauf,1,wx.EXPAND)
+        self.line3_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.line3_sizer.AddSpacer(10)
+        self.line3_sizer.Add(self.line3a_sizer,1,wx.EXPAND)
+        self.line3_sizer.AddSpacer(10)
+        
+        self.label_Hsp = wx.StaticText(self, -1, label="Verkaufsaufschläge:", name="LHsp")
+        self.liste_Verkauf = wx.ListBox(self, -1, name="Liste_Verkauf")
+        self.Bind(wx.EVT_LISTBOX_DCLICK, self.On_DClick, self.liste_Verkauf)
+        self.listmap.append("Liste_Verkauf")
+        #self.keepeditable.append("Liste_Einkauf")       
+        self.line4a_sizer = wx.BoxSizer(wx.VERTICAL)
+        self.line4a_sizer.Add(self.label_Hsp,0,wx.EXPAND)
+        self.line4a_sizer.Add(self.liste_Verkauf,1,wx.EXPAND)
+        self.line4_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.line4_sizer.AddSpacer(10)
+        self.line4_sizer.Add(self.line4a_sizer,1,wx.EXPAND)
+        self.line4_sizer.AddSpacer(10)
+ 
+        self.label_Datei = wx.StaticText(self, -1, label="Importdatei:", name="LDatei")
+        self.text_Datei = wx.TextCtrl(self, -1, value="", style=0, name="Datei_ArtHers")
+        self.textmap["Datei_ArtHers"] = "Datei.ARTHERS"
+        self.label_ImpDatum = wx.StaticText(self, -1, label="Letzter Import:", name="LLImpDatum")
+        self.label_Datum = wx.StaticText(self, -1, name="LDatum_ArtHers")
+        self.labelmap["LDatum_ArtHers"] = "Import.ARTHERS"
+        
+        self.line5a_sizer = wx.BoxSizer(wx.VERTICAL)
+        self.line5a_sizer.Add(self.label_Datei,0,wx.EXPAND)
+        self.line5a_sizer.Add(self.text_Datei,0,wx.EXPAND)
+        self.line5b_sizer = wx.BoxSizer(wx.VERTICAL)
+        self.line5b_sizer.Add(self.label_ImpDatum,0,wx.EXPAND)
+        self.line5b_sizer.Add(self.label_Datum,0,wx.EXPAND)
+        self.line5_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.line5_sizer.AddSpacer(10)
+        self.line5_sizer.Add(self.line5a_sizer,1,wx.EXPAND)
+        self.line5_sizer.AddSpacer(10)
+        self.line5_sizer.Add(self.line5b_sizer,1,wx.EXPAND)
+        self.line5_sizer.AddSpacer(10)
+        
+        self.left_sizer.AddSpacer(10)
+        self.left_sizer.Add(self.line1_sizer,0,wx.EXPAND)
+        self.left_sizer.AddSpacer(10)
+        self.left_sizer.Add(self.line2_sizer,0,wx.EXPAND)
+        self.left_sizer.AddSpacer(10)
+        self.left_sizer.Add(self.line5_sizer,0,wx.EXPAND)
+        self.left_sizer.AddSpacer(10)
+        self.left_sizer.Add(self.line3_sizer,1,wx.EXPAND)
+        self.left_sizer.AddSpacer(10)
+        self.left_sizer.Add(self.line4_sizer,1,wx.EXPAND)
+        self.left_sizer.AddSpacer(10)
+
+        self.button_Neu = wx.Button(self, -1, label="&Neu", name="Neu_FaManu")
+        self.Bind(wx.EVT_BUTTON, self.On_Neu, self.button_Neu)
+        self.button_Adresse = wx.Button(self, -1, label="&Adresse", name="Ad_FaManu")
+        self.Bind(wx.EVT_BUTTON, self.On_Adresse, self.button_Adresse)
+        self.check_Import = wx.CheckBox(self, -1, label="Import", name="CImport")
+        self.check_Update = wx.CheckBox(self, -1, label="Update", name="CUpdate")
+        self.button_sizer = wx.BoxSizer(wx.VERTICAL)
+        self.button_sizer.AddSpacer(30)
+        self.button_sizer.Add(self.button_Neu,0,wx.EXPAND)
+        self.button_sizer.AddSpacer(10)
+        self.button_sizer.Add(self.button_Adresse,0,wx.EXPAND)
+        self.button_sizer.AddStretchSpacer(1)
+        self.button_sizer.Add(self.check_Import,0,wx.EXPAND)
+        self.button_sizer.Add(self.check_Update,0,wx.EXPAND)
+        self.setWx(self.button_sizer, [1, 0, 0], [0, 0, 0]) # set Edit and Ok widgets
+        self.button_sizer.AddSpacer(10)
+        
+        self.sizer.AddSpacer(10)
+        self.sizer.Add(self.left_sizer,1,wx.EXPAND)
+        self.sizer.AddSpacer(10)
+        self.sizer.Add(self.button_sizer,0,wx.EXPAND)
+        self.sizer.AddSpacer(10)   
+        self.SetSizerAndFit(self.sizer)
+
+    # population routines
+    ## populate discount list
+    def Pop_Liste_Einkauf(self):
+        #print ("AfpDialog_FaManufact.Pop_Liste_Einkauf not implemented yet!")
+        self.populate_list(self.liste_Einkauf, "ARTDIS")
+    ## populate surcharge list
+    def Pop_Liste_Verkauf(self):
+        #print ("AfpDialog_FaManufact.Pop_Liste_Verkauf not implemented yet!")
+        self.populate_list(self.liste_Verkauf, "ARTSUR")
+    
+    ## populate lists with discount or surcharge data
+    # @param lst - dialog list object to be poulated
+    # @param sel - name of selection holding the data for population 
+    def populate_list(self, lst, sel):
+        self.data.sort_price_addons(sel)
+        data = self.data.get_value_rows(sel)
+        liste = ["--- neuen Eintrag anfügen ---"]
+        for i in range(self.data.get_value_length(sel)):
+            if sel =="ARTDIS":
+                row = self.data.get_value_rows(sel, "PreisGrp,Rabatt", i)[0]
+            else:
+                row = self.data.get_value_rows(sel, "PreisGrp,Handelsspanne,Value", i)[0]
+            print ("AfpDialog_FaManufact.populate_list row:", row)
+            if row[0]:
+                if len(row) > 2 and not row[2] is None:
+                    line = Afp_toIntString(int(row[1]), 2) +  "% für die Preisgruppe " + row[0] + " bei" + Afp_toString(row[2])
+                else:
+                    line = Afp_toIntString(int(row[1]), 2) +  "% für die Preisgruppe " + row[0]
+            else:
+                if len(row) > 2 and not row[2] is None:
+                    line = Afp_toIntString(int(row[1]), 2)  + "% für den Hersteller bei"  + Afp_toString(row[2])
+                else:
+                    line = Afp_toIntString(int(row[1]), 2)  + "% für den Hersteller insgesamt"
+            liste.append(line)
+        lst.Clear()
+        lst.InsertItems(liste, 0)
+    
+    ## retrievs manufacturere data
+    def get_manu(self):
+        if self.Ok:
+            return self.data
+        return None
+    ## execution in case the OK button ist hit - overwritten from AfpDialog
+    def execute_Ok(self):
+        if self.new:
+            if not "Kennung_ArtHers" in self.changed_text or not "Hersteller_ArtHers" in self.changed_text:
+                AfpReq_Info("Die Felder 'Kennung' und 'Hersteller' müssen ausgefüllt werden.","Bitte Eintragung nachholen!")
+                self.close_dialog = False
+                return
+        fname = None
+        imp = self.check_Import.IsChecked()
+        upd = self.check_Update.IsChecked()
+        if imp:
+            fname = self.get_importfile()
+        self.store_data()
+        if imp and fname:
+            self.import_articles(fname)
+        if upd:
+            self.update_articles()
+        self.close_dialog = True
+   ## read values from dialog and invoke writing into database         
+    def store_data(self):
+        self.Ok = False
+        data = {}
+        for entry in self.changed_text:
+            name, wert = self.Get_TextValue(entry)
+            data[name] = wert
+        if data:
+            self.data.set_data_values(data)
+            self.changed = True
+        if self.changed:
+            self.data.store()
+            self.Ok = True
+        self.changed = False
+        self.changed_text = []   
+    ## get filename for article import
+    def get_importfile(self):
+        fname = self.data.get_value("Datei")
+        hers = self.data.get_value("Hersteller")
+        dir = self.data.get_globals().get_value("homedir")
+        filename, ok = AfpReq_FileName(dir, "Artikelimport " + hers, fname + "*.csv") 
+        print ("AfpDialog_FaManufact.get_importfile:", filename, ok)
+        if ok:
+            idat = Afp_dateString(filename)
+            if idat:
+                self.data.set_value("Import", idat)
+                self.changed = True
+        else:
+            filename = None
+        return filename
+    ## import manufacturer articles
+    # @ param fname - name of file to be imported
+    def import_articles(self, fname):
+        res = AfpFaktura_importArtikels(globals, self.data, fname, True)
+        if not res:
+             AfpReq_Info("Keine Importdaten des Herstellers '" + self.data.get_value("Hersteller") + "' vorhanden.", "Import kann nicht durchgeführt werden!", "Warnung")
+
+    ## update manufacturer articles in main article database
+    def update_articles(self):
+        print ("AfpDialog_FaManufact.update_articles not implemented yet!")
+        return None
+    # click events
+    ## double click on discount list
+    def On_DClick(self, event):
+        hsp = event.GetEventObject().GetName() == "Liste_Verkauf"
+        if hsp:
+            table = "ARTSUR"
+            cols = "PreisGrp,Handelsspanne,Value"
+            text = "   Handelsspannen"
+            header = "Verkauf Handelsspanne"
+        else:
+            table = "ARTDIS"
+            cols = "PreisGrp,Rabatt"
+            text = "   Rabatt"
+            header = "Hersteller Rabatt"
+        ind = event.GetInt() -1 
+        print ("AfpDialog_FaManufact.On_DClick ind:", ind, table, cols)
+        if ind < 0:
+            if hsp: row = ["", 0, ""]
+            else: row = ["", 0]
+        else:
+            row = self.data.get_value_rows(table, cols, ind)[0]
+        print ("AfpDialog_FaManufact.On_DClick entry:", row)
+        liste = [["Preisgruppe", Afp_toString(row[0])]]
+        if hsp:
+            liste.append(["Handelsspanne", Afp_toString(int(row[1]))])
+            liste.append(["Wert", Afp_toString(row[2])])
+        else:
+            liste.append(["Rabatt", Afp_toString(int(row[1]))])
+        res = AfpReq_MultiLine( text + "eingabe für den Hersteller '" + self.data.get_value("Hersteller.ARTHERS") + "'.","   Eingaben ohne Preisgruppe gelten für den gesamten Hersteller." , "Text", liste, header, 250, "")
+        print ("AfpDialog_FaManufact.On_DClick res:", res, self.changed)
+        if res:
+            newdata = {}
+            if res[0] != row[0]:
+                newdata["PreisGrp"]  = res[0]
+            if Afp_isEps(row[1] - Afp_numericString(res[1])):
+                if hsp: newdata["Handelsspanne"] = Afp_numericString(res[1])
+                else: newdata["Rabatt"] = Afp_numericString(res[1])
+            if hsp and res[2] and (not row[2] or Afp_isEps(row[2] - Afp_numericString(res[2]))):
+                newdata["Value"] = Afp_numericString(res[2])
+            if newdata:   
+                print ("AfpDialog_FaManufact.On_DClick new:",  newdata)
+                self.data.set_data_values(newdata, table, ind)
+                self.changed = True
+        elif res is None and ind > -1:
+            self.data.delete_row(table, ind)
+            self.changed = True
+        if hsp: self.Pop_Liste_Verkauf()
+        else: self.Pop_Liste_Einkauf()
+    # Button events
+    ## create new manufacturer
+    def On_Neu(self, event):
+        if self.debug: print ("AfpDialog_FaManufact.On_Neu")
+        data = AfpManufact(self.data.get_globals())
+        #print ("AfpDialog_FaManufact.On_Neu data:", data) 
+        self.attach_data( data, True, True)
+    ## attach address to this manzfacturer
+    def On_Adresse(self, event):
+        if self.debug: print ("AfpDialog_FaManufact.On_Adresse")
+        name = self.data.get_name(True)
+        if not name: name = self.data.get_value("Hersteller")
+        text = "Bitte Adresse für den Hersteller '" + self.data.get_value("Hersteller") + "' auswählen:"
+        KNr = AfpLoad_AdAusw(self.data.get_globals(),"ADRESSE","NamSort",name, None, text)
+        if KNr:
+            self.data.set_value("KundenNr", KNr)
+            self.data.delete_selection("ADRESSE")
+            self.changed = True
+            self.Populate()
+
+## loader routine for dialog for editing and maintaining manufacturers, returns Ok flag 
+# @param globals - global values including the mysql connection - this input is mandatory
+# @param ident - identifier for manufacturer or manufact selectionlist, if not given an new manufacturer is created
+# @param edit - flag, if dialog should be opened in edit mode
+def AfpLoad_FaManufact(globals, ident, edit = False):
+    new = ident is None
+    if new: edit = True
+    manunew = None
+    if new or Afp_isInteger(ident):
+        manu = AfpManufact(globals, ident)
+    else:
+        manu = ident
+    EditManu = AfpDialog_FaManufact()
+    EditManu.attach_data(manu, new, edit)
+    res = EditManu.ShowModal()
+    if res == wx.ID_OK:
+        Ok = True
+        if new: manunew = EditManu.get_manu()
+    else:
+        Ok = False
+    EditManu.Destroy()
+    return Ok, manunew

@@ -45,7 +45,7 @@ from AfpBase.AfpBaseAdDialog import AfpLoad_DiAdEin_fromKNr, AfpLoad_AdAusw, Afp
 from AfpBase.AfpBaseFiDialog import AfpLoad_DiFiZahl
 
 from AfpFaktura.AfpFaRoutines import AfpFaktura_FilterList, AfpArtikel, AfpInvoice, AfpOffer, AfpOrder, AfpFaktura_inFilterList, AfpFaktura_changeKind, AfpFaktura_possibleKinds, AfpFaktura_colonFloat, AfpFaktura_colonInt
-from AfpFaktura.AfpFaDialog import AfpLoad_FaAusw, AfpLoad_FaCustomSelect, AfpLoad_FaLine, AfpLoad_FaArtikelAusw, AfpReq_FaSelectedRow
+from AfpFaktura.AfpFaDialog import AfpLoad_FaAusw, AfpLoad_FaCustomSelect, AfpLoad_FaLine, AfpLoad_FaArtikelAusw, AfpReq_FaSelectedRow, AfpFaktura_selectManufacturer, AfpLoad_FaManufact
 
 class AfpFaScreen_EditLinePlugIn(object):
     ## initialize AfpFaScreen_EditLinePlugIn class
@@ -603,6 +603,12 @@ class AfpFaScreen(AfpEditScreen):
     def create_specific_menu(self):
         # setup address menu
         tmp_menu = wx.Menu() 
+        mmenu =  wx.MenuItem(tmp_menu, wx.NewId(), "&Hersteller", "")
+        self.Bind(wx.EVT_MENU, self.On_MHersteller, mmenu)
+        tmp_menu.Append(mmenu)
+        self.menubar.Append(tmp_menu, "Faktura")
+
+        tmp_menu = wx.Menu() 
         mmenu =  wx.MenuItem(tmp_menu, wx.NewId(), "&Anfrage", "")
         self.Bind(wx.EVT_MENU, self.On_MAnfrage, mmenu)
         tmp_menu.Append(mmenu)
@@ -793,11 +799,22 @@ class AfpFaScreen(AfpEditScreen):
         print("Event handler `On_CStatus' only implemented to reset selection!")
         event.Skip()
         
+    ## Eventhandler MENU - maintain manufacturer data and possible global surcharges \n
+    def On_MHersteller(self, event):
+        text =  " der bearbeitet werden sollen."
+        hersdat, ok = AfpFaktura_selectManufacturer(self.data.get_globals(), text, self.debug)
+        if ok:
+            ok, dum = AfpLoad_FaManufact(self.globals, hersdat)
+        else:
+            ok = AfpReq_Question("Sollen globale Verkaufsdaten bearbeitet werden?","")
+            if ok:
+                print("AfpFaScreen.On_MHersteller globale Verkaufsdaten manupulieren!")
+        event.Skip()
     ## Eventhandler MENU - add an enquirery - not yet implemented! \n
     def On_MAnfrage(self, event):
         print("Event handler `On_MAnfrage' not implemented!")
         event.Skip()
-    ## Eventhandler MENU - send an e-mail - not yet implemented! 
+    ## Eventhandler MENU - send an e-mail
     def On_MEMail(self, event):
         if self.debug: print("Event handler `On_MEMail'")
         mail = AfpMailSender(self.globals, self.debug)

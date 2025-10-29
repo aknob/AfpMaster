@@ -14,7 +14,7 @@
 #  AfpTechnologies (afptech.de)
 #
 #    BusAfp is a software to manage coach and travel activities
-#    Copyright© 1989 - 2023  afptech.de (Andreas Knoblauch)
+#    Copyright© 1989 - 2025  afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -419,7 +419,28 @@ class AfpManufact(AfpSelectionList):
         article = self.gen_discount(article)
         article = self.gen_surcharge(article)
         return article
-    
+    ## sort data in discout or surcharge selection list
+    # @param table -  name of selectionlist to be sorded
+    def sort_price_addons(self, table):
+        useval = False
+        sel = self.get_selection(table)
+        data = sel.get_values()
+        if table == "ARTDIS":
+            sorter = sel.get_values("PreisGrp")
+        else:
+            sorter = sel.get_values("PreisGrp,Value")
+            useval = True
+        for i in range(len(sorter)):
+            if sorter[i][0] is None:
+                sorter[i][0] = ""
+            if useval:
+                sorter[i][0] += Afp_toString(sorter[i][1])
+        print ("AfpManufact.sort_price_addons:", sorter, data)
+        if sorter and data:
+            master, result = Afp_sortSimultan(sorter, data)
+            print ("AfpManufact.sort_price_addons res:", master, result)
+            sel.data = result
+   
     ## get new AfpArtikel SelectionList holding the data from the manufacturer database
     # @param ident - identifier of article in manufacturer database
     # @param index - if given, field to look for the ident value
