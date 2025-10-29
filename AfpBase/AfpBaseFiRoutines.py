@@ -504,12 +504,12 @@ class AfpCommonInvoice(AfpPaymentList):
     # @param payment - amount of payment
     # @param datum - date when last payment has been done
     def set_payment_values(self, payment, datum):
-        AfpSelectionList.set_payment_values(self, payment, datum)
+        super(AfpCommonInvoice, self).set_payment_values(payment, datum)
         self.set_zustand()
         if self.get_value("Typ") and self.get_value("Typ")  == "FAHRTEN":
             self.set_value("Zahlung.FAHRTEN", payment)
             self.set_value("ZahlDat.FAHRTEN", datum)
-    ## extract payment relevant data from SelectionList for 'Finance' modul, overwritten from AfpSelectionList
+    ## extract payment relevant data from SelectionList for 'Finance' modul, overwritten from AfpPaymentList
     # has to return the account number this payment has to be charged ("Gegenkonto")
     # @param paymentdata - payment data dictionary to be modified and returned
     def add_payment_data(self, paymentdata):

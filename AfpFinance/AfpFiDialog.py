@@ -1463,12 +1463,13 @@ class AfpDialog_FiBuchung(AfpDialog):
     def On_Load(self, event=None):
         if self.debug: print("AfpDialog_FiBuchung Event handler `On_Load'")
         ok = False
+        avoid = False
         datum = self.text_Datum.GetValue()
         beleg = self.text_Beleg.GetValue()
         auszug = self.text_Auszug.GetValue() 
         globals = self.data.get_globals()
         dir = globals.get_value("archivdir")
-        fname, ok = AfpReq_FileName(dir , "Bitte XML Importfile auswählen!", "*.xml;*.csv", True)
+        fname, ok = AfpReq_FileName(dir , "Bitte (XML, CSV) Importfile auswählen!", "*.xml;*.csv", True)
         print("AfpDialog_FiBuchung.On_Load File:", ok, fname)
         if ok and fname and (fname[-4:] == ".csv" or fname[-4:] == ".CSV"):
             toDat = self.data.get_value("BuchDat.AUSZUG")
@@ -1498,6 +1499,8 @@ class AfpDialog_FiBuchung(AfpDialog):
                 split_data = True
                 if "ANMELD" in self.client_factories:
                     self.data.add_client_factory(self.client_factories["ANMELD"])
+            elif fname[-4:] == ".xml":
+                avoid = True
         if ok:
             datas = imp.read_from_file()   
             #print ("AfpDialog_FiBuchung.On_Load Datas:") 
@@ -1509,7 +1512,7 @@ class AfpDialog_FiBuchung(AfpDialog):
                     datas[0].set_value("Art", self.combo_Vorgang.GetValue())
                     self.import_line = None
                     self.set_entries_from_import()
-            self.data.booking_absorber(datas[0])
+            self.data.booking_absorber(datas[0], avoid)
             self.Pop_Buchung()
             self.Pop_Auszug()
             BNr = self.data.gen_next_rcptnr()
