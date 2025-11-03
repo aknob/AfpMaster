@@ -603,6 +603,21 @@ class AfpFaScreen(AfpEditScreen):
     def create_specific_menu(self):
         # setup address menu
         tmp_menu = wx.Menu() 
+        mmenu =  wx.MenuItem(tmp_menu, wx.NewId(), "&Bar", "")
+        self.Bind(wx.EVT_MENU, self.On_Bar, mmenu)
+        tmp_menu.Append(mmenu)
+        mmenu =  wx.MenuItem(tmp_menu, wx.NewId(), "&Neu", "")
+        self.Bind(wx.EVT_MENU, self.On_Neu, mmenu)
+        tmp_menu.Append(mmenu)
+        mmenu =  wx.MenuItem(tmp_menu, wx.NewId(), "&Bearbeiten", "")
+        self.Bind(wx.EVT_MENU, self.On_Edit, mmenu)
+        tmp_menu.Append(mmenu)
+        mmenu =  wx.MenuItem(tmp_menu, wx.NewId(), "&Dokument", "")
+        self.Bind(wx.EVT_MENU, self.On_Dokument, mmenu)
+        tmp_menu.Append(mmenu)
+        mmenu =  wx.MenuItem(tmp_menu, wx.NewId(), "&Zahlung", "")
+        self.Bind(wx.EVT_MENU, self.On_Zahlung, mmenu)
+        tmp_menu.Append(mmenu)
         mmenu =  wx.MenuItem(tmp_menu, wx.NewId(), "&Hersteller", "")
         self.Bind(wx.EVT_MENU, self.On_MHersteller, mmenu)
         tmp_menu.Append(mmenu)
@@ -616,7 +631,7 @@ class AfpFaScreen(AfpEditScreen):
         self.Bind(wx.EVT_MENU, self.On_Faktura_Ausw, mmenu)
         tmp_menu.Append(mmenu)
         mmenu =  wx.MenuItem(tmp_menu, wx.NewId(), "&Bearbeiten", "")
-        self.Bind(wx.EVT_MENU, self.On_Faktura_Test, mmenu)
+        self.Bind(wx.EVT_MENU, self.On_Adresse, mmenu)
         tmp_menu.Append(mmenu)
         mmenu =  wx.MenuItem(tmp_menu, wx.NewId(), "&E-Mail versenden", "")
         self.Bind(wx.EVT_MENU, self.On_MEMail, mmenu)
@@ -699,7 +714,7 @@ class AfpFaScreen(AfpEditScreen):
             data = AfpInvoice(self.globals, ident)
             self.invoke_Zahlung(data)   
     ## Eventhandler MENU, BUTTON - invoke special select dialog - for testing only
-    def On_Faktura_Test(self,event):
+    def On_Faktura_Test_dep(self,event):
         if self.debug: print("AfpAdScreen Event handler `On_Faktura_Test'")
         #self.invoke_custom_select()
         Ok = AfpLoad_FaLine()
@@ -817,11 +832,14 @@ class AfpFaScreen(AfpEditScreen):
     ## Eventhandler MENU - send an e-mail
     def On_MEMail(self, event):
         if self.debug: print("Event handler `On_MEMail'")
-        mail = AfpMailSender(self.globals, self.debug)
         an = self.data.get_value("Mail.ADRESSE")
-        if an: mail.add_recipient(an)
-        mail, send = Afp_editMail(mail)
-        if send: mail.send_mail()
+        if an:
+            mail = AfpMailSender(self.globals, self.debug)
+            mail.add_recipient(an)
+            mail, send = Afp_editMail(mail)
+            if send: mail.send_mail()
+        else:
+            AfpReq_Info("Keine Mailadresse gefunden,","keine E-Mail erzeugt!")
         event.Skip()
 
     ## Eventhandler ListBox - double click ListBox 'Archiv'
@@ -972,7 +990,11 @@ class AfpFaScreen(AfpEditScreen):
         else:    
             index = self.index
             where = AfpSelectEnrich_dbname(self.sb.identify_index().get_where(), self.sb_master)
-            value = Afp_fromString(self.sb.identify_index().get_indexwert()[0])
+            wert = self.sb.identify_index().get_indexwert()
+            if wert:
+                value = Afp_fromString(wert[0])
+            else:
+                value = ""
             if index == "KundenNr":
                 value = self.data.get_value("Name.ADRESSE")
             self.invoke_regular_selection(self.sb_master, value, where)

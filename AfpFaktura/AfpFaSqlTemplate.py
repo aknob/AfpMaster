@@ -198,11 +198,6 @@ def AfpFaktura_getSqlTables(flavour = None):
   KEY `Bezeichnung` (`Bezeichnung`(50)),
   KEY `RechNr` (`RechNr`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_german2_ci;"""
-   # fill 'no address' value into table 'Adresse'
-   required["ADRESSE"] += """INSERT INTO `ADRESSE` VALUES 
-   (00000000, '', 'Barverkauf', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, 'n', '', NULL);
-   UPDATE `ADRESSE` SET `KundenNr`='00000000' WHERE `KundenNr`='00000001';
-   ALTER TABLE `ADRESSE` AUTO_INCREMENT = 1;"""
    # return values
     return required
 

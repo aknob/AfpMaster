@@ -134,7 +134,7 @@ def AfpFinance_getSqlTables(flavour = None):
     ('SALDO',00004000,'Ausgaben',0,'Kosten'),
     ('AW',00004200,'Aufwände',0,'Kosten'),
     ('SKTO',00004201,'SkontoAufw',0,'Kosten'),    
-    ('SALDO',00008000,'Einnahmen,0,'Ertrag'),
+    ('SALDO',00008000,'Einnahmen',0,'Ertrag'),
     ('ERL',00008100,'Erlöse',0,'Ertrag'),
     ('DIVER',00010000,'Debitor',0,'Debitor'),
     ('DIVER',00070000,'Kreditor',0,'Kreditor');"""

@@ -1108,15 +1108,27 @@ class AfpInvoice(AfpFaktura):
         if self.content_has_changed(True):
             self.book_content()
     ## set all necessary values to keep track of the payments \n
-    # - overwritten from AfpSelectionList
+    # - overwritten from AfpPaymentList
     # @param payment - amount that has been payed
     # @param datum - date when last payment has been made
     def set_payment_values(self, payment, datum):
-        AfpSelectionList.set_payment_values(self, payment, datum)
+        AfpPaymentList.set_payment_values(self, payment, datum)
         Betrag = self.get_value("ZahlBetrag")
         if not Betrag: Betrag = self.get_value("Betrag")
         if self.get_value("Zahlung") >=  Betrag:
             self.set_value("Zustand","closed")
+    ## extract payment relevant data from SelectionList for 'Finance' modul, overwritten from AfpPaymentList
+    # has to return the account number this payment has to be charged ("Gegenkonto")
+    # @param paymentdata - payment data dictionary to be modified and returned
+    def add_payment_data(self, paymentdata):
+        paymentdata["Tab"] = "RECHNG"
+        paymentdata["Gegenkonto"] = self.get_value("Debitor.RECHNG")
+        if not paymentdata["Gegenkonto"]:
+            paymentdata["Gegenkonto"]  = Afp_getIndividualAccount(self.get_mysql(), self.get_value("KundenNr"))
+        paymentdata["GktName"] = self.get_name(True)
+        #print("AfpInvoice.add_payment_data:",paymentdata)
+        return paymentdata
+
     ## return specific identification string to be used in dialogs \n
     # - overwritten from AfpSelectionList
     def get_identification_string(self):

@@ -890,7 +890,7 @@ class AfpDialog_DiFiZahl(AfpDialog):
             for data in self.data.selected_list:
                 payment = {}
                 payment = self.data.finance.add_payment_data(payment, data)  
-                #print("AfpDialog_DiFiZahl payment", payment)
+                print("AfpDialog_DiFiZahl payment", payment)
                 von = payment["Tab"] + "-" + Afp_toIntString(payment["TabNr"], 5)
                 liste[von] = [Afp_toString(payment["Gegenkonto"]) + " "  + data.get_name()]
             Afp_printToInfoFile(self.data.globals, liste)

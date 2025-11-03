@@ -511,7 +511,7 @@ def Afp_verifyDatabase(globals, create = False):
     # get afp-modul tables
     if debug: print("Afp_verifyDatabase available modules:", modules)
     global_flavour = None
-    # proceed "Adresse" first, as tables may filled from other modules
+    # proceed "Adresse" first, as tables may be filled from other modules
     if "Adresse" in modules:
         modul = modules[modules.index("Adresse")]
         if ":" in modul:
