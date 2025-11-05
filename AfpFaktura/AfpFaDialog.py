@@ -123,12 +123,12 @@ class AfpDialog_FaAusw(AfpDialog_Auswahl):
 def AfpLoad_FaAusw(globals, table, index, value = "", where = None, ask = False):
     result = None
     Ok = True
-    #print("AfpLoad_FaAusw input:", table, index, value, where, ask)
+    print("AfpLoad_FaAusw input:", table, index, value, where, ask)
     kind = AfpFaktura_getClearName(table)
     if ask:
         sort_list = AfpFaktura_getOrderlistOfTable()        
         value, index, Ok = Afp_autoEingabe(value, index, sort_list, kind + "s")
-        #print("AfpLoad_FaAusw index:", index, value, Ok)
+        print("AfpLoad_FaAusw index:", index, value, Ok)
     if Ok:
         if index == "KundenNr":
             text = "Bitte Auftraggeber von " + kind + " auswählen:"
@@ -165,7 +165,7 @@ def AfpLoad_FaAusw(globals, table, index, value = "", where = None, ask = False)
             DiAusw.Destroy()
     elif Ok is None:
         # flag for direct selection
-        result = Afp_selectGetValue(globals.get_mysql(), "RECHNG", "RechNr", index, value)
+        result = Afp_selectGetValue(globals.get_mysql(), table, "RechNr", index, value)
     #print("AfpLoad_FaAusw result:", result)
     return result      
 

@@ -749,47 +749,51 @@ class AfpFaScreen(AfpEditScreen):
     def On_Filter(self,event = None): 
         value = self.combo_Filter.GetValue()
         if self.debug: print("AfpFaScreen Event handler `On_Filter'", value)
+        print("AfpFaScreen.On_Filter value:", value, self.is_editable())
         if self.is_editable():
-            filter, orig = AfpFaktura_changeKind(value, self.data.get_kind())
-            self.combo_Filter.SetValue(filter)
+            kind, orig = AfpFaktura_changeKind(value, self.data.get_kind())
+            self.combo_Filter.SetValue(kind)
+            print("AfpFaScreen.On_Filter filter", kind, orig)
             if orig:
                 self.text_Datum.SetValue(self.data.get_string_value("Datum"))
                 self.text_RechNr.SetValue(self.data.get_string_value("RechNr"))
                 self.set_changecolor("RechNr", True)
+            elif orig is None:
+                self.set_changecolor("Combo")
             else:
                 self.text_Datum.SetValue(self.globals.today_string())
                 self.text_RechNr.SetValue("")
                 self.set_changecolor("RechNr")
             self.Refresh()
-            return
-        datei, filter = AfpFaktura_possibleKinds(value)
-        reset = False
-        #print("AfpFaScreen.On_Filter:", datei, filter, self.sb_master)
-        if not datei: 
-            datei = self.sb_master
-            reset = True
-        where = ""
-        if filter:
-            where = "Zustand = \"" +  filter + "\""
-        if datei != self.sb_master:
-            #self.sb.set_debug()
-            self.sb.select_where("")
-            self.find_adjacent_entry(datei)
-            self.sb.select_where(where)
-            #print "AfpFaScreen.On_Filter where:", where
-            self.sb_master = datei
-            self.sb_filter = where
-            self.index = ""
-            self.On_Sortierung()
-            #self.sb.unset_debug()
         else:
-            if self.sb_filter != where: 
+            datei, filter = AfpFaktura_possibleKinds(value)
+            reset = False
+            #print("AfpFaScreen.On_Filter:", datei, filter, self.sb_master)
+            if not datei: 
+                datei = self.sb_master
+                reset = True
+            where = ""
+            if filter:
+                where = "Zustand = \"" +  filter + "\""
+            if datei != self.sb_master:
+                #self.sb.set_debug()
+                self.sb.select_where("")
+                self.find_adjacent_entry(datei)
                 self.sb.select_where(where)
+                #print "AfpFaScreen.On_Filter where:", where
+                self.sb_master = datei
                 self.sb_filter = where
-                self.sb.select_current()
-            self.CurrentData()
-        if reset:
-            self.combo_Filter.SetSelection(self.get_filter_index(self.sb_master))
+                self.index = ""
+                self.On_Sortierung()
+                #self.sb.unset_debug()
+            else:
+                if self.sb_filter != where: 
+                    self.sb.select_where(where)
+                    self.sb_filter = where
+                    self.sb.select_current()
+                self.CurrentData()
+            if reset:
+                self.combo_Filter.SetSelection(self.get_filter_index(self.sb_master))
         if event: event.Skip()
     ## Eventhandler COMBOBOX - sort index
     def On_Sortierung(self,event = None):
@@ -1006,10 +1010,14 @@ class AfpFaScreen(AfpEditScreen):
         #print "On_Faktura_Ausw Ind:",index, "VAL:",values,"Where:", where
         #print "On_Faktura_Ausw Merkmal:", self.combo_Filter.GetValue()
         #self.sb.set_debug()
+        print ("AfpFaScreen.invoke_regular_selection input:", table, value, where)
         auswahl = AfpLoad_FaAusw(self.globals, table, self.index, Afp_toString(value), where, True)
         #self.sb.unset_debug()
+        print ("AfpFaScreen.invoke_regular_selection Auswahl:", auswahl)
         if not auswahl is None:
-            RNr = int(auswahl)
+            RNr = int(auswahl) 
+            print ("AfpFaScreen.invoke_regular_selection SB:", self.sb_filter, self.sb_master)
+            self.sb.set_debug()
             if self.sb_filter: self.sb.select_where(self.sb_filter, "RechNr", self.sb_master)
             self.sb.select_key(RNr, "RechNr", self.sb_master)
             if self.sb_filter: self.sb.select_where("", "RechNr", self.sb_master)
@@ -1019,6 +1027,7 @@ class AfpFaScreen(AfpEditScreen):
             if self.index == "KundenNr":
                 self.sb.select_key(self.data.get_value("KundenNr"),"KundenNr","ADRESSE")
                 self.sb.set_index("Name","ADRESSE","KundenNr")
+            self.sb.unset_debug()
             self.Populate()
         #self.sb.unset_debug()
     ## invoke the custom select dialog, behaves as follows 
@@ -1155,7 +1164,8 @@ class AfpFaScreen(AfpEditScreen):
         return index
     # set and unset changecolor on different textfield
     # @param typ - defines which fields should be changed
-    # - = "RechNr": 'Datum' and 'RechNr'  are changed
+    # - = "Combo": Filter ComboBox  is changed
+    # - = "RechNr": 'Datum', 'RechNr'  and Filter ComboBox are changed
     # - = "Preis": 'Netto', 'Betrag' and 'Mwst'  are changed at second call
     # - = "all": all above fields are changed appropriate
     # @param unset - flag to remove changecolor
@@ -1169,6 +1179,9 @@ class AfpFaScreen(AfpEditScreen):
             if typ == "all" or typ == "RechNr":
                 self.text_Datum.SetBackgroundColour(self.editcolor)
                 self.text_RechNr.SetBackgroundColour(self.editcolor)
+                self.combo_Filter.SetBackgroundColour(self.editcolor)
+            if typ == "Combo":
+                self.combo_Filter.SetBackgroundColour(self.editcolor)
         else:
             if typ == "all" or typ == "Preis":
                 if self.first_content_change == True:
@@ -1181,6 +1194,9 @@ class AfpFaScreen(AfpEditScreen):
             if typ == "all" or typ == "RechNr":
                 self.text_Datum.SetBackgroundColour(self.changecolor)
                 self.text_RechNr.SetBackgroundColour(self.changecolor)
+                self.combo_Filter.SetBackgroundColour(self.changecolor)
+            if typ == "Combo":
+                self.combo_Filter.SetBackgroundColour(self.changecolor)
     # routines to be overwritten in explicit class
     ## set or unset editable mode - overwritten from AfpEditScreen
     # @param ed_flag - flag to turn editing on or off
@@ -1195,7 +1211,7 @@ class AfpFaScreen(AfpEditScreen):
                     self.edit_typ = "stock"
         AfpEditScreen.Set_Editable(self, ed_flag, lock_data)
         if not ed_flag:  
-            if self.text_Datum.GetBackgroundColour() == self.changecolor:
+            if self.combo_Filter.GetBackgroundColour() == self.changecolor:
                 self.combo_Filter.SetSelection(AfpFaktura_inFilterList(self.sb_master, self.data.get_value("Zustand")))
             self.set_changecolor("all", True)
         self.Pop_special()
@@ -1280,14 +1296,13 @@ class AfpFaScreen(AfpEditScreen):
     def check_data(self):
         value = self.combo_Filter.GetValue()
         datei, filter = AfpFaktura_possibleKinds(value)
-        Ok = None
-        if self.data.has_changed():
+        OK = self.data.has_changed()
+        text = ""
+        if datei != self.sb_master or filter != self.sb_filter:
+            orig = self.data.get_kind()
+            text = "\"" + orig + "\" wird in \""  + value + "\" umgewandelt!"
             Ok = True
         if not self.globals.get_value("instant-save","Faktura"):
-            text = ""
-            if datei != self.sb_master:
-                orig = self.data.get_kind()
-                text = "\"" + orig + "\" wird in \""  + value + "\" umgewandelt!"
             if Ok:
                 if text:
                     text += "\n"
@@ -1298,13 +1313,13 @@ class AfpFaScreen(AfpEditScreen):
         return Ok
    ## store data - overwritten from AfpEditScreen
     def store_data(self):
-        # ToDo: add data from widgets (combo box)
         data = None
         value = self.combo_Filter.GetValue()
         datei, filter = AfpFaktura_possibleKinds(value)
         if datei != self.sb_master:
             # conversion necessary
-            if datei == "RECHNG": data = self.data
+            if datei == "RECHNG"and not self.data.get_value("TypNr"): 
+                data = self.data
             self.data = self.data.get_converted_faktura(datei, filter)
         elif filter != self.sb_filter:
             # kind changed
@@ -1312,7 +1327,6 @@ class AfpFaScreen(AfpEditScreen):
         if self.data.has_changed():
             self.data.store()
             if data:
-                data.set_value("Zustand", value)
                 data.set_value("Typ", datei)
                 data.set_value("TypNr", self.data.get_value())
                 data.store()

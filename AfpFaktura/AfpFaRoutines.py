@@ -49,23 +49,23 @@ def AfpFaktura_editableKinds():
 def AfpFaktura_possibleOpenKinds():
     names, tables = AfpFaktura_possibleKinds()
     return ["Merkzettel (Memo)"] + names[2:-2]
-## returns possible change kind
-# @param name - name of kind to be checked
-# @param kind - name of actuel kind, if given
-def AfpFaktura_changeKind(name, kind = None):
-    change = ""
-    table = ""
-    newtable, filter = AfpFaktura_possibleKinds(name)    
-    if kind:
-        table, filter = AfpFaktura_possibleKinds(kind)
-        if not newtable: name = kind
-    if newtable == "KVA" or newtable == table or not newtable:
-        change = name
-    elif newtable == "BESTELL":
-        change, ind = AfpFaktura_possibleKinds(None, "BESTELL", "neu")
-    elif newtable == "RECHNG":
-        change, ind = AfpFaktura_possibleKinds(None, "RECHNG", "open")
-    return change, newtable == table or not newtable
+## returns possible change kind and flag, if data is original (True), if table has changed (False) or only the filter (None)
+# @param newkind - name of kind to be checked
+# @param oldkind - name of actuel kind
+def AfpFaktura_changeKind(newkind, oldkind):
+    changekind = newkind
+    original = True
+    newtable, newfilter = AfpFaktura_possibleKinds(newkind)    
+    oldtable, oldfilter = AfpFaktura_possibleKinds(oldkind)
+    if newtable != oldtable:
+        original = False
+        if newtable == "BESTELL":
+            changekind, ind = AfpFaktura_possibleKinds(None, "BESTELL", "neu")
+        elif newtable == "RECHNG":
+            changekind, ind = AfpFaktura_possibleKinds(None, "RECHNG", "open")
+    elif newfilter != oldfilter:
+        original = None
+    return changekind, original
  
  ## return index of name in filter list
  # @param name - if filter is None: name to be looked for in filter list, else: table indicator
@@ -89,7 +89,7 @@ def AfpFaktura_inFilterList(name, filter = None):
 def AfpFaktura_possibleKinds(name = None, table = None, filter = None):
     names = ["Ausgabe" , "Waren"     , "Bestellung", "Bestell-Liste", "Kostenvoranschlag","Angebot" , "Lieferschein", "Auftrag" , "Rechnung", "Mahnung", "Einnahme"]
     tables = ["BESTELL"  , "BESTELL" , "BESTELL"      , "BESTELL"           , "KVA"                           , "KVA"       , "KVA"                 , "KVA"         , "RECHNG"   , "RECHNG"   , "RECHNG"]
-    filters =  ["closed"   ,"erhalten" , "open"           , "neu"                  , "KVA"                            , "Angebot",  "Liefer"          , "Auftrag" , "open"       ,  "Mahnung", "closed"]
+    filters =  ["closed"   ,"obtain"    , "open"           , "neu"                   , "KVA"                            , "Angebot",  "Liefer"          , "Auftrag" , "open"       ,  "Mahnung", "closed"]
     #print("AfpFaktura_possibleKinds:", name, table, filter)
     if table and not filter is None:
         for i in range(len(tables)):
