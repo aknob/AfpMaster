@@ -832,7 +832,7 @@ class AfpDialog_FiBuchung(AfpDialog):
             text2 = "sollen die Daten in die Buchhaltung übernommen werden?"
             self.Ok  = AfpReq_Question(text1, text2,"Daten übernehmen?")
         if self.Ok:
-            if self.is_enabled("strict_accounting") and self.data.get_globals().get_value("additional-transaction-file","Finance"):
+            if self.data.get_globals().get_value("additional-transaction-file","Finance"):
                 self.execute_Quit(True)
             clients = []
             rows = self.data.get_value_rows("BUCHUNG", "BuchungsNr,Datum,Konto,Gegenkonto,Betrag,Tab,TabNr,Art")
@@ -877,6 +877,8 @@ class AfpDialog_FiBuchung(AfpDialog):
             if clients: 
                 for client in clients:
                     client.store()
+        else:
+            self.execute_Quit()
 
     ## execution in case the Quit button ist hit - overwritten from AfpDialog
     # @param store - flag if text for storing should be dispayed in dialog
