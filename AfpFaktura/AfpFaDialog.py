@@ -736,9 +736,9 @@ class AfpDialog_FaLine(AfpDialog):
 # @param name - if ident == None: name to be displayed and edited
 # @param debug - debug flag
 def AfpLoad_FaLine( ident = None, name = False,  debug = False):
-    #print "AfpLoad_FaLine init:",ident, name, debug
+    #print ("AfpLoad_FaLine init:", ident, name, debug)
     EditLine = AfpDialog_FaLine(None)
-    if ident or name or debug: EditLine.set_data(ident, name, debug)
+    if ident or name or name == "" or debug: EditLine.set_data(ident, name, debug)
     res = EditLine.ShowModal()
     Ok = None
     action = None
@@ -1084,7 +1084,6 @@ class AfpDialog_FaArticle(AfpDialog):
                     TextBox.SetBackgroundColour(self.preseteditcolor)
                     return
             val = self.data.get_value(self.textmap[name])
-            breakpoint()
             if (Afp_isNumeric(val) and not Afp_isEps(Afp_fromString(TextBox.GetValue()) - val)) or (TextBox.GetValue() == Afp_toString(val)):
                 TextBox.SetBackgroundColour(self.editcolor)
                 return
@@ -1144,6 +1143,7 @@ class AfpDialog_FaManufact(AfpDialog):
         self.changed = False
         self.preseteditcolor = (245,245,220)
         self.changecolor = (220, 192, 192)
+        self.checkmap = ["CImport", "CUpdate", "CWartung"]
         self.SetTitle("Hersteller")
 
     ## set up dialog widgets - overwritten from AfpDialog
@@ -1251,6 +1251,7 @@ class AfpDialog_FaManufact(AfpDialog):
         self.Bind(wx.EVT_BUTTON, self.On_Adresse, self.button_Adresse)
         self.check_Import = wx.CheckBox(self, -1, label="Import", name="CImport")
         self.check_Update = wx.CheckBox(self, -1, label="Update", name="CUpdate")
+        self.check_Wartung = wx.CheckBox(self, -1, label="Wartung", name="CWartung")
         self.button_sizer = wx.BoxSizer(wx.VERTICAL)
         self.button_sizer.AddSpacer(30)
         self.button_sizer.Add(self.button_Neu,0,wx.EXPAND)
@@ -1259,6 +1260,7 @@ class AfpDialog_FaManufact(AfpDialog):
         self.button_sizer.AddStretchSpacer(1)
         self.button_sizer.Add(self.check_Import,0,wx.EXPAND)
         self.button_sizer.Add(self.check_Update,0,wx.EXPAND)
+        self.button_sizer.Add(self.check_Wartung,0,wx.EXPAND)
         self.setWx(self.button_sizer, [1, 0, 0], [0, 0, 0]) # set Edit and Ok widgets
         self.button_sizer.AddSpacer(10)
         
@@ -1321,6 +1323,7 @@ class AfpDialog_FaManufact(AfpDialog):
         fname = None
         imp = self.check_Import.IsChecked()
         upd = self.check_Update.IsChecked()
+        wrt = self.check_Wartung.IsChecked()
         if imp:
             fname = self.get_importfile()
         self.store_data()
@@ -1328,6 +1331,8 @@ class AfpDialog_FaManufact(AfpDialog):
             self.import_articles(fname)
         if upd:
             self.update_articles()
+        if wrt:
+            self.maintain_articles()
         self.close_dialog = True
    ## read values from dialog and invoke writing into database         
     def store_data(self):
@@ -1369,6 +1374,19 @@ class AfpDialog_FaManufact(AfpDialog):
     ## update manufacturer articles in main article database
     def update_articles(self):
         print ("AfpDialog_FaManufact.update_articles not implemented yet!")
+        return None
+    ## maintain manufacturer articles in main article database
+    def maintain_articles(self):
+        article = True
+        ask = True
+        eingabe = ""
+        while article:
+            article = AfpLoad_FaArtikelAusw(self.data.get_globals(), "ArtikelNr", eingabe, "ARTIKEL", "HersNr.ARTIKEL = " + self.data.get_string_value(), ask)
+            print ("AfpDialog_FaManufact.maintain_articles:", article)
+            if article:
+                ask = False
+                art = AfpArtikel(self.data.get_globals(), article, self.debug)
+                Ok = AfpLoad_FaArticle(art, True)
         return None
     # click events
     ## double click on discount list

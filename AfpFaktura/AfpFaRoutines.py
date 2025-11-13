@@ -726,7 +726,7 @@ class AfpFaktura(AfpPaymentList):
                 #exec(pyBefehl)
                 bool = eval("value " + criteria) 
                 if bool: add = True
-            print("AfpFaktura.get_content_range add:", i, add, value, criteria)
+            #print("AfpFaktura.get_content_range add:", i, add, value, criteria)
             if add:
                 if start is None:
                     start = i
@@ -810,28 +810,29 @@ class AfpFaktura(AfpPaymentList):
     # @param fileds - list of fieldnames, for which data is delvered in 'rows' (used for each row)
     # @param rows - values of new row data to be filled into data structure
     def replace_content_rows(self, initial_rows, fields, rows):
-        print("AfpFaktura.replace_content_rows:", initial_rows, fields, rows)
+        #print("AfpFaktura.replace_content_rows:", initial_rows, fields, rows)
         if initial_rows is None:
             initial_rows = [self.get_content_length(), self.get_content_length()]
-            print("AfpFaktura.replace_content_rows:", initial_rows)
+            #print("AfpFaktura.replace_content_rows:", initial_rows)
         olgh = initial_rows[1] - initial_rows[0] + 1
         nlgh = len(rows)
         if olgh > nlgh:
             diff = olgh - nlgh
-            print("AfpFaktura.replace_content_rows delete:", diff)
+            #print("AfpFaktura.replace_content_rows delete:", diff)
             for i in range(diff):
                 self.content.delete_row(initial_rows[0])
         if olgh < nlgh:
             diff = nlgh - olgh
-            print("AfpFaktura.replace_content_rows insert:", diff)
+            #print("AfpFaktura.replace_content_rows insert:", diff)
             for i in range(diff):
                 self.content.insert_data_row(initial_rows[1] + 1, True)
+            #print("AfpFaktura.replace_content_rows inserted:", self.content.data)
         for i in range(nlgh):
             data_values = {}
             for j in range(len(fields)):
                 if rows[i][j]:
                     data_values[fields[j]] =  rows[i][j]
-            print("AfpFaktura.replace_content_rows fill:", i, i + initial_rows[0], data_values)
+            #print("AfpFaktura.replace_content_rows fill:", i, i + initial_rows[0], data_values)
             self.content.set_data_values(data_values, i + initial_rows[0])
         self.update_fields()
     ## change or add row in content

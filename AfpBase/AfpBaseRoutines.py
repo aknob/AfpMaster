@@ -1605,7 +1605,7 @@ def AfpBase_getSqlTables(flavours = None):
   `Skonto` float(7,2) DEFAULT NULL,
   `ZahlBetrag` float(7,2) DEFAULT NULL,
   `ZahlZiel` date DEFAULT NULL,
-  `Zahlung` float(7,2) DEFAULT NULL,
+  `Zahlung` float(7,2) DEFAULT '0.00',
   `ZahlDat` date DEFAULT NULL,
   `Kontierung` mediumint(8) unsigned zerofill NOT NULL,
   `Debitor` mediumint(8) unsigned zerofill DEFAULT NULL,

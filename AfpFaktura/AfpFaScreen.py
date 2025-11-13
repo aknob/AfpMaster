@@ -148,7 +148,7 @@ class AfpFaScreen_EditLinePlugIn(object):
                     else:
                         upcase = event.ShiftDown()
                         char = self.get_char(keycode, upcase)
-                        print("AfpFaScreen_EditLinePlugIn.catch_keydown Edit:", keycode, upcase, char, self.edit_value, type(self.edit_value))
+                        #print("AfpFaScreen_EditLinePlugIn.catch_keydown Edit:", keycode, upcase, char, self.edit_value, type(self.edit_value))
                         self.edit_value += char
                         self.grid.SetCellValue(self.row, self.edit_col, self.edit_value.encode("UTF-8"))
             if self.debug: print("AfpFaScreen_EditLinePlugIn.catch_keydown:", keycode, caught)
@@ -216,6 +216,7 @@ class AfpFaScreen_EditLinePlugIn(object):
                     exec(pyBefehl, funct, local)
                     value = local["value"]
                     string = Afp_toString(value)
+                    #print ("AfpFaScreen_EditLinePlugIn.next_process_step post exe:", self.edit_col, value, string)
                     self.set_initial_row([self.edit_col, string])
                     #self.initial_row[self.edit_col] = string
                     self.grid.SetCellValue(self.row, self.edit_col, string)
@@ -262,7 +263,7 @@ class AfpFaScreen_EditLinePlugIn(object):
                 #print("AfpFaScreen_EditLinePlugIn.next_process_step cleard next:",  self.process_step_index, len(self.process))
                 if self.process_step_index < len(self.process):
                     process = self.process[self.process_step_index]
-                    #print("AfpFaScreen_EditLinePlugIn.next_process:", process)
+                    #print("AfpFaScreen_EditLinePlugIn.next_process_step process:", process)
                     if process[0] == "choose":
                     # process = ["choose",",ArtikelNr,Bezeichnung,,Nettopreis,Nettopreis"]
                         self.choose = True
@@ -281,7 +282,7 @@ class AfpFaScreen_EditLinePlugIn(object):
                         self.select_col()
                         #if self.initial_row and self.initial_row[self.edit_col]:
                             #self.edit_value = self.initial_row[self.edit_col]
-                    #print "AfpFaScreen_EditLinePlugIn.next_process_step executed:", self.choose, self.columns, self.edit_col, self.postprocess, self.update
+                    #print ("AfpFaScreen_EditLinePlugIn.next_process_step executed:", self.choose, self.columns, self.edit_col, self.postprocess, self.update)
                 else:
                     #print("AfpFaScreen_EditLinePlugIn.next_process_step: ENDED")
                     done = True
@@ -312,6 +313,7 @@ class AfpFaScreen_EditLinePlugIn(object):
                 self.display_row()
         ## routine to set the initial row data manually
         def set_initial_row(self, row):
+            #print ("AfpFaScreen_EditLinePlugIn.set_initial_row row:", row)
             if Afp_isString(row):
                 self.initial_row = row.split(",")
             else:
@@ -325,7 +327,7 @@ class AfpFaScreen_EditLinePlugIn(object):
                     for i in range(lgh,ind+1):
                         self.initial_row.append(None)
                 self.initial_row[ind] = row[1]
-            #print "AfpFaScreen_EditLinePlugIn.set_initial_row:", self. initial_row
+            #print ("AfpFaScreen_EditLinePlugIn.set_initial_row:", self. initial_row)
           ## routine to retrieve the result of row editing
         def get_row_edit_result(self):
             return self.initial_row
@@ -376,7 +378,7 @@ class AfpFaScreen(AfpEditScreen):
         self.typ = "Faktura"
         self.direct_sale_name = "Barverkauf"
         self.sb_master = "RECHNG"
-        self.sb_filter = ""
+        self.sb_filter = "Zustand = \"open\""
         self.use_labels = use_labels
         self.use_RETURN = False
         self.use_custom_selection = False
@@ -554,7 +556,8 @@ class AfpFaScreen(AfpEditScreen):
         self.textmap["Betrag"] = "Betrag.Main"  
         self.text_Netto = wx.TextCtrl(panel, -1,value="", pos=(599,475), size=(77,18), style=wx.TE_READONLY, name="Netto")
         self.textmap["Netto"] = "Netto.Main"  
-        self.text_ZahlBetrag = wx.TextCtrl(panel, -1,value="", pos=(599,495), size=(77,18), style=wx.TE_READONLY, name="ZahlBetrag")
+        self.text_ZahlBetrag = wx.TextCtrl(panel, -1,value="", pos=(599,495), size=(77,18), style=wx.TE_READONLY,  name="ZahlBetrag")
+        self.text_ZahlBetrag.Bind(wx.EVT_SET_FOCUS, self.On_ZahlBetrag)
         self.textmap["ZahlBetrag"] = "ZahlBetrag.Main"  
 
         #ListBox - Archiv
@@ -846,6 +849,9 @@ class AfpFaScreen(AfpEditScreen):
             AfpReq_Info("Keine Mailadresse gefunden,","keine E-Mail erzeugt!")
         event.Skip()
 
+    ## Eventhandler TextBox - get focus textbox 'ZahlBetrag'
+    def On_ZahlBetrag(self, event):
+        print ("AfpFaScreen.On_ZahlBetrag not yet implemented!")
     ## Eventhandler ListBox - double click ListBox 'Archiv'
     def On_DClick_Archiv(self, event):
         if self.debug: print("Event handler `On_DClick_Archiv'", event)
@@ -927,7 +933,7 @@ class AfpFaScreen(AfpEditScreen):
         rows = []
         for i in range(lgh):
             rows.append([textrows[i]])
-        #print "AfpFaScreen.edit_text_postprocess:", textrows, lgh, empty, rows
+        #print ("AfpFaScreen.edit_text_postprocess:", textrows, lgh, empty, rows)
         self.data.replace_content_rows(textrange[1], ["Zeile"], rows)   
         self.Pop_content()
     ## postprocessing of data editing
@@ -979,7 +985,7 @@ class AfpFaScreen(AfpEditScreen):
         #line, Ok = AfpReq_Text("Bitte Text eingeben.","",text)
         text = textrange[0]
         if text is None: text = ""
-        print("AfpFaScreen.edit_text:", text)
+        #print("AfpFaScreen.edit_text:", text)
         newtext, Ok = AfpReq_EditText(text, "TextEditor","Bitte Text eingeben.", None, None, True)
         if Ok: 
             textrange[0] = newtext
@@ -1017,7 +1023,7 @@ class AfpFaScreen(AfpEditScreen):
         if not auswahl is None:
             RNr = int(auswahl) 
             print ("AfpFaScreen.invoke_regular_selection SB:", self.sb_filter, self.sb_master)
-            self.sb.set_debug()
+            #self.sb.set_debug()
             if self.sb_filter: self.sb.select_where(self.sb_filter, "RechNr", self.sb_master)
             self.sb.select_key(RNr, "RechNr", self.sb_master)
             if self.sb_filter: self.sb.select_where("", "RechNr", self.sb_master)
@@ -1027,7 +1033,7 @@ class AfpFaScreen(AfpEditScreen):
             if self.index == "KundenNr":
                 self.sb.select_key(self.data.get_value("KundenNr"),"KundenNr","ADRESSE")
                 self.sb.set_index("Name","ADRESSE","KundenNr")
-            self.sb.unset_debug()
+            #self.sb.unset_debug()
             self.Populate()
         #self.sb.unset_debug()
     ## invoke the custom select dialog, behaves as follows 
@@ -1218,10 +1224,11 @@ class AfpFaScreen(AfpEditScreen):
     ## edit content data -  overwritten from AfpEditScreen
     # @param rowNr - if given, index of row to be changed
     def edit_data(self, rowNr = None):
-        print("AfpFaScreen.edit_data invoked", rowNr)
+        #print("AfpFaScreen.edit_data invoked", rowNr, self.edit_typ)
         ident = None
-        name = ""
+        name = None
         text = [None, None]
+        anz = [None, None]
         row = None
         delete = False
         edit_next = True
@@ -1230,7 +1237,8 @@ class AfpFaScreen(AfpEditScreen):
             ident, name, text, anz = self.get_content_indicators(rowNr)
         else:
             if direct: edit_next = False
-        #print("AfpFaScreen.edit_data while outside:", ident, name, text, edit_next, self.debug)  
+        #print("AfpFaScreen.edit_data while outside:", ident, name, text, anz, edit_next, self.debug) 
+        #breakpoint()
         # for dialog selection
         dlgres = None
         if not ident: ask = True
@@ -1247,6 +1255,9 @@ class AfpFaScreen(AfpEditScreen):
                         Ok = True
                 elif Afp_isString(ident) or (ident is None and not text[0]):
                     Ok, action = AfpLoad_FaLine(ident, name, self.debug)
+                elif text[0]:
+                    edit_text = True
+                    Ok = None
                 if not Ok is None:
                     if Ok:
                         if action[1] == "Text":
@@ -1296,9 +1307,11 @@ class AfpFaScreen(AfpEditScreen):
     def check_data(self):
         value = self.combo_Filter.GetValue()
         datei, filter = AfpFaktura_possibleKinds(value)
-        OK = self.data.has_changed()
+        filtertext = "Zustand = \"" + filter + "\""
+        Ok = self.data.has_changed()
         text = ""
-        if datei != self.sb_master or filter != self.sb_filter:
+        #print ("AfpFaScreen,check_data:", self.sb_master, datei, self.sb_filter, filtertext)
+        if datei != self.sb_master or filtertext != self.sb_filter:
             orig = self.data.get_kind()
             text = "\"" + orig + "\" wird in \""  + value + "\" umgewandelt!"
             Ok = True
@@ -1316,17 +1329,19 @@ class AfpFaScreen(AfpEditScreen):
         data = None
         value = self.combo_Filter.GetValue()
         datei, filter = AfpFaktura_possibleKinds(value)
+        filtertext = "Zustand = \"" + filter + "\""
         if datei != self.sb_master:
             # conversion necessary
             if datei == "RECHNG"and not self.data.get_value("TypNr"): 
                 data = self.data
             self.data = self.data.get_converted_faktura(datei, filter)
-        elif filter != self.sb_filter:
+        elif filtertext != self.sb_filter:
             # kind changed
             self.data.set_value("Zustand", filter)
         if self.data.has_changed():
             self.data.store()
             if data:
+                data.set_value("Zustand", "Rechnung")
                 data.set_value("Typ", datei)
                 data.set_value("TypNr", self.data.get_value())
                 data.store()
@@ -1358,29 +1373,30 @@ class AfpFaScreen(AfpEditScreen):
         trange = None
         anz = None
         lief = None
-        value = self.data.get_value_rows("Content", "ErsatzteilNr", rowNr)[0][0]
-        if value and not Afp_isInteger(value):
-            ident = Afp_fromString(value)
-        if not ident:
-            anz = self.data.get_value_rows("Content", "Anzahl", rowNr)[0][0]
-            if anz:
-                name = Afp_toString(self.data.get_value_rows("Content", "Bezeichnung", rowNr)[0][0])
-                lief  = self.data.get_value_rows("Content", "Lieferung", rowNr)[0][0]
-                #name = Afp_fromString(self.data.get_value_rows("Content", "Bezeichnung", rowNr)[0][0])
-            else:
-                text = ""
-                start = rowNr
-                ende = rowNr + 1
-                ranges = self.data.get_content_range("Anzahl","False")
-                print("AfpFaScreen.get_content_indicators Ranges:", ranges)                
-                for rang in ranges:
-                    if rowNr >= rang[0] and rowNr <= rang[1]:
-                        start = rang[0]
-                        ende = rang[1] + 1
-                for row in range(start, ende):
-                    text += self.grid_content.GetCellValue(row, 2)
-                    if text: text += '\n'
-                trange = [start, ende-1]
+        if rowNr:
+            value = self.data.get_value_rows("Content", "ErsatzteilNr", rowNr)[0][0]
+            if value and not Afp_isInteger(value):
+                ident = Afp_fromString(value)
+            if not ident:
+                anz = self.data.get_value_rows("Content", "Anzahl", rowNr)[0][0]
+                if anz:
+                    name = Afp_toString(self.data.get_value_rows("Content", "Bezeichnung", rowNr)[0][0])
+                    lief  = self.data.get_value_rows("Content", "Lieferung", rowNr)[0][0]
+                    #name = Afp_fromString(self.data.get_value_rows("Content", "Bezeichnung", rowNr)[0][0])
+                else:
+                    text = ""
+                    start = rowNr
+                    ende = rowNr + 1
+                    ranges = self.data.get_content_range("Anzahl","False")
+                    #print("AfpFaScreen.get_content_indicators Ranges:", ranges)                
+                    for rang in ranges:
+                        if rowNr >= rang[0] and rowNr <= rang[1]:
+                            start = rang[0]
+                            ende = rang[1] + 1
+                    for row in range(start, ende):
+                        text += self.grid_content.GetCellValue(row, 2)
+                        if text: text += '\n'
+                    trange = [start, ende-1]
         #print("AfpFaScreen.get_content_indicators:", rowNr, ident, name, [text, trange], [anz, lief])
         return ident, name, [text, trange], [anz, lief]
 

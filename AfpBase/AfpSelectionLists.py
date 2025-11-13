@@ -491,7 +491,7 @@ class AfpSelectionList(object):
     # @param DateiFeld - column.selection name where data has to be retrieved from
     def get_ausgabe_value(self, DateiFeld = None):
         value = self.get_value(DateiFeld)
-        #print "AfpSelectionList.get_ausgabe_value:", DateiFeld, ":", value
+        #print ("AfpSelectionList.get_ausgabe_value:", DateiFeld, ":", value)
         if value or value == 0 or value == 0.0:
             if Afp_isString(value):
                 if len(value) == 16 and value[:6] == "Archiv" and value[-4:] == ".sbt":
@@ -779,8 +779,8 @@ class AfpSelectionList(object):
     # - Art: (kind) 1st level identification, will be set to program name
     # - Typ: (type) 2nd level identification, will be set to SelectionList listname
     # @param initiate_copy - flag if copying of the extern file during storages should be initiated 
-    # @param selname - name of TableSelection holding data from "ARCHIV" table 
     # @param archivname - if given, name of copied file in archiv 
+    # @param selname - name of TableSelection holding data from "ARCHIV" table 
     def add_to_Archiv(self, new_data, initiate_copy = False, archivname=None, selname = "ARCHIV"):
         selection = self.get_selection(selname, False)
         if selection:

@@ -945,13 +945,14 @@ class AfpDialog(wx.Dialog):
     # "entryname = value "
     # the entryname to retrieve value from self.data has to be on the left hand side
     def Pop_check(self):
-      for entry in self.checkmap:
-            Check = self.FindWindowByName(entry)
-            var, val = Afp_getFuncVar(self.checkmap[entry])
-            value = self.data.get_value(var)
-            val = Afp_fromString(val) 
-            #print "AfpDialog:Pop_check:", var, val, value, val == value, type(val), type(value)
-            Check.SetValue(val == value)
+        if type(self.checkmap) == dict:
+            for entry in self.checkmap:
+                Check = self.FindWindowByName(entry)
+                var, val = Afp_getFuncVar(self.checkmap[entry])
+                value = self.data.get_value(var)
+                val = Afp_fromString(val) 
+                #print "AfpDialog:Pop_check:", var, val, value, val == value, type(val), type(value)
+                Check.SetValue(val == value)
     ## population routine for lists \n
     # covention: listmap holds the name to generate the routinename to be called: \n
     # Pop_'name'()

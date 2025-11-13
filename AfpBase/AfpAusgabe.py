@@ -487,7 +487,7 @@ class AfpAusgabe(object):
         if "=" in phrase: 
             if "==" in phrase:sign = "=="
             else: sign += "="
-        #print "AfpAusgabe.evaluate_condition SIGN:", sign, "PHRASE:",phrase
+        #print ("AfpAusgabe.evaluate_condition SIGN:", sign, "PHRASE:",phrase)
         if sign: 
             split = phrase.split(sign)
             #print ("AfpAusgabe.evaluate_condition split:", phrase, split, sign)
@@ -729,7 +729,7 @@ class AfpAusgabe(object):
     ## check if value exists in cache, possibly load value into cache
     # @param fieldname - name of database column to be loaded
     def in_values(self, fieldname):
-        #print "AfpAusgabe.in_values", fieldname, fieldname in self.values,  fieldname in self.variables
+        #print ("AfpAusgabe.in_values", fieldname, fieldname in self.values,  fieldname in self.variables)
         if fieldname in self.values:
             return True
         elif fieldname in self.variables:
@@ -737,7 +737,7 @@ class AfpAusgabe(object):
             return True
         else:
             wert = self.retrieve_value(fieldname)
-            #print "AfpAusgabe.in_values retrieve", fieldname, wert
+            #print ("AfpAusgabe.in_values retrieve", fieldname, wert)
             if not wert is None: 
                 self.values[fieldname] = wert
                 return True
