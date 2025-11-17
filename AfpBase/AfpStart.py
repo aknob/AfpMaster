@@ -149,11 +149,12 @@ class AfpMainApp(wx.App):
             dbword, ok = AfpBaseDialog.AfpReq_Text("Für die Verbindung zur Datenbank wird eine Authentifizierung benötigt!","Bitte das Passwort für den Benutzer '" + pars["dbuser"] + "' eingeben:","","Passwort Eingabe",True)
             pars["dbword"] = dbword
         if "dbword" in pars: set.set("database-word", pars["dbword"])
+        if "dblower" in pars: set.set("database-lowercase", pars["dblower"])
         if "strict" in pars: set.set("strict-modul-handling",1)
         if "dry-run" in pars: 
             set.set("dry-run",1)
             set.set("readonly",1)
-        mysql = AfpDatabase.AfpSQL.AfpSQL(set.get("database-host"), set.get("database-user"), set.get("database-word"), set.get("database"), set.is_debug())
+        mysql = AfpDatabase.AfpSQL.AfpSQL(set.get("database-host"), set.get("database-user"), set.get("database-word"), set.get("database"), set.get("database-lowercase"), set.is_debug())
         self.globals = AfpGlobal.AfpGlobal(name, mysql, set)
         self.globals.set_infos(version, baseversion, copyright, website, description, license, picture, developers)
         if "config" in pars: self.globals.set_configuration(pars["config"])
@@ -212,6 +213,7 @@ def AfpStart(info):
         if sys.argv[i] == "-v" or sys.argv[i] == "--verbose": debug = True
         if sys.argv[i] == "-x" or sys.argv[i] == "--strict": parameter["strict"] = None
         if sys.argv[i] == "-y" or sys.argv[i] == "--dry": parameter["dry-run"] = 1
+        if sys.argv[i] == "-l" or sys.argv[i] == "--lower": parameter["dblower"] = 1
         if sys.argv[i] == "-h" or sys.argv[i] == "--help": execute = False
     if execute:
         App = AfpMainApp(0)
@@ -249,6 +251,9 @@ def AfpStart(info):
         print("               Default: loclahost (127.0.0.1) will be used")
         print("-d,--database  database name or schema follows")
         print("               Default: 'BusAfp' will be used")
+        print("-l,--lower     database-server only handles lowercase schema- and tablenames")
+        print("               (only needed for Windows mysql-servers)")
+        print("               Default: case sensitive schema- and tablenames are used")
         print("-u,--user      user for mysql authentification follows")
         print("               Default: user \"server\" will be used")
         print("-p,--password  plain text password for mysql authentification follows")

@@ -99,6 +99,7 @@ class AfpSelectionList(object):
         self.debug = debug
         self.new = False
         self.international_output= False
+        self.lowercase = self.mysql.get_lower()
         self.tables = self.mysql.get_tables()
         # if copies of files into the archiv are needed, fill in here
         self.archiv_copy_needed = []
@@ -304,7 +305,9 @@ class AfpSelectionList(object):
         if selname in self.selects:        
             sel_vals = self.selects[selname]
             if  len(sel_vals) > 1:
-                if sel_vals[0] in self.tables:
+                selna = sel_vals[0] 
+                if self.lowercase: selna = selna.lower()
+                if selna in self.tables:
                     implicit = False
                     unique = None
                     if len(sel_vals) > 2: unique = sel_vals[2]

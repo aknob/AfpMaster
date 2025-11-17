@@ -1150,7 +1150,8 @@ def Afp_ChZeit(string):
 ## convert "Superbase" Field.Filename to mysql tablenames used in select statements.
 # @param string - string where names should be converted
 # @param dateien - names of tables involved in this statement
-def Afp_SbToDbName(string,dateien):
+# @param lower - flag, if tablenames are all lowercase
+def Afp_SbToDbName(string, dateien, lower=False):
     unmasked, masked = Afp_maskedText(string)
     out_unmasked = []
     for part in unmasked:
@@ -1162,6 +1163,7 @@ def Afp_SbToDbName(string,dateien):
             i = -1
             if "." in word and not Afp_isFloatString(word):
                 wsplit = word.split(".")
+                if lower: wsplit[1] = wsplit[1].lower()
                 if wsplit[1] in dateien: i = dateien.index(wsplit[1])
                 else: i = dateien.index(wsplit[1].upper())
                 if i > -1: 

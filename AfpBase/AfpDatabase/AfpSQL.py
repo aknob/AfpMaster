@@ -52,15 +52,20 @@ class AfpSQL(object):
     # @param dbuser - user for connection
     # @param dbword - password for connection
     # @param dbname - name of database
+    # @param dblower - flag, if database only handles lowercase schema- and tablenames
     # @param debug - flag for debug output
-    def  __init__(self, dbhost, dbuser, dbword, dbname, debug):
+    def  __init__(self, dbhost, dbuser, dbword, dbname, dblower, debug):
         self.dbname = dbname
+        self.db_lower = False
+        if dblower:
+            self.db_lower = True
+            dbname = dbname.lower()
         self.create_db = False
         #self.debug = True
         self.debug = debug
         self.db_connection = None
         self.db_cursor = None      
-        self.db_connection = self.connect(dbhost,dbuser,dbword, self.dbname)
+        self.db_connection = self.connect(dbhost,dbuser,dbword,dbname)
         self.db_cursor = self.db_connection.cursor()
         self.db_readonly = False
         self.db_roflags = None # optional: readonly flags
@@ -73,9 +78,9 @@ class AfpSQL(object):
         if self.debug: print("AfpSQL Konstruktor")
         if self.create_db: 
             try:
-                self.execute("CREATE DATABASE " + self.dbname + ";")
-                self.execute("USE " + self.dbname + ";")
-                print("WARNING: AfpSQL database created:", self.dbname)
+                self.execute("CREATE DATABASE " + dbname + ";")
+                self.execute("USE " + dbname + ";")
+                print("WARNING: AfpSQL database created:", dbname)
             except  MySQLdb.Error as e:
                 print("ERROR %d in MySQL connection: %s" % (e.args[0], e.args[1]))
                 if e.args[0] == 1044:
@@ -145,6 +150,7 @@ class AfpSQL(object):
     # @param sql_db - name of database
     def connect(self, sql_host, sql_user, sql_word, sql_db):
         # connect to the MySQL server
+        if self.db_lower: sql_db = sql_db.lower()
         try:
             connection = MySQLdb.connect (host = sql_host,
                                           user = sql_user,
@@ -172,23 +178,33 @@ class AfpSQL(object):
         return self.debug
     ## return database name
     # @param table - if given, tablename to possibly select connection
-    def get_dbname(self, table = None):
+    # @param add - flag, if tablename should be added to databease name separated by a "."
+    #                         add == None: ignore lowercase flag
+    def get_dbname(self, table = None, add = True):
+        dbname = None
         if "." in table:
-            return table.split(".")[0]
-        if self.tableto_db and table and table in self.tableto_db:
-            return self.tableto_db[table]
+            dbname = table.split(".")[0]
+        elif self.tableto_db and table and table in self.tableto_db:
+            dbname = self.tableto_db[table]
         else:
-            return self.dbname
+            dbname = self.dbname
+        if add and table: dbname += "." + table
+        if self.db_lower and not add is None: dbname = dbname.lower()
+        return dbname
+            
     ## return database cursor
     def get_cursor(self):
         return self.db_cursor   
+    ## return if database only handles lowercase names
+    def get_lower(self):
+        return self.db_lower   
     ## return readonly flag for database connectionr
     # @param table - if given, tablename to possibly select connection
     def get_readonly(self, table = None):
         if "." in table:
             table = table.split(".")[1]
         if self.tableto_db and table and table in self.tableto_db:
-                return self.db_roflags[self.get_dbname(table)]
+                return self.db_roflags[self.get_dbname(table, None)]
         else:
             return self.db_readonly   
     ## return last used mysql select clause
@@ -209,6 +225,7 @@ class AfpSQL(object):
         rows = self.db_cursor.fetchall()
         if self.db_roflags:
             for db in self.db_roflags:
+                if self.db_lower: db = db.lower()
                 self.db_cursor.execute(Befehl + " FROM " + db)
                 rows += self.db_cursor.fetchall()
         return Afp_extractColumns(0, rows)
@@ -217,13 +234,14 @@ class AfpSQL(object):
     # @param typ - type of information ('fields' and 'index' implemented)
     # @param col_array - if given, array of colum indices to be extracted
     def get_info(self, datei, typ = "fields", col_array = None):
+        if self.db_lower: datei = datei.lower()
         if typ == "index":
             Befehl = "SHOW INDEX FROM " + datei
         else:
             Befehl = "SHOW FIELDS FROM " + datei
         if self.debug: print("AfpSQL.get_info:", Befehl)
         self.db_cursor.execute (Befehl)     
-        rows = self.db_cursor.fetchall ()
+        rows = self.db_cursor.fetchall()
         result = []
         if col_array:
             for col in col_array:
@@ -259,6 +277,7 @@ class AfpSQL(object):
         else: all_fields = False
         limit_clause = ""
         if not limit is None: limit_clause = limit
+        if self.db_lower: dateinamen = dateinamen.lower()
         dat_clause = ""
         if " " in dateinamen:
             dateien = dateinamen.split()
@@ -271,9 +290,9 @@ class AfpSQL(object):
             if dat_clause == "": komma = ""
             else: komma = ","
             if no_indicator:
-                dat_clause += komma +  self.get_dbname(dateien[i].upper()) + "." + dateien[i].upper() 
+                dat_clause += komma +  self.get_dbname(dateien[i].upper())
             else:
-                dat_clause += komma +  self.get_dbname(dateien[i].upper()) + "." + dateien[i].upper() + " D" + str(i)
+                dat_clause += komma +  self.get_dbname(dateien[i].upper()) + " D" + str(i)
         if all_fields:
             feld_clause = "*"
         else:
@@ -290,7 +309,8 @@ class AfpSQL(object):
                 cons = ""
                 cone = ""
                 connew = ""
-                if len(fld) > 1 and not Afp_isFloatString(feld): 
+                if len(fld) > 1 and not Afp_isFloatString(feld):
+                    if self.db_lower: fld[1] = fld[1].lower()
                     if fld[1] in dateien: i = dateien.index(fld[1])
                     else: i = dateien.index(fld[1].upper())
                     if i > -1 and not no_indicator: dat = "D" + str(i) + "."
@@ -305,14 +325,14 @@ class AfpSQL(object):
                 feld_clause += cone + komma + cons + dat + "`" + fld[0] + "`"
         order_clause = ""
         if not order is None:
-            order_clause = Afp_SbToDbName(order, dateien)
+            order_clause = Afp_SbToDbName(order, dateien, self.db_lower)
         where_clause = ""
         if not select is None: 
-            where_clause = Afp_SbToDbName(select, dateien)
+            where_clause = Afp_SbToDbName(select, dateien, self.db_lower)
         if not where is None: 
-            where_clause += " and (" + Afp_SbToDbName(where, dateien) + ")"
+            where_clause += " and (" + Afp_SbToDbName(where, dateien, self.db_lower) + ")"
         if not link is None: 
-            where_clause += " and (" + Afp_SbToDbName(link, dateien) + ")"
+            where_clause += " and (" + Afp_SbToDbName(link, dateien, self.db_lower) + ")"
         return [feld_clause, dat_clause, where_clause, order_clause, limit_clause]
     ## selects entries from the database \n
     # returns the selected value rows converted in strings
@@ -355,7 +375,7 @@ class AfpSQL(object):
     # @param datei - name of the table
     # @param select - select clause for locked database entries
     def lock(self, datei, select):
-        Befehl = "SELECT * FROM "  + self.get_dbname(datei) + "." + datei + " WHERE "  + select + " LOCK IN SHARE MODE;"
+        Befehl = "SELECT * FROM "  + self.get_dbname(datei) + " WHERE "  + select + " LOCK IN SHARE MODE;"
         if self.debug: print("AfpSQL.lock:",Befehl)
         self.get_cursor().execute(Befehl)
     ## remove the lock from the table, rollback to database status before the lock was set
@@ -366,7 +386,7 @@ class AfpSQL(object):
         if self.connections:
             for con in self.connections:
                 self.connections[con][1].execute(Befehl)
-    ## return the las inserted database id
+    ## return the last inserted database id
     def get_last_inserted_id(self):
         return self.lastrowid
     ## write data to database, if select is set use 'update' \n
@@ -421,7 +441,7 @@ class AfpSQL(object):
         flen = len(felder)
         if len(data) == flen:
             set_clause =    (" SET %(set)s WHERE ") %   {"set"  : ",".join( [str(i)+"=%s" for i in felder] ) }
-            Befehl =  "UPDATE " + self.get_dbname(datei) + "." + datei +  set_clause + select +";" 
+            Befehl =  "UPDATE " + self.get_dbname(datei) +  set_clause + select +";" 
         else:
             print("WARNING: AfpSQL.write_update: length data does not match number of fields (", flen, ",", len(data), ")") 
         if not Befehl is None:
@@ -436,7 +456,7 @@ class AfpSQL(object):
         if self.get_readonly(datei): return
         Befehl = None      
         flen = len(felder)   
-        if not "." in datei: datei = self.get_dbname(datei) + "." + datei
+        if not "." in datei: datei = self.get_dbname(datei)
         for datarow in data:
             if len(datarow) == flen:
                 value_clause =  (" ( %(items)s ) VALUES ( %(values)s );") %  {"items" : ",".join(felder), "values" : ",".join( ["%s"]*flen ) }
@@ -462,7 +482,9 @@ class AfpSQL(object):
                         split[1] = split[1] .strip()
                         datei = split[1].split()[0]
                         if not "." in datei:
-                            befehl = split[0] +"FROM " + self.get_dbname(datei) + "." + datei + split[1][len(datei):]
+                            befehl = split[0] +"FROM " + self.get_dbname(datei) + split[1][len(datei):]
+                        elif self.db_lower:
+                            befehl = split[0] +"FROM " + datei.lower() + split[1][len(datei):]                            
                     #print("AfpSQL.execute:", befehl + ";")
                     if self.debug: print("AfpSQL.execute:", befehl + ";")
                     retval = self.db_cursor.execute(befehl + ";") 
