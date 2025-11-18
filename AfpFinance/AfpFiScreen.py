@@ -561,6 +561,7 @@ class AfpFiScreen(AfpScreen):
                 header = "Auswertungen"
                 sel = "Modul = \"Finance\" AND Art = \"Report\" and Typ = \""+ filter + "\""
                 data.get_selection("AUSGABE").load_data(sel)
+                #print ("AfpFiScreen.On_Documents:", header, prefix)
                 AfpLoad_DiReport(data, self.globals, variables, header, prefix, None, adresse)
         if event:
             #self.Reload()

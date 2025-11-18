@@ -326,6 +326,9 @@ class AfpAdresse(AfpSelectionList):
         line += self.get_string_value("Plz") + " "
         line += self.get_string_value("Ort")
         return line
+    ## return mayor type of this SelectionList,
+    def get_mayor_type(self): 
+        return "AfpAdresse"
     ## get short identifier of name \n
     # currently a trigram is used, first letter of surname plus first and second letter of lastname
     def get_short_name(self):
