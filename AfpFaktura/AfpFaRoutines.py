@@ -698,7 +698,8 @@ class AfpFaktura(AfpPaymentList):
         return kind
     ## get number of rows in content
     def get_content_length(self):
-        return self.content.get_data_length()
+        if self.content: return self.content.get_data_length()
+        else: return None
     ## return if content has been changed
     # @param last - flag if content changes before last storage should be delivered
     def content_has_changed(self, last = False):

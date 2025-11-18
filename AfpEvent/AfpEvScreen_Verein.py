@@ -847,7 +847,7 @@ class AfpEvMember(AfpEvClient):
         else:
             return sum
     ## return one line holding the different 'Sparten'
-    # @param deli - delimiter betwenn the different entries
+    # @param deli - delimiter between the different entries
     def get_sparten_line(self, deli = " "):
         line = ""
         mysql = self.get_mysql()
