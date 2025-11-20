@@ -8,6 +8,7 @@
 # - AfpSQLTableSelection
 #
 #   History: \n
+#        17 Nov. 2025 - AfpSQL: add handling of only lowerbase database-servers - Andreas.Knoblauch@afptech.de \n
 #        19 Feb. 2025 - AfpSQL: add readonly flag and additional connections - Andreas.Knoblauch@afptech.de \n
 #        23 Jan. 2025 - AfpSQLTableSelection: allow reload with different order - Andreas.Knoblauch@afptech.de \n
 #        29 Dez. 2021 - conversion to python 3 - Andreas.Knoblauch@afptech.de \n
@@ -182,7 +183,7 @@ class AfpSQL(object):
     #                         add == None: ignore lowercase flag
     def get_dbname(self, table = None, add = True):
         dbname = None
-        if "." in table:
+        if table and "." in table:
             dbname = table.split(".")[0]
         elif self.tableto_db and table and table in self.tableto_db:
             dbname = self.tableto_db[table]
