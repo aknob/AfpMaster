@@ -219,16 +219,24 @@ class AfpDialog_FaArtikelAusw(AfpDialog_Auswahl):
             eingabe = "!" + eingabe[len(ken) + 1:]
         else:
             hers, ok = AfpFaktura_selectManufacturer(self.globals, "aus dessen Datei ein Artikel übenommen werden soll.", self.debug) 
-            print ("AfpDialog_FaArtikelAusw.invoke_neu_dialog Hers:", hers, ok)
+        print ("AfpDialog_FaArtikelAusw.invoke_neu_dialog Hers:", hers, ok, filter)
         if ok and not hers:
                 ok, hers = AfpLoad_FaManufact(self.globals, None)
         if ok and hers:
-            newarticle = AfpLoad_FaArtikelAusw(self.globals, "ArtikelNr", eingabe, hers.get_manufact_table(), filter, False, hers)
+            newarticle = AfpLoad_FaArtikelAusw(self.globals, "ArtikelNr", eingabe, hers.get_manufact_table(), None, False, hers)
             if newarticle:
                 ok = AfpLoad_FaArticle(newarticle, True)
                 if ok:
                     newarticle.store()
                     return True
+            else:
+                ok = False
+        if not ok:
+            newarticle = AfpArtikel(self.globals, None)
+            ok = AfpLoad_FaArticle(newarticle)
+            if ok:
+                newarticle.store()
+                return True
         return False
 ## dialog for selection of manufacturer content data \n
 class AfpDialog_FaManufactArtikelAusw(AfpDialog_Auswahl):
@@ -253,9 +261,7 @@ class AfpDialog_FaManufactArtikelAusw(AfpDialog_Auswahl):
     ## invoke the dialog for a new entry \n
     # overwritten for "Artikel" use
     def invoke_neu_dialog(self, globals, eingabe, filter):
-        print("AfpDialog_FaManufactArtikelAusw.invoke_neu_dialog not implemented!")
-        if self.manu:
-            print("AfpDialog_FaManufactArtikelAusw.invoke_neu_dialog Artikeldialog für:", eingabe)
+        self.On_Ausw_Abbruch()
         return False
     ## return result
     # overwritten for row return
@@ -264,8 +270,8 @@ class AfpDialog_FaManufactArtikelAusw(AfpDialog_Auswahl):
             if Afp_isString(self.result):
                 if self.manu:
                     article = self.manu.get_articles(self.result)
-                    print("AfpDialog_FaManufactArtikelAusw.get_result:", article)
-                    if article: article.view()
+                    #print("AfpDialog_FaManufactArtikelAusw.get_result:", article)
+                    #if article: article.view()
                     return article
                 else:
                     print("WARNING in AfpDialog_FaManufactArtikelAusw: Manufacturer not provided for function.")
@@ -759,7 +765,7 @@ class AfpDialog_FaArticle(AfpDialog):
         AfpDialog.__init__(self,None, -1, "")
         self.hersteller = None
         self.fix_hersteller = False
-        self.readonly = ["PrsGrp_Artikel"]
+        self.set_readonly = []
         self.preset =  {}
         self.presetedit = []
         self.preseteditcolor = (245,245,220)
@@ -777,7 +783,7 @@ class AfpDialog_FaArticle(AfpDialog):
         self.label_Lager = wx.StaticText(self, -1, label="Lager:", name="LLager")
         self.text_ArtikelNr = wx.TextCtrl(self, -1, value="", style=0, name="ArtikelNr_Artikel")
         self.textmap["ArtikelNr_Artikel"] = "ArtikelNr.ARTIKEL"
-        self.text_ArtikelNr.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
+        self.text_ArtikelNr.Bind(wx.EVT_KILL_FOCUS, self.On_KillArtikel)
         self.text_Bez = wx.TextCtrl(self, -1, value="", style=0, name="Bez_Artikel")
         self.textmap["Bez_Artikel"] = "Bezeichnung.ARTIKEL"
         self.text_Bez.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
@@ -908,14 +914,14 @@ class AfpDialog_FaArticle(AfpDialog):
 
         self.button_Neu = wx.Button(self, -1, label="&Neu", name="Neu_FaArticle")
         self.Bind(wx.EVT_BUTTON, self.On_Neu, self.button_Neu)
-        self.button_Ablage = wx.Button(self, -1, label="Ab&lage", name="Ablage")
-        self.Bind(wx.EVT_BUTTON, self.On_Ablage, self.button_Ablage)
+        self.button_Löschen = wx.Button(self, -1, label="&Löschen", name="Ablage")
+        self.Bind(wx.EVT_BUTTON, self.On_Löschen, self.button_Löschen)
         self.button_sizer = wx.BoxSizer(wx.VERTICAL)
         self.button_sizer.AddSpacer(10)
         self.button_sizer.AddStretchSpacer(1)
         self.button_sizer.Add(self.button_Neu,0,wx.EXPAND)
         self.button_sizer.AddStretchSpacer(1)
-        self.button_sizer.Add(self.button_Ablage,0,wx.EXPAND)
+        self.button_sizer.Add(self.button_Löschen,0,wx.EXPAND)
         self.setWx(self.button_sizer, [1, 0, 0], [1, 0, 1]) # set Edit and Ok widgets
         self.button_sizer.AddSpacer(10)
         
@@ -931,57 +937,74 @@ class AfpDialog_FaArticle(AfpDialog):
         #self.SetAutoLayout(1)
         #self.sizer.Fit(self)
     ## set fixed manufacturer
-    def set_fix_manufacturer(self):
+    def set_fix_manufacturer(self, prsgrp=True):
         self.fix_hersteller = True
+        self.combo_Hers.Enable(False)
+        if prsgrp:
+            self.text_PrsGrp.SetEditable(False)
+            self.text_PrsGrp .SetBackgroundColour(self.readonlycolor) 
+            if not"PrsGrp_Artikel" in self.set_readonly:
+                self.set_readonly.append("PrsGrp_Artikel")
     ## update prices due to changed value
     # @param name - name of ui-object that has been changed
     def reset_prices(self, name):
         go = False
         if name == "Liste_Artikel" or name == "Rabatt_Artikel":
-            lstp = Afp_fromString(self.text_Liste.GetValue())
+            lst = self.text_Liste.GetValue()
+            lstp = Afp_floatString(lst)
+            if not ("." in lst or "," in lst):
+                self.text_Liste.SetValue(Afp_toString(lstp))
             disc = Afp_fromString(self.text_Rabatt.GetValue())
+            if not disc: disc = 0
             go = True
         if name == "Einkauf_Artikel" or name == "Hsp_Artikel" or go:
             if go:
                 ek = int(100*((100.0 - disc)/100.0)*lstp)/100.0
                 self.text_Einkauf.SetValue(Afp_toString(ek))
-                if Afp_isEps(ek - self.data.get_value("Einkaufspreis")):
+                if self.data.get_value("Einkaufspreis") and Afp_isEps(ek - self.data.get_value("Einkaufspreis")):
                     self.text_Einkauf.SetBackgroundColour(self.changecolor)
                 else:
                     self.text_Einkauf.SetBackgroundColour(self.editcolor)
             else:
                 ek = Afp_fromString(self.text_Einkauf.GetValue())
+                if not ek: ek = 0.0
             sur = Afp_fromString(self.text_Hsp.GetValue())
+            if not sur: sur = 0
             if name == "Einkauf_Artikel":
                 lstp = Afp_fromString(self.text_Liste.GetValue())
-                disc = 100 - int(100*ek/lstp)
+                disc = 0
+                if lstp:
+                    disc = 100 - int(100*ek/lstp)
                 self.text_Rabatt.SetValue(Afp_toString(disc))
                 if "Rabatt_Artikel" in self.preset and Afp_toString(disc) == self.preset["Rabatt_Artikel"]:
                     self.text_Rabatt.SetBackgroundColour(self.preseteditcolor)
-                elif disc == self.data.get_value("Rabatt"):
-                    self.text_Rabatt.SetBackgroundColour(self.editcolor)
-                else:
+                elif  self.data.get_value("Rabatt") and Afp_isEps(disc - self.data.get_value("Rabatt")):
                     self.text_Rabatt.SetBackgroundColour(self.changecolor)
+                else:
+                    self.text_Rabatt.SetBackgroundColour(self.editcolor)
             go = True
         if  name == "Preis_Artikel" or go:
             if go:
                 prs = int(100*((100.0 + sur)/100.0)*ek)/100.0
                 self.text_Preis.SetValue(Afp_toString(prs))
-                if Afp_isEps(prs - self.data.get_value("Nettopreis")):
+                if self.data.get_value("Nettopreis") and Afp_isEps(prs - self.data.get_value("Nettopreis")):
                     self.text_Preis.SetBackgroundColour(self.changecolor)
                 else:
                     self.text_Preis.SetBackgroundColour(self.editcolor)
             elif name == "Preis_Artikel":
                 ek = Afp_fromString(self.text_Einkauf.GetValue())
                 prs = Afp_fromString(self.text_Preis.GetValue())
-                sur = 100 - int(100*prs/ek)
+                if not prs: prs = 0.0
+                sur = 0
+                if ek:
+                    sur = 100 - int(100*prs/ek)
                 self.text_Hsp.SetValue(Afp_toString(sur))
                 if "Hsp_Artikel" in self.preset and Afp_toString(sur) == self.preset["Hsp_Artikel"]:
                     self.text_Hsp.SetBackgroundColour(self.preseteditcolor)
-                elif sur == self.data.get_value("Handelsspanne"):
-                    self.text_Hsp.SetBackgroundColour(self.editcolor)
-                else:
+                elif self.data.get_value("Handelsspanne") and Afp_isEps(sur - self.data.get_value("Handelsspanne")):
                     self.text_Hsp.SetBackgroundColour(self.changecolor)
+                else:
+                    self.text_Hsp.SetBackgroundColour(self.editcolor)
   ## population routine for comboboxes
     # overwritten from AfpDialog
     def Pop_combo(self):
@@ -997,25 +1020,26 @@ class AfpDialog_FaArticle(AfpDialog):
     def Pop_intristic(self):
         if not self.hersteller:
             self.hersteller = AfpManufact(self.data.get_globals(), self.data.get_value("HersNr"))
-        disc = self.text_Rabatt.GetValue()
-        sur = self.text_Hsp.GetValue()
-        #print("AfpDialog_FaArticle.Pop_intristic start:", disc, sur)
-        if not disc or not Afp_isEps(Afp_fromString(disc)):
-            prsg = self.text_PrsGrp.GetValue()
-            disc = self.hersteller.get_discount(prsg)
-            self.text_Rabatt.SetValue(Afp_toString(disc))
-            self.text_Rabatt.SetBackgroundColour(self.preseteditcolor)
-            if not "Rabatt_Artikel" in self.presetedit: self.presetedit.append("Rabatt_Artikel")
-            if not "Rabatt_Artikel" in self.preset: self.preset["Rabatt_Artikel"] = Afp_toString(disc)
-        if not sur or not Afp_isEps(Afp_fromString(sur)):
-            prsg = self.text_PrsGrp.GetValue()
-            lstp = Afp_fromString(self.text_Liste.GetValue())
-            sur = self.hersteller.get_surcharge(prsg, lstp)
-            self.text_Hsp.SetValue(Afp_toString(sur))
-            self.text_Hsp.SetBackgroundColour(self.preseteditcolor)
-            if not "Hsp_Artikel" in self.presetedit: self.presetedit.append("Hsp_Artikel")
-            if not "Hsp_Artikel" in self.preset: self.preset["Hsp_Artikel"] = Afp_toString(sur)
-        #print("AfpDialog_FaArticle.Pop_intristic end:", disc, sur, self.presetedit)
+        lstp = Afp_fromString(self.text_Liste.GetValue())
+        if lstp:
+            disc = self.text_Rabatt.GetValue()
+            sur = self.text_Hsp.GetValue()
+            #print("AfpDialog_FaArticle.Pop_intristic start:", disc, sur)
+            if not disc or not Afp_isEps(Afp_fromString(disc)):
+                prsg = self.text_PrsGrp.GetValue()
+                disc = self.hersteller.get_discount(prsg)
+                self.text_Rabatt.SetValue(Afp_toString(disc))
+                self.text_Rabatt.SetBackgroundColour(self.preseteditcolor)
+                if not "Rabatt_Artikel" in self.presetedit: self.presetedit.append("Rabatt_Artikel")
+                if not "Rabatt_Artikel" in self.preset: self.preset["Rabatt_Artikel"] = Afp_toString(disc)
+            if not sur or not Afp_isEps(Afp_fromString(sur)):
+                prsg = self.text_PrsGrp.GetValue()
+                sur = self.hersteller.get_surcharge(prsg, lstp)
+                self.text_Hsp.SetValue(Afp_toString(sur))
+                self.text_Hsp.SetBackgroundColour(self.preseteditcolor)
+                if not "Hsp_Artikel" in self.presetedit: self.presetedit.append("Hsp_Artikel")
+                if not "Hsp_Artikel" in self.preset: self.preset["Hsp_Artikel"] = Afp_toString(sur)
+            #print("AfpDialog_FaArticle.Pop_intristic end:", disc, sur, self.presetedit)
     ## dis- or enable editing of dialog widgets - overwritten from AfpDialog
     # @param ed_flag - flag to turn editing on or off
     # @param lock_data - flag if invoking of dialog needs a lock on the database
@@ -1024,7 +1048,7 @@ class AfpDialog_FaArticle(AfpDialog):
         #print("AfpDialog_FaArticle.Set_Editable:", self.presetedit)
         for entry in self.textmap:
             TextBox = self.FindWindowByName(entry)
-            if entry in self.readonly: continue
+            if entry in self.set_readonly: continue
             TextBox.SetEditable(ed_flag)
             if ed_flag:
                 if entry in self.presetedit:
@@ -1049,6 +1073,27 @@ class AfpDialog_FaArticle(AfpDialog):
 
     ## execution in case the OK button ist hit - overwritten from AfpDialog
     def execute_Ok(self):
+        print("AfpDialog_FaArticle.execute_Ok:", self.new, self.changed_text)
+        self.close_dialog = True
+        artnr = self.text_ArtikelNr.GetValue().strip()
+        bez = self.text_Bez.GetValue().strip()
+        if not (artnr and bez):
+            AfpReq_Info("Keine Artikelnummer oder keine Bezeichnung angegeben!", "Eingabe bitte nachholen!", "Artikelnummer")
+            self.close_dialog = False
+            return
+        if self.new or "ArtikelNr_Artikel" in self.changed_text:
+            if not artnr  == self.data.get_value():
+                ok, newnr = self.check_unique(artnr)
+                if not ok:
+                    ok = AfpReq_Question("Artikel mit der Nummer '" + artnr + "' ist schon vorhanden,", "soll die Artikelnummer auf '" + newnr + "' gesetzt werden?", "Eindeutige Artikelnummer", True)
+                    if ok: self.text_ArtikelNr.SetText(newnr)
+                    self.close_dialog = False
+                    return
+                # delete old entry, if article number has changed
+                if not self.new:
+                    print("AfpDialog_FaArticle.execute_Ok delete:", self.data.get_value())
+                    befehl = "DELETE FROM ARTIKEL WHERE ArtikelNr = '" + self.data.get_value() + "'"
+                    self.data.get_mysql().execute(befehl)
         self.store_data()
 
    ## read values from dialog and invoke writing into database         
@@ -1070,8 +1115,37 @@ class AfpDialog_FaArticle(AfpDialog):
     # @param data - data to be completed
     def complete_data(self, data):
         return data
+    ##check if article identifier is unique in database \n
+    # @param artnr - article identifier to be checked
+    def check_unique(self, artnr):
+        if not artnr: return None, None
+        ok = True
+        newnr = None
+        befehl = "SELECT ArtikelNr FROM ARTIKEL WHERE ArtikelNr = '" + artnr + "'"
+        rows = self.data.get_mysql().execute(befehl)[0]
+        if rows and rows[0]:
+            ok = False
+            befehl = "SELECT ArtikelNr FROM ARTIKEL WHERE ArtikelNr LIKE '" + artnr + "%'"
+            rows = self.data.get_mysql().execute(befehl)[0]
+            nr = 1
+            newnr = artnr
+            while newnr in rows:
+                newnr = artnr + "-" + Afp_toIntString(nr, 2)
+                nr += 1                
+        return ok, newnr
    # Event Handlers 
-     ## common Eventhandler TEXTBOX - when leaving the textboxes - overwritten from AfpDialog
+    ## Eventhandler TEXTBOX ARTIKEL- when leaving the textbox
+    # @param event - event which initiated this action
+    def On_KillArtikel(self,event = None):
+        artnr = self.text_ArtikelNr.GetValue().strip()
+        ken = AfpFaktura_getShortManu(self.data.get_globals(), artnr)
+        if self.hersteller.get_value("Kennung") != ken:
+            if ken: artnr = artnr[len(ken):].strip()
+            artnr =  self.hersteller.get_value("Kennung") + " " + artnr
+            self.text_ArtikelNr.SetValue(artnr)
+        if event:
+            self.On_KillFocus(event)
+    ## common Eventhandler TEXTBOX - when leaving the textboxes - overwritten from AfpDialog
     # @param event - event which initiated this action
     def On_KillFocus(self,event):
         name = event.GetEventObject().GetName()
@@ -1091,8 +1165,9 @@ class AfpDialog_FaArticle(AfpDialog):
     ##  Eventhandler killfocus of possiby presetted textboxes\n
     # @param event - event which initiated this action   
     def On_handlePricing(self,event):
-        if self.debug: print("AfpDialog_FaArticle Event handler `On_PresetEdit'")
+        if self.debug: print("AfpDialog_FaArticle Event handler `On_handlePricing'")
         name = event.GetEventObject().GetName()
+        self.Pop_intristic()
         self.reset_prices(name)
         if name in self.preset:
             for i in range(len(self.presetedit)):
@@ -1100,7 +1175,7 @@ class AfpDialog_FaArticle(AfpDialog):
                     self.presetedit.pop(i)
                     break
             #print("AfpDialog_FaArticle.On_handlePricing:", name, self.presetedit)
-        self.Pop_intristic()
+        #self.Pop_intristic()
         self.On_KillFocus(event)
     ##  Eventhandler ComboBox  select manufacurer\n
     # @param event - event which initiated this action   
@@ -1109,26 +1184,49 @@ class AfpDialog_FaArticle(AfpDialog):
         if self.fix_hersteller:
             self.Pop_combo()
         else:
-            print("AfpDialog_FaArticle.On_Hersteller not yet implemented")
+            ken = self.combo_Hers.GetValue().split()[0]
+            print("AfpDialog_FaArticle.On_Hersteller set:", ken)
+            self.hersteller = AfpManufact(self.data.get_globals(), ken, "Kennung")
+            self.On_KillArtikel()
     ##  Eventhandler BUTTON  create new article entry\n
     # @param event - event which initiated this action   
-    def On_Neu(self,event):
+    def On_Neu(self,event = None):
         if self.debug: print("AfpDialog_FaArticle Event handler `On_Neu'")
-        print("AfpDialog_FaArticle.On_Neu not yet implemented")
+        ok = True
+        if event:
+            ok = AfpReq_Question("Neuer Artikle wird erzeugt, dabei gehen", "alle eingegebenen Daten verloren!", "Neuer Artikel")
+        if ok:
+            article = AfpArtikel(self.data.get_globals(), None)
+            self.preset =  {}
+            self.presetedit = []
+            if "PrsGrp_Artikel" in self.set_readonly:
+                self.set_readonly.pop(self.set_readonly.index("PrsGrp_Artikel"))
+            self.attach_data(article, article.is_new(), True)
+        if event: event.Skip()
+
     ##  Eventhandler BUTTON  create new article entry\n
     # @param event - event which initiated this action   
-    def On_Ablage(self,event):
-        if self.debug: print("AfpDialog_FaArticle Event handler `On_Ablage'")
-        print("AfpDialog_FaArticle.On_Ablage' not yet implemented")
-
+    def On_Löschen(self,event):
+        if self.debug: print("AfpDialog_FaArticle Event handler `On_Löschen'")
+        event.Skip()
+        if self.new:
+            self.On_Neu()
+            return
+        ok = AfpReq_Question("Artikel mit der Nummer '" + self.data.get_value() + "' soll", "aus der Artikeldatenbank gelöscht werden?", "Artikel löschen?", True)
+        if ok:
+            self.Ok = False
+            self.data.delete_row(None, 0)
+            self.data.store()
+            self.EndModal(wx.ID_OK)
 ## loader routine for dialog for editing articles, returns Ok flag 
 # @param article - AfpArtikel SelectionList to be edited
 # @param fix_manu - flag if manufacturer is fix in dialog
-def AfpLoad_FaArticle(article, fix_manu = False):
+def AfpLoad_FaArticle(article, fix_manu = None):
     hersteller, idents = AfpFaktura_listManufacturer(article.get_globals(), True, article.is_debug())
     EditArticle = AfpDialog_FaArticle(hersteller, idents)
-    EditArticle.attach_data(article, True)
-    if fix_manu: EditArticle.set_fix_manufacturer()
+    EditArticle.attach_data(article, article.is_new(), True)
+    if not fix_manu is None: 
+        EditArticle.set_fix_manufacturer(fix_manu)
     res = EditArticle.ShowModal()
     if res == wx.ID_OK:
         Ok = True
@@ -1384,9 +1482,10 @@ class AfpDialog_FaManufact(AfpDialog):
             article = AfpLoad_FaArtikelAusw(self.data.get_globals(), "ArtikelNr", eingabe, "ARTIKEL", "HersNr.ARTIKEL = " + self.data.get_string_value(), ask)
             print ("AfpDialog_FaManufact.maintain_articles:", article)
             if article:
+                eingabe = article
                 ask = False
                 art = AfpArtikel(self.data.get_globals(), article, self.debug)
-                Ok = AfpLoad_FaArticle(art, True)
+                Ok = AfpLoad_FaArticle(art, False)
         return None
     # click events
     ## double click on discount list

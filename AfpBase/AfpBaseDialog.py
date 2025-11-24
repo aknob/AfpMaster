@@ -1552,9 +1552,9 @@ class AfpDialog_Auswahl(wx.Dialog):
         if Ok: self.Pop_grid()
         event.Skip() 
     ## event handler for the Cancel button    
-    def On_Ausw_Abbruch(self,event):
+    def On_Ausw_Abbruch(self,event=None):
         if self.debug: print("AfpDialog_Auswahl Event handler `On_Ausw_Abbruch'")
-        event.Skip()
+        if event: event.Skip()
         self.EndModal(wx.ID_CANCEL)
     ## event handler for the OK button
     def On_Ausw_Ok(self, event = None):

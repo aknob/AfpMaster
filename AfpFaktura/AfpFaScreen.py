@@ -752,7 +752,7 @@ class AfpFaScreen(AfpEditScreen):
     def On_Filter(self,event = None): 
         value = self.combo_Filter.GetValue()
         if self.debug: print("AfpFaScreen Event handler `On_Filter'", value)
-        print("AfpFaScreen.On_Filter value:", value, self.is_editable())
+        #print("AfpFaScreen.On_Filter value:", value, self.is_editable())
         if self.is_editable():
             kind, orig = AfpFaktura_changeKind(value, self.data.get_kind())
             self.combo_Filter.SetValue(kind)
@@ -771,7 +771,7 @@ class AfpFaScreen(AfpEditScreen):
         else:
             datei, filter = AfpFaktura_possibleKinds(value)
             reset = False
-            #print("AfpFaScreen.On_Filter:", datei, filter, self.sb_master)
+            print("AfpFaScreen.On_Filter:", datei, filter, "SB:", self.sb_master, self.sb_filter)
             if not datei: 
                 datei = self.sb_master
                 reset = True

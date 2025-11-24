@@ -384,7 +384,7 @@ class AfpManufact(AfpSelectionList):
             row = self.extract_surcharge(lstp, "ARTSUR")
         if not row:# find global surcharge for individual price resp. global surcharge
             row = self.extract_surcharge(lstp, "GlobSUR")
-        if row:
+        if row and row[-1] :
             return int(row[-1])
         else:
             return None
@@ -392,6 +392,7 @@ class AfpManufact(AfpSelectionList):
     # @param preis -  price of article to be used fpr seaqrch
     # @param tablename -  name of table, where price debendent surcharge has to be extracted
     def extract_surcharge(self, preis, tablename):
+        if not preis: preis = 0.0
         row = None
         rows = self.find_value_row(None, "PreisGrp." + tablename, True)
         print("AfpManufact.extract_surcharge rows:", tablename, rows)
