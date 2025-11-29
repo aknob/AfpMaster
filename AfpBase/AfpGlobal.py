@@ -257,7 +257,7 @@ class AfpSettings(object):
     # @param name - name of global variable
     # @param value - value to be assigned to this variable
     def set(self, name, value):
-        #print name, value
+        #if self.debug: print("AfpSettings.set:",  name, "=", value)
         if value is None:
             if name in self.settings: self.settings.pop(name)
         else:

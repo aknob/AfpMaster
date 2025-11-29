@@ -211,44 +211,37 @@ def AfpFaktura_getSelectedRows(mysql, typ, debug):
 # @param globals - global data, inclusive mysql connection
 # @param data - AfpManufact selection-list
 # @param filename - name of csv-file to be imported
+# @param paras - parameter for csv-file to be imported
+#                           paras[0] = [delimiter,string-separator]
+#                           paras[1] = {db-columnname 1: csv-columnname 1, db-cn 2: csv-cn 2, ...}
 # @param debug - if given, flag for debug-modus
-def AfpFaktura_importArtikels(globals, data, filename, debug = False):
-    deli = None
-    ken = data.get_value("Kennung")
-    delis = globals.get_value("fabricator-delimiter", "Faktura")
-    if ken in delis:
-        deli = delis[ken]
-    elif "default" in delis:
-        deli = delis["default"]
-    paras = globals.get_value("fabricator-import", "Faktura")
-    if ken in paras:
-        par = paras[ken]
-        mantable = data.get_manufact_table()
-        if mantable in globals.get_mysql().get_tables():
-            #befehl = "TRUNCATE TABLE " + mantable + ";"
-            befehl = "DELETE FROM " + mantable + "; COMMIT;"
-            if debug: print("AfpFaktura_importArtikels delete/truncate mysql table:", befehl)
-            globals.get_mysql().execute(befehl)
-        else:
-            befehl = "CREATE TABLE `" + mantable + "` (`ArtikelNr` tinytext CHARACTER SET latin1 COLLATE latin1_german2_ci NOT NULL,`Bezeichnung` tinytext CHARACTER SET latin1 COLLATE latin1_german2_ci DEFAULT NULL, `Listenpreis` float(9,2) DEFAULT NULL, `PreisGrp` char(5) CHARACTER SET latin1 COLLATE latin1_german2_ci DEFAULT NULL, `EAN` char(25) CHARACTER SET latin1 COLLATE latin1_german2_ci DEFAULT NULL, KEY `ArtikelNr` (`ArtikelNr`(50)), KEY `Bezeichnung` (`Bezeichnung`(50)), KEY `EAN` (`EAN`)) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_german2_ci;"
-            if debug: print("AfpFaktura_importArtikels create mysql table:", befehl)
-            globals.get_mysql().execute(befehl)
-            data = AfpManufact(globals, data.get_value())
-        if debug: print ("AfpFaktura_importArtikels started:", Afp_getNow().time())
-        imp = AfpImport(globals, filename, par, debug)
-        imp.direct_mysql_storing = True
-        if deli:
-            imp.set_csv_parameter(deli[0], deli[1])
-        res = imp.read_from_csv_file(data, mantable)
-        if debug: print ("AfpFaktura_importArtikels loaded:", Afp_getNow().time(), data.get_value_length(mantable))
-        if res:
-            sel = res[0].get_selection(mantable)
-            sel.new = True
-            sel.store()
-        if debug: print ("AfpFaktura_importArtikels stored:", Afp_getNow().time())
-        return True
+def AfpFaktura_importArtikels(globals, data, filename, paras, debug = False):
+    deli = paras[0]
+    par = paras[1]
+    mantable = data.get_manufact_table()
+    if mantable in globals.get_mysql().get_tables():
+        #befehl = "TRUNCATE TABLE " + mantable + ";"
+        befehl = "DELETE FROM " + mantable + "; COMMIT;"
+        if debug: print("AfpFaktura_importArtikels delete/truncate mysql table:", befehl)
+        globals.get_mysql().execute(befehl)
     else:
-        return False
+        befehl = "CREATE TABLE `" + mantable + "` (`ArtikelNr` tinytext CHARACTER SET latin1 COLLATE latin1_german2_ci NOT NULL,`Bezeichnung` tinytext CHARACTER SET latin1 COLLATE latin1_german2_ci DEFAULT NULL, `Listenpreis` float(9,2) DEFAULT NULL, `PreisGrp` char(5) CHARACTER SET latin1 COLLATE latin1_german2_ci DEFAULT NULL, `EAN` char(25) CHARACTER SET latin1 COLLATE latin1_german2_ci DEFAULT NULL, KEY `ArtikelNr` (`ArtikelNr`(50)), KEY `Bezeichnung` (`Bezeichnung`(50)), KEY `EAN` (`EAN`)) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_german2_ci;"
+        if debug: print("AfpFaktura_importArtikels create mysql table:", befehl)
+        globals.get_mysql().execute(befehl)
+        data = AfpManufact(globals, data.get_value())
+    if debug: print ("AfpFaktura_importArtikels started:", Afp_getNow().time())
+    imp = AfpImport(globals, filename, par, debug)
+    imp.direct_mysql_storing = True
+    if deli:
+        imp.set_csv_parameter(deli[0], deli[1])
+    res = imp.read_from_csv_file(data, mantable)
+    if debug: print ("AfpFaktura_importArtikels loaded:", Afp_getNow().time(), data.get_value_length(mantable))
+    if res:
+        sel = res[0].get_selection(mantable)
+        sel.new = True
+        sel.store()
+    if debug: print ("AfpFaktura_importArtikels stored:", Afp_getNow().time())
+
 ## baseclass for memo handling 
 class AfpMemo(AfpSelectionList):
     ## initialize AfpMemo class

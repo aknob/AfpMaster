@@ -213,17 +213,24 @@ class AfpDialog_FaArtikelAusw(AfpDialog_Auswahl):
     # overwritten for "Artikel" use
     def invoke_neu_dialog(self, globals, eingabe, filter):
         ken = AfpFaktura_getShortManu(globals, eingabe)
-        if ken:
+        einhers = "!" + eingabe[len(ken) + 1:]
+        hnr =  None
+        if filter and filter[:17] == "HersNr.ARTIKEL = ":
+            hnr = Afp_fromString(filter[17:].split()[0])
+            hers = AfpManufact(globals, hnr, "HersNr", self.debug)
+            ok = True
+        elif ken:
             hers = AfpManufact(globals, ken, "Kennung", self.debug)
             ok = True
-            eingabe = "!" + eingabe[len(ken) + 1:]
         else:
             hers, ok = AfpFaktura_selectManufacturer(self.globals, "aus dessen Datei ein Artikel übenommen werden soll.", self.debug) 
         print ("AfpDialog_FaArtikelAusw.invoke_neu_dialog Hers:", hers, ok, filter)
         if ok and not hers:
                 ok, hers = AfpLoad_FaManufact(self.globals, None)
         if ok and hers:
-            newarticle = AfpLoad_FaArtikelAusw(self.globals, "ArtikelNr", eingabe, hers.get_manufact_table(), None, False, hers)
+            newarticle = None
+            if hers.get_value("Import"):
+                newarticle = AfpLoad_FaArtikelAusw(self.globals, "ArtikelNr", einhers, hers.get_manufact_table(), None, False, hers)
             if newarticle:
                 ok = AfpLoad_FaArticle(newarticle, True)
                 if ok:
@@ -232,8 +239,14 @@ class AfpDialog_FaArtikelAusw(AfpDialog_Auswahl):
             else:
                 ok = False
         if not ok:
+            hflag = None
             newarticle = AfpArtikel(self.globals, None)
-            ok = AfpLoad_FaArticle(newarticle)
+            if eingabe:
+                newarticle.set_value("ArtikelNr", eingabe)
+            if hnr:
+                newarticle.set_value("HersNr", hnr)
+                hflag = False
+            ok = AfpLoad_FaArticle(newarticle, hflag)
             if ok:
                 newarticle.store()
                 return True
@@ -824,12 +837,14 @@ class AfpDialog_FaArticle(AfpDialog):
         self.Bind(wx.EVT_COMBOBOX, self.On_Hersteller, self.combo_Hers)
         self.text_PrsGrp = wx.TextCtrl(self, -1, value="", style=wx.TE_READONLY, name="PrsGrp_Artikel")
         self.textmap["PrsGrp_Artikel"] = "PreisGrp.ARTIKEL"
+        self.text_PrsGrp.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
         self.text_PrsGrp.SetBackgroundColour(self.readonlycolor)
         self.text_EAN = wx.TextCtrl(self, -1, value="", style=0, name="EAN_Artikel")
         self.textmap["EAN_Artikel"] = "EAN.ARTIKEL"
+        self.text_EAN.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
         self.text_Sonder = wx.TextCtrl(self, -1, value="", style=0, name="Sonder_Artikel")
         self.textmap["Sonder_Artikel"] = "Sonderpreis.ARTIKEL"
-        self.text_EAN.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
+        self.text_Sonder.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
         self.line2a_sizer = wx.BoxSizer(wx.VERTICAL)
         self.line2a_sizer.Add(self.label_Hers,0,wx.EXPAND)
         self.line2a_sizer.Add(self.combo_Hers,0,wx.EXPAND)
@@ -937,6 +952,7 @@ class AfpDialog_FaArticle(AfpDialog):
         #self.SetAutoLayout(1)
         #self.sizer.Fit(self)
     ## set fixed manufacturer
+    # @param prsgrp - flag, if price group should be readonly
     def set_fix_manufacturer(self, prsgrp=True):
         self.fix_hersteller = True
         self.combo_Hers.Enable(False)
@@ -1018,8 +1034,6 @@ class AfpDialog_FaArticle(AfpDialog):
    ## population routine for special values
     # overwritten from AfpDialog
     def Pop_intristic(self):
-        if not self.hersteller:
-            self.hersteller = AfpManufact(self.data.get_globals(), self.data.get_value("HersNr"))
         lstp = Afp_fromString(self.text_Liste.GetValue())
         if lstp:
             disc = self.text_Rabatt.GetValue()
@@ -1086,7 +1100,7 @@ class AfpDialog_FaArticle(AfpDialog):
                 ok, newnr = self.check_unique(artnr)
                 if not ok:
                     ok = AfpReq_Question("Artikel mit der Nummer '" + artnr + "' ist schon vorhanden,", "soll die Artikelnummer auf '" + newnr + "' gesetzt werden?", "Eindeutige Artikelnummer", True)
-                    if ok: self.text_ArtikelNr.SetText(newnr)
+                    if ok: self.text_ArtikelNr.SetValue(newnr)
                     self.close_dialog = False
                     return
                 # delete old entry, if article number has changed
@@ -1104,17 +1118,44 @@ class AfpDialog_FaArticle(AfpDialog):
             name, wert = self.Get_TextValue(entry)
             data[name] = wert
         if data and (len(data) > 2 or not self.new):
-            if self.new: data = self.complete_data(data)
+            data = self.complete_data(data)
             self.data.set_data_values(data)
             self.data.store()
             self.Ok = True
         self.changed_text = []   
         
-    ## initialise new empty data with all necessary values \n
-    # or the other way round, complete new data entries with all needed input
+    ##complete not only new empty data with all necessary values \n
     # @param data - data to be completed
     def complete_data(self, data):
+        if "Listenpreis" in data or "Rabatt" in data:
+            data["Einkaufspreis"] = self.text_Einkauf.GetValue()
+        if "Einkaufspreis" in data or "Hsp" in data:
+            data["Nettopreis"] = self.text_Preis.GetValue()
+        if self.new and self.hersteller and not "HersNr" in data:
+            data["HersNr"] = self.hersteller.get_value()
         return data
+    ## attaches data to this dialog, invokes population of widgets, overwritten from AfpDialog
+    # @param data - AfpSelectionList which holds data to be filled into dialog wodgets
+    # @param new - flag if new database entry has to be created
+    # @param editable - flag if dialogentries are editable when dialog pops up
+    def attach_data(self, data, new = False, editable = False):
+        if new:
+            self.preset =  {}
+            self.presetedit = []
+            if "PrsGrp_Artikel" in self.set_readonly:
+                self.set_readonly.pop(self.set_readonly.index("PrsGrp_Artikel"))
+            if not data.get_value("Einkaufspreis") and "Rabatt_Artikel" in self.set_readonly:
+                self.set_readonly.pop(self.set_readonly.index("Rabatt_Artikel"))
+        else:
+            if data.get_value("Einkaufspreis") and  not"Rabatt_Artikel" in self.set_readonly:
+                self.set_readonly.append("Rabatt_Artikel")
+        if data.get_value("HersNr") and not self.fix_hersteller:
+            self.hersteller = AfpManufact(data.get_globals(), data.get_value("HersNr"))
+        super(AfpDialog_FaArticle, self).attach_data(data, new, editable)
+        if new and data.get_value("ArtikelNr"):
+            self.text_ArtikelNr.SetBackgroundColour(self.changecolor)
+            self.changed = True
+ 
     ##check if article identifier is unique in database \n
     # @param artnr - article identifier to be checked
     def check_unique(self, artnr):
@@ -1122,14 +1163,17 @@ class AfpDialog_FaArticle(AfpDialog):
         ok = True
         newnr = None
         befehl = "SELECT ArtikelNr FROM ARTIKEL WHERE ArtikelNr = '" + artnr + "'"
-        rows = self.data.get_mysql().execute(befehl)[0]
+        rows = self.data.get_mysql().execute(befehl)
+        print ("AfpDialog_FaArticle.check_unique rows:", befehl, rows)
         if rows and rows[0]:
             ok = False
             befehl = "SELECT ArtikelNr FROM ARTIKEL WHERE ArtikelNr LIKE '" + artnr + "%'"
             rows = self.data.get_mysql().execute(befehl)[0]
+            print ("AfpDialog_FaArticle.check_unique rows:", befehl, rows)
             nr = 1
             newnr = artnr
             while newnr in rows:
+                print ("AfpDialog_FaArticle.check_unique while:", newnr, rows, newnr in rows)
                 newnr = artnr + "-" + Afp_toIntString(nr, 2)
                 nr += 1                
         return ok, newnr
@@ -1140,16 +1184,21 @@ class AfpDialog_FaArticle(AfpDialog):
         artnr = self.text_ArtikelNr.GetValue().strip()
         ken = AfpFaktura_getShortManu(self.data.get_globals(), artnr)
         if self.hersteller.get_value("Kennung") != ken:
-            if ken: artnr = artnr[len(ken):].strip()
-            artnr =  self.hersteller.get_value("Kennung") + " " + artnr
-            self.text_ArtikelNr.SetValue(artnr)
+            if self.fix_hersteller:
+                if ken: artnr = artnr[len(ken):].strip()
+                artnr =  self.hersteller.get_value("Kennung") + " " + artnr
+                self.text_ArtikelNr.SetValue(artnr)
+            else:
+                self.hersteller = AfpManufact(self.data.get_globals(), Ken, "Kennung")
+                self.data.set_value("HersNr", self.hersteller.get_value("HersNr"))
+                self. changed = True
+                self.Pop_combo()
         if event:
             self.On_KillFocus(event)
     ## common Eventhandler TEXTBOX - when leaving the textboxes - overwritten from AfpDialog
     # @param event - event which initiated this action
     def On_KillFocus(self,event):
         name = event.GetEventObject().GetName()
-        AfpDialog.On_KillFocus(self, event)
         TextBox = self.FindWindowByName(name)
         #print("AfpDialog_FaArticle.On_KillFocus:", name, name in self.textmap,  name in self.preset, TextBox.GetValue(), self.data.get_string_value(self.textmap[name]), TextBox.GetValue() == self.data.get_string_value(self.textmap[name]))
         if name in self.textmap:
@@ -1158,10 +1207,11 @@ class AfpDialog_FaArticle(AfpDialog):
                     TextBox.SetBackgroundColour(self.preseteditcolor)
                     return
             val = self.data.get_value(self.textmap[name])
-            if (Afp_isNumeric(val) and not Afp_isEps(Afp_fromString(TextBox.GetValue()) - val)) or (TextBox.GetValue() == Afp_toString(val)):
+            if not self.new and (Afp_isNumeric(val) and not Afp_isEps(Afp_fromString(TextBox.GetValue()) - val)) or (TextBox.GetValue() == Afp_toString(val)):
                 TextBox.SetBackgroundColour(self.editcolor)
                 return
         TextBox.SetBackgroundColour(self.changecolor)
+        AfpDialog.On_KillFocus(self, event)
     ##  Eventhandler killfocus of possiby presetted textboxes\n
     # @param event - event which initiated this action   
     def On_handlePricing(self,event):
@@ -1181,13 +1231,16 @@ class AfpDialog_FaArticle(AfpDialog):
     # @param event - event which initiated this action   
     def On_Hersteller(self,event):
         if self.debug: print("AfpDialog_FaArticle Event handler `On_Hersteller'")
-        if self.fix_hersteller:
-            self.Pop_combo()
-        else:
+        if not self.fix_hersteller:
             ken = self.combo_Hers.GetValue().split()[0]
             print("AfpDialog_FaArticle.On_Hersteller set:", ken)
             self.hersteller = AfpManufact(self.data.get_globals(), ken, "Kennung")
-            self.On_KillArtikel()
+            artnr = self.text_ArtikelNr.GetValue().strip()
+            ken = AfpFaktura_getShortManu(self.data.get_globals(), artnr)
+            if self.hersteller.get_value("Kennung") != ken:
+                if ken: artnr = artnr[len(ken):].strip()
+                artnr =  self.hersteller.get_value("Kennung") + " " + artnr
+                self.text_ArtikelNr.SetValue(artnr)
     ##  Eventhandler BUTTON  create new article entry\n
     # @param event - event which initiated this action   
     def On_Neu(self,event = None):
@@ -1197,10 +1250,6 @@ class AfpDialog_FaArticle(AfpDialog):
             ok = AfpReq_Question("Neuer Artikle wird erzeugt, dabei gehen", "alle eingegebenen Daten verloren!", "Neuer Artikel")
         if ok:
             article = AfpArtikel(self.data.get_globals(), None)
-            self.preset =  {}
-            self.presetedit = []
-            if "PrsGrp_Artikel" in self.set_readonly:
-                self.set_readonly.pop(self.set_readonly.index("PrsGrp_Artikel"))
             self.attach_data(article, article.is_new(), True)
         if event: event.Skip()
 
@@ -1378,7 +1427,11 @@ class AfpDialog_FaManufact(AfpDialog):
     def Pop_Liste_Verkauf(self):
         #print ("AfpDialog_FaManufact.Pop_Liste_Verkauf not implemented yet!")
         self.populate_list(self.liste_Verkauf, "ARTSUR")
-    
+    ## populate addresslabels
+    def Pop_Adresse(self):
+        self.label_AdName.SetLabel(self.data.get_value("Name.ADRESSE"))
+        self.label_AdVorname.SetLabel(self.data.get_value("Vorname.ADRESSE"))
+        self.label_AdOrt.SetLabel(self.data.get_value("Ort.ADRESSE"))
     ## populate lists with discount or surcharge data
     # @param lst - dialog list object to be poulated
     # @param sel - name of selection holding the data for population 
@@ -1442,7 +1495,7 @@ class AfpDialog_FaManufact(AfpDialog):
         if data:
             self.data.set_data_values(data)
             self.changed = True
-        if self.changed:
+        if self.changed or self.new:
             self.data.store()
             self.Ok = True
         self.changed = False
@@ -1462,12 +1515,51 @@ class AfpDialog_FaManufact(AfpDialog):
         else:
             filename = None
         return filename
+    ## get parameters (delimiters, columnnames) for article import
+    def get_importparas(self):
+        ken = self.data.get_value("Kennung")
+        dels = self.data.get_value("ImportDel")
+        cols = self.data.get_value("ImportCols")
+        paras = []
+        if dels:
+            paras.append(eval(dels))
+        else:
+            delis = self.data.globals.get_value("fabricator-delimiter", "Faktura")
+            if delis and ken in delis:
+                paras.append(delis[ken])
+            elif delis and "default" in delis:
+                paras.append(delis["default"])
+        if cols:
+            paras.append(eval(cols))
+        else:
+            colis = self.data.globals.get_value("fabricator-import", "Faktura")
+            if colis and ken in colis:
+                paras.append(colis[ken])
+            elif colis and "default" in colis:
+                paras.append(colis["default"])
+        deli, ok = AfpReq_Text("Bitte Begrenzungszeichen für den Artikelimport in der Form", "[\"a\",\b\"] mit 'a' als Feldbegrenzung und 'b' als Zeichenfolge-Klammerung eingeben:", str(paras[0]), "Trennzeichen")
+        if ok:
+            paras[0] = eval(deli)
+            deli, ok = AfpReq_Text("Bitte Spaltenzuordnung in der Form", "{\"db\",\csv\",...} mit 'db' als Spaltenname in der Datenbank und 'csv' als Spaltenbezeichnung der Importdatei eingeben:", str(paras[1]), "Spaltenzuordnung")
+        if ok:
+            return paras
+        else:
+            return None
     ## import manufacturer articles
     # @ param fname - name of file to be imported
     def import_articles(self, fname):
-        res = AfpFaktura_importArtikels(globals, self.data, fname, True)
-        if not res:
+        paras = self.get_importparas()
+        if not paras or len(paras) != 2 or not paras[0] or not paras[1]:
              AfpReq_Info("Keine Importdaten des Herstellers '" + self.data.get_value("Hersteller") + "' vorhanden.", "Import kann nicht durchgeführt werden!", "Warnung")
+        else:
+            dry = self.data.get_globals().get_value("dry-run")
+            if dry:
+                print ("AfpDialog_FaManufact.import_articles: - DRY-RUN -")
+            else:
+                AfpFaktura_importArtikels(self.data.get_globals(), self.data, fname, paras, True)
+                self.data.set_value("Import", Afp_toInternDateString(self.data.get_globals().today()))
+            self.data.set_value("ImportDel", str(paras[0]))
+            self.data.set_value("ImportCols", str(paras[1]))
 
     ## update manufacturer articles in main article database
     def update_articles(self):
@@ -1479,7 +1571,7 @@ class AfpDialog_FaManufact(AfpDialog):
         ask = True
         eingabe = ""
         while article:
-            article = AfpLoad_FaArtikelAusw(self.data.get_globals(), "ArtikelNr", eingabe, "ARTIKEL", "HersNr.ARTIKEL = " + self.data.get_string_value(), ask)
+            article = AfpLoad_FaArtikelAusw(self.data.get_globals(), "ArtikelNr", eingabe, "ARTIKEL", "!HersNr.ARTIKEL = " + self.data.get_string_value(), ask)
             print ("AfpDialog_FaManufact.maintain_articles:", article)
             if article:
                 eingabe = article
@@ -1515,12 +1607,19 @@ class AfpDialog_FaManufact(AfpDialog):
             liste.append(["Wert", Afp_toString(row[2])])
         else:
             liste.append(["Rabatt", Afp_toString(int(row[1]))])
-        res = AfpReq_MultiLine( text + "eingabe für den Hersteller '" + self.data.get_value("Hersteller.ARTHERS") + "'.","   Eingaben ohne Preisgruppe gelten für den gesamten Hersteller." , "Text", liste, header, 250, "")
+        hersnr = self.data.get_value("HersNr.ARTHERS")
+        herst = self.data.get_string_value("Hersteller.ARTHERS")
+        if not herst: herst =  self.text_Name.GetValue() 
+        res = AfpReq_MultiLine( text + "eingabe für den Hersteller '" + herst + "'.","   Eingaben ohne Preisgruppe gelten für den gesamten Hersteller." , "Text", liste, header, 250, "")
         print ("AfpDialog_FaManufact.On_DClick res:", res, self.changed)
         if res:
             newdata = {}
+            if hersnr: newdata["HersNr"] = hersnr
             if res[0] != row[0]:
-                newdata["PreisGrp"]  = res[0]
+                if res[0]: 
+                    newdata["PreisGrp"]  = res[0]
+                else:
+                    newdata["PreisGrp"]  = None
             if Afp_isEps(row[1] - Afp_numericString(res[1])):
                 if hsp: newdata["Handelsspanne"] = Afp_numericString(res[1])
                 else: newdata["Rabatt"] = Afp_numericString(res[1])
@@ -1545,15 +1644,17 @@ class AfpDialog_FaManufact(AfpDialog):
     ## attach address to this manzfacturer
     def On_Adresse(self, event):
         if self.debug: print ("AfpDialog_FaManufact.On_Adresse")
+        herst = self.data.get_string_value("Hersteller")
+        if not herst: herst = self.text_Name.GetValue()
         name = self.data.get_name(True)
-        if not name: name = self.data.get_value("Hersteller")
-        text = "Bitte Adresse für den Hersteller '" + self.data.get_value("Hersteller") + "' auswählen:"
+        if not name: name = herst
+        text = "Bitte Adresse für den Hersteller '" + herst + "' auswählen:"
         KNr = AfpLoad_AdAusw(self.data.get_globals(),"ADRESSE","NamSort",name, None, text)
         if KNr:
             self.data.set_value("KundenNr", KNr)
             self.data.delete_selection("ADRESSE")
             self.changed = True
-            self.Populate()
+            self.Pop_Adresse()
 
 ## loader routine for dialog for editing and maintaining manufacturers, returns Ok flag 
 # @param globals - global values including the mysql connection - this input is mandatory

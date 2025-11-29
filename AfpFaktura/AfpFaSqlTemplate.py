@@ -50,7 +50,7 @@ def AfpFaktura_getSqlTables(flavour = None):
     required["ARTDIS"] = """CREATE TABLE `ARTDIS` (
   `HersNr` smallint NOT NULL,
   `PreisGrp` char(5) CHARACTER SET latin1 COLLATE latin1_german2_ci DEFAULT NULL,
-  `LieferantNr` smallint NOT NULL,
+  `LieferantNr` smallint DEFAULT NULL,
   `Rabatt` float(3,1) NOT NULL,
   KEY `LieferantNr` (`LieferantNr`),
   KEY `HersNr` (`HersNr`)
@@ -61,10 +61,9 @@ def AfpFaktura_getSqlTables(flavour = None):
   `Hersteller` varchar(20) NOT NULL,
   `KundenNr` smallint NOT NULL,
   `Kennung` char(3) NOT NULL,
-  `Datei` varchar(45) NOT NULL,
+  `Datei` varchar(45) DEFAULT NULL,
   `Import` date DEFAULT NULL,
-  `Importdel` char(3) DEFAULT NULL,
-  `Importtxt` char(3) DEFAULT NULL,
+  `Importdel` char(12) DEFAULT NULL,
   `ImportCols` tinytext,
   PRIMARY KEY (`HersNr`),
   UNIQUE KEY `HersNr_UNIQUE` (`HersNr`)

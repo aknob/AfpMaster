@@ -1357,12 +1357,16 @@ class AfpDialog_Auswahl(wx.Dialog):
         self.set_size()
         self.adjust_grid_rows()
         if where:
+            allow_change = True
+            if where[0] == "!":
+                where = where[1:].strip()
+                allow_change = False
             while not where == self.where:
                 self.where = where
                 self.Pop_grid(True)
                 if not self.grid_is_complete(): # grid not filled comletely
                     if self.grid_is_empty():# nothing found, remove filter
-                        where = None
+                        if allow_change: where = None
                     else: # go for last entries
                         self.On_Ausw_Last()
         else:
