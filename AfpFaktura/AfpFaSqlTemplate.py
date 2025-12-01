@@ -63,7 +63,7 @@ def AfpFaktura_getSqlTables(flavour = None):
   `Kennung` char(3) NOT NULL,
   `Datei` varchar(45) DEFAULT NULL,
   `Import` date DEFAULT NULL,
-  `Importdel` char(12) DEFAULT NULL,
+  `ImportDel` char(12) DEFAULT NULL,
   `ImportCols` tinytext,
   PRIMARY KEY (`HersNr`),
   UNIQUE KEY `HersNr_UNIQUE` (`HersNr`)

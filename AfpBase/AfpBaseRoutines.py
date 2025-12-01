@@ -807,6 +807,9 @@ class AfpImport(object):
         self.parameter = parameter
         self.debug = debug
         self.modul = None
+        self.progress_bar = None
+        self.progress_steps = globals.get_value("progress-steps")
+        if not self.progress_steps: self.progress_steps = 100
         # values used for csv-import
         self.csv_delimiter = [","]
         self.csv_reverseflag = False
@@ -838,6 +841,15 @@ class AfpImport(object):
     def __del__(self):   
         if self.debug: print("AfpImport Destruktor")  
               
+    ## attach progressbar to import
+    # @bar - graphical progressbar object - scaled to self.progress_steps
+    def set_progressbar(self, bar):
+        self.progress_bar = bar
+    ## don't use intermediate database object to store data in database
+    # is used automatically for imports > 10000 lines
+    def set_direct_mysql_storing(self):
+        self.direct_mysql_storing = True
+
     ## create object from given type
     # @param type - modul of object (taken from python class definition)
     def create_object(self, type):
@@ -972,13 +984,21 @@ class AfpImport(object):
     # @param selname - if given, name of selection where data has to be filled
     def write_to_data(self, fdata, data, selname = None):
         cnt = 0
-        interval = int(len(fdata)/20)
+        lgh = len(fdata)
+        interval = int(lgh/self.progress_steps)
         if interval < 50: interval = 0
         for line in fdata:
             list = self.split_csv_line(line)
             new_data = self.read_column_data(list)
             cnt += 1
-            if interval and cnt%interval == 0: print ("AfpImport.read_from_csv_file:", cnt, Afp_getNow().time(), cols, new_data)
+            if interval and cnt%interval == 0: 
+                if self.progress_bar:
+                    step = int(cnt/interval)
+                    pro = int(step*100/self.progress_steps)
+                    msg = Afp_toString(cnt) + " Datensätze von " + Afp_toString(lgh) + " eingelesen, " + Afp_toString(pro) + "%"
+                    self.progress_bar.Update(step, msg)
+                else:
+                    print ("AfpImport.read_from_csv_file:", cnt, Afp_getNow().time(), cols, new_data)
             data.set_data_values(new_data, selname, -1)
         return data
     ## write file-data directyl into the mysql database table
@@ -992,13 +1012,21 @@ class AfpImport(object):
         for col in self.column_map:
             cols.append(col)
         cnt = 0
-        interval = int(len(fdata)/20)
+        lgh = len(fdata)
+        interval = int(lgh/self.progress_steps)
         if interval < 50: interval = 0
         for line in fdata:
             list = self.split_csv_line(line)
             new_data = self.read_column_data(list,  True)
             cnt += 1
-            if interval and cnt%interval == 0: print ("AfpImport.read_from_csv_file:", cnt, Afp_getNow().time(), cols, new_data)
+            if interval and cnt%interval == 0: 
+                if self.progress_bar:
+                    step = int(cnt/interval)
+                    pro = int(step*100/self.progress_steps)
+                    msg = Afp_toString(cnt) + " Datensätze von " + Afp_toString(lgh) + " eingelesen, " + Afp_toString(pro) + "%"
+                    self.progress_bar.Update(step, msg)
+                else:
+                    print ("AfpImport.read_from_csv_file:", cnt, Afp_getNow().time(), cols, new_data)
             #print ("AfpImport.read_from_csv_file:", cnt, Afp_getNow().time(), cols, new_data)
             #if cnt > 46510 and cnt < 46530: print ("AfpImport.read_from_csv_file:", cnt, Afp_getNow().time(), cols, new_data)
             mysql.write_insert(table, cols, [new_data])

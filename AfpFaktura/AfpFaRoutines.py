@@ -160,7 +160,7 @@ def AfpFaktura_isWage(id_string):
         return False
 ## extract manufacturer short name from article-number string
 # @param globals - global data
-# @param string - string to be tested
+# @param number - identifier string to be tested
 def AfpFaktura_getShortManu(globals, number):
     ken = number.split(" ")[0]
     mlen = globals.get_value("short-manu-max-len", "Faktura")
@@ -215,7 +215,8 @@ def AfpFaktura_getSelectedRows(mysql, typ, debug):
 #                           paras[0] = [delimiter,string-separator]
 #                           paras[1] = {db-columnname 1: csv-columnname 1, db-cn 2: csv-cn 2, ...}
 # @param debug - if given, flag for debug-modus
-def AfpFaktura_importArtikels(globals, data, filename, paras, debug = False):
+# @param progress - if given, progress bar
+def AfpFaktura_importArtikels(globals, data, filename, paras, debug = False, progress = None):
     deli = paras[0]
     par = paras[1]
     mantable = data.get_manufact_table()
@@ -231,7 +232,8 @@ def AfpFaktura_importArtikels(globals, data, filename, paras, debug = False):
         data = AfpManufact(globals, data.get_value())
     if debug: print ("AfpFaktura_importArtikels started:", Afp_getNow().time())
     imp = AfpImport(globals, filename, par, debug)
-    imp.direct_mysql_storing = True
+    if progress: imp.set_progressbar(progress)
+    imp.set_direct_mysql_storing()
     if deli:
         imp.set_csv_parameter(deli[0], deli[1])
     res = imp.read_from_csv_file(data, mantable)

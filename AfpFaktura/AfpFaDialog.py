@@ -51,6 +51,8 @@ from AfpFaktura.AfpFaRoutines import *
 def AfpFaktura_listManufacturer(globals, new = False, debug = False):
     hersteller = AfpSQLTableSelection(globals.get_mysql(), "ARTHERS", debug, "HersNr")
     hersteller.load_data("")
+    mlen = globals.get_value("short-manu-max-len", "Faktura")
+    if not mlen: mlen = 2
     if new:
         liste = ["--- Neuen Hersteller anlegen ---"]
         ident = [None]
@@ -60,7 +62,8 @@ def AfpFaktura_listManufacturer(globals, new = False, debug = False):
     rows = hersteller.get_values("Kennung,Hersteller,HersNr,KundenNr")
     for row in rows:
         adresse = AfpAdresse(globals, row[3])
-        liste.append(row[0] + "  " + row[1] + "   " + adresse.get_name(True) + " " + adresse.get_value("Ort"))
+        lg = 3*(mlen - len(row[0]))
+        liste.append(row[0].ljust(lg) + "  " + row[1] + "   " + adresse.get_name(True) + " " + adresse.get_string_value("Ort"))
         ident.append(row[2])
     return liste, ident
 ## dialog for selection of manufacurer data \n
@@ -1363,6 +1366,7 @@ class AfpDialog_FaManufact(AfpDialog):
         self.label_Datei = wx.StaticText(self, -1, label="Importdatei:", name="LDatei")
         self.text_Datei = wx.TextCtrl(self, -1, value="", style=0, name="Datei_ArtHers")
         self.textmap["Datei_ArtHers"] = "Datei.ARTHERS"
+        self.text_Datei.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
         self.label_ImpDatum = wx.StaticText(self, -1, label="Letzter Import:", name="LLImpDatum")
         self.label_Datum = wx.StaticText(self, -1, name="LDatum_ArtHers")
         self.labelmap["LDatum_ArtHers"] = "Import.ARTHERS"
@@ -1459,7 +1463,18 @@ class AfpDialog_FaManufact(AfpDialog):
         lst.Clear()
         lst.InsertItems(liste, 0)
     
-    ## retrievs manufacturere data
+    ## check if manufacturer identifer is unique
+    def check_unique(self):
+        ok = True
+        ken = self.text_Kennung.GetValue()
+        befehl = "SELECT HersNr FROM ARTHERS WHERE Kennung = '" + ken + "'"
+        rows = self.data.get_mysql().execute(befehl)
+        print ("AfpDialog_FaManufact.check_unique rows:", befehl, rows)
+        if rows and rows[0]:
+            if rows[0][0] != self.data.get_value("HersNr") or len(rows) > 1:
+                ok = False
+        return ok
+    ## retrieves manufacturer data
     def get_manu(self):
         if self.Ok:
             return self.data
@@ -1469,6 +1484,12 @@ class AfpDialog_FaManufact(AfpDialog):
         if self.new:
             if not "Kennung_ArtHers" in self.changed_text or not "Hersteller_ArtHers" in self.changed_text:
                 AfpReq_Info("Die Felder 'Kennung' und 'Hersteller' müssen ausgefüllt werden.","Bitte Eintragung nachholen!")
+                self.close_dialog = False
+                return
+        if "Kennung_ArtHers" in self.changed_text:
+            ok= self.check_unique()
+            if not ok:
+                AfpReq_Info("Die 'Kennung' des Herstellers ist nicht eindeutig!","Bitte eindeutige 'Kennung' wählen!")
                 self.close_dialog = False
                 return
         fname = None
@@ -1502,8 +1523,10 @@ class AfpDialog_FaManufact(AfpDialog):
         self.changed_text = []   
     ## get filename for article import
     def get_importfile(self):
-        fname = self.data.get_value("Datei")
-        hers = self.data.get_value("Hersteller")
+        fname = self.text_Datei.GetValue()
+        if not fname: fname = self.data.get_value("Datei")
+        hers = self.text_Name.GetValue()
+        if not hers: hers = self.data.get_value("Hersteller")
         dir = self.data.get_globals().get_value("homedir")
         filename, ok = AfpReq_FileName(dir, "Artikelimport " + hers, fname + "*.csv") 
         print ("AfpDialog_FaManufact.get_importfile:", filename, ok)
@@ -1537,11 +1560,12 @@ class AfpDialog_FaManufact(AfpDialog):
                 paras.append(colis[ken])
             elif colis and "default" in colis:
                 paras.append(colis["default"])
-        deli, ok = AfpReq_Text("Bitte Begrenzungszeichen für den Artikelimport in der Form", "[\"a\",\b\"] mit 'a' als Feldbegrenzung und 'b' als Zeichenfolge-Klammerung eingeben:", str(paras[0]), "Trennzeichen")
+        deli, ok = AfpReq_Text("Bitte Begrenzungszeichen für den Artikelimport in der Form", "['a','b'] mit 'a' als Feldbegrenzung und 'b' als Zeichenfolge-Klammerung eingeben:", str(paras[0]), "Trennzeichen")
         if ok:
             paras[0] = eval(deli)
-            deli, ok = AfpReq_Text("Bitte Spaltenzuordnung in der Form", "{\"db\",\csv\",...} mit 'db' als Spaltenname in der Datenbank und 'csv' als Spaltenbezeichnung der Importdatei eingeben:", str(paras[1]), "Spaltenzuordnung")
+            coli, ok = AfpReq_Text("Bitte Spaltenzuordnung in der Form", "{'db','csv',...} mit 'db' als Spaltenname in der Datenbank und 'csv' als Spaltenbezeichnung der Importdatei eingeben:", str(paras[1]), "Spaltenzuordnung")
         if ok:
+            paras[1] = eval(coli)
             return paras
         else:
             return None
@@ -1556,10 +1580,18 @@ class AfpDialog_FaManufact(AfpDialog):
             if dry:
                 print ("AfpDialog_FaManufact.import_articles: - DRY-RUN -")
             else:
-                AfpFaktura_importArtikels(self.data.get_globals(), self.data, fname, paras, True)
-                self.data.set_value("Import", Afp_toInternDateString(self.data.get_globals().today()))
+                max = self.data.get_globals().get_value("progress-steps")
+                if not max: max = 100
+                progress = wx.ProgressDialog("Artikelimport für Hersteller " + self.data.get_value("Hersteller") , "Daten werden aus der Datei '" + Afp_extractBase(fname) + "' eingelesen!", maximum=max, parent=self, style=wx.PD_SMOOTH|wx.PD_APP_MODAL|wx.PD_AUTO_HIDE|wx.PD_ELAPSED_TIME|wx.PD_REMAINING_TIME)
+                #progress.Update(1, "Jetzt geht's los!")
+                progress.Update(0)
+                progress.Refresh()
+                AfpFaktura_importArtikels(self.data.get_globals(), self.data, fname, paras, False, progress)
+                self.data.set_value("Import", Afp_toInternDateString(Afp_dateString(fname)))
+                progress.Destroy()
             self.data.set_value("ImportDel", str(paras[0]))
             self.data.set_value("ImportCols", str(paras[1]))
+            self.data.store()
 
     ## update manufacturer articles in main article database
     def update_articles(self):
