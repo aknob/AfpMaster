@@ -36,7 +36,7 @@ import wx.adv
 import wx.grid
 
 from AfpBase.AfpUtilities.AfpBaseUtilities import Afp_existsFile, Afp_deleteFile, Afp_copyFile, Afp_readFileNames, Afp_genHomeDir, Afp_addPath
-from AfpBase.AfpUtilities.AfpStringUtilities import Afp_addRootpath, Afp_ArraytoLine, Afp_toString, Afp_ArraytoString
+from AfpBase.AfpUtilities.AfpStringUtilities import Afp_addRootpath, Afp_ArraytoLine, Afp_toString, Afp_toIntString, Afp_ArraytoString
 
 from AfpBase.AfpDatabase.AfpSQL import AfpSQLTableSelection
 
@@ -943,3 +943,78 @@ def AfpLoad_editArchiv(data, label1, label2):
         AfpReq_Info("Archiv für aktuelle Daten nicht aktiv","oder keine Archiveinträge vorhanden!","Archiv")
     dialog.Destroy()
     return Ok  
+## Afp wrapper for wx.ProgressBar
+class AfpProgressBar(object):
+    ## initialize ProgressBar
+    # @param globals - global values including the mysql connection - this input is mandatory
+    # @param message - initial message to be displayed in ProgressBar
+    # @param header - header to be displayed on top of the ProgressBar
+    # @param flags - flags for the different display options
+    #    flags[0]          flag to display remaining time
+    #    flags[1]          flag to display elapsed time
+    #    flags[2]          flag to display estimated time
+    #    flags[3]          flag for 'Cancel' button 
+    #    flags[4]          flag for 'Skip' button 
+    # @param debug - flag for debug information
+    def  __init__(self, globals, message, header, flags = None, debug = False):
+        self.gobals = globals
+        self.debug = debug
+        self.header = header
+        self.message = message
+        self.progress = None
+        self.complete = 100
+        self.interval = 0
+        self.actuel = None
+        self.psteps = 100
+        if globals.get_value("progress-steps"):
+            self.psteps = globals.get_value("progress-steps")
+        self.styles = [wx.PD_REMAINING_TIME, wx.PD_ELAPSED_TIME, wx.PD_ESTIMATED_TIME, wx.PD_CAN_ABORT, wx.PD_CAN_SKIP]
+        if flags:
+            lgh = len(flags)
+            for i in range(5):
+                if i >= lgh or not flags[i]:
+                    self.styles[i] = None
+        #self.ini_bar()
+        if self.debug: print ("AfpProgressBar Konstruktor")
+    ## destuctor
+    def __del__(self):
+        self.destroy()
+        if self.debug: print("AfpProgressBar Destruktor") 
+
+    ## generate wx ProgressDialog object    
+    def ini_bar(self):
+        mystyle = wx.PD_SMOOTH|wx.PD_APP_MODAL|wx.PD_AUTO_HIDE
+        for s in self.styles:
+            if s: mystyle |= s
+        #self.progress = wx.ProgressDialog(self.header , self.message, maximum=self.psteps, parent=self, style=mystyle)
+        self.progress = wx.ProgressDialog(self.header , self.message, maximum=self.psteps, style=mystyle)
+        self.progress.Update(0)
+        self.actuel = 0
+        self.progress.Refresh()
+        if self.debug: print("AfpProgressBar: ProgressBar initalized")
+    ## destroy wx ProcessDialog
+    def destroy(self):
+        if self.progress:
+            self.progress.Destroy()
+            self.progress = None
+            self.actuel = None
+    ## set maximum number of items
+    # @param complete - complete number of items to be proceeded
+    # @param threshold - minimum number of items per interval to invoke progressbar
+    def set_complete(self, complete, threshold = 50000):
+        self.complete = complete
+        self.interval = int(self.complete/self.psteps)
+        if self.complete < threshold: self.interval = 0
+        if not self.progress and self.interval:
+            self.ini_bar()
+    ## do next process step
+    def plus_step(self):
+        if not self.actuel is None:
+            self.actuel += 1
+            if self.interval and self.actuel%self.interval == 0: 
+                step = int(self.actuel/self.interval)
+                pro = int(step*100/self.psteps)
+                msg = self.message + " " +  Afp_toIntString(self.actuel) + " von " + Afp_toIntString(self.complete) + ": " + Afp_toIntString(pro,2) + "%"
+                self.progress.Update(step, msg)
+       
+        
