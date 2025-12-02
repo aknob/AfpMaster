@@ -984,21 +984,13 @@ class AfpImport(object):
     # @param selname - if given, name of selection where data has to be filled
     def write_to_data(self, fdata, data, selname = None):
         cnt = 0
-        lgh = len(fdata)
-        interval = int(lgh/self.progress_steps)
-        if interval < 50: interval = 0
+        if self.progress_bar:
+            self.progress_bar.set_complete(len(fdata))
         for line in fdata:
             list = self.split_csv_line(line)
             new_data = self.read_column_data(list)
-            cnt += 1
-            if interval and cnt%interval == 0: 
-                if self.progress_bar:
-                    step = int(cnt/interval)
-                    pro = int(step*100/self.progress_steps)
-                    msg = Afp_toString(cnt) + " Datensätze von " + Afp_toString(lgh) + " eingelesen, " + Afp_toString(pro) + "%"
-                    self.progress_bar.Update(step, msg)
-                else:
-                    print ("AfpImport.read_from_csv_file:", cnt, Afp_getNow().time(), cols, new_data)
+            if self.progress_bar:
+                self.progress_bar.plus_step()
             data.set_data_values(new_data, selname, -1)
         return data
     ## write file-data directyl into the mysql database table
@@ -1011,24 +1003,13 @@ class AfpImport(object):
         cols = []
         for col in self.column_map:
             cols.append(col)
-        cnt = 0
-        lgh = len(fdata)
-        interval = int(lgh/self.progress_steps)
-        if interval < 50: interval = 0
+        if self.progress_bar:
+            self.progress_bar.set_complete(len(fdata))
         for line in fdata:
             list = self.split_csv_line(line)
             new_data = self.read_column_data(list,  True)
-            cnt += 1
-            if interval and cnt%interval == 0: 
-                if self.progress_bar:
-                    step = int(cnt/interval)
-                    pro = int(step*100/self.progress_steps)
-                    msg = Afp_toString(cnt) + " Datensätze von " + Afp_toString(lgh) + " eingelesen, " + Afp_toString(pro) + "%"
-                    self.progress_bar.Update(step, msg)
-                else:
-                    print ("AfpImport.read_from_csv_file:", cnt, Afp_getNow().time(), cols, new_data)
-            #print ("AfpImport.read_from_csv_file:", cnt, Afp_getNow().time(), cols, new_data)
-            #if cnt > 46510 and cnt < 46530: print ("AfpImport.read_from_csv_file:", cnt, Afp_getNow().time(), cols, new_data)
+            if self.progress_bar:
+                self.progress_bar.plus_step()  
             mysql.write_insert(table, cols, [new_data])
     #
     # specific methods for xml import

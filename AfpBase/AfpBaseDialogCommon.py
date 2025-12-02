@@ -8,6 +8,7 @@
 # - AfpDialog_DiAusw - common selection dialog for unlimited choices
 #
 #   History: \n
+#        01 Dez. 2025 - add AfpProgressBar - Andreas.Knoblauch@afptech.de \n
 #        21 Feb. 2023 - allow serial e-mail distribution - Andreas.Knoblauch@afptech.de \n
 #        30 Dez. 2022 - conversion to python 3 - Andreas.Knoblauch@afptech.de \n
 #        26 Feb. 2015 - split from AfpBaseDialog - Andreas.Knoblauch@afptech.de \n
@@ -959,6 +960,7 @@ class AfpProgressBar(object):
     def  __init__(self, globals, message, header, flags = None, debug = False):
         self.gobals = globals
         self.debug = debug
+        #self.debug = True
         self.header = header
         self.message = message
         self.progress = None
@@ -1001,10 +1003,12 @@ class AfpProgressBar(object):
     ## set maximum number of items
     # @param complete - complete number of items to be proceeded
     # @param threshold - minimum number of items per interval to invoke progressbar
-    def set_complete(self, complete, threshold = 50000):
+    #def set_complete(self, complete, threshold = 10000):
+    def set_complete(self, complete, threshold = 0):
         self.complete = complete
         self.interval = int(self.complete/self.psteps)
         if self.complete < threshold: self.interval = 0
+        if self.debug: print("AfpProgressBar.set_complete:", self.complete, threshold, self.interval)
         if not self.progress and self.interval:
             self.ini_bar()
     ## do next process step
@@ -1015,6 +1019,8 @@ class AfpProgressBar(object):
                 step = int(self.actuel/self.interval)
                 pro = int(step*100/self.psteps)
                 msg = self.message + " " +  Afp_toIntString(self.actuel) + " von " + Afp_toIntString(self.complete) + ": " + Afp_toIntString(pro,2) + "%"
-                self.progress.Update(step, msg)
+                if step <= self.psteps:
+                    self.progress.Update(step, msg)
+                if self.debug: print("AfpProgressBar.plus_step:", step, msg)
        
         
