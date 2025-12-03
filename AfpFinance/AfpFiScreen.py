@@ -43,7 +43,7 @@ from AfpBase.AfpDatabase.AfpSQL import AfpSQL
 from AfpBase.AfpDatabase.AfpSuperbase import AfpSuperbase
 from AfpBase.AfpBaseRoutines import Afp_archivName, Afp_startFile, Afp_startExtraProgram
 from AfpBase.AfpBaseDialog import AfpReq_Info, AfpReq_Selection, AfpReq_Question, AfpReq_Text, AfpReq_MultiLine
-from AfpBase.AfpBaseDialogCommon import AfpLoad_DiReport, AfpReq_extraProgram
+from AfpBase.AfpBaseDialogCommon import AfpLoad_DiReport, AfpReq_extraProgram, AfpProgressBar
 from AfpBase.AfpBaseScreen import AfpScreen
 from AfpBase.AfpBaseAdRoutines import AfpAdresse
 from AfpBase.AfpBaseAdDialog import AfpLoad_AdAusw, AfpLoad_DiAdEin_fromSb
@@ -765,11 +765,16 @@ class AfpFiScreen(AfpScreen):
                 tmps = self.data.get_value_rows("VERBIND","Datum,RechNr,ExternNr,Kontierung,ZahlBetrag,Bem,KundenNr,RechNr")
             else:
                 tmps = self.data.get_value_rows("BUCHUNG","Datum,Beleg,Konto,Gegenkonto,Betrag,Bem,KundenNr,BuchungsNr")
-            #print "AfpFiScreen.get_grid_rows tmps:", tmps
-            #print "AfpFiScreen.get_grid_rows data:", 
-            #self.data.view()
-            if self.search: self.search_indices = {} 
-            if tmps:			
+            if self.search: self.search_indices = {}
+            if tmps:
+                #print ("AfpFiScreen.get_grid_rows tmps:", len(tmps))
+                progress = None
+                if len(tmps) > 1000:
+                    msg = "Daten ... laden!"
+                    if "..." in self.Title:
+                        msg = self.Title
+                    progress =  AfpProgressBar(self.globals, msg, "Information", [True, True], self.debug)
+                    progress.set_complete(len(tmps), 1000)
                 for tmp in tmps:
                     if self.search: show = False
                     else: show = True
@@ -785,9 +790,9 @@ class AfpFiScreen(AfpScreen):
                             self.search_indices[len(rows)] = tmps.index(tmp)
                             show = True
                     if show: rows.append([tmp[0], tmp[1], tmp[2], tmp[3], tmp[4], tmp[5], name, tmp[7]])
-        #self.search = None
-        if self.debug: print("AfpFiScreen.get_grid_rows rows:", rows) 
-        #print ("AfpFiScreen.get_grid_rows search:", self.search, self.search_indices) 
+                    if progress: progress.plus_step()
+                if progress: progress.destroy()
+        if self.debug: print("AfpFiScreen.get_grid_rows rows:", rows)
         #print ("AfpFiScreen.get_grid_rows rows:", self.data, len(rows)) 
         return rows
 # end of class AfpFiScreen

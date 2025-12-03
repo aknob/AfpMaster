@@ -993,7 +993,7 @@ class AfpProgressBar(object):
         self.progress.Update(0)
         self.actuel = 0
         self.progress.Refresh()
-        if self.debug: print("AfpProgressBar: ProgressBar initalized")
+        if self.debug: print("AfpProgressBar.ini_bar: ProgressBar initalized")
     ## destroy wx ProcessDialog
     def destroy(self):
         if self.progress:
