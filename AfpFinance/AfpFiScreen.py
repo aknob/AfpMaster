@@ -790,7 +790,11 @@ class AfpFiScreen(AfpScreen):
                             self.search_indices[len(rows)] = tmps.index(tmp)
                             show = True
                     if show: rows.append([tmp[0], tmp[1], tmp[2], tmp[3], tmp[4], tmp[5], name, tmp[7]])
-                    if progress: progress.plus_step()
+                    if progress:
+                        if "Filter" in msg:
+                            progress.plus_step(" gefunden: " + Afp_toString(len(rows)) + " durchsucht:")
+                        else:
+                            progress.plus_step()
                 if progress: progress.destroy()
         if self.debug: print("AfpFiScreen.get_grid_rows rows:", rows)
         #print ("AfpFiScreen.get_grid_rows rows:", self.data, len(rows)) 

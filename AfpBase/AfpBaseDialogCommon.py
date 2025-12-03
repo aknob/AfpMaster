@@ -1012,13 +1012,14 @@ class AfpProgressBar(object):
         if not self.progress and self.interval:
             self.ini_bar()
     ## do next process step
-    def plus_step(self):
+    # @param info - info text to this step
+    def plus_step(self, info = ""):
         if not self.actuel is None:
             self.actuel += 1
             if self.interval and self.actuel%self.interval == 0: 
                 step = int(self.actuel/self.interval)
                 pro = int(step*100/self.psteps)
-                msg = self.message + " " +  Afp_toIntString(self.actuel) + " von " + Afp_toIntString(self.complete) + ": " + Afp_toIntString(pro,2) + "%"
+                msg = self.message + info + " " +  Afp_toIntString(self.actuel) + " von " + Afp_toIntString(self.complete) + ": " + Afp_toIntString(pro,2) + "%"
                 if step <= self.psteps:
                     self.progress.Update(step, msg)
                 if self.debug: print("AfpProgressBar.plus_step:", step, msg)

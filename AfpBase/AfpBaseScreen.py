@@ -284,8 +284,7 @@ class AfpScreen(wx.Frame):
                 for col in range(self.grid_cols[name]):
                     grid.SetReadOnly(row, col)
         elif  new_lgh < old_lgh:
-            for i in range(old_lgh-1, new_lgh-1, -1):
-                grid.DeleteRows(i)
+            grid.DeleteRows(new_lgh, old_lgh - new_lgh)
         self.grid_rows[name] = new_lgh
     ## retun percentr values of grid col width
     # @param grid - grid object, where col percents should be extracted from
