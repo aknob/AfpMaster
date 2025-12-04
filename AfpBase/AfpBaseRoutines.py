@@ -816,6 +816,7 @@ class AfpImport(object):
         self.csv_textbrackets = ["\""]
         self.csv_use_column_header = None
         self.column_map = None
+        self.column_slice = None
         self.direct_mysql_storing = None
         # values used for xml-import
         self.value_tags =  ["AfpValue"]
@@ -910,10 +911,24 @@ class AfpImport(object):
         self.column_map = {}
         #print ("AfpImport.set_column_map:", head)
         for entry in self.parameter:
-            if Afp_isString(self.parameter[entry]):
-                self.column_map[entry] = head.index(self.parameter[entry])
+            no_slice = True
+            if "[" in self.parameter[entry] and not self.globals.get_value("import-csv-allow-brackets"):
+                if not self.column_slice:
+                    self.column_slice = {}
+                spar = self.parameter[entry].split("[")
+                par = Afp_fromString(spar[0])
+                slice = "[" + spar[1].strip()
+                if slice[0] == "[" and slice[-1] == "]":
+                    self.column_slice[entry] = slice
+                    no_slice = False
+            if no_slice:
+                par = self.parameter[entry]
+            if Afp_isString(par):
+                self.column_map[entry] = head.index(par)
             else:
-                self.column_map[entry] = int(self.parameter[entry])
+                self.column_map[entry] = int(par)
+        #print("AfpImport.set_column_map:", self.column_map, self.column_slice)
+            
     ## read a csv line according to given parameters
     # @param line - line to be splitted
     def split_csv_line(self, line):
@@ -953,11 +968,24 @@ class AfpImport(object):
             data = {}
             ldata = []
             lgh = len(list)
-            for entry in self.column_map:
-                index = self.column_map[entry]
-                if index < lgh and (list[index] != "" or aslist):
-                    data[entry] = Afp_fromString(list[index])
-                    ldata.append(Afp_toString(Afp_fromString(list[index])))
+            if self.column_slice:
+                for entry in self.column_map:
+                    index = self.column_map[entry]
+                    if index < lgh and (list[index] != "" or aslist):
+                        if entry in self.column_slice:
+                            do = "list[index]" + self.column_slice[entry]
+                            cellval = eval(do)
+                        else:
+                            cellval = list[index]
+                        data[entry] = Afp_fromString(cellval)
+                        ldata.append(Afp_toString(data[entry])) 
+                #print("AfpImport.set_column_map:", data, ldata)
+            else:
+                for entry in self.column_map:
+                    index = self.column_map[entry]
+                    if index < lgh and (list[index] != "" or aslist):
+                        data[entry] = Afp_fromString(list[index])
+                        ldata.append(Afp_toString(data[entry]))
         if aslist:
             return ldata
         else:

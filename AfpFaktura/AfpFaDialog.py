@@ -216,7 +216,10 @@ class AfpDialog_FaArtikelAusw(AfpDialog_Auswahl):
     # overwritten for "Artikel" use
     def invoke_neu_dialog(self, globals, eingabe, filter):
         ken = AfpFaktura_getShortManu(globals, eingabe)
-        einhers = "!" + eingabe[len(ken) + 1:]
+        if ken:
+            einhers = "!" + eingabe[len(ken) + 1:]
+        else:
+            einhers = "!" + eingabe
         hnr =  None
         if filter and filter[:17] == "HersNr.ARTIKEL = ":
             hnr = Afp_fromString(filter[17:].split()[0])
