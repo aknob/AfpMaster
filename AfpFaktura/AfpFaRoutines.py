@@ -566,7 +566,7 @@ class AfpFaktura(AfpPaymentList):
         self.mainvalue = ""
         self.maintable = "RECHNG"
         self.content = None # shortcut to selection "Content"
-        self.standard_tax=globals.get_value("standard-tax","Faktura")
+        self.standard_tax=globals.get_value("standard-tax")
         self.totable_fields = {"Netto":"Gesamtpreis", "Gewinn":"Gewinn"}
         #self.tax_fields = {"Mwst":"Netto"}
         self.tax_fields = {}

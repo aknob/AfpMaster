@@ -953,9 +953,9 @@ class AfpImport(object):
             if i == 0 and not split[0]: split = split[1:]
             if i == lgh-1 and not split[-1]: split = split[:-1]
             for sp in split:
-                list.append(sp)
+                list.append(sp.strip())
             if i < lin:
-                list.append(inside[i])
+                list.append(inside[i].strip())
            # print ("AfpImport.split_csv_line list:", list)
         #print ("AfpImport.split_csv_line result:", list)
         return list
@@ -1000,6 +1000,8 @@ class AfpImport(object):
             self.set_column_map(fdata[0])
             fdata = fdata[1:]
         if self.csv_reverseflag: fdata.reverse()
+        if self.progress_bar:
+            self.progress_bar.set_complete(len(fdata))
         if self.direct_mysql_storing or len(fdata) > 10000:
             self.write_to_database(fdata, data, selname)
             return None
@@ -1012,8 +1014,6 @@ class AfpImport(object):
     # @param selname - if given, name of selection where data has to be filled
     def write_to_data(self, fdata, data, selname = None):
         cnt = 0
-        if self.progress_bar:
-            self.progress_bar.set_complete(len(fdata))
         for line in fdata:
             list = self.split_csv_line(line)
             new_data = self.read_column_data(list)
@@ -1031,8 +1031,6 @@ class AfpImport(object):
         cols = []
         for col in self.column_map:
             cols.append(col)
-        if self.progress_bar:
-            self.progress_bar.set_complete(len(fdata))
         for line in fdata:
             list = self.split_csv_line(line)
             new_data = self.read_column_data(list,  True)

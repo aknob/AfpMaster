@@ -1484,11 +1484,12 @@ class AfpDialog_FaManufact(AfpDialog):
         return None
     ## execution in case the OK button ist hit - overwritten from AfpDialog
     def execute_Ok(self):
-        if self.new:
-            if not "Kennung_ArtHers" in self.changed_text or not "Hersteller_ArtHers" in self.changed_text:
-                AfpReq_Info("Die Felder 'Kennung' und 'Hersteller' müssen ausgefüllt werden.","Bitte Eintragung nachholen!")
-                self.close_dialog = False
-                return
+        ken = self.text_Kennung.GetValue().strip()
+        hers = self.text_Name.GetValue().strip()
+        if not (ken and hers):
+            AfpReq_Info("Die Felder 'Kennung' und 'Hersteller' müssen ausgefüllt werden.","Bitte Eintragung nachholen!")
+            self.close_dialog = False
+            return
         if "Kennung_ArtHers" in self.changed_text:
             ok= self.check_unique()
             if not ok:
@@ -1530,7 +1531,8 @@ class AfpDialog_FaManufact(AfpDialog):
         if not fname: fname = self.data.get_value("Datei")
         hers = self.text_Name.GetValue()
         if not hers: hers = self.data.get_value("Hersteller")
-        dir = self.data.get_globals().get_value("homedir")
+        dir = self.data.get_globals().get_value("importdir", "Faktura")
+        if not dir: dir = self.data.get_globals().get_value("homedir")
         filename, ok = AfpReq_FileName(dir, "Artikelimport " + hers, fname + "*.csv") 
         print ("AfpDialog_FaManufact.get_importfile:", filename, ok)
         if ok:
@@ -1538,6 +1540,8 @@ class AfpDialog_FaManufact(AfpDialog):
             if idat:
                 self.data.set_value("Import", idat)
                 self.changed = True
+            path = Afp_extractPath(filename)
+            self.data.get_globals().set_value("importdir", path, "Faktura")
         else:
             filename = None
         return filename
@@ -1676,8 +1680,8 @@ class AfpDialog_FaManufact(AfpDialog):
     def On_Adresse(self, event):
         if self.debug: print ("AfpDialog_FaManufact.On_Adresse")
         herst = self.data.get_string_value("Hersteller")
-        if not herst: herst = self.text_Name.GetValue()
-        name = self.data.get_name(True)
+        if not herst: herst = self.text_Name.GetValue().strip()
+        name = self.data.get_name(True).strip()
         if not name: name = herst
         text = "Bitte Adresse für den Hersteller '" + herst + "' auswählen:"
         KNr = AfpLoad_AdAusw(self.data.get_globals(),"ADRESSE","NamSort",name, None, text)

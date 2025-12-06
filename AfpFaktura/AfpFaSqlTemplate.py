@@ -59,7 +59,7 @@ def AfpFaktura_getSqlTables(flavour = None):
     required["ARTHERS"] = """CREATE TABLE `ARTHERS` (
   `HersNr` smallint NOT NULL AUTO_INCREMENT,
   `Hersteller` varchar(20) NOT NULL,
-  `KundenNr` smallint NOT NULL,
+  `KundenNr` smallint DEFAULT NULL,
   `Kennung` char(3) NOT NULL,
   `Datei` varchar(45) DEFAULT NULL,
   `Import` date DEFAULT NULL,
