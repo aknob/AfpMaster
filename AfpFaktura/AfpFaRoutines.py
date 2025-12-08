@@ -87,9 +87,9 @@ def AfpFaktura_inFilterList(name, filter = None):
 # - if name is given and not found, two empty strings are returned
 # - else: the 'names' and 'tables' lists are returned
 def AfpFaktura_possibleKinds(name = None, table = None, filter = None):
-    names = ["Ausgabe" , "Waren"     , "Bestellung", "Bestell-Liste", "Kostenvoranschlag","Angebot" , "Lieferschein", "Auftrag" , "Rechnung", "Mahnung", "Einnahme"]
-    tables = ["BESTELL"  , "BESTELL" , "BESTELL"      , "BESTELL"           , "KVA"                           , "KVA"       , "KVA"                 , "KVA"         , "RECHNG"   , "RECHNG"   , "RECHNG"]
-    filters =  ["closed"   ,"obtain"    , "open"           , "neu"                   , "KVA"                            , "Angebot",  "Liefer"          , "Auftrag" , "open"       ,  "Mahnung", "closed"]
+    names = ["Ausgabe" , "Waren"     , "Bestellung", "Bestell-Liste", "Kostenvoranschlag","Angebot" , "Auftrag" , "Rechnung", "Mahnung", "Einnahme"]
+    tables = ["BESTELL"  , "BESTELL" , "BESTELL"      , "BESTELL"           , "KVA"                           , "KVA"       , "KVA"         , "RECHNG"   , "RECHNG"   , "RECHNG"]
+    filters =  ["closed"   ,"obtain"    , "open"           , "neu"                   , "KVA"                            , "Angebot","Auftrag" , "open"       ,  "Mahnung", "closed"]
     #print("AfpFaktura_possibleKinds:", name, table, filter)
     if table and not filter is None:
         for i in range(len(tables)):

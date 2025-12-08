@@ -201,7 +201,6 @@ class AfpFaScreen_EditLinePlugIn(object):
         ## complete actuel step and invoke the next process step for row editing
         def next_process_step(self):
             #print "AfpFaScreen_EditLinePlugIn.next_process_step last index:", self.process_step_index
-            #breakpoint()
             done = False
             # postprocess last step
             if self.process_step_index is None:
@@ -771,7 +770,6 @@ class AfpFaScreen(AfpEditScreen):
         else:
             datei, filter = AfpFaktura_possibleKinds(value)
             reset = False
-            print("AfpFaScreen.On_Filter:", datei, filter, "SB:", self.sb_master, self.sb_filter)
             if not datei: 
                 datei = self.sb_master
                 reset = True
@@ -782,7 +780,9 @@ class AfpFaScreen(AfpEditScreen):
                 #self.sb.set_debug()
                 self.sb.select_where("")
                 self.find_adjacent_entry(datei)
-                self.sb.select_where(where)
+                if where:
+                    self.sb.select_where(where)
+                    self.sb.select_current()
                 #print "AfpFaScreen.On_Filter where:", where
                 self.sb_master = datei
                 self.sb_filter = where
@@ -795,6 +795,7 @@ class AfpFaScreen(AfpEditScreen):
                     self.sb_filter = where
                     self.sb.select_current()
                 self.CurrentData()
+            #print("AfpFaScreen.On_Filter:", datei, filter, "SB:", self.sb_master, self.sb_filter)
             if reset:
                 self.combo_Filter.SetSelection(self.get_filter_index(self.sb_master))
         if event: event.Skip()
@@ -1238,7 +1239,6 @@ class AfpFaScreen(AfpEditScreen):
         else:
             if direct: edit_next = False
         #print("AfpFaScreen.edit_data while outside:", ident, name, text, anz, edit_next, self.debug) 
-        #breakpoint()
         # for dialog selection
         dlgres = None
         if not ident: ask = True
