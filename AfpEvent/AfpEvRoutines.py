@@ -408,8 +408,6 @@ class AfpEvClient(AfpPaymentList):
         if debug: self.debug = debug
         else: self.debug = globals.is_debug()
         self.finance_modul = None
-        self.finance = None
-        self.new = False
         self.bulk_data_set = False
         self.mainindex = "AnmeldNr"
         self.mainvalue = ""

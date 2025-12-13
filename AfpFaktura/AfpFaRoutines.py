@@ -198,6 +198,8 @@ def AfpFaktura_getSelectedRows(mysql, typ, debug):
         filter = "Zustand." + datei + " = \"open\""
     else:
         filter = "Zustand." + datei + " = \"" + filter + "\""
+        if datei == "KVA":
+            filter += " AND Typ." + datei + " IS NULL"
     select = filter + " AND KundenNr." + datei + " = KundenNr.ADRESSE"
     #print ("AfpFaktura_getSelectedRows:", typ, datei, filter, "Select:", select)
     if datei == "ADMEMO":
@@ -559,7 +561,6 @@ class AfpFaktura(AfpPaymentList):
         AfpPaymentList.__init__(self, globals, name, debug)
         if debug: self.debug = debug
         else: self.debug = globals.is_debug()
-        self.finance = None
         self.selection_table = AfpArtikel(globals, None, debug)
         self.new = False
         self.mainindex = "RechNr"
@@ -678,11 +679,11 @@ class AfpFaktura(AfpPaymentList):
         konto = 0
         if self.finance:
             if self.content_holds_wage():
-                ident = "REP"
+                ident = "RE"
             else:
                 ident = "VK"
             if self.get_value("Attribut.ADRESATT") == "PKW":
-                ident += "-KFZ"
+                ident += "-K"
             konto = self.finance.get_special_accounts(ident)
         return konto
     ## get main table of SelectionList
@@ -775,6 +776,7 @@ class AfpFaktura(AfpPaymentList):
                 self.content.set_value("Nr", 0, i)
             self.content.set_value("PosNr", i+1, i)
             #print "AfpFaktura.content_numbering Nr:", pos, "PosNr:", i+1
+        self.set_value("Pos", pos)
     ## simple formula evaluation
     # @param form - formula to be evaluated
     def evaluate_formula(self, form):
@@ -885,7 +887,7 @@ class AfpFaktura(AfpPaymentList):
         content.set_data(data)
         return faktura
     ## financial transaction will be initated if the appropriate modul is installed
-    # @param initial - flag for initial call of transaction (interal payment may be added)
+    # @param initial - flag for initial call of transaction (internal payment may be added)
     def execute_financial_transaction(self, initial):
         if self.finance:
             self.finance.add_financial_transactions(self)
@@ -1033,6 +1035,7 @@ class AfpInvoice(AfpFaktura):
     # either KvaNr or sb (superbase) has to be given for initialisation, otherwise a new, clean object is created
     def  __init__(self, globals, RechNr = None, sb = None, debug = None, complete = False):
         AfpFaktura.__init__(self, globals, debug, "Rechnung")
+        self.skonto = True
         self.initial_content = None
         self.initialize("RechNr.RECHNG", RechNr, sb)
         if complete: self.create_selections()
@@ -1144,6 +1147,7 @@ class AfpOffer(AfpFaktura):
     # either KvaNr or sb (superbase) has to be given for initialisation, otherwise a new, clean object is created
     def  __init__(self, globals, KvaNr = None, sb = None, debug = None, complete = False):
         AfpFaktura.__init__(self, globals, debug, "KVA")
+        self.skonto = True
         #  self.selects[name of selection]  [tablename,, select criteria, optional: unique fieldname]
         self.selects["Content"] = [ "KVAIN","RechNr = RechNr.Main ORDER BY PosNr"] 
         self.selects["Rechnung"] = [ "RECHNG","RechNr = TypNr.Main","RechNr"] 

@@ -869,6 +869,8 @@ class AfpPaymentList(AfpSelectionList):
     def  __init__(self, globals, listname, debug = False):
         AfpSelectionList.__init__(self, globals, listname, debug)
         self.outgoing = False
+        self.skonto = False
+        self.finance = None
         self.payer_fields= ["KundenNr"]
         self.price_fields = ["Preis"]
         self.payment_field = "Zahlung"
@@ -930,6 +932,9 @@ class AfpPaymentList(AfpSelectionList):
    ## routine to retrieve payment direction 
     def is_outgoing(self):
         return self.outgoing
+    ## return if finance modul is attached
+    def has_finance(self):
+        return not self.finance is None
     ## return address identifier of payer
     def get_payer(self):
         for entry in self.payer_fields:

@@ -137,6 +137,9 @@ class AfpZahlung(object):
         print("AfpZahlung.view():")
         for data in self.selected_list: data.view()
         if self.finance: self.finance.view() 
+    ## return if data is new
+    def has_finance(self):
+        return not self.finance is None
     ## return if finance modul is attached
     def has_finance(self):
         return not self.finance is None
@@ -292,14 +295,18 @@ class AfpZahlung(object):
     def get_data(self):
         return self.selected_list[0]
     ## return value of initial selection
-    # @param DateiFeld - name of tablecoöumn (column.table)
+    # @param DateiFeld - name of tablecolumn (column.table)
     def get_value(self,DateiFeld):
         return self.get_data().get_value(DateiFeld)
     ## return value of initial selection as a string
-    # @param DateiFeld - name of tablecoöumn (column.table)
+    # @param DateiFeld - name of tablecolumn (column.table)
     def get_string_value(self,DateiFeld):
         #print DateiFeld
         return self.get_data().get_string_value(DateiFeld)
+    ## wrapper for AfpDialog, return value as a string
+    # @param DateiFeld - name of tablecolumn (column.table)
+    def get_tagged_value(self, DateiFeld=None):
+        return self.get_string_value(DateiFeld)
     ## return the name of involved person for this payment
     def get_name(self):
         data = self.get_data()

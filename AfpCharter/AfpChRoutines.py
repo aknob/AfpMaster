@@ -133,7 +133,7 @@ def AfpChInfo_getDirSelection(dirtags):
     return selfahrt, selaban
 
 ## baseclass for charter handling         
-class AfpCharter(AfpSelectionList):
+class AfpCharter(AfpPaymentList):
     ## initialize AfpCharter class
     # @param globals - global values including the mysql connection - this input is mandatory
     # @param FahrtNr - if given and sb == None, data will be retrieved this database entry
@@ -146,8 +146,6 @@ class AfpCharter(AfpSelectionList):
         AfpSelectionList.__init__(self, globals, "Charter", debug)
         if debug: self.debug = debug
         else: self.debug = globals.is_debug()
-        self.finance = None
-        self.new = False
         self.mainindex = "FahrtNr"
         self.mainvalue = ""
         if sb:

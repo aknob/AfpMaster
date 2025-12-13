@@ -769,6 +769,7 @@ class AfpDialog(wx.Dialog):
         self.gridmap = []
         self.intristic = {}
         self.keepeditable = []
+        self.keepreadonly = []
         self.conditioned_display = {}
         self.changed_text = []
         self.readonly = False # flag if no database interaction is allowed
@@ -1027,27 +1028,32 @@ class AfpDialog(wx.Dialog):
     def Set_Editable(self, ed_flag, lock_data = None):
         if lock_data is None: lock_data = self.lock_data
         for entry in self.textmap:
+            flag =  (ed_flag or entry in self.keepeditable) and not entry in self.keepreadonly
             TextBox = self.FindWindowByName(entry)
-            TextBox.SetEditable(ed_flag)
-            if ed_flag: TextBox.SetBackgroundColour(self.editcolor)
+            TextBox.SetEditable(flag)
+            if flag: TextBox.SetBackgroundColour(self.editcolor)
             else: TextBox.SetBackgroundColour(self.readonlycolor)    
         for entry in self.vtextmap:
+            flag =  (ed_flag or entry in self.keepeditable) and not entry in self.keepreadonly
             TextBox = self.FindWindowByName(entry)
-            TextBox.SetEditable(ed_flag)
-            if ed_flag: TextBox.SetBackgroundColour(self.editcolor)
+            TextBox.SetEditable(flag)
+            if flag: TextBox.SetBackgroundColour(self.editcolor)
             else: TextBox.SetBackgroundColour(self.readonlycolor)    
         for entry in self.choicemap:
+            flag =  (ed_flag or entry in self.keepeditable) and not entry in self.keepreadonly
             Choice = self.FindWindowByName(entry)
-            Choice.Enable(ed_flag)
+            Choice.Enable(flag)
         for entry in self.combomap:
+            flag =  (ed_flag or entry in self.keepeditable) and not entry in self.keepreadonly
             Combo = self.FindWindowByName(entry)
-            Combo.Enable(ed_flag)
+            Combo.Enable(flag)
         for entry in self.checkmap:
+            flag =  (ed_flag or entry in self.keepeditable) and not entry in self.keepreadonly
             Check = self.FindWindowByName(entry)
-            Check.Enable(ed_flag)
+            Check.Enable(flag)
         for entry in self.listmap:
             list = self.FindWindowByName(entry)
-            if ed_flag or entry in self.keepeditable:
+            if (ed_flag or entry in self.keepeditable) and not entry in self.keepreadonly:
                 list.SetBackgroundColour(self.editcolor) 
                 list.Enable(True)
             else: 

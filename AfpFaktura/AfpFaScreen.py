@@ -42,7 +42,7 @@ from AfpBase.AfpBaseDialogCommon import  AfpReq_Information, Afp_editMail, AfpLo
 from AfpBase.AfpBaseScreen import AfpEditScreen
 from AfpBase.AfpBaseAdRoutines import AfpAdresse_StatusMap, AfpAdresse
 from AfpBase.AfpBaseAdDialog import AfpLoad_DiAdEin_fromKNr, AfpLoad_AdAusw, AfpAdresse_indirectAttributFromKNr
-from AfpBase.AfpBaseFiDialog import AfpLoad_DiFiZahl
+from AfpBase.AfpBaseFiDialog import AfpLoad_DiFiZahl, AfpLoad_SimpleInvoice
 
 from AfpFaktura.AfpFaRoutines import AfpFaktura_FilterList, AfpArtikel, AfpInvoice, AfpOffer, AfpOrder, AfpFaktura_inFilterList, AfpFaktura_changeKind, AfpFaktura_possibleKinds, AfpFaktura_colonFloat, AfpFaktura_colonInt
 from AfpFaktura.AfpFaDialog import AfpLoad_FaAusw, AfpLoad_FaCustomSelect, AfpLoad_FaLine, AfpLoad_FaArtikelAusw, AfpReq_FaSelectedRow, AfpFaktura_selectManufacturer, AfpLoad_FaManufact
@@ -556,7 +556,7 @@ class AfpFaScreen(AfpEditScreen):
         self.text_Netto = wx.TextCtrl(panel, -1,value="", pos=(599,475), size=(77,18), style=wx.TE_READONLY, name="Netto")
         self.textmap["Netto"] = "Netto.Main"  
         self.text_ZahlBetrag = wx.TextCtrl(panel, -1,value="", pos=(599,495), size=(77,18), style=wx.TE_READONLY,  name="ZahlBetrag")
-        self.text_ZahlBetrag.Bind(wx.EVT_SET_FOCUS, self.On_ZahlBetrag)
+        #self.text_ZahlBetrag.Bind(wx.EVT_SET_FOCUS, self.On_ZahlBetrag)
         self.textmap["ZahlBetrag"] = "ZahlBetrag.Main"  
 
         #ListBox - Archiv
@@ -752,10 +752,11 @@ class AfpFaScreen(AfpEditScreen):
         value = self.combo_Filter.GetValue()
         if self.debug: print("AfpFaScreen Event handler `On_Filter'", value)
         #print("AfpFaScreen.On_Filter value:", value, self.is_editable())
+        #breakpoint()
         if self.is_editable():
             kind, orig = AfpFaktura_changeKind(value, self.data.get_kind())
             self.combo_Filter.SetValue(kind)
-            print("AfpFaScreen.On_Filter filter", kind, orig)
+            #print("AfpFaScreen.On_Filter filter", kind, orig)
             if orig:
                 self.text_Datum.SetValue(self.data.get_string_value("Datum"))
                 self.text_RechNr.SetValue(self.data.get_string_value("RechNr"))
@@ -776,6 +777,8 @@ class AfpFaScreen(AfpEditScreen):
             where = ""
             if filter:
                 where = "Zustand = \"" +  filter + "\""
+            if datei == "KVA":
+                where += " AND Typ IS NULL"
             if datei != self.sb_master:
                 #self.sb.set_debug()
                 self.sb.select_where("")
@@ -792,8 +795,8 @@ class AfpFaScreen(AfpEditScreen):
             else:
                 if self.sb_filter != where: 
                     self.sb.select_where(where)
-                    self.sb_filter = where
                     self.sb.select_current()
+                    self.sb_filter = where
                 self.CurrentData()
             #print("AfpFaScreen.On_Filter:", datei, filter, "SB:", self.sb_master, self.sb_filter)
             if reset:
@@ -1129,8 +1132,11 @@ class AfpFaScreen(AfpEditScreen):
                 #print "AfpFaScreen.find_adjacent_entry next:", self.sb.get_value("RechNr")
             # third look for other entries of same client
             if self.sb.get_value("TypNr") != RNr or self.sb.get_value("Typ") != self.sb_master:
-                self.sb.CurrentIndexName("KundenNr")
+                self.sb.CurrentIndexName("KundenNr", table)
                 self.sb.select_key(KNr)
+            RNr = self.sb.get_value("RechNr")
+            self.sb.CurrentIndexName("RechNr", table)
+            self.sb.select_key(RNr)
     ## direct selection of record via tablename and identifier
     # @param data -  SelectionList to be current on screen
     def set_direct_data(self, data):
@@ -1307,11 +1313,10 @@ class AfpFaScreen(AfpEditScreen):
     def check_data(self):
         value = self.combo_Filter.GetValue()
         datei, filter = AfpFaktura_possibleKinds(value)
-        filtertext = "Zustand = \"" + filter + "\""
         Ok = self.data.has_changed()
         text = ""
-        #print ("AfpFaScreen,check_data:", self.sb_master, datei, self.sb_filter, filtertext)
-        if datei != self.sb_master or filtertext != self.sb_filter:
+        #print ("AfpFaScreen,check_data:", datei, filter, "SB:", self.sb_master, self.sb_filter)
+        if datei != self.sb_master or not filter in self.sb_filter:
             orig = self.data.get_kind()
             text = "\"" + orig + "\" wird in \""  + value + "\" umgewandelt!"
             Ok = True
@@ -1323,30 +1328,42 @@ class AfpFaScreen(AfpEditScreen):
             if text:
                 #Ok = AfpReq_Question(text, "Sollen die Daten so gespeichert werden?", "Daten speichern?", False)
                 Ok = AfpReq_Question(text, "Sollen die Daten so gespeichert werden?", "Daten speichern?")
+        #print ("AfpFaScreen.check_data Rechnung:", datei, self.data.get_listname())
+        if not Ok:
+            self.load_invoice()
         return Ok
    ## store data - overwritten from AfpEditScreen
     def store_data(self):
         data = None
         value = self.combo_Filter.GetValue()
         datei, filter = AfpFaktura_possibleKinds(value)
-        filtertext = "Zustand = \"" + filter + "\""
         if datei != self.sb_master:
             # conversion necessary
             if datei == "RECHNG"and not self.data.get_value("TypNr"): 
                 data = self.data
             self.data = self.data.get_converted_faktura(datei, filter)
-        elif filtertext != self.sb_filter:
+        elif not filter in self.sb_filter:
             # kind changed
             self.data.set_value("Zustand", filter)
         if self.data.has_changed():
             self.data.store()
             if data:
-                data.set_value("Zustand", "Rechnung")
+                #data.set_value("Zustand", "Rechnung")
                 data.set_value("Typ", datei)
                 data.set_value("TypNr", self.data.get_value())
                 data.store()
+        print ("AfpFaScreen.store_data Rechnung:", datei, self.data.get_listname())
+        self.load_invoice()
                 
-    
+    ## load simple invoice dialog
+    def load_invoice(self):
+        Ok = False
+        datei = self.data.get_maintable()
+        if datei == "RECHNG" or datei == "KVA":
+            Ok = AfpLoad_SimpleInvoice(self.data)
+            if Ok: self.Reload()
+        return Ok
+
     ## expand data to complete row
     # @param value - identifier in 'Artikel' database table to be looked for
     def expand_to_row(self, value):

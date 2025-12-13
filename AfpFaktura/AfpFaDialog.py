@@ -524,11 +524,11 @@ class AfpDialog_FaCustomSelect(AfpDialog):
             name = data.get_name()
             if self.datei == "ADMEMO":
                 field = "Memo"
-                text = data.get_value(field)
+                text = data.get_string_value(field)
                 mtext,ok = AfpReq_Text("Bitte den Memotext für", name + " eigeben!", text, "Memoeingabe")
             else:
                 field = "Bem"
-                text = data.get_value(field)
+                text = data.get_string_value(field)
                 if self.datei == "KVA":
                     vorgang = data.get_value("Zustand")
                     if vorgang == "Angebot": vorgang = "das " +  vorgang
