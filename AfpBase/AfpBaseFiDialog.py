@@ -1018,30 +1018,34 @@ class AfpDialog_SimpleInvoice(AfpDialog):
     #def __init__(self, obligation = False, discount=False, finance= True):
     def __init__(self, data):
         self.oblig = data.is_outgoing()
-        self.finance = data.has_finance()
-        self.discount = False
-        self.skonto = self.oblig
-        self.kredeb = False
-        self.disablenew = False
-        self.disablezahl = False
+        self.ui_finance = data.has_finance()
+        self.ui_discount = False
+        self.ui_skonto = self.oblig
+        self.ui_kredeb = False
+        self.ui_disablenew = False
+        self.ui_disablezahl = False
         if self.oblig:
             title = "Eingangsrechnung"
+            self.typ_kredeb = "Kreditor"
         else:
             title = "Rechnung"
+            self.typ_kredeb = "Debitor"
         typ = str(type(data))
         if "AfpOffer" in typ or "AfpInvoice" in typ:
-            self.discount = True
-            self.skonto = True
-            self.kredeb = True
-            self.disablenew = True
+            self.ui_discount = True
+            self.ui_disablenew = True
             if "AfpOffer" in typ:
-                self.disablezahl = True
+                self.ui_disablezahl = True
+            else:
+                self.ui_skonto = True
+                self.ui_kredeb = True
             title = "Zahlungsmodalitäten"
         #print("AfpDialog_SimpleInvoice.init disable:", self.discount, self.skonto, self.kredeb, self.disablenew, self.disablezahl)
         AfpDialog.__init__(self,None, -1, "")
         self.checked_box = []
         self.data_changed = False
         self.attach_data(data, data.is_new())
+        self.kredeb = data.get_value(self.typ_kredeb)
 
         self.SetSize((378,400))
         self.SetTitle(title)
@@ -1053,7 +1057,7 @@ class AfpDialog_SimpleInvoice(AfpDialog):
         self.label_RechNr = wx.StaticText(self, -1, name="RechNrSI", style=wx.ALIGN_RIGHT)
         self.labelmap["RechNrSI"] = "RechNr"
         self.line1_sizer =  wx.BoxSizer(wx.HORIZONTAL)
-        self.line1_sizer.AddStretchSpacer(1)           check_Dauer 
+        self.line1_sizer.AddStretchSpacer(1)
         self.line1_sizer.Add(self.label_RechNr,1,wx.EXPAND)
         self.line1_sizer.AddStretchSpacer(1)  
         
@@ -1086,7 +1090,7 @@ class AfpDialog_SimpleInvoice(AfpDialog):
             self.line3_sizer.AddSpacer(5)        
             self.line3_sizer.Add(self.text_Netto,1,wx.EXPAND)
             self.line3_sizer.AddSpacer(5)
-            if self.discount:
+            if self.ui_discount:
                 self.label_TSumme = wx.StaticText(self, -1, label="Summe:", style=wx.ALIGN_RIGHT)
                 self.text_Summe = wx.TextCtrl(self, -1,  name="SummeSI")
                 self.vtextmap["SummeSI"] = "Summe"
@@ -1141,20 +1145,16 @@ class AfpDialog_SimpleInvoice(AfpDialog):
         self.line6_sizer.Add(self.text_Ziel,1,wx.EXPAND)
         self.line6_sizer.AddSpacer(5)        
 
-        if self.finance:
-            if self.kredeb:
-                if self.oblig:
-                    label = "Kreditor"
-                else:
-                    label = "Debitor"
-                self.label_TKred= wx.StaticText(self, -1, label=label + ":", style=wx.ALIGN_RIGHT)
-                self.text_Kred = wx.TextCtrl(self, -1,  name="KreDeb")
-                self.textmap["KreDeb"] = label
-                self.text_Kred.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
+        if self.ui_finance:
+            if self.ui_kredeb:
+                self.label_TKred= wx.StaticText(self, -1, label=self.typ_kredeb + ":", style=wx.ALIGN_RIGHT)
+                self.text_Kredeb = wx.TextCtrl(self, -1,  name="KreDeb")
+                self.textmap["KreDeb"] = self.typ_kredeb
+                self.text_Kredeb.Bind(wx.EVT_KILL_FOCUS, self.On_Kredeb)
                 self.line7_sizer =  wx.BoxSizer(wx.HORIZONTAL)
                 self.line7_sizer.Add(self.label_TKred,1,wx.EXPAND)
                 self.line7_sizer.AddSpacer(5)
-                self.line7_sizer.Add(self.text_Kred,1,wx.EXPAND)
+                self.line7_sizer.Add(self.text_Kredeb,1,wx.EXPAND)
                 self.line7_sizer.AddSpacer(5)
             self.label_TKonto= wx.StaticText(self, -1, label="Kontierung:", style=wx.ALIGN_RIGHT)
             self.text_Konto = wx.TextCtrl(self, -1,  name="KontierungSI")
@@ -1174,11 +1174,10 @@ class AfpDialog_SimpleInvoice(AfpDialog):
         self.line9_sizer.Add(self.text_Bem,1,wx.EXPAND)
         self.line9_sizer.AddSpacer(5)           
         
-        if self.skonto:
+        if self.ui_skonto:
             self.label_TSkonto= wx.StaticText(self, -1, label="Skonto Prozent:", style=wx.ALIGN_RIGHT)
             self.text_SkPro = wx.TextCtrl(self, -1,  name="SkProSI")
             self.textmap["SkProSI"] = "SkPro._tmp"
-            #self.text_SkPro.Bind(wx.EVT_SET_FOCUS, self.In_SkPro)
             self.text_SkPro.Bind(wx.EVT_KILL_FOCUS, self.On_Skonto)
             self.text_Skonto = wx.TextCtrl(self, -1,  name="SkontoSI")
             self.textmap["SkontoSI"] = "Skonto"
@@ -1213,7 +1212,7 @@ class AfpDialog_SimpleInvoice(AfpDialog):
         else:
             self.panel_sizer.Add(self.line4_sizer,0,wx.EXPAND)
             self.panel_sizer.AddSpacer(5)
-            if self.discount:
+            if self.ui_discount:
                 self.panel_sizer.Add(self.line3a_sizer,0,wx.EXPAND)
                 self.panel_sizer.AddSpacer(5)
                 self.panel_sizer.Add(self.line3b_sizer,0,wx.EXPAND)
@@ -1224,13 +1223,13 @@ class AfpDialog_SimpleInvoice(AfpDialog):
         self.panel_sizer.AddSpacer(5)    
         self.panel_sizer.Add(self.line6_sizer,0,wx.EXPAND)
         self.panel_sizer.AddSpacer(5)
-        if self.finance:
-            if self.kredeb:
+        if self.ui_finance:
+            if self.ui_kredeb:
                 self.panel_sizer.Add(self.line7_sizer,0,wx.EXPAND)
                 self.panel_sizer.AddSpacer(5)
             self.panel_sizer.Add(self.line8_sizer,0,wx.EXPAND)
             self.panel_sizer.AddSpacer(5)
-        if self.skonto:
+        if self.ui_skonto:
             self.panel_sizer.Add(self.line9_sizer,1,wx.EXPAND)
             self.panel_sizer.AddSpacer(5)
             self.panel_sizer.Add(self.line10_sizer,0,wx.EXPAND)
@@ -1247,7 +1246,7 @@ class AfpDialog_SimpleInvoice(AfpDialog):
         self.labelmap["ZustandSI"] = "Zustand"
         self.button_Zahl = wx.Button(self, -1, label="&Zahlung", name="Zahl")
         self.Bind(wx.EVT_BUTTON, self.On_Zahlung, self.button_Zahl)
-        if self.disablezahl: self.button_Zahl.Enable(False)
+        if self.ui_disablezahl: self.button_Zahl.Enable(False)
         self.button_Neu = wx.Button(self, -1, label="&Neu", name="Neu")
         self.Bind(wx.EVT_BUTTON, self.On_Neu, self.button_Neu)
         self.button_Storno = wx.Button(self, -1, label="&Stornierung", name="Storno")
@@ -1261,7 +1260,7 @@ class AfpDialog_SimpleInvoice(AfpDialog):
             self.button_Orig.SetLabel("&Vertrag")
             self.check_Voraus = wx.CheckBox(self, -1, label="Voraus", name="Voraus")
             self.Bind(wx.EVT_CHECKBOX, self.On_Check, self.check_Voraus)
-        if self.disablenew: 
+        if self.ui_disablenew: 
             self.button_Neu.Enable(False)
             self.button_Orig.Enable(False)
             self.check_Dauer.Enable(False)
@@ -1524,6 +1523,7 @@ class AfpDialog_SimpleInvoice(AfpDialog):
         return data
         
     # Event Handlers 
+    ## check and complete date
     def On_Datum(self,event):
         if self.debug: print("Event handler `AfpDialog_SimpleInvoice.On_Datum'")
         object = event.GetEventObject()
@@ -1533,35 +1533,26 @@ class AfpDialog_SimpleInvoice(AfpDialog):
         if not name in self.changed_text:
             self.changed_text.append(name)
         event.Skip()
-        
-    def In_SkPro(self,event):
-        if self.debug: print("Event handler`AfpDialog_SimpleInvoice.In_SkPro'")
-        valstring = self.text_SkPro.GetValue().strip()
-        if not valstring:
-            skonto = Afp_fromString(self.text_Skonto.GetValue())
-            if skonto:
-                self.set_payment_change(self.text_Skonto) 
+    ## event handler for changing of debitor account
+    def On_Kredeb(self,event):
+        if self.debug: print("Event handler AfpDialog_SimpleInvoice.On_Kredeb'")
+        kredeb = Afp_fromString(self.text_Kredeb.GetValue())
+        indi = self.data.get_value("KtNr." + self.typ_kredeb)
+        #print("AfpDialog_SimpleInvoice.On_Kredeb:", kredeb, self.kredeb, indi, Afp_toQuotedString(self.data.get_string_value("KundenNr")))
+        if kredeb and self.kredeb and kredeb != self.kredeb:
+            if indi:
+                text = self.data.get_name() + " ist schon das individuelle " + self.typ_kredeb + "konto '" + Afp_toString(indi) + "' zugeordnet!"
+                text2 = "Die Kontierung wird auf diesen Wert zurückgesetzt!"
+                AfpReq_Info(text, text2, "Info")
+                self.text_Kredeb.SetValue(Afp_toString(indi))
             else:
-                percent = self.data.get_globals().get_value("default-cash-discount","Finance")
-                if not percent:
-                    percent = 2
-                valstring = Afp_toString(percent) + "%"
-                self.text_SkPro.SetValue(valstring)
-        event.Skip()
-        
-    def On_SkPro(self,event):   
-        if self.debug: print("Event handler AfpDialog_SimpleInvoice.On_SkPro'")
-        object = event.GetEventObject()
-        valstring = object.GetValue().strip()
-        if valstring[-1] == "%":
-            valstring = valstring[:-1].strip()
-        val = Afp_fromString(valstring)
-        betrag = Afp_fromString(self.text_Betrag.GetValue())
-        skonto  = int(val*betrag)/100.0
-        print("AfpDialog_SimpleInvoice.On_SkPro:", val, "% von ", betrag, "ist",  skonto, "bleiben zu zahlen", betrag - skonto)
-        self.text_Skonto.SetValue(Afp_toString(skonto))
-        self.text_ZahlBet.SetValue(Afp_toString(betrag - skonto))
-        event.Skip()
+                text = "Soll das Konto '" + Afp_toString(kredeb) + "' fest als " + self.typ_kredeb + "konto" 
+                text2 = self.data.get_name() + " zugeordnet werden?" 
+                ok = AfpReq_Question(text, text2, self.typ_kredeb)
+                if ok:
+                    data = {"KtName": self.data.get_string_value("KundenNr"), "KtNr": kredeb, "Bezeichnung": self.data.get_name(True), "KtStand": 0, "Typ": self.typ_kredeb}
+                    self.data.set_data_values(data, self.typ_kredeb)
+        self.On_KillFocus(event)
 
     ## event handler for payment changes
     def On_Skonto(self,event):

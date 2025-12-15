@@ -247,6 +247,10 @@ class AfpSelectionList(object):
                             continue
                         sels = clause.split(splitter)
                         feld = sels[1].strip()
+                        quot = False
+                        if feld[0] == "'" and feld[-1] == "'":
+                            feld = feld[1:-1]
+                            quot = True
                         if "." in feld and not Afp_isNumeric(Afp_fromString(feld)) and not (feld[0] == "\"" and feld[-1] == "\""): 
                             value = self.get_string_value(feld, True)
                             if value == "":
@@ -254,6 +258,7 @@ class AfpSelectionList(object):
                                 split = feld.split(".")
                                 if split[0] == self.mainindex and split[1] == self.mainselection:
                                     return None, None
+                            if quot: value = "'" + value + "'"
                         else: 
                             value = feld
                         if value or value == "":

@@ -672,19 +672,18 @@ class AfpFaktura(AfpPaymentList):
     ## complete datavalues needed for storing
     def complete_data(self):
         #print("AfpFaktura.complete_data")
-        Konto = self.get_account_number()
-        self.set_value("Kontierung",Konto)
+        if not self.get_value("Kontierung"):
+            Konto = self.get_account_number()
+            self.set_value("Kontierung",Konto)
     ## get accountnumber for financial accounting
     def get_account_number(self):
-        konto = 0
-        if self.finance:
-            if self.content_holds_wage():
-                ident = "RE"
-            else:
-                ident = "VK"
-            if self.get_value("Attribut.ADRESATT") == "PKW":
-                ident += "-K"
-            konto = self.finance.get_special_accounts(ident)
+        if self.content_holds_wage():
+            ident = "RE"
+        else:
+            ident = "VK"
+        if self.get_value("Attribut.ADRESATT") == "PKW":
+            ident += "-K"
+        konto =Afp_getSpecialAccount(self.mysql, ident)
         return konto
     ## get main table of SelectionList
     def get_maintable(self):
@@ -871,12 +870,13 @@ class AfpFaktura(AfpPaymentList):
         KNr = self.get_value("KundenNr")
         data = {"KundenNr": KNr, "AttNr": self.get_value("AttNr"), "Datum": self.globals.today(), "Zustand": filter}
         data["Pos"] = self.get_value("Pos")
-        data["Ust"] = self.get_value("Ust")
-        data["Kontierung"] = self.get_value("Kontierung")
-        data["Debitor"] = Afp_getIndividualAccount(self.get_mysql(), KNr)
+        data["Summe"] = self.get_value("Summe")
+        data["Rabatt"] = self.get_value("Rabatt")
         data["Netto"] = self.get_value("Netto")
         data["Betrag"] = self.get_value("Betrag")
         data["Gewinn"] = self.get_value("Gewinn")
+        data["Kontierung"] = self.get_value("Kontierung")
+        data["Debitor"] = Afp_getIndividualAccount(self.get_mysql(), KNr)
         main.set_data_values(data)
         # copy content
         content = faktura.get_selection("Content")
@@ -1037,6 +1037,7 @@ class AfpInvoice(AfpFaktura):
         AfpFaktura.__init__(self, globals, debug, "Rechnung")
         self.skonto = True
         self.initial_content = None
+        self.selects["Debitor"] = [ "KTNR","KtName = 'KundenNr.Main' AND Typ = \"Debitor\""] 
         self.initialize("RechNr.RECHNG", RechNr, sb)
         if complete: self.create_selections()
         if self.get_content_length():
@@ -1045,14 +1046,23 @@ class AfpInvoice(AfpFaktura):
     ## destuctor
     def __del__(self):    
         if self.debug: print("AfpInvoice Destruktor")
+    ## inizialise new data (overwritten from AfpFaktura)
+    # @param stype - subtyp to be created
+    # @param KNr - address identifier 
+    # @param keep - if given, list of selections to be kept
+    def set_new(self, stype, KNr = None, keep = []):
+        AfpFaktura.set_new(self, stype, KNr, keep)
+        if KNr:
+            self.set_value("Debitor", self.get_indi_account(KNr))
     ## complete datavalues needed for storing
     def complete_data(self):
         #print("AfpInvoice.complete_data")
         AfpFaktura.complete_data(self) 
         KNr = self.get_value("KundenNr")
-        if KNr: 
-            Konto = self.get_indi_account(KNr)
-            self.set_value("Debitor",Konto)
+        if KNr:
+            if not self.get_value("Debitor"):
+                Konto = self.get_indi_account(KNr)
+                self.set_value("Debitor",Konto)
             if  self.get_value("Zahlung") and self.get_value("ZahlBetrag") and self.get_value("Zahlung") >= self.get_value("ZahlBetrag"):
                 self.set_value("Zustand","closed")
             if not self.get_value("Zustand"):
@@ -1086,10 +1096,9 @@ class AfpInvoice(AfpFaktura):
         self.selection_table.add_amount(amount)
         self.selection_table.store_stack()
    ## get individual accountnumber for financial accounting
+   # @param KNr - address identifier
     def get_indi_account(self, KNr):
-        konto = 0
-        if self.finance:
-             konto = self.finance.get_individual_account(KNr)
+        konto = Afp_getIndividualAccount(self.mysql, KNr)
         return konto
     ## financial transaction will be canceled if the appropriate modul is installed
     def cancel_financial_transaction(self):
@@ -1103,9 +1112,11 @@ class AfpInvoice(AfpFaktura):
     ## special storage, keep track stock
     # - overwritten from AfpFaktura
     def store(self):
+        print("AfpInvoice.store self:")
+        self.view()
+        #breakpoint()
         AfpFaktura.store(self)
         # book from/into stock due to changes
-        #print("AfpInvoice.store book")   
         if self.content_has_changed(True):
             self.book_content()
     ## set all necessary values to keep track of the payments \n
@@ -1181,12 +1192,27 @@ class AfpOrder(AfpFaktura):
         #  self.selects[name of selection]  [tablename,, select criteria, optional: unique fieldname]
         self.selects["Content"] = [ "BESTIN","RechNr = RechNr.Main ORDER BY PosNr"] 
         self.selects["Rechnung"] = [ "VERBIND","RechNr = RechNr.Main","RechNr"] 
+        self.selects["Kreditor"] = [ "KTNR","KtName = 'KundenNr.Main' AND Typ = \"Kreditor\""]
         self.initialize("RechNr.BESTELL", BestNr, sb)
         if complete: self.create_selections()
         if self.debug: print("AfpOrder Konstruktor, BestNr:", self.mainvalue)
     ## destuctor
     def __del__(self):    
         if self.debug: print("AfpOrder Destruktor")
+   ## inizialise new data (overwritten from AfpFaktura)
+    # @param stype - subtyp to be created
+    # @param KNr - address identifier
+    # @param keep - if given, list of selections to be kept
+    def set_new(self, stype, KNr = None, keep = []):
+        AfpFaktura.set_new(self, stype, KNr, keep)
+        if KNr:
+            self.set_value("Kreditor", self.get_indi_account(KNr))
+   ## get individual accountnumber for financial accounting
+   # @param KNr - address identifier
+    def get_indi_account(self, KNr):
+        konto = Afp_getIndividualAccount(self.mysql, KNr,"Kreditor")
+        return konto
+
     ## one line to hold all relevant values of this order, to be displayed 
     def line(self):
         zeile =  self.get_string_value("RechNr") + " Bestellung " + self.get_string_value("Zustand").rjust(8) + " vom "  + self.get_string_value("Datum") + " " +  self.get_string_value("Betrag") + " " + self.get_string_value("ZahlBetrag") + " " + self.get_string_value("Zahlung")  
