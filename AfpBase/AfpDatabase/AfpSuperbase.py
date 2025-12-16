@@ -15,7 +15,8 @@
 # - AfpSuperbase
 #
 #   History: \n
-#        26 Jum. 2025 - keep limit od database call constant for inner offset movement in 'select_plus_step' - Andreas.Knoblauch@afptech.de \n
+#        16 Dez. 2025 - add debug possibillities - Andreas.Knoblauch@afptech.de \n
+#        26 Jun. 2025 - keep limit of database call constant for inner offset movement in 'select_plus_step' - Andreas.Knoblauch@afptech.de \n
 #        30 Dez. 2021 - conversion to python 3 - Andreas.Knoblauch@afptech.de \n
 #        15 Nov. 2018 - remove deprecated function 'Afp_extractValues' - Andreas.Knoblauch@afptech.de \n
 #        20 Jan. 2015 - add array cache for next step selection \n
@@ -47,8 +48,6 @@ import MySQLdb
 from AfpBase.AfpDatabase.AfpSQL import *
 from AfpBase.AfpUtilities.AfpStringUtilities import *
 from AfpBase.AfpUtilities.AfpBaseUtilities import *
-
-
 
 ## provides information if the field is numeric
 # @param typ - type string of field description
@@ -894,10 +893,11 @@ class AfpSuperbase(object):
         if self.debug: print("AfpSuperbase Destruktor")
     ## method to switch debug on,
     # to allow debugging from a certain point in the programflow
-    def set_debug(self):
+    # @param mysql - flag if also the mysql-debugflag should be set
+    def set_debug(self, mysql=True):
         self.debug = True
         if self.debug: print("AfpSuperbase: DEBUG flag set!")
-        self.globals.get_mysql().set_debug()
+        if mysql: self.globals.get_mysql().set_debug()
         for dat in self.datei:
             dat.set_debug()
     ## method to switch debug off again
@@ -1022,6 +1022,7 @@ class AfpSuperbase(object):
     # @param indexname - name of index. None - the actuel index is used.
     # @param dateiname - name of the table, index belongs to. None - the actuel table is used.
     def select_where(self, where_clause, indexname=None, dateiname=None):
+        if self.debug: print("AfpSuperbase: SELECT WHERE", where_clause, dateiname, indexname)
         CurrentIndex = self.identify_index(indexname, dateiname)
         CurrentIndex.select_where(where_clause) 
     ## set a lock on the current database entry  or perform database transaction 
@@ -1036,6 +1037,7 @@ class AfpSuperbase(object):
     # @param indexname - name of index. None - the actuel index is used.
     # @param dateiname - name of the table, index belongs to. None - the actuel table is used.
     def set_lock(self, typ, indexname=None, dateiname=None): 
+        if self.debug: print("AfpSuperbase: SET LOCK", typ, dateiname, indexname)
         CurrentFile = self.identify_file(dateiname)
         CurrentFile.set_lock(typ, indexname) 
     ## return flag if end of file is reached in indexorder

@@ -459,7 +459,7 @@ class AfpFaScreen(AfpEditScreen):
         self.label_Zahlung = wx.StaticText(panel, -1, label="Zahlung:", pos=(290,495), size=(50,18), name="LZahlung")
         self.label_Mwst = wx.StaticText(panel, -1, label="Mwst:", pos=(425,475), size=(45,18), name="LMwst")
         self.label_Brutto = wx.StaticText(panel, -1, label="Brutto:", pos=(425,495), size=(47,18), name="LBrutto")
-        self.label_Netto = wx.StaticText(panel, -1, label="Summe:", pos=(550,475), size=(45,18), name="LNetto")
+        self.label_Netto = wx.StaticText(panel, -1, label="Netto:", pos=(550,475), size=(45,18), name="LNetto")
         self.label_Betrag = wx.StaticText(panel, -1, label="Betrag:", pos=(550,495), size=(45,18), name="LBetrag")
        
         # address as LABEL
@@ -1017,18 +1017,12 @@ class AfpFaScreen(AfpEditScreen):
     # @param value - value to be looked for 
     # @param where - filter to be used 
     def invoke_regular_selection(self, table, value = "", where = ""):
-        #print "On_Faktura_Ausw Ind:",index, "VAL:",values,"Where:", where
-        #print "On_Faktura_Ausw Merkmal:", self.combo_Filter.GetValue()
-        #self.sb.set_debug()
-        print ("AfpFaScreen.invoke_regular_selection input:", table, value, where)
+        #print ("AfpFaScreen.invoke_regular_selection input:", table, value, where)
         auswahl = AfpLoad_FaAusw(self.globals, table, self.index, Afp_toString(value), where, True)
-        #self.sb.unset_debug()
-        print ("AfpFaScreen.invoke_regular_selection Auswahl:", auswahl)
+        if self.debug: print ("AfpFaScreen.invoke_regular_selection Auswahl:", auswahl)
         if not auswahl is None:
             RNr = int(auswahl) 
-            print ("AfpFaScreen.invoke_regular_selection SB:", self.sb_filter, self.sb_master)
-            #self.sb.set_debug()
-            if self.sb_filter: self.sb.select_where(self.sb_filter, "RechNr", self.sb_master)
+            #print ("AfpFaScreen.invoke_regular_selection SB:", self.sb_filter, self.sb_master)
             self.sb.select_key(RNr, "RechNr", self.sb_master)
             if self.sb_filter: self.sb.select_where("", "RechNr", self.sb_master)
             self.sb.set_index(self.index, self.sb_master, "RechNr")   
@@ -1037,9 +1031,12 @@ class AfpFaScreen(AfpEditScreen):
             if self.index == "KundenNr":
                 self.sb.select_key(self.data.get_value("KundenNr"),"KundenNr","ADRESSE")
                 self.sb.set_index("Name","ADRESSE","KundenNr")
-            #self.sb.unset_debug()
+            #if self.sb_filter: self.sb.select_where(self.sb_filter, "RechNr", self.sb_master)
+            if where:
+                self.sb_filter = where
+                self.sb.select_where(self.sb_filter, "RechNr", self.sb_master)
             self.Populate()
-        #self.sb.unset_debug()
+
     ## invoke the custom select dialog, behaves as follows 
     # - Ok == True: data becomes current data of screen
     # - Ok = string, (optional: data = string): Ok triggers routine, data triggers databasetable
@@ -1076,6 +1073,8 @@ class AfpFaScreen(AfpEditScreen):
                 self.On_Kasse()
             elif Ok == "Mehr":
                 self.On_Extra()
+            elif Ok == "Adresse":
+                self.SwitchModulScreen("Adresse")
     ## generate a new data record
     # @param typ - if given, typ of incident to be created, default: "Rechnung" (Invoice)
     # @param KNr - identifier of address for this new incident,
@@ -1441,11 +1440,11 @@ class AfpFaScreen(AfpEditScreen):
     # @param complete - flag if all TableSelections should be generated
     def get_data(self, complete = False):
         if self.sb_master == "KVA":
-            return  AfpOffer(self.globals, None, self.sb, self.sb.debug, complete)
+            return  AfpOffer(self.globals, None, self.sb, self.debug, complete)
         elif self.sb_master == "BESTELL":
-            return  AfpOrder(self.globals, None, self.sb, self.sb.debug, complete)
+            return  AfpOrder(self.globals, None, self.sb, self.debug, complete)
         else: #self.sb_master == "RECHNG":
-            return  AfpInvoice(self.globals, None, self.sb, self.sb.debug, complete)
+            return  AfpInvoice(self.globals, None, self.sb, self.debug, complete)
     ## set current record to be displayed 
     # (overwritten from AfpScreen) 
     def set_current_record(self):

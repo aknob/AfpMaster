@@ -1188,16 +1188,15 @@ class AfpDialog_SimpleInvoice(AfpDialog):
             self.line10_sizer.Add(self.text_SkPro,1,wx.EXPAND)
             self.line10_sizer.Add(self.text_Skonto,2,wx.EXPAND)
             self.line10_sizer.AddSpacer(5)
-
-        self.label_TGesamt= wx.StaticText(self, -1, label="Zahlbetrag:", style=wx.ALIGN_RIGHT)
-        self.text_ZahlBet = wx.TextCtrl(self, -1,  name="ZahlBetSI")
-        self.vtextmap["ZahlBetSI"] = "ZahlBetrag"
-        self.text_ZahlBet.Bind(wx.EVT_KILL_FOCUS, self.On_Skonto)
-        self.line11_sizer =  wx.BoxSizer(wx.HORIZONTAL)
-        self.line11_sizer.Add(self.label_TGesamt,1,wx.EXPAND)
-        self.line11_sizer.AddSpacer(5)        
-        self.line11_sizer.Add(self.text_ZahlBet,1,wx.EXPAND)
-        self.line11_sizer.AddSpacer(5)          
+            self.label_TGesamt= wx.StaticText(self, -1, label="Zahlbetrag:", style=wx.ALIGN_RIGHT)
+            self.text_ZahlBet = wx.TextCtrl(self, -1,  name="ZahlBetSI")
+            self.vtextmap["ZahlBetSI"] = "ZahlBetrag"
+            self.text_ZahlBet.Bind(wx.EVT_KILL_FOCUS, self.On_Skonto)
+            self.line11_sizer =  wx.BoxSizer(wx.HORIZONTAL)
+            self.line11_sizer.Add(self.label_TGesamt,1,wx.EXPAND)
+            self.line11_sizer.AddSpacer(5)        
+            self.line11_sizer.Add(self.text_ZahlBet,1,wx.EXPAND)
+            self.line11_sizer.AddSpacer(5)          
         
         self.panel_sizer.AddSpacer(5)          
         self.panel_sizer.Add(self.line1_sizer,0,wx.EXPAND)
@@ -1234,11 +1233,11 @@ class AfpDialog_SimpleInvoice(AfpDialog):
             self.panel_sizer.AddSpacer(5)
             self.panel_sizer.Add(self.line10_sizer,0,wx.EXPAND)
             self.panel_sizer.AddSpacer(5)  
+            self.panel_sizer.Add(self.line11_sizer,0,wx.EXPAND)
+            self.panel_sizer.AddSpacer(5)  
         else:
             self.panel_sizer.Add(self.line9_sizer,2,wx.EXPAND)
             self.panel_sizer.AddSpacer(5)
-        self.panel_sizer.Add(self.line11_sizer,0,wx.EXPAND)
-        self.panel_sizer.AddSpacer(5)  
         
         # BUTTONs
         self.button_sizer = wx.BoxSizer(wx.VERTICAL)          
@@ -1366,7 +1365,7 @@ class AfpDialog_SimpleInvoice(AfpDialog):
                 self.set_directed_change(self.text_Betrag)
                 if initial: self.set_directed_change(self.text_Discount, True)
         elif name == "BetragSI":
-            if not reverse:
+            if not reverse and self.ui_skonto:
                 betrag = Afp_fromString(object.GetValue())
                 factor = self.get_percent(self.text_SkPro)/100.0
                 skonto = factor*betrag
