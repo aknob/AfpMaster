@@ -96,7 +96,7 @@ class AfpMainApp(wx.App):
         description = None
         picture = None
         website = "http://www.afptech.de"
-        baseversion = "6.1.1 beta"       
+        baseversion = "10.2.0"
         version = baseversion    
         copyright = 'Copyright (C) 1989 - 2025  AfpTech.de'
         moduls = ["Adresse"]

@@ -38,6 +38,7 @@ from AfpBase import AfpStart
 
 # main program
 name = "BusAfp"
+version = "6.1.1 beta"
 description = """BusAfp ist eine Verwaltungsprogramm für den Buseinsatz 
 für Mietfahrten, sowie der Organisation von eigenen Reisen.
 Es enthält eine mitgeführte Buchhaltung, Zahlungsverfolgung, Einsatzplanung

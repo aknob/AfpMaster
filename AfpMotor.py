@@ -36,7 +36,7 @@ from AfpBase import AfpStart
 
 # main program
 name = 'AfpMotor'     
-version = "2.0.2 alpha"    
+version = "2.0.2 beta"
 website = 'http://www.afpmotor.de'
 description = """AfpMotor ist eine Verwaltungsprogramm für den Werkstatteinsatz 
 für Motoristen und in der Kfz-Branche.
