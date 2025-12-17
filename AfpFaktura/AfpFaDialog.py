@@ -1471,7 +1471,7 @@ class AfpDialog_FaManufact(AfpDialog):
         ken = self.text_Kennung.GetValue()
         befehl = "SELECT HersNr FROM ARTHERS WHERE Kennung = '" + ken + "'"
         rows = self.data.get_mysql().execute(befehl)
-        print ("AfpDialog_FaManufact.check_unique rows:", befehl, rows)
+        #print ("AfpDialog_FaManufact.check_unique rows:", befehl, rows)
         if rows and rows[0]:
             if rows[0][0] != self.data.get_value("HersNr") or len(rows) > 1:
                 ok = False
@@ -1528,6 +1528,7 @@ class AfpDialog_FaManufact(AfpDialog):
     def get_importfile(self):
         fname = self.text_Datei.GetValue()
         if not fname: fname = self.data.get_value("Datei")
+        if not fname: fname = ""
         hers = self.text_Name.GetValue()
         if not hers: hers = self.data.get_value("Hersteller")
         dir = self.data.get_globals().get_value("importdir", "Faktura")
