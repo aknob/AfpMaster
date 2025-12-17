@@ -464,6 +464,8 @@ class AfpFaScreen(AfpEditScreen):
        
         # address as LABEL
         if self.use_labels:
+            self.label_Gewinn = wx.StaticText(panel, -1, "", pos=(599,80), size=(77,23), name="Gewinn")
+            self.labelmap["Gewinn"] = "Gewinn.Main"
             self.label_Vorname = wx.StaticText(panel, -1, "", pos=(35,50), size=(200,23), name="Vorname")
             self.labelmap["Vorname"] = "Vorname.ADRESSE"
             self.label_Name = wx.StaticText(panel, -1,label="", pos=(35,75), size=(200,23), name="Name")
@@ -933,12 +935,14 @@ class AfpFaScreen(AfpEditScreen):
                 break
             else:
                 empty += 1
-        lgh = len(textrows) - empty 
+        lgh = len(textrows) - empty
+        renr = self.data.get_value("RechNr")
+        if not renr: renr = None
         rows = []
         for i in range(lgh):
-            rows.append([textrows[i]])
+            rows.append([renr,textrows[i]])
         #print ("AfpFaScreen.edit_text_postprocess:", textrows, lgh, empty, rows)
-        self.data.replace_content_rows(textrange[1], ["Zeile"], rows)   
+        self.data.replace_content_rows(textrange[1], ["RechNr", "Zeile"], rows)
         self.Pop_content()
     ## postprocessing of data editing
     # @param row - changed row data to be proceeded
@@ -1088,7 +1092,7 @@ class AfpFaScreen(AfpEditScreen):
             text = "Bitte Auftraggeber für " + typ + " auswählen:"
             KNr = AfpLoad_AdAusw(self.globals,"ADRESSE","NamSort",name, None, text)
         if not KNr is None:
-            print("AfpFaScreen.generate_new_data invoked for", typ, subtyp, KNr)
+            #print("AfpFaScreen.generate_new_data invoked for", typ, subtyp, KNr)
             if table == "KVA":
                 data = AfpOffer(self.globals)
             elif table == "BESTELL":
@@ -1098,17 +1102,15 @@ class AfpFaScreen(AfpEditScreen):
             data.set_new(subtyp, KNr)
             if GNr is None and KNr: 
                 GNr = AfpAdresse_indirectAttributFromKNr(self.globals, KNr,"Gerät oder PKW")
-            #print "AfpFaScreen.generate_new_data set AttNr:", GNr
             if GNr:
                 data.set_value("AttNr",GNr)
-            #print "AfpFaScreen.generate_new_data read AttNr:", data.get_value("AttNr")
             self.loaded_data = self.data
             self.data = data
             self.Populate()
             self.Set_Editable(True)
-            print("AfpFaScreen.generate_new_data 'edit_data' invoked") 
+            #print("AfpFaScreen.generate_new_data 'edit_data' invoked")
             self.edit_data(0)
-            print("AfpFaScreen.generate_new_data 'edit_data' ended") 
+            #print("AfpFaScreen.generate_new_data 'edit_data' ended")
         
     # find an adjacent entry in other database table and set the sb.object pointer to this entry
     # @param table - databasetable where to look
@@ -1351,7 +1353,7 @@ class AfpFaScreen(AfpEditScreen):
                 data.set_value("Typ", datei)
                 data.set_value("TypNr", self.data.get_value())
                 data.store()
-        print ("AfpFaScreen.store_data Rechnung:", datei, self.data.get_listname())
+        #print ("AfpFaScreen.store_data Rechnung:", datei, self.data.get_listname())
         self.load_invoice()
                 
     ## load simple invoice dialog

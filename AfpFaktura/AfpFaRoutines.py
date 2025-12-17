@@ -334,7 +334,7 @@ class AfpManufact(AfpSelectionList):
     def gen_discount(self, article):
         lstp = article.get_value("Listenpreis")
         prsgrp = article.get_value("PreisGrp")
-        print("AfpManufact.gen_discount:", lstp, prsgrp)
+        #print("AfpManufact.gen_discount:", lstp, prsgrp)
         disc = self.get_discount(prsgrp)
         if disc: 
             fac = (100.0 - disc)/100.0
@@ -360,7 +360,7 @@ class AfpManufact(AfpSelectionList):
         lstp = article.get_value("Listenpreis")
         prsgrp = article.get_value("PreisGrp")
         ek = article.get_value("Einkaufspreis")
-        print("AfpManufact.gen_surcharge:", lstp, prsgrp)
+        #print("AfpManufact.gen_surcharge:", lstp, prsgrp)
         # find surcharge for price-group of manufacturer
         sur = self.get_surcharge(prsgrp, lstp)
         if sur:
@@ -392,7 +392,7 @@ class AfpManufact(AfpSelectionList):
         if not preis: preis = 0.0
         row = None
         rows = self.find_value_row(None, "PreisGrp." + tablename, True)
-        print("AfpManufact.extract_surcharge rows:", tablename, rows)
+        #print("AfpManufact.extract_surcharge rows:", tablename, rows)
         if rows:
             liste = {}
             for r in rows:
@@ -433,10 +433,10 @@ class AfpManufact(AfpSelectionList):
                 sorter[i][0] = ""
             if useval:
                 sorter[i][0] += Afp_toString(sorter[i][1])
-        print ("AfpManufact.sort_price_addons:", sorter, data)
+        #print ("AfpManufact.sort_price_addons:", sorter, data)
         if sorter and data:
             master, result = Afp_sortSimultan(sorter, data)
-            print ("AfpManufact.sort_price_addons res:", master, result)
+            #print ("AfpManufact.sort_price_addons res:", master, result)
             sel.data = result
    
     ## get new AfpArtikel SelectionList holding the data from the manufacturer database
@@ -447,14 +447,14 @@ class AfpManufact(AfpSelectionList):
         if not index: index = "ArtikelNr"
         sel = self.get_selection(self.herstable)
         sel.load_data(index + " = '" + ident + "'")
-        print("AfpManufact.get_articles:", sel.data)
+        #print("AfpManufact.get_articles:", sel.data)
         anumber =  self.get_value("Kennung") + " " + sel.get_value("ArtikelNr")
         check = AfpSQLTableSelection(self.get_mysql(), "ARTIKEL")
         check.load_data("HersNr = " + self.get_string_value("HersNr") + " AND ArtikelNr = '" + anumber + "'") 
-        print("AfpManufact.get_articles check:", check.data)
+        #print("AfpManufact.get_articles check:", check.data)
         if check.get_data_length() == 0:
             data = {"ArtikelNr": self.get_value("Kennung") + " " + sel.get_value("ArtikelNr"), "Bezeichnung": sel.get_value("Bezeichnung"), "Listenpreis": sel.get_value("Listenpreis"), "PreisGrp": sel.get_value("PreisGrp"), "HersNr": self.get_value("HersNr"), "EAN": sel.get_value("EAN")}
-            print("AfpManufact.get_articles data:", data)
+            #print("AfpManufact.get_articles data:", data)
             article = AfpArtikel(self.globals, None)
             article.set_data_values(data)
             article = self.gen_prices(article)
@@ -858,7 +858,7 @@ class AfpFaktura(AfpPaymentList):
     # @param datei - tablename of targerttype
     # @param filter - filter on targerttype
     def get_converted_faktura(self, datei, filter):
-        print("AfpFaktura.get_converted_faktura ", datei, filter)
+        #print("AfpFaktura.get_converted_faktura ", datei, filter)
         if datei == "RECHNG":
             faktura = AfpInvoice(self.get_globals(), None, None, self.is_debug())
         elif datei == "BESTELL":
@@ -1112,8 +1112,6 @@ class AfpInvoice(AfpFaktura):
     ## special storage, keep track stock
     # - overwritten from AfpFaktura
     def store(self):
-        print("AfpInvoice.store self:")
-        self.view()
         #breakpoint()
         AfpFaktura.store(self)
         # book from/into stock due to changes

@@ -166,7 +166,7 @@ def AfpFaktura_getSqlTables(flavour = None):
     required["KVAIN"] = """CREATE TABLE `KVAIN` (
   `RechNr` mediumint NOT NULL,
   `PosNr` tinyint NOT NULL,
-  `ErsatzteilNr` char(15) CHARACTER SET latin1 COLLATE latin1_german2_ci DEFAULT NULL,
+  `ErsatzteilNr` tinytext CHARACTER SET latin1 COLLATE latin1_german2_ci DEFAULT NULL,
   `Bezeichnung` text CHARACTER SET latin1 COLLATE latin1_german2_ci,
   `Anzahl` float(5,1) DEFAULT NULL,
   `Einzelpreis` float(8,2) DEFAULT NULL,
@@ -176,14 +176,14 @@ def AfpFaktura_getSqlTables(flavour = None):
   `Nr` tinyint DEFAULT NULL,
   `Zeile` tinytext CHARACTER SET latin1 COLLATE latin1_german2_ci,
   KEY `RechNr` (`RechNr`),
-  KEY `ErsatzteilNr` (`ErsatzteilNr`),
+  KEY `ErsatzteilNr` (`ErsatzteilNr`(40)),
   KEY `Bezeichnung` (`Bezeichnung`(50))
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_german2_ci;"""
   # invoice content table
     required["RECHIN"] = """CREATE TABLE `RECHIN` (
   `RechNr` mediumint NOT NULL,
   `PosNr` tinyint NOT NULL,
-  `ErsatzteilNr` char(15) CHARACTER SET latin1 COLLATE latin1_german2_ci DEFAULT NULL,
+  `ErsatzteilNr` tinytext CHARACTER SET latin1 COLLATE latin1_german2_ci DEFAULT NULL,
   `Bezeichnung` text CHARACTER SET latin1 COLLATE latin1_german2_ci,
   `Anzahl` float(5,1) DEFAULT NULL,
   `Einzelpreis` float(8,2) DEFAULT NULL,
@@ -192,7 +192,7 @@ def AfpFaktura_getSqlTables(flavour = None):
   `Gewinn` float(9,2) DEFAULT NULL,
   `Nr` tinyint DEFAULT NULL,
   `Zeile` tinytext CHARACTER SET latin1 COLLATE latin1_german2_ci,
-  KEY `ErsatzteilNr` (`ErsatzteilNr`),
+  KEY `ErsatzteilNr` (`ErsatzteilNr`(40)),
   KEY `Bezeichnung` (`Bezeichnung`(50)),
   KEY `RechNr` (`RechNr`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_german2_ci;"""

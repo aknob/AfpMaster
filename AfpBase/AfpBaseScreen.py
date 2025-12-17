@@ -782,6 +782,7 @@ class AfpEditScreen(AfpScreen):
     # - if row < 0: only marked row will be unmarked
     def select_row(self, row):
         #print ("AfpEditScreen.select_row invoked", row,  self.editable_rows, self.selected_row, self.editable_cols)
+        if row is None: return
         if self.grid_editable and row <= self.editable_rows:
             if not self.selected_row is None and self.selected_row != row :
                 attrRO = wx.grid.GridCellAttr()
@@ -809,7 +810,7 @@ class AfpEditScreen(AfpScreen):
         self.event_id = ident
         keycode = event.GetKeyCode()        
         if self.debug: print("AfpEditScreen Event handler `On_KeyDown'", keycode)
-        #print ("AfpEditScreen.On_KeyDown:", keycode, event)
+        #print ("AfpEditScreen.On_KeyDown:", keycode, event, self.selected_row, self.catch_keydown, self.editable)
         caught = 0
         if keycode == wx.WXK_LEFT: caught = -1
         if keycode == wx.WXK_RIGHT: caught = 1
@@ -825,6 +826,7 @@ class AfpEditScreen(AfpScreen):
                         self.postprocess_keydown()
                     else:
                         self.Pop_grid()
+                        if self.selected_row is None: self.selected_row = 0
                         self.select_row(self.selected_row)
                     self.catch_keydown = None
                     self.postprocess_keydown = None

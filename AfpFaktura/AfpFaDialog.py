@@ -230,7 +230,7 @@ class AfpDialog_FaArtikelAusw(AfpDialog_Auswahl):
             ok = True
         else:
             hers, ok = AfpFaktura_selectManufacturer(self.globals, "aus dessen Datei ein Artikel übenommen werden soll.", self.debug) 
-        print ("AfpDialog_FaArtikelAusw.invoke_neu_dialog Hers:", hers, ok, filter)
+        #print ("AfpDialog_FaArtikelAusw.invoke_neu_dialog Hers:", hers, ok, filter)
         if ok and not hers:
                 ok, hers = AfpLoad_FaManufact(self.globals, None)
         if ok and hers:
@@ -584,7 +584,7 @@ class AfpDialog_FaCustomSelect(AfpDialog):
         if self.debug: print("Event handler `AfpDialog_FaCustomSelect.On_Neu'")
         radio = self.get_selected_RadioButton()
         if radio == "Memo":
-            print("AfpDialog_FaCustomSelect.On_Neu Memo!")
+            #print("AfpDialog_FaCustomSelect.On_Neu Memo!")
             text = "Bitte Person auswählen, der das Memo zugeordnet werden soll:"
             knr = AfpLoad_AdAusw(self.globals,"ADRESSE","NamSort","", None, text, True)
             if knr:
@@ -599,7 +599,6 @@ class AfpDialog_FaCustomSelect(AfpDialog):
         else:
             self.Ok = "Neu"
             self.data = radio
-            print("Event handler `AfpDialog_FaCustomSelect.On_Neu:", self.Ok, self.data)
             self.EndModal(wx.ID_CANCEL)
         event.Skip()        
     ## Eventhandler BUTTON - invoke address selection
@@ -737,21 +736,21 @@ class AfpDialog_FaLine(AfpDialog):
     ##  Eventhandler BUTTON  use thie entry in this dialog appropriate to settings
     # @param event - event which initiated this action   
     def On_Artikel(self,event):
-        if self.debug: print("Event handler `On_Artikel'")
+        if self.debug: print("Event handler `AfpDialog_FaLine.On_Artikel'")
         self.action = [self.text.GetValue(), self.get_radio_value()]
         #event.Skip()
         self.EndModal(wx.ID_OK)
     ##  Eventhandler BUTTON  insert a plain text line into invoice
     # @param event - event which initiated this action   
     def On_Ausw(self,event):
-        if self.debug: print("Event handler `On_Ausw'")
+        if self.debug: print("Event handler `AfpDialog_FaLine.On_Ausw'")
         self.action = self.text.GetValue()
         event.Skip()
         self.EndModal(wx.ID_OK)
     ##  Eventhandler BUTTON  end invoice line editing modus
     # @param event - event which initiated this action   
     def On_Ende(self,event):
-        if self.debug: print("Event handler `On_Ende'")
+        if self.debug: print("Event handler `AfpDialog_FaLine.On_Ende'")
         event.Skip()
         self.EndModal(wx.ID_CANCEL)
 
@@ -1093,7 +1092,7 @@ class AfpDialog_FaArticle(AfpDialog):
 
     ## execution in case the OK button ist hit - overwritten from AfpDialog
     def execute_Ok(self):
-        print("AfpDialog_FaArticle.execute_Ok:", self.new, self.changed_text)
+        #print("AfpDialog_FaArticle.execute_Ok:", self.new, self.changed_text)
         self.close_dialog = True
         artnr = self.text_ArtikelNr.GetValue().strip()
         bez = self.text_Bez.GetValue().strip()
@@ -1170,16 +1169,16 @@ class AfpDialog_FaArticle(AfpDialog):
         newnr = None
         befehl = "SELECT ArtikelNr FROM ARTIKEL WHERE ArtikelNr = '" + artnr + "'"
         rows = self.data.get_mysql().execute(befehl)
-        print ("AfpDialog_FaArticle.check_unique rows:", befehl, rows)
+        #print ("AfpDialog_FaArticle.check_unique rows:", befehl, rows)
         if rows and rows[0]:
             ok = False
             befehl = "SELECT ArtikelNr FROM ARTIKEL WHERE ArtikelNr LIKE '" + artnr + "%'"
             rows = self.data.get_mysql().execute(befehl)[0]
-            print ("AfpDialog_FaArticle.check_unique rows:", befehl, rows)
+            #print ("AfpDialog_FaArticle.check_unique rows:", befehl, rows)
             nr = 1
             newnr = artnr
             while newnr in rows:
-                print ("AfpDialog_FaArticle.check_unique while:", newnr, rows, newnr in rows)
+                #print ("AfpDialog_FaArticle.check_unique while:", newnr, rows, newnr in rows)
                 newnr = artnr + "-" + Afp_toIntString(nr, 2)
                 nr += 1                
         return ok, newnr
@@ -1534,7 +1533,7 @@ class AfpDialog_FaManufact(AfpDialog):
         dir = self.data.get_globals().get_value("importdir", "Faktura")
         if not dir: dir = self.data.get_globals().get_value("homedir")
         filename, ok = AfpReq_FileName(dir, "Artikelimport " + hers, fname + "*.csv") 
-        print ("AfpDialog_FaManufact.get_importfile:", filename, ok)
+        #print ("AfpDialog_FaManufact.get_importfile:", filename, ok)
         if ok:
             idat = Afp_dateString(filename)
             if idat:
