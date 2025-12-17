@@ -39,7 +39,7 @@ from AfpBase.AfpDatabase.AfpSQL import AfpSQL
 from AfpBase.AfpDatabase.AfpSuperbase import AfpSuperbase
 from AfpBase.AfpBaseRoutines import Afp_archivName, Afp_startFile, Afp_startExtraProgram
 from AfpBase.AfpBaseDialog import AfpReq_Info, AfpReq_Selection, AfpReq_Question, AfpReq_Text, AfpReq_MultiLine, AfpReq_FileName
-from AfpBase.AfpBaseDialogCommon import AfpLoad_DiReport, AfpReq_extraProgram
+from AfpBase.AfpBaseDialogCommon import AfpLoad_DiReport, AfpReq_extraProgram, Afp_editMail
 from AfpBase.AfpBaseScreen import AfpScreen
 from AfpBase.AfpBaseAdRoutines import AfpAdresse
 from AfpBase.AfpBaseAdDialog import AfpLoad_AdAusw, AfpLoad_DiAdEin_fromSb
@@ -287,11 +287,17 @@ class AfpEvScreen(AfpScreen):
             self.menubar.Append(tmp_menu, "Event")
         # setup address menu
         tmp_menu = wx.Menu() 
-        mmenu =  wx.MenuItem(tmp_menu, wx.NewId(), "&Suche", "")
+        mmenu =  wx.MenuItem(tmp_menu, wx.NewId(), "&Anfrage", "")
+        self.Bind(wx.EVT_MENU, self.On_MAnfrage, mmenu)
+        tmp_menu.Append(mmenu)
+        mmenu =  wx.MenuItem(tmp_menu, wx.NewId(), "&Suchen", "")
         self.Bind(wx.EVT_MENU, self.On_MAddress_search, mmenu)
         tmp_menu.Append(mmenu)
-        mmenu =  wx.MenuItem(tmp_menu, wx.NewId(), "Be&arbeiten", "")
+        mmenu =  wx.MenuItem(tmp_menu, wx.NewId(), "&Bearbeiten", "")
         self.Bind(wx.EVT_MENU, self.On_Adresse_aendern, mmenu)
+        tmp_menu.Append(mmenu)
+        mmenu =  wx.MenuItem(tmp_menu, wx.NewId(), "&E-Mail versenden", "")
+        self.Bind(wx.EVT_MENU, self.On_MEMail, mmenu)
         tmp_menu.Append(mmenu)
         self.menubar.Append(tmp_menu, "Adresse")
         return
@@ -654,6 +660,21 @@ class AfpEvScreen(AfpScreen):
     ## Eventhandler MENU - tourist menu - not yet implemented!
     def On_MEvent(self, event):
         print("AfpEvScreen Event handler `On_MEvent' not implemented!")
+        event.Skip()
+    def On_MAnfrage(self, event):
+        print("Event handler `On_MAnfrage' not implemented!")
+        event.Skip()
+    ## Eventhandler MENU - send an e-mail
+    def On_MEMail(self, event):
+        if self.debug: print("Event handler `On_MEMail'")
+        an = self.data.get_value("Mail.ADRESSE")
+        if an:
+            mail = AfpMailSender(self.globals, self.debug)
+            mail.add_recipient(an)
+            mail, send = Afp_editMail(mail)
+            if send: mail.send_mail()
+        else:
+            AfpReq_Info("Keine Mailadresse gefunden,","keine E-Mail erzeugt!")
         event.Skip()
 
     ## Eventhandler Resize - for test reasons

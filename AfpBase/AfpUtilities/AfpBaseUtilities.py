@@ -778,7 +778,7 @@ def Afp_sendOverSMTP(sender, recipients, subject, message, html_message, attachm
                 monat = {"Jan":"01", "Feb":"02", "Mar":"03", "Apr":"04", "May":"05", "Jun":"06", "Jul":"07", "Aug":"08", "Sep":"09", "Oct":"10", "Nov":"11", "Dec":"12"}
                 split = msg['Date'].split()
                 date = split[3][2:] + monat[split[2]] + split[1] + "_" + split[4].replace(":","")
-                fname = "Mail_" + date + "_" + recipients[0]  + "__" +  subject.decode(decoder).replace(" ", "_")   + ".eml"
+                fname = "Mail_" + date + "_" + recipients[0]  + "__" +  subject.decode(decoder).replace(" ", "_").replace(":","")   + ".eml"
                 fpath = dir + fname
                 file = open(fpath, 'w')
                 file.write(str(msg))
