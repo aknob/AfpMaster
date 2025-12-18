@@ -195,7 +195,8 @@ def Afp_toMonthString(nr):
 # - "hh:mm[:ss]" -> time
 # - "xxx" -> int (x - digit)
 # - other -> string
-def Afp_fromString(string):
+# @ param date_conv - flag if possible dates should be extracted from string - default: True
+def Afp_fromString(string, date_conv = True):
     if not Afp_isString(string): return string
     #print ("Afp_fromString:", string)
     string = string.strip()
@@ -211,7 +212,7 @@ def Afp_fromString(string):
         else:
             split = [string]
         #print ("Afp_fromString split:", split)
-        if len(split) > 2 and len(string) < 11:
+        if date_conv and len(split) == 3 and len(string) < 11 and len(split[0]) < 3 and len(split[1]) < 3:
             day = 0
             if split[0].isdigit(): day = int(split[0])
             month = 0

@@ -818,6 +818,7 @@ class AfpImport(object):
         self.column_map = None
         self.column_slice = None
         self.direct_mysql_storing = None
+        self.date_conversion = True
         # values used for xml-import
         self.value_tags =  ["AfpValue"]
         self.value_end_tags =  ["/AfpValue"]
@@ -850,6 +851,7 @@ class AfpImport(object):
     # is used automatically for imports > 10000 lines
     def set_direct_mysql_storing(self):
         self.direct_mysql_storing = True
+        self.date_conversion = False
 
     ## create object from given type
     # @param type - modul of object (taken from python class definition)
@@ -977,14 +979,14 @@ class AfpImport(object):
                             cellval = eval(do)
                         else:
                             cellval = list[index]
-                        data[entry] = Afp_fromString(cellval)
+                        data[entry] = Afp_fromString(cellval, self.date_conversion)
                         ldata.append(Afp_toString(data[entry])) 
                 #print("AfpImport.set_column_map:", data, ldata)
             else:
                 for entry in self.column_map:
                     index = self.column_map[entry]
                     if index < lgh and (list[index] != "" or aslist):
-                        data[entry] = Afp_fromString(list[index])
+                        data[entry] = Afp_fromString(list[index], self.date_conversion)
                         ldata.append(Afp_toString(data[entry]))
         if aslist:
             return ldata
