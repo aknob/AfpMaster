@@ -684,7 +684,7 @@ class AfpDialog_FaLine(AfpDialog):
     def __init__(self, *args, **kw):
         AfpDialog.__init__(self,None, -1, "")
         self.action = None
-        self.SetSize((280,165))
+        self.SetSize((290,180))
         self.SetTitle("Rechnungszeile ändern")
         self.SetFocus()
 

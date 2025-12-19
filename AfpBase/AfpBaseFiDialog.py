@@ -1300,7 +1300,7 @@ class AfpDialog_SimpleInvoice(AfpDialog):
     # @param object - graphic object where value has been changed
     def set_payment_change(self, object):
         name = object.GetName()
-        print ("AfpDialog_SimpleInvoice.set_payment_change name:", name)
+        #print ("AfpDialog_SimpleInvoice.set_payment_change name:", name)
         if name in ["DiscountSI", "NettoSI","BetragSI", "SkontoSI", "ZahlBetSI"] :
             val = object.GetValue()
             if val: 
@@ -1405,6 +1405,7 @@ class AfpDialog_SimpleInvoice(AfpDialog):
                 if skonto: zahlbet = betrag - skonto
                 #print ("AfpDialog_SimpleInvoice.set_directed_change SkontoSI:", reverse, betrag, skonto, zahlbet)
                 self.text_ZahlBet.SetValue(Afp_toFloatString(zahlbet))
+                if not "ZahlBetSI" in self.changed_text: self.changed_text.append("ZahlBetSI")
                 if initial: self.set_directed_change(self.text_SkPro, True)
         elif name == "ZahlBetSI":
             if not reverse:

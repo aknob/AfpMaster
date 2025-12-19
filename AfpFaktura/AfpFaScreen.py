@@ -773,14 +773,18 @@ class AfpFaScreen(AfpEditScreen):
         else:
             datei, filter = AfpFaktura_possibleKinds(value)
             reset = False
-            if not datei: 
-                datei = self.sb_master
-                reset = True
             where = ""
-            if filter:
-                where = "Zustand = \"" +  filter + "\""
-            if datei == "KVA":
-                where += " AND Typ IS NULL"
+            if not datei and not  filter: 
+                datei = self.sb_master
+                where = self.sb_filter
+                if where:
+                    filter = where.split("AND")[0].split("=")[1].strip()[1:-1]
+                reset = True
+            else:
+                if filter:
+                    where = "Zustand = \"" +  filter + "\""
+                    if datei == "KVA":
+                        where += " AND Typ IS NULL"
             if datei != self.sb_master:
                 #self.sb.set_debug()
                 self.sb.select_where("")
@@ -802,7 +806,7 @@ class AfpFaScreen(AfpEditScreen):
                 self.CurrentData()
             #print("AfpFaScreen.On_Filter:", datei, filter, "SB:", self.sb_master, self.sb_filter)
             if reset:
-                self.combo_Filter.SetSelection(self.get_filter_index(self.sb_master))
+                self.combo_Filter.SetSelection(self.get_filter_index(self.sb_master, filter))
         if event: event.Skip()
     ## Eventhandler COMBOBOX - sort index
     def On_Sortierung(self,event = None):
@@ -1168,11 +1172,12 @@ class AfpFaScreen(AfpEditScreen):
         return diff
     ## extract appropriate index in filter list
     # @param name - name of list entry
-    def get_filter_index(self, name):
-        index = AfpFaktura_inFilterList(name)
+    # @param filter - filter of list entry
+    def get_filter_index(self, name, filter):
+        index = AfpFaktura_inFilterList(name, filter)
         if index is None:
             if name == "RECHNG": index = AfpFaktura_inFilterList("Rechnung")
-            elif name == "KVA": index = AfpFaktura_inFilterList("KVA")
+            elif name == "KVA": index = AfpFaktura_inFilterList("Kostenvoranschlag")
             elif name == "BESTELL": index = AfpFaktura_inFilterList("Bestellung")
             else: index = 0
         return index
