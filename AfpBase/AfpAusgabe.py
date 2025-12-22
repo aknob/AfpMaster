@@ -475,7 +475,7 @@ class AfpAusgabe(object):
     ## evaluates a written condtion and returns the appropriate boolean value
     # @param inphrase - phrase which holds condition to be evaluated
     def evaluate_condition(self, inphrase):
-        #print "AfpAusgabe.evaluate_condition in:", inphrase
+        #print ("AfpAusgabe.evaluate_condition in:", inphrase
         splitphrase = inphrase.split("FUNCTION")
         phrase = splitphrase[0]
         condition = False

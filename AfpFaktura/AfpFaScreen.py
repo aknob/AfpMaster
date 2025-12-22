@@ -1154,7 +1154,7 @@ class AfpFaScreen(AfpEditScreen):
             if not len(name): name = self.sb_master
             self.sb.CurrentIndexName("RechNr", self.sb_master)
             self.sb.select_key(ReNr)
-            self.combo_Filter.SetSelection(self.get_filter_index(name))
+            self.combo_Filter.SetSelection(self.get_filter_index(name, index))
             self.On_Sortierung()
         self.data = data
         self.Populate()

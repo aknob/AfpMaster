@@ -314,7 +314,9 @@ class AfpManufact(AfpSelectionList):
             self.new = True
         self.set_main_selects_entry()
         self.create_selection(self.mainselection)
-        self.herstable = "ART_" + Afp_toIntString(self.get_value("HersNr"))
+        self.herstable = None
+        if self.get_value("HersNr"):
+            self.herstable = "ART_" + Afp_toIntString(self.get_value("HersNr"))
         self.selects["ADRESSE"] = [ "ADRESSE","KundenNr = KundenNr.ARTHERS"] 
         self.selects["ARTDIS"] = [ "ARTDIS","HersNr = HersNr.ARTHERS"] 
         self.selects["ARTSUR"] = [ "ARTSUR","HersNr = HersNr.ARTHERS"] 
@@ -328,6 +330,8 @@ class AfpManufact(AfpSelectionList):
         
     ## get manufactur selection table
     def get_manufact_table(self):
+        if self.herstable is None:
+            self.herstable = "ART_" + Afp_toIntString(self.get_value("HersNr"))
         return self.herstable
     ## generate the manufacturer discount for this AfpArtikel SelectionList
     # @param article -  AfpArtikel SelectionList

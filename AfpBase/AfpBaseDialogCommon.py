@@ -479,7 +479,7 @@ class AfpDialog_DiReport(wx.Dialog):
         edit = not auto
         empty = Afp_addRootpath(self.globals.get_value("templatedir"), "empty.odt")
         fname, fresult = self.generate_names()
-        print ("AfpDialog_DiReport.generate_Ausgabe:", fname, fresult)
+        #print ("AfpDialog_DiReport.generate_single_Ausgabe:", fname, fresult)
         if fresult:
             if self.datas:
                 out = AfpAusgabe(self.debug, self.datas, self.serial_tags)

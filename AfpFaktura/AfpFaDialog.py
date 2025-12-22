@@ -1450,7 +1450,7 @@ class AfpDialog_FaManufact(AfpDialog):
                 row = self.data.get_value_rows(sel, "PreisGrp,Rabatt", i)[0]
             else:
                 row = self.data.get_value_rows(sel, "PreisGrp,Handelsspanne,Value", i)[0]
-            print ("AfpDialog_FaManufact.populate_list row:", row)
+            #print ("AfpDialog_FaManufact.populate_list row:", row)
             if row[0]:
                 if len(row) > 2 and not row[2] is None:
                     line = Afp_toIntString(int(row[1]), 2) +  "% für die Preisgruppe " + row[0] + " bei" + Afp_toString(row[2])
