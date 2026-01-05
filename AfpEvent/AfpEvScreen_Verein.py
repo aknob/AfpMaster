@@ -306,13 +306,14 @@ class AfpEvVerein(AfpEvent):
             self.add_client_count(cnt)
             
     ## reset payment for new financial period
-    def reset_payment(self):
+    # @param last_day - date of last day of the old financial period
+    def reset_payment(self, last_day):
         rows = self.get_value_rows("Anmeldung", "AnmeldNr")
         rows += self.get_value_rows("PreStorno", "AnmeldNr")
         if rows:
             for row in rows:
                 client = self.get_client(row[0])
-                client.reset_payment()
+                client.reset_payment(last_day)
                 client.store()
     
     ## set all prices for a given section
@@ -560,14 +561,22 @@ class AfpEvMember(AfpEvClient):
             self.finance_modul.AfpFinance_swapSEPAMandat(self.globals, KNr, "ANMELD", self.get_value("AnmeldNr"), self.keptNr)
             self.keptNr = None
     ## reset payment for new financial period
-    def reset_payment(self):
+    # @param last_day - date of last day of the old financial period
+    def reset_payment(self, last_day):
         zahlung = self.get_value("Zahlung")
+        start = Afp_genDate(last_day.year, 1, 1)
+        preis = self.get_value("Preis")
+        anmeld = self.get_value("Anmeldung")
+        month = 0
+        if anmeld > start and preis == self.get_value("ProvPreis"):
+            month = 13 - anmeld.month
+            preis = month*preis/12
         if zahlung:
-            diff = self.get_value("Preis") - zahlung
+            diff = preis - zahlung
         else:
-            diff = self.get_value("Preis")
+            diff = preis
         #if diff < 0: diff = 0.0
-        print("AfpEvMember.reset_payment Zahlung:", self.get_name(), zahlung, diff)
+        #print("AfpEvMember.reset_payment Zahlung:", self.get_name(),self.get_value("ProvPreis"), self.get_value("Preis"), preis, "Zahlung:", zahlung, diff, anmeld, anmeld > start, month)
         rows = self.get_value_rows("ANMELDEX","NoPrv")
         #print("AfpEvMember.reset_payment Rows:", rows)
         #if rows: self.view()
@@ -1494,7 +1503,7 @@ class AfpEvScreen_Verein(AfpEvScreen):
                 self.data.execute_candidates(Afp_addDaysToDate(date, 31)) #automated registration for all entries in the first month
         if reset_payment:
             Ok1 = AfpReq_Question("Zahlungsverpflichtungen für das neue Jahr erzeugen?" ,"", "Jahresabschluss")
-            if Ok1: self.data.reset_payment()           
+            if Ok1: self.data.reset_payment(date)
         if finance:
             if self.finance_moduls and self.finance_moduls[0]:
                 balances = self.finance_moduls[0].AfpFinanceBalances(self.globals)
