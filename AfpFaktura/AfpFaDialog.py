@@ -238,6 +238,8 @@ class AfpDialog_FaArtikelAusw(AfpDialog_Auswahl):
             if hers.get_value("Import"):
                 newarticle = AfpLoad_FaArtikelAusw(self.globals, "ArtikelNr", einhers, hers.get_manufact_table(), None, False, hers)
             if newarticle:
+                if Afp_isString(newarticle):
+                    newarticle = AfpArtikel(self.globals, newarticle)
                 ok = AfpLoad_FaArticle(newarticle, True)
                 if ok:
                     newarticle.store()
@@ -347,7 +349,12 @@ def AfpLoad_FaArtikelAusw(globals, index, value = "", datei = "ARTIKEL", where =
             DiArtikel.Destroy()
     elif Ok is None:
         # flag for direct selection
-        result = Afp_selectGetValue(globals.get_mysql(), "ARTIKEL", "ArtikelNr", index, value)
+        if datei == "ARTIKEL" or datei == "Artikel":
+            result = Afp_selectGetValue(globals.get_mysql(), "ARTIKEL", "ArtikelNr", index, value)
+        else:
+            result = Afp_selectGetValue(globals.get_mysql(), datei, "ArtikelNr", index, value)
+            if result and manu:
+                result = manu.get_articles(result)
         #print result
     #globals.mysql.unset_debug()
     return result      

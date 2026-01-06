@@ -384,15 +384,29 @@ class AfpAusgabe(object):
         line = ""
         if len(netto) > len(fields): 
             for i in range(len(fields)):
-                if quoted: line += netto[i]  + Afp_toQuotedString(self.gen_value(fields[i]), None)
-                else: line += netto[i]  + self.gen_value(fields[i])
+                if quoted:
+                    line += netto[i] + Afp_toQuotedString(self.gen_value(fields[i]), None)
+                else:
+                    line += netto[i] + self.escape_xml(self.gen_value(fields[i]))
             line += netto[-1]
         else:
             for f,n in fields,netto:
-                if quoted: line += Afp_toQuotedString(self.gen_value(f), None) + n
-                else: line += self.gen_value(f) + n 
+                if quoted:
+                    line += Afp_toQuotedString(self.gen_value(f), None) + n
+                else:
+                    line += self.escape_xml(self.gen_value(f)) + n 
         #line = self.replace_html_tags(line)
         return line
+    ## escape XML special characters in generated output
+    # @param value - value to be escaped if string
+    def escape_xml(self, value):
+        if not Afp_isString(value):
+            return value
+        try:
+            from xml.sax.saxutils import escape
+            return escape(value)
+        except Exception:
+            return value
     ## generate the values stated in []-phrases \n
     # fields, variables, list of fields are handled here \n
     # function and fromula evaluation is deligated \n
@@ -481,6 +495,8 @@ class AfpAusgabe(object):
         condition = False
         phrase = self.replace_html_tags(phrase)
         sign = ""
+        left_value = None
+        right_value = None
         if ">" in phrase: sign = ">"
         elif "<" in phrase: sign = "<"
         elif "!" in phrase: sign = "!"
@@ -493,22 +509,37 @@ class AfpAusgabe(object):
             #print ("AfpAusgabe.evaluate_condition split:", phrase, split, sign)
             split[0] = split[0].strip()
             if "(" in split[0] and ")" in split[0]: 
-                phrase = Afp_toQuotedString(self.execute_function(split[0]))
+                left_value = self.execute_function(split[0])
+                phrase = Afp_toQuotedString(left_value)
             elif self.in_values(split[0]): 
                 #print ("AfpAusgabe.evaluate_condition values 0:", split[0], self.values[split[0]], type(self.values[split[0]]))
-                phrase = Afp_toQuotedString(Afp_fromString(self.values[split[0]]), True)
+                value = self.values[split[0]]
+                if Afp_isString(value) and not value.strip():
+                    value = 0.0
+                if value in ("", None):
+                    value = 0.0
+                left_value = Afp_fromString(value)
+                phrase = Afp_toQuotedString(left_value, True)
             else: 
                 phrase = split[0]
             phrase += sign
             split[1] = split[1].strip() 
-            #print "AfpAusgabe.evaluate_condition split1:", split[1][0] == "\"" and split[1][-1] == "\"", self.in_values(split[1]), "(" in split[1] and ")" in split[1]
-            if (split[1][0] == "\"" and split[1][-1] == "\"") or Afp_isNumeric(Afp_fromString(split[1])):
+            #print "AfpAusgabe.evaluate_condition split1:", split[1][0] == """ and split[1][-1] == """, self.in_values(split[1]), "(" in split[1] and ")" in split[1]
+            if (split[1][0] == """ and split[1][-1] == """) or Afp_isNumeric(Afp_fromString(split[1])):
                 phrase += split[1]
+                right_value = Afp_fromString(split[1])
             elif "(" in split[1] and ")" in split[1]: 
-                phrase = Afp_toQuotedString(self.execute_function(split[1]))
+                right_value = self.execute_function(split[1])
+                phrase = Afp_toQuotedString(right_value)
             elif self.in_values(split[1] ): 
                 #print "AfpAusgabe.evaluate_condition values 1:", split[1], self.values[split[1]], type(self.values[split[1]])
-                phrase += Afp_toQuotedString(Afp_fromString(self.values[split[1]]), True)
+                value = self.values[split[1]]
+                if Afp_isString(value) and not value.strip():
+                    value = 0.0
+                if value in ("", None):
+                    value = 0.0
+                right_value = Afp_fromString(value)
+                phrase += Afp_toQuotedString(right_value, True)
             else: 
                 phrase += split[1]
         else: 
@@ -524,7 +555,23 @@ class AfpAusgabe(object):
         #exec(pyBefehl, {}, local)
         #condition = local["condition"]
         #print ("AfpAusgabe.evaluate_condition phrase:", phrase)
-        condition = eval("bool(" + phrase + ")")
+        if sign and left_value is not None and right_value is not None and Afp_isNumeric(left_value) and Afp_isNumeric(right_value):
+            if sign == "==":
+                condition = left_value == right_value
+            elif sign == "!=":
+                condition = left_value != right_value
+            elif sign == ">=":
+                condition = left_value >= right_value
+            elif sign == "<=":
+                condition = left_value <= right_value
+            elif sign == ">":
+                condition = left_value > right_value
+            elif sign == "<":
+                condition = left_value < right_value
+            else:
+                condition = eval("bool(" + phrase + ")")
+        else:
+            condition = eval("bool(" + phrase + ")")
         #if self.debug: print("AfpAusgabe.evaluate_condition:", pyBefehl, condition)
         if self.debug: print("AfpAusgabe.evaluate_condition:", condition, phrase)
         if condition and len(splitphrase) > 1:
@@ -896,7 +943,13 @@ class AfpAusgabe(object):
                 list = tmpl_file.infolist() 
                 for entry in list: 
                     if entry.filename == 'content.xml': 
-                       odt_file.writestr(entry, self.tempfile.getvalue()) 
+                       content = self.tempfile.getvalue()
+                       # ensure ODT content.xml uses the correct root element
+                       if "<office:document" in content and "office:document-content" not in content:
+                           content = content.replace("<office:document ", "<office:document-content ")
+                           content = content.replace("</office:document>", "</office:document-content>")
+                           content = content.replace(' office:mimetype="application/vnd.oasis.opendocument.text"', '')
+                       odt_file.writestr(entry, content) 
                     else:
                         odt_file.writestr(entry, tmpl_file.read(entry.filename))
                 odt_file.close()  

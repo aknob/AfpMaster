@@ -30,7 +30,7 @@
 
 
 from AfpBase.AfpDatabase.AfpSQL import AfpSQLTableSelection
-from AfpBase.AfpUtilities.AfpBaseUtilities import Afp_getNow
+from AfpBase.AfpUtilities.AfpBaseUtilities import Afp_getNow, Afp_isNumeric
 from AfpBase.AfpUtilities.AfpStringUtilities import *
 from AfpBase.AfpBaseRoutines import *
 from AfpBase.AfpSelectionLists import AfpSelectionList, AfpPaymentList
@@ -238,15 +238,23 @@ def AfpFaktura_importArtikels(globals, data, filename, paras, debug = False, pro
     deli = paras[0]
     par = paras[1]
     mantable = data.get_manufact_table()
-    if mantable in globals.get_mysql().get_tables():
+    mysql = globals.get_mysql()
+    tables = mysql.get_tables()
+    table_lookup = {t.lower(): t for t in tables}
+    mantable_db = table_lookup.get(mantable.lower())
+    if not mantable_db:
+        mantable_db = mantable
+        if mysql.get_lower():
+            mantable_db = mantable_db.lower()
+    if mantable.lower() in table_lookup:
         #befehl = "TRUNCATE TABLE " + mantable + ";"
-        befehl = "DELETE FROM " + mantable + "; COMMIT;"
+        befehl = "DELETE FROM " + mantable_db + "; COMMIT;"
         if debug: print("AfpFaktura_importArtikels delete/truncate mysql table:", befehl)
-        globals.get_mysql().execute(befehl)
+        mysql.execute(befehl)
     else:
-        befehl = "CREATE TABLE `" + mantable + "` (`ArtikelNr` tinytext CHARACTER SET latin1 COLLATE latin1_german2_ci NOT NULL,`Bezeichnung` tinytext CHARACTER SET latin1 COLLATE latin1_german2_ci DEFAULT NULL, `Listenpreis` float(9,2) DEFAULT NULL, `PreisGrp` char(10) CHARACTER SET latin1 COLLATE latin1_german2_ci DEFAULT NULL, `EAN` char(25) CHARACTER SET latin1 COLLATE latin1_german2_ci DEFAULT NULL, KEY `ArtikelNr` (`ArtikelNr`(50)), KEY `Bezeichnung` (`Bezeichnung`(50)), KEY `EAN` (`EAN`)) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_german2_ci;"
+        befehl = "CREATE TABLE `" + mantable_db + "` (`ArtikelNr` tinytext CHARACTER SET latin1 COLLATE latin1_german2_ci NOT NULL,`Bezeichnung` tinytext CHARACTER SET latin1 COLLATE latin1_german2_ci DEFAULT NULL, `Listenpreis` float(9,2) DEFAULT NULL, `PreisGrp` char(10) CHARACTER SET latin1 COLLATE latin1_german2_ci DEFAULT NULL, `EAN` char(25) CHARACTER SET latin1 COLLATE latin1_german2_ci DEFAULT NULL, KEY `ArtikelNr` (`ArtikelNr`(50)), KEY `Bezeichnung` (`Bezeichnung`(50)), KEY `EAN` (`EAN`)) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_german2_ci;"
         if debug: print("AfpFaktura_importArtikels create mysql table:", befehl)
-        globals.get_mysql().execute(befehl)
+        mysql.execute(befehl)
         data = AfpManufact(globals, data.get_value())
     if debug: print ("AfpFaktura_importArtikels started:", Afp_getNow().time())
     imp = AfpImport(globals, filename, par, debug)
@@ -254,12 +262,25 @@ def AfpFaktura_importArtikels(globals, data, filename, paras, debug = False, pro
     imp.set_direct_mysql_storing()
     if deli:
         imp.set_csv_parameter(deli[0], deli[1])
-    res = imp.read_from_file(data, mantable)
+    res = imp.read_from_file(data, mantable_db)
     if debug: print ("AfpFaktura_importArtikels loaded:", Afp_getNow().time(), data.get_value_length(mantable))
     if res:
-        sel = res[0].get_selection(mantable)
+        sel = res[0].get_selection(mantable_db)
         sel.new = True
         sel.store()
+        update_fields = ["Bezeichnung", "Listenpreis", "PreisGrp", "EAN"]
+        set_clause = ",".join(["a." + f + " = m." + f for f in update_fields])
+        kennung = data.get_string_value("Kennung")
+        hersnr = data.get_string_value("HersNr")
+        if kennung:
+            match = "a.ArtikelNr = CONCAT('" + kennung + " ', m.ArtikelNr)"
+        else:
+            match = "a.ArtikelNr = m.ArtikelNr"
+        update = "UPDATE " + mysql.get_dbname("ARTIKEL") + " a JOIN " + mysql.get_dbname(mantable_db) + " m ON " + match + " SET " + set_clause
+        if hersnr:
+            update += " WHERE a.HersNr = " + hersnr
+        if debug: print("AfpFaktura_importArtikels update ARTIKEL:", update)
+        mysql.execute(update)
     if debug: print ("AfpFaktura_importArtikels stored:", Afp_getNow().time())
 
 ## baseclass for memo handling 
@@ -353,6 +374,8 @@ class AfpManufact(AfpSelectionList):
     # @param article -  AfpArtikel SelectionList
     def gen_discount(self, article):
         lstp = article.get_value("Listenpreis")
+        if lstp is None:
+            lstp = 0.0
         prsgrp = article.get_value("PreisGrp")
         #print("AfpManufact.gen_discount:", lstp, prsgrp)
         disc = self.get_discount(prsgrp)
@@ -697,6 +720,9 @@ class AfpFaktura(AfpPaymentList):
         if not self.get_value("Kontierung"):
             Konto = self.get_account_number()
             self.set_value("Kontierung",Konto)
+        for field in ("Rabatt", "Skonto", "Zahlung", "ZahlBetrag"):
+            if self.get_value(field) in ("", None):
+                self.set_value(field, 0.0)
     ## get accountnumber for financial accounting
     def get_account_number(self):
         if self.content_holds_wage():
@@ -1004,9 +1030,9 @@ class AfpFaktura(AfpPaymentList):
         if typ: 
             if typ == "free":
                 if param: 
-                    return  [ ["set",[2,param]], [3,"Afp_intString"], ["set",[4,"EK:"]], [4,"AfpFaktura_colonFloat","$6 = $4"], ["set",[4,""]], [4,"Afp_floatString","$5 = $4 * $3,$6 =( $4 - $6 )* $3"] ] 
+                    return  [ ["set",[2,param]], [3,"Afp_floatString"], ["set",[4,"EK:"]], [4,"AfpFaktura_colonFloat","$6 = $4"], ["set",[4,""]], [4,"Afp_floatString","$5 = $4 * $3,$6 =( $4 - $6 )* $3"] ] 
                 else:
-                   return  [ [2], [3,"Afp_intString"], ["set",[4,"EK:"]], [4,"AfpFaktura_colonFloat","$6 = $4"], ["set",[4,""]], [4,"Afp_floatString","$5 = $4 * $3,$6 =( $4 - $6 )* $3"] ] 
+                   return  [ [2], [3,"Afp_floatString"], ["set",[4,"EK:"]], [4,"AfpFaktura_colonFloat","$6 = $4"], ["set",[4,""]], [4,"Afp_floatString","$5 = $4 * $3,$6 =( $4 - $6 )* $3"] ] 
                 #return  [ ["set",",,"+ value + ",,,,"], [3,"Afp_intString"], [4,"Afp_floatString","$6 = $4"], [4,"Afp_floatString","$5 = $4 * $3,$6 =( $4 - $6 )* $3"]] 
             elif typ == "stock":
                 # param = [requested, delivered]
@@ -1015,7 +1041,7 @@ class AfpFaktura(AfpPaymentList):
                 typ = None
         if not typ:
             felder = self.selection_table.get_columns_for_line_display()
-            return  [ ["choose", felder], [3,"Afp_intString","$5 = $5 * $3,$6 =( $4 - $6 )* $3"]] 
+            return  [ ["choose", felder], [3,"Afp_floatString","$5 = $4 * $3,$6 =( $4 - $6 )* $3"], [4,"Afp_floatString","$5 = $4 * $3,$6 =( $4 - $6 )* $3"]] 
             #return  [ ["choose",",ArtikelNr,Bezeichnung,,Nettopreis,Nettopreis,Einkaufspreis"], [3,"Afp_intString","$5 = $5 * $3,$6 =( $4 - $6 )* $3"]] 
     ## return names of data columns neede for different grids
     # @param name - name of grid data is designed for
@@ -1076,6 +1102,37 @@ class AfpInvoice(AfpFaktura):
         AfpFaktura.set_new(self, stype, KNr, keep)
         if KNr:
             self.set_value("Debitor", self.get_indi_account(KNr))
+    ## calculate external invoice number with configured start and prefix
+    def get_external_rechnr(self):
+        value = self.get_value("RechNr")
+        if not (value or value == 0):
+            return None
+        ext = value
+        start = self.globals.get_value("invoice-number-start", "Faktura")
+        if start:
+            start_nr = Afp_fromString(start)
+            if Afp_isNumeric(start_nr):
+                ext = start_nr + value - 1
+        prefix = self.globals.get_value("invoice-number-prefix", "Faktura")
+        if prefix:
+            return prefix + Afp_toString(ext)
+        return Afp_toString(ext)
+    ## get invoice number with configured prefix for output
+    def get_ausgabe_value(self, DateiFeld = None):
+        if DateiFeld and DateiFeld.split(".")[0] == "RechNrExtern":
+            ext = self.get_external_rechnr()
+            if ext:
+                return ext
+        return AfpSelectionList.get_ausgabe_value(self, DateiFeld)
+    ## get invoice number with configured prefix for display
+    def get_string_value(self, DateiFeld = None, quoted_string = False):
+        if quoted_string:
+            return AfpSelectionList.get_string_value(self, DateiFeld, quoted_string)
+        if DateiFeld and DateiFeld.split(".")[0] in ("RechNr", "RechNrExtern"):
+            ext = self.get_external_rechnr()
+            if ext:
+                return ext
+        return AfpSelectionList.get_string_value(self, DateiFeld, quoted_string)
     ## complete datavalues needed for storing
     def complete_data(self):
         #print("AfpInvoice.complete_data")

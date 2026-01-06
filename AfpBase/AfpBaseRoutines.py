@@ -655,7 +655,11 @@ def Afp_getIndividualAccount(mysql, KNr, typ = "Debitor"):
 # @param index -  sort criterium
 # @param value -  value of sort criterium to be searched
 def Afp_selectGetValue(mysql, table, column, index, value):
+    if Afp_isString(value) and value and value[0] == "!":
+        value = value[1:]
     string = Afp_toInternDateString(value)
+    if Afp_isString(value) and not Afp_isNumeric(Afp_fromString(value)):
+        string = Afp_toQuotedString(value)
     rows = mysql.select(column, index + " >= " + string, table, index, "0,1")
     if rows:
         if rows[0]:
@@ -1056,6 +1060,7 @@ class AfpImport(object):
             if self.progress_bar:
                 self.progress_bar.plus_step()
             if new_data is None: continue  
+            new_data = [None if v == "" else v for v in new_data]
             mysql.write_insert(table, cols, [new_data])
     #
     # specific methods for xlsx import
@@ -1620,7 +1625,10 @@ class AfpMailSender(object):
     # @param message - message body
     def set_message(self, subject, message):
         if subject: self.subject = subject.encode('iso8859_15')
-        self.message = message.encode('iso8859_15')
+        if message is not None:
+            if message:
+                message = message.replace("\u2013", "-")
+            self.message = message.encode('iso8859_15')
     ## set html text message body
     # @param subject - subject of message
     # @param message - message body
@@ -1634,6 +1642,19 @@ class AfpMailSender(object):
         if Afp_existsFile(filename):
             if not (filename[-4:] == ".pdf" or filename[-4:] == ".PDF"):
                 filename = self.convert_to_pdf(filename)
+            if not (filename and (filename[-4:] == ".pdf" or filename[-4:] == ".PDF")):
+                print("AfpMailSender.add_attachment: PDF conversion failed, attachment skipped.")
+                return False
+            try:
+                with open(filename, "rb") as fin:
+                    head = fin.read(4)
+                if head != b"%PDF":
+                    Afp_deleteFile(filename)
+                    print("AfpMailSender.add_attachment: Attachment is not a valid PDF, skipped.")
+                    return False
+            except Exception:
+                print("AfpMailSender.add_attachment: Attachment check failed, skipped.")
+                return False
             self.attachments.append(filename)
             return True
         else:
@@ -1667,12 +1688,111 @@ class AfpMailSender(object):
         converter =  self.globals.get_value("pdf-converter")
         convtime =  self.globals.get_value("pdf-converter-time")
         if converter:
-            pdfname =self.globals.get_value("tempdir") + Afp_extractBase(filename).split(".")[0] + ".pdf"
-            Afp_startProgramFile(converter, self.debug, filename)
-            if convtime: Afp_wait(2*convtime)
-            if self.debug: print ("AfpMailSender.convert_to_pdf:", convtime, pdfname, Afp_existsFile(pdfname))
+            if "--convert-to pdf" in converter and "writer_pdf_Export" not in converter:
+                converter = converter.replace("--convert-to pdf", "--convert-to pdf:writer_pdf_Export")
+            def run_converter(command, infile):
+                try:
+                    import os
+                    import shlex
+                    import subprocess
+                    args = [arg.strip("\"") for arg in shlex.split(command, posix=False)]
+                    if not args:
+                        return False
+                    exe = os.path.normpath(args[0])
+                    cwd = os.path.dirname(exe)
+                    cmd_args = []
+                    for arg in args[1:]:
+                        if arg and (arg[0] == "-" or arg.startswith("pdf:")):
+                            cmd_args.append(arg)
+                        elif arg and (":" in arg or "\\" in arg or "/" in arg):
+                            cmd_args.append(os.path.normpath(arg))
+                        else:
+                            cmd_args.append(arg)
+                    cmd = [exe] + cmd_args + [os.path.normpath(infile)]
+                    if self.debug: print("AfpMailSender.convert_to_pdf: run", cmd)
+                    result = subprocess.run(cmd, cwd=cwd, check=False)
+                    if self.debug: print("AfpMailSender.convert_to_pdf: rc", result.returncode)
+                    return result.returncode == 0
+                except Exception as err:
+                    if self.debug: print("AfpMailSender.convert_to_pdf: run_converter failed:", err)
+                    return False
+            def run_converter_shell(command, infile):
+                try:
+                    import subprocess
+                    quoted = "\"" + infile + "\""
+                    subprocess.run(command + " " + quoted, shell=True, check=False)
+                    return True
+                except Exception as err:
+                    if self.debug: print("AfpMailSender.convert_to_pdf: run_converter_shell failed:", err)
+                    return False
+            def is_pdf(path):
+                try:
+                    with open(path, "rb") as fin:
+                        head = fin.read(4)
+                    return head == b"%PDF"
+                except Exception:
+                    return False
+            convert_name = filename
+            if filename and filename.lower().endswith(".fodt") and not filename.lower().endswith("_clean.fodt"):
+                try:
+                    import xml.etree.ElementTree as ET
+                    ET.parse(filename)
+                except Exception as err:
+                    if self.debug: print("AfpMailSender.convert_to_pdf: FODT validation failed:", err)
+            def wait_for_pdf(path, wait_time):
+                tries = 10
+                delay = wait_time if wait_time and wait_time > 0.5 else 0.5
+                for _ in range(tries):
+                    if Afp_existsFile(path) and is_pdf(path):
+                        return True
+                    Afp_wait(delay)
+                return False
+            def cleanup_invalid_pdf(path):
+                if Afp_existsFile(path) and not is_pdf(path):
+                    Afp_deleteFile(path)
+            outdir = self.globals.get_value("archivdir")
+            if not outdir:
+                outdir = self.globals.get_value("tempdir")
+            if outdir:
+                import os
+                outdir = os.path.normpath(outdir.rstrip("\\/"))
+            if "{outdir}" in converter:
+                converter = converter.replace("{outdir}", outdir)
+            orig_base = Afp_extractBase(filename).split(".")[0]
+            base = Afp_extractBase(convert_name).split(".")[0]
+            pdfname = Afp_addRootpath(outdir, base + ".pdf")
+            orig_pdfname = Afp_addRootpath(outdir, orig_base + ".pdf")
             if Afp_existsFile(pdfname):
+                Afp_deleteFile(pdfname)
+            if pdfname != orig_pdfname and Afp_existsFile(orig_pdfname):
+                Afp_deleteFile(orig_pdfname)
+            if not run_converter(converter, convert_name):
+                run_converter_shell(converter, convert_name)
+            if self.debug: print ("AfpMailSender.convert_to_pdf:", convtime, pdfname, Afp_existsFile(pdfname))
+            if wait_for_pdf(pdfname, convtime):
                 filename = pdfname
+            elif wait_for_pdf(orig_pdfname, convtime):
+                filename = orig_pdfname
+            else:
+                cleanup_invalid_pdf(pdfname)
+                cleanup_invalid_pdf(orig_pdfname)
+                if "soffice.exe" in converter and os.name != "nt":
+                    alt_converter = converter.replace("soffice.exe", "soffice.com")
+                    if "--convert-to pdf" in alt_converter and "writer_pdf_Export" not in alt_converter:
+                        alt_converter = alt_converter.replace("--convert-to pdf", "--convert-to pdf:writer_pdf_Export")
+                    if not run_converter(alt_converter, convert_name):
+                        run_converter_shell(alt_converter, convert_name)
+                    if wait_for_pdf(pdfname, convtime):
+                        filename = pdfname
+                        return filename
+                    if wait_for_pdf(orig_pdfname, convtime):
+                        filename = orig_pdfname
+                        return filename
+                alt = Afp_addRootpath(self.globals.get_value("tempdir"), base + ".pdf")
+                if wait_for_pdf(alt, convtime):
+                    filename = alt
+                else:
+                    cleanup_invalid_pdf(alt)
         return filename
     ## deliver mail to smtp server
     def send_mail(self):     

@@ -160,6 +160,7 @@ def Afp_editMail(mail, norp=False):
     attachs = "Anhang: " + mail.get_attachment_names()
     if text == "Betreff: " and mail.globals.get_value("mail-text"):
         text = mail.globals.get_value("mail-text")
+        if text: text = text.replace("\\n", "\n")
         mail.globals.set_value("mail-text", "")
     text, ok = AfpReq_EditText(text,"E-Mail Versand", von, an, attachs, True)
     if ok:
@@ -190,11 +191,15 @@ def Afp_editMail(mail, norp=False):
         if debug: print ("Afp_editMail:", sender, recipients, subject, message, attachs)
         if message:
             mail.set_message(subject, message)
+        elif mail.message is None:
+            mail.set_message(subject, "")
         if sender:
             mail.set_addresses(sender, None)
         if recipients:
             for recipient in recipients:
                 mail.add_recipient(recipient)
+        elif mail.recipients:
+            recipients = mail.recipients
         failed = []
         if attachs:
             for attach in attachs:
@@ -513,12 +518,38 @@ class AfpDialog_DiReport(wx.Dialog):
             an = None
         else:
             an = self.data.get_value("Mail.ADRESSE")
-        fpdf = fresult[:-4] + ".pdf"
+        def apply_mail_defaults():
+            if not self.data or self.data.get_listname() != "Rechnung":
+                return
+            nummer = self.data.get_string_value("RechNrExtern")
+            if not nummer:
+                nummer = self.data.get_string_value("RechNr")
+            subject = mail.subject.decode("iso8859_15") if mail.subject else "Rechnung Nr. " + nummer
+            message = ("Mit freundlichen Grüßen\n\n"
+                       "Frank Hagendorn\n\n"
+                       "Kirchweg 4\n"
+                       "64760 Oberzent – Falken Gesäß\n\n"
+                       "Tel:                        01737853752\n"
+                       "Mail:                     frank@motorgeräte-hagendorn.de\n"
+                       "Web:                    motorgeräte-hagendorn.de")
+            mail.set_message(subject, message)
+        if self.data and self.data.get_listname() == "Rechnung":
+            if mail.subject is None or mail.message in (None, b""):
+                apply_mail_defaults()
+        import os
+        fpdf = os.path.splitext(fresult)[0] + ".pdf"
         Afp_deleteFile(fpdf)
-        mail.add_attachment(fresult)
+        if not mail.add_attachment(fresult):
+            print("AfpDialog_DiReport.send_mail: attachment could not be added, mail not sent.")
+            return
         send = True
         if an: mail.add_recipient(an, True)
-        if edit: mail, send = Afp_editMail(mail) 
+        sevdesk = self.globals.get_value("invoice-autobox-recipient", "Faktura")
+        if sevdesk and self.data and self.data.get_listname() == "Rechnung" and sevdesk not in mail.recipients:
+            mail.add_recipient(sevdesk)
+        if edit: mail, send = Afp_editMail(mail)
+        if send and mail.message in (None, b""):
+            apply_mail_defaults()
         if send: 
             print ("AfpDialog_DiReport.send_mail:", mail.recipients)
             mail.send_mail()
@@ -550,6 +581,10 @@ class AfpDialog_DiReport(wx.Dialog):
         index = self.get_list_Report_index()
         archiv = self.check_Archiv.IsChecked() 
         mail = self.check_EMail.IsChecked()
+        ext = ".odt"
+        template = self.get_template_name()
+        if template and template[-5:] == ".fodt":
+            ext = ".fodt"
         #print ("AfpDialog_DiReport.get_result_name index:", index, mail, self.reportflag, self.reportname)
         if index >= 0 and self.reportflag[index]:
             if archiv:
@@ -568,16 +603,16 @@ class AfpDialog_DiReport(wx.Dialog):
                 fresult = self.prefix  + "_" + self.data.get_string_value() + "_" + self.reportlist[index] + "_"
                 if self.postfix:
                     fresult += self.postfix + "_" 
-                fresult += null + str(max) + ".odt"
+                fresult += null + str(max) + ext
                 self.archivname = fresult
                 fresult = Afp_addRootpath(self.globals.get_value("archivdir"), fresult)
             else:
                 if self.datasindex:
                     #fresult = Afp_addRootpath(self.globals.get_value("tempdir"), self.major_type + "_textausgabe" + str(self.datasindex) + ".fodt")
-                    fresult = Afp_addRootpath(self.globals.get_value("tempdir"), self.reportname[index] .strip().replace(" ","_") + "_" + str(self.datasindex) + ".odt")
+                    fresult = Afp_addRootpath(self.globals.get_value("tempdir"), self.reportname[index] .strip().replace(" ","_") + "_" + str(self.datasindex) + ext)
                 else:
                     #fresult = Afp_addRootpath(self.globals.get_value("tempdir"), self.major_type + "_textausgabe.fodt")
-                    fresult = Afp_addRootpath(self.globals.get_value("tempdir"),  self.reportname[index] .strip().replace(" ","_") + ".odt")
+                    fresult = Afp_addRootpath(self.globals.get_value("tempdir"),  self.reportname[index] .strip().replace(" ","_") + ext)
         #print ("AfpDialog_DiReport.get_result_name:", fresult)   
         return  fresult
     ## return selected list index

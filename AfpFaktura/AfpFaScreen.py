@@ -37,6 +37,7 @@ from AfpBase.AfpUtilities.AfpBaseUtilities import Afp_existsFile, Afp_isNumeric,
 from AfpBase.AfpDatabase.AfpSQL import AfpSQL
 from AfpBase.AfpDatabase.AfpSuperbase import AfpSuperbase
 from AfpBase.AfpBaseRoutines import AfpMailSender, Afp_archivName, Afp_startFile
+from AfpBase.AfpAusgabe import AfpAusgabe
 from AfpBase.AfpBaseDialog import AfpReq_Info, AfpReq_Question, AfpReq_Text, AfpReq_EditText, AfpReq_MultiLine
 from AfpBase.AfpBaseDialogCommon import  AfpReq_Information, Afp_editMail, AfpLoad_DiReport
 from AfpBase.AfpBaseScreen import AfpEditScreen
@@ -431,6 +432,8 @@ class AfpFaScreen(AfpEditScreen):
       
         self.button_Dokument = wx.Button(panel, -1, label="&Dokument", pos=(692,256), size=(77,50), name="BDokument")
         self.Bind(wx.EVT_BUTTON, self.On_Dokument, self.button_Dokument)
+        self.button_Sevdesk = wx.Button(panel, -1, label="&Sevdesk", pos=(692,310), size=(77,25), name="BSevdesk")
+        self.Bind(wx.EVT_BUTTON, self.On_Sevdesk, self.button_Sevdesk)
         self.button_Zahlung = wx.Button(panel, -1, label="&Zahlung", pos=(692,338), size=(77,50), name="BZahlung")
         self.Bind(wx.EVT_BUTTON, self.On_Zahlung, self.button_Zahlung)
         self.button_Edit = wx.Button(panel, -1, label="&Bearbeiten", pos=(692,405), size=(77,50), name="Edit")
@@ -603,6 +606,7 @@ class AfpFaScreen(AfpEditScreen):
         self.grid_minrows["Content"] = self.grid_content.GetNumberRows()
         self.Bind(wx.grid.EVT_GRID_CMD_CELL_LEFT_DCLICK, self.On_DClick_EditGrid, self.grid_content)
         self.Bind(wx.grid.EVT_GRID_CMD_CELL_LEFT_CLICK, self.On_LClick_EditGrid, self.grid_content)
+        self.Bind(wx.grid.EVT_GRID_CMD_CELL_RIGHT_CLICK, self.On_RClick_EditGrid, self.grid_content)
 
     ## compose address specific menu parts
     def create_specific_menu(self):
@@ -737,6 +741,100 @@ class AfpFaScreen(AfpEditScreen):
             event.Skip()
         event.Skip()
         
+    ## Eventhandler Grid - right click editable grid
+    def On_RClick_EditGrid(self, event):
+        if not self.is_editable():
+            return
+        row = event.GetRow()
+        if row >= 0:
+            self.select_row(row)
+        menu = wx.Menu()
+        item_edit = menu.Append(-1, "Position bearbeiten")
+        item_del = menu.Append(-1, "Position loeschen")
+        def _edit(evt):
+            if self.selected_row is None:
+                return
+            self.edit_data(self.selected_row)
+        def _delete(evt):
+            if self.selected_row is None:
+                return
+            ok = AfpReq_Question("Position wirklich loeschen?", "", "Position loeschen")
+            if ok:
+                self.delete_row(self.selected_row)
+        self.Bind(wx.EVT_MENU, _edit, item_edit)
+        self.Bind(wx.EVT_MENU, _delete, item_del)
+        self.PopupMenu(menu)
+        menu.Destroy()
+
+    ## create invoice output and return result filename
+    def create_invoice_output(self):
+        faktura = self.get_data()
+        if not faktura or faktura.get_listname() != "Rechnung":
+            return None
+        templ = Afp_addRootpath(self.globals.get_value("templatedir"), "AfpMotor_template_Rechnung.fodt")
+        if not Afp_existsFile(templ):
+            return None
+        empty = Afp_addRootpath(self.globals.get_value("templatedir"), "empty.odt")
+        nummer = faktura.get_string_value("RechNrExtern")
+        if not nummer:
+            nummer = faktura.get_string_value("RechNr")
+        result = Afp_addRootpath(self.globals.get_value("tempdir"), "offene_Rechnung_" + nummer + ".fodt")
+        out = AfpAusgabe(self.debug, faktura)
+        out.inflate(templ)
+        out.write_resultfile(result, empty)
+        return result
+
+    ## Eventhandler BUTTON - send invoice to sevdesk mailbox
+    def On_Sevdesk(self, event):
+        if self.debug: print("Event handler `On_Sevdesk'")
+        if not self.data or self.data.get_listname() != "Rechnung":
+            AfpReq_Info("Nur fuer Rechnungen moeglich.", "", "Sevdesk Versand")
+            if event: event.Skip()
+            return
+        recipient = self.globals.get_value("invoice-autobox-recipient", "Faktura")
+        if not recipient:
+            AfpReq_Info("Keine Sevdesk-Adresse konfiguriert.", "", "Sevdesk Versand")
+            if event: event.Skip()
+            return
+        fresult = self.create_invoice_output()
+        if not fresult:
+            AfpReq_Info("PDF konnte nicht erzeugt werden.", "", "Sevdesk Versand")
+            if event: event.Skip()
+            return
+        mail = AfpMailSender(self.globals, self.debug)
+        if not mail.is_possible():
+            AfpReq_Info("E-Mail Versand ist nicht konfiguriert.", "", "Sevdesk Versand")
+            if event: event.Skip()
+            return
+        nummer = self.data.get_string_value("RechNrExtern")
+        if not nummer:
+            nummer = self.data.get_string_value("RechNr")
+        subject = "Rechnung Nr. " + nummer
+        message = self.globals.get_value("mail-text")
+        if message:
+            message = message.replace("\\n", "\n")
+        else:
+            message = ("Mit freundlichen Grüßen\n\n"
+                       "Frank Hagendorn\n\n"
+                       "Kirchweg 4\n"
+                       "64760 Oberzent – Falken Gesäß\n\n"
+                       "Tel:                        01737853752\n"
+                       "Mail:                     frank@motorgeräte-hagendorn.de\n"
+                       "Web:                    motorgeräte-hagendorn.de")
+        mail.set_message(subject, message)
+        mail.add_recipient(recipient)
+        if not mail.add_attachment(fresult):
+            AfpReq_Info("PDF konnte nicht erzeugt werden.", "", "Sevdesk Versand")
+            if event: event.Skip()
+            return
+        try:
+            mail.send_mail()
+            AfpReq_Info("Sevdesk-Versand erfolgreich.", "Empfaenger: " + recipient, "Sevdesk Versand")
+        except Exception as err:
+            AfpReq_Info("Sevdesk-Versand fehlgeschlagen:", Afp_toString(err), "Sevdesk Versand")
+        if event: event.Skip()
+        return
+
     ## Eventhandler BUTTON -  invoke arrival (of goods)- not implemented yet!
     def On_Ware(self,event = None):
         print("Event handler `On_Ware' not implemented!")
@@ -1344,6 +1442,9 @@ class AfpFaScreen(AfpEditScreen):
         data = None
         value = self.combo_Filter.GetValue()
         datei, filter = AfpFaktura_possibleKinds(value)
+        saved_table = self.data.get_maintable()
+        saved_rech = self.data.get_value("RechNr")
+        saved_filter = self.data.get_value("Zustand")
         if datei != self.sb_master:
             # conversion necessary
             if datei == "RECHNG"and not self.data.get_value("TypNr"): 
@@ -1359,8 +1460,22 @@ class AfpFaScreen(AfpEditScreen):
                 data.set_value("Typ", datei)
                 data.set_value("TypNr", self.data.get_value())
                 data.store()
+        saved_table = self.data.get_maintable()
+        saved_rech = self.data.get_value("RechNr")
+        saved_filter = self.data.get_value("Zustand")
         #print ("AfpFaScreen.store_data Rechnung:", datei, self.data.get_listname())
         self.load_invoice()
+        if saved_rech:
+            self.sb_master = saved_table
+            self.sb.CurrentIndexName("RechNr", saved_table)
+            self.sb.select_key(saved_rech)
+            self.sb.CurrentFileName(saved_table)
+            if saved_filter:
+                name, index = AfpFaktura_possibleKinds(None, saved_table, saved_filter)
+                if not len(name): name = saved_table
+                self.combo_Filter.SetSelection(self.get_filter_index(name, index))
+            self.set_current_record()
+            self.Populate()
                 
     ## load simple invoice dialog
     def load_invoice(self):
