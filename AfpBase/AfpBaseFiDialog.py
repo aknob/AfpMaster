@@ -1319,8 +1319,9 @@ class AfpDialog_SimpleInvoice(AfpDialog):
     # @param reverse - flag in which direction this change should be propagated
     # @param initial - flag if propagation starts here (needed cause backward propagation should only start once)
     def set_directed_change(self, object, reverse = False, initial = False):
+        if self.oblig and initial: initial = False # no backwards propagation for obligations
         name = object.GetName()
-        if not name in self.changed_text: self.changed_text.append(name)
+        if object.GetValue() and not name in self.changed_text: self.changed_text.append(name)
         if name == "DiscProSI":
             summe = Afp_fromString(self.text_Summe.GetValue())
             if reverse:
