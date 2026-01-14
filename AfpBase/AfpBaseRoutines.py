@@ -1750,7 +1750,6 @@ def AfpBase_getSqlTables(flavours = None):
   KEY `KundenNr` (`KundenNr`),
   KEY `Datum` (`Datum`),
   KEY `Zustand` (`Zustand`),
-  KEY `Name` (`Name`(50)),
   KEY `TypNr` (`TypNr`)
 ) ENGINE=InnoDB AUTO_INCREMENT=0 DEFAULT CHARSET=latin1 COLLATE=latin1_german2_ci;"""
     required["VERBIND"] = """CREATE TABLE `VERBIND` (
