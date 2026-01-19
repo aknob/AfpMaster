@@ -137,7 +137,7 @@ class AfpFiScreen_Cash(AfpFiScreen):
         self.combo_Period = wx.ComboBox(panel, -1, value="", size=(84,20), style=wx.CB_DROPDOWN, name="Period")
         self.Bind(wx.EVT_COMBOBOX, self.On_Jahr_Filter, self.combo_Period)
         #self.Bind(wx.EVT_TEXT_ENTER, self.On_Jahr_Filter, self.combo_Jahr)
-        self.combo_Period.Enable(False) 
+        #self.combo_Period.Enable(False)
         self.top_mid_sizer.AddStretchSpacer(1)
         self.top_mid_sizer.Add(self.combo_Period,0,wx.EXPAND)
         self.top_mid_sizer.AddSpacer(10)

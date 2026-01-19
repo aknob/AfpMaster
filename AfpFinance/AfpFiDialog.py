@@ -2551,6 +2551,7 @@ class AfpDialog_SingleTransaction(AfpDialog):
                 data["Gegenkonto"] = self.text_GKonto.GetValue()
             if not "Bem" in data:
                 data["Bem"] = self.text_Bem.GetValue()
+                if not data["Bem"]: data["Bem"] = "-"
             if not "Reference" in data:
                 data["Reference"] = self.label_Auszug.GetLabel()
             if  not "Betrag" in data:
