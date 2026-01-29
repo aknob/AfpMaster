@@ -671,8 +671,8 @@ def AfpLoad_FaCustomSelect(globals, inind = None):
     DiSelect.Destroy()
     return Ok, data, actind 
 
-## allows the entry and modification of an invoice line
-class AfpDialog_FaLine(AfpDialog):
+## allows the entry and modification of an invoice line in line mode
+class AfpDialog_FaLineCustom(AfpDialog):
     def __init__(self, *args, **kw):
         AfpDialog.__init__(self,None, -1, "")
         self.action = None
@@ -749,9 +749,9 @@ class AfpDialog_FaLine(AfpDialog):
 # @param ident - identifier to be displayed and edited
 # @param name - if ident == None: name to be displayed and edited
 # @param debug - debug flag
-def AfpLoad_FaLine( ident = None, name = False,  debug = False):
-    #print ("AfpLoad_FaLine init:", ident, name, debug)
-    EditLine = AfpDialog_FaLine(None)
+def AfpLoad_FaLineCustom( ident = None, name = False,  debug = False):
+    #print ("AfpLoad_FaLineCustom init:", ident, name, debug)
+    EditLine = AfpDialog_FaLineCustom(None)
     if ident or name or name == "" or debug: EditLine.set_data(ident, name, debug)
     res = EditLine.ShowModal()
     Ok = None
@@ -763,9 +763,286 @@ def AfpLoad_FaLine( ident = None, name = False,  debug = False):
         else:
             Ok = False
     EditLine.Destroy()
-    #print("AfpLoad_FaLine destroy:",Ok, action, res)
+    #print("AfpLoad_FaLineCustom destroy:",Ok, action, res)
     return Ok, action
-## dialog to maintain articles
+## allows the entry and modification of an invoice line
+class AfpDialog_FaLine(AfpDialog):
+    def __init__(self, rowNr):
+        AfpDialog.__init__(self,None, -1, "")
+        self.rowNr = rowNr
+        self.action = None
+        self.sb = None
+        self.last_search = None
+        self.SetSize((290,180))
+        self.changecolor = (220, 192, 192)
+        self.SetTitle("Rechnungszeile ändern")
+        self.SetFocus()
+    ## set up dialog widgets - overwritten from AfpDialog
+    def InitWx(self):
+        self.sizer = wx.BoxSizer(wx.VERTICAL)
+        self.upper_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.button_sizer = wx.BoxSizer(wx.HORIZONTAL)
+
+        self.label_ArtikelNr = wx.StaticText(self, -1, label="ArtikelNr:", name="LArtikelNr")
+        self.label_Bez = wx.StaticText(self, -1, label="Bezeichnung:", name="LBez")
+        self.label_Anzahl = wx.StaticText(self, -1, label="Anzahl:", name="LAnzahl")
+        self.label_Einzel = wx.StaticText(self, -1, label="Einzel:", name="LEinzel")
+        self.label_TGesamt = wx.StaticText(self, -1, label="Gesamt:", name="LGesamt")
+        self.label_Bestand = wx.StaticText(self, -1, label="Bestand:", name="LBestand")
+        self.label_Einkauf = wx.StaticText(self, -1, label="Einkauf:", name="LEinkauf")
+        self.label_Gewinn = wx.StaticText(self, -1, label="Gewinn:", name="LGewinn")
+
+        self.text_ArtikelNr = wx.TextCtrl(self, -1, value="", style=0, name="ArtikelNr_tmp")
+        self.textmap["ArtikelNr_tmp"] = "ErsatzteilNr._tmp"
+        self.text_ArtikelNr.Bind(wx.EVT_KILL_FOCUS, self.On_ArtikelNr)
+        self.text_Bez = wx.TextCtrl(self, -1, value="", style=0, name="Bezeichnung_tmp")
+        self.textmap["Bezeichnung_tmp"] = "Bezeichnung._tmp"
+        self.text_Bez.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
+        self.text_Anzahl = wx.TextCtrl(self, -1, value="", style=0, name="Anzahl_tmp")
+        self.textmap["Anzahl_tmp"] = "Anzahl._tmp"
+        self.text_Anzahl.Bind(wx.EVT_KILL_FOCUS, self.On_Preis)
+        self.text_Einzel = wx.TextCtrl(self, -1, value="", style=wx.TE_READONLY, name="Einzel_tmp")
+        self.textmap["Einzel_tmp"] = "Einzelpreis._tmp"
+        self.text_Einzel.Bind(wx.EVT_KILL_FOCUS, self.On_Preis)
+        self.text_Gesamt = wx.TextCtrl(self, -1, value="", style=wx.TE_READONLY, name="Gesamt_tmp")
+        self.textmap["Gesamt_tmp"] = "Gesamtpreis._tmp"
+
+        self.text_Bestand = wx.TextCtrl(self, -1, value="", style=wx.TE_READONLY, name="Bestand_tmp")
+        self.textmap["Bestand_tmp"] = "Bestand._tmp"
+        self.text_Bestand.Bind(wx.EVT_KILL_FOCUS, self.On_KillFocus)
+        self.text_Einkauf = wx.TextCtrl(self, -1, value="", style=wx.TE_READONLY, name="Einkauf_tmp")
+        self.textmap["Einkauf_tmp"] = "Einkaufspreis._tmp"
+        self.text_Einkauf.Bind(wx.EVT_KILL_FOCUS, self.On_Preis)
+        self.text_Gewinn= wx.TextCtrl(self, -1, value="", style=wx.TE_READONLY, name="Gewinn_tmp")
+        self.textmap["Gewinn_tmp"] = "Gewinn._tmp"
+
+        self.line1a_sizer = wx.BoxSizer(wx.VERTICAL)
+        self.line1a_sizer.Add(self.label_ArtikelNr,0,wx.EXPAND)
+        self.line1a_sizer.Add(self.text_ArtikelNr,0,wx.EXPAND)
+        self.line1b_sizer = wx.BoxSizer(wx.VERTICAL)
+        self.line1b_sizer.Add(self.label_Bez,0,wx.EXPAND)
+        self.line1b_sizer.Add(self.text_Bez,0,wx.EXPAND)
+        self.line1c_sizer = wx.BoxSizer(wx.VERTICAL)
+        self.line1c_sizer.Add(self.label_Anzahl,0,wx.EXPAND)
+        self.line1c_sizer.Add(self.text_Anzahl,0,wx.EXPAND)
+        self.line1c_sizer.Add(self.label_Bestand,0,wx.EXPAND)
+        self.line1c_sizer.Add(self.text_Bestand,0,wx.EXPAND)
+        self.line1d_sizer = wx.BoxSizer(wx.VERTICAL)
+        self.line1d_sizer.Add(self.label_Einzel,0,wx.EXPAND)
+        self.line1d_sizer.Add(self.text_Einzel,0,wx.EXPAND)
+        self.line1d_sizer.Add(self.label_Einkauf,0,wx.EXPAND)
+        self.line1d_sizer.Add(self.text_Einkauf,0,wx.EXPAND)
+        self.line1e_sizer = wx.BoxSizer(wx.VERTICAL)
+        self.line1e_sizer.Add(self.label_TGesamt,0,wx.EXPAND)
+        self.line1e_sizer.Add(self.text_Gesamt,0,wx.EXPAND)
+        self.line1e_sizer.Add(self.label_Gewinn,0,wx.EXPAND)
+        self.line1e_sizer.Add(self.text_Gewinn,0,wx.EXPAND)
+        self.upper_sizer.AddSpacer(10)
+        self.upper_sizer.Add(self.line1a_sizer,5,wx.EXPAND)
+        self.upper_sizer.AddSpacer(10)
+        self.upper_sizer.Add(self.line1b_sizer,5,wx.EXPAND)
+        self.upper_sizer.AddSpacer(10)
+        self.upper_sizer.Add(self.line1c_sizer,0,wx.EXPAND)
+        self.upper_sizer.AddSpacer(10)
+        self.upper_sizer.Add(self.line1d_sizer,1,wx.EXPAND)
+        self.upper_sizer.AddSpacer(10)
+        self.upper_sizer.Add(self.line1e_sizer,1,wx.EXPAND)
+        self.upper_sizer.AddSpacer(10)
+
+        self.button_Suche = wx.Button(self, -1, label="&Suche", name="Suche_FaLine")
+        self.Bind(wx.EVT_BUTTON, self.On_Suche, self.button_Suche)
+        self.button_Prev = wx.Button(self, -1, label="&<", name="Prev_FaLine")
+        self.Bind(wx.EVT_BUTTON, self.On_Prev, self.button_Prev)
+        self.button_Next = wx.Button(self, -1, label="&>", name="Next_FaLine")
+        self.Bind(wx.EVT_BUTTON, self.On_Next, self.button_Next)
+        self.button_Text = wx.Button(self, -1, label="&Text", name="Text_FaLine")
+        self.Bind(wx.EVT_BUTTON, self.On_Text, self.button_Text)
+        self.button_Löschen = wx.Button(self, -1, label="&Löschen", name="Ablage")
+        self.Bind(wx.EVT_BUTTON, self.On_Löschen, self.button_Löschen)
+        self.button_sizer.AddSpacer(10)
+        self.button_sizer.AddStretchSpacer(1)
+        self.button_sizer.Add(self.button_Suche,0,wx.EXPAND)
+        self.button_sizer.AddStretchSpacer(1)
+        self.button_sizer.Add(self.button_Prev,0,wx.EXPAND)
+        self.button_sizer.AddStretchSpacer(1)
+        self.button_sizer.Add(self.button_Next,0,wx.EXPAND)
+        self.button_sizer.AddStretchSpacer(1)
+        self.button_sizer.Add(self.button_Text,0,wx.EXPAND)
+        self.button_sizer.AddStretchSpacer(1)
+        self.button_sizer.Add(self.button_Löschen,0,wx.EXPAND)
+        self.setWx(self.button_sizer, [1, 0, 0], [1, 0, 1]) # set Edit and Ok widgets
+        self.button_sizer.AddSpacer(10)
+
+        self.sizer.AddSpacer(10)
+        self.sizer.Add(self.upper_sizer,1,wx.EXPAND)
+        self.sizer.AddSpacer(10)
+        self.sizer.Add(self.button_sizer,0,wx.EXPAND)
+        self.sizer.AddSpacer(10)
+        self.SetSizerAndFit(self.sizer)
+
+    ## attaches data to this dialog, invokes population of widgets, overwritten from AfpDialog
+    # @param data - AfpSelectionList which holds data to be filled into dialog wodgets
+    # @param new - flag if new database entry has to be created
+    # @param editable - flag if dialogentries are editable when dialog pops up
+    def attach_data(self, data):
+        if not self.rowNr is None:
+            data.fill_tmp_from_row("Content", self.rowNr)
+            if data.get_value("Gewinn._tmp") and  data.get_value("Anzahl._tmp"):
+                ek= (data.get_value("Gesamtpreis._tmp") - data.get_value("Gewinn._tmp")) / data.get_value("Anzahl._tmp")
+                data.set_value("Einkaufspreis._tmp", ek)
+        self.keepreadonly = ["Einzel_tmp", "Gesamt_tmp", "Bestand_tmp", "Einkauf_tmp", "Gewinn_tmp"]
+        super(AfpDialog_FaLine, self).attach_data(data, False, True)
+        if not self.rowNr is None and data.get_value("ErsatzteilNr._tmp"):
+            self.set_SB(data.get_value("ErsatzteilNr._tmp"), "ArtikelNr")
+    ## return result of action to calling routine
+    def get_action(self):
+        if self.get_Ok():
+            row =  [None, self.text_ArtikelNr.GetValue(), self.text_Bez.GetValue(), Afp_fromString(self.text_Anzahl.GetValue()), Afp_fromString(self.text_Einzel.GetValue()), Afp_fromString(self.text_Gesamt.GetValue()), Afp_fromString(self.text_Gewinn.GetValue())]
+            return row, self.action
+        return None, None
+    ## set supebas to given article
+    # @param ident - article identifier
+    def set_SB(self, ident, index):
+        if not self.sb:
+            self.sb =  AfpSuperbase(self.data.get_globals(), self.debug)
+        self.sb.open_datei("ARTIKEL")
+        self.sb.CurrentIndexName(index)
+        self.sb.select_key(ident)
+    ## populate dialog with article data
+    # @param artnr - article identifier
+    def Pop_Artikel(self, artnr):
+        #print ("AfpDialog_FaLine.Pop_Artikel:", artnr)
+        art = AfpArtikel(self.data.get_globals(), artnr)
+        if art:
+            self.text_ArtikelNr.SetValue(art.get_value("ArtikelNr"))
+            self.text_Bez.SetValue(art.get_value("Bezeichnung"))
+            preis = art.get_value("Nettopreis")
+            eink = art.get_value("Einkaufspreis")
+            self.text_Einzel.SetValue(Afp_toString(preis))
+            self.text_Einkauf.SetValue(Afp_toString(eink))
+            self.On_Preis()
+    ##  Eventhandler KillFocus overwritten from AfpDialog
+    # @param event - event which initiated this action
+    def On_KillFocus(self,event=None):
+        readonly =  ["Einzel_tmp", "Gesamt_tmp", "Bestand_tmp", "Einkauf_tmp", "Gewinn_tmp"]
+        art = bool(self.text_ArtikelNr.GetValue())
+        best = self.data.get_listname() == "Bestellung"
+        ez_flag = not art
+        ek_flag = not art or best
+        #print ("AfpDialog_FaLine.On_KillFocus:", ez_flag, ek_flag, best)
+        self.text_Einzel.SetEditable(ez_flag)
+        if ez_flag:
+            readonly.pop(readonly.index("Einzel_tmp"))
+            self.text_Einzel.SetBackgroundColour(self.editcolor)
+        else:
+            self.text_Einzel.SetBackgroundColour(self.readonlycolor)
+        self.text_Einkauf.SetEditable(ek_flag)
+        if ek_flag:
+            readonly.pop(readonly.index("Einkauf_tmp"))
+            self.text_Einkauf.SetBackgroundColour(self.editcolor)
+        else:
+            self.text_Einkauf.SetBackgroundColour(self.readonlycolor)
+        self.text_Bestand.SetEditable(best)
+        if best:
+            readonly.pop(readonly.index("Bestand_tmp"))
+            self.text_Bestand.SetBackgroundColour(self.editcolor)
+        else:
+            self.text_Bestand.SetBackgroundColour(self.readonlycolor)
+        self.keepreadonly = readonly
+        if event: super(AfpDialog_FaLine, self).On_KillFocus(event)
+    ##  Eventhandler KillFocus  of ArtikelNr
+    # @param event - event which initiated this action
+    def On_ArtikelNr(self,event):
+        artnr = self.text_ArtikelNr.GetValue()
+        if self.data.get_value("ErsatzteilNr._tmp") == artnr or self.last_search == artnr: return
+        self.On_Suche()
+        self.last_search = self.text_ArtikelNr.GetValue()
+        self.On_KillFocus(event)
+    ##  Eventhandler KillFocus  of price related fields
+    # @param event - event which initiated this action
+    def On_Preis(self,event=None):
+        anz = Afp_fromString(self.text_Anzahl.GetValue())
+        preis = Afp_fromString(self.text_Einzel.GetValue())
+        eink = Afp_fromString(self.text_Einkauf.GetValue())
+        if anz and preis:
+            self.text_Einzel.SetValue(Afp_toFloatString(preis))
+            self.text_Gesamt.SetValue(Afp_toFloatString(anz*preis))
+            if eink or eink == 0.0:
+                self.text_Einkauf.SetValue(Afp_toFloatString(eink))
+                self.text_Gewinn.SetValue(Afp_toFloatString(anz*(preis - eink)))
+        self.On_KillFocus(event)
+    ##  Eventhandler BUTTON  search in the article database
+    # @param event - event which initiated this action
+    def On_Suche(self,event=None):
+        if self.debug: print("AfpDialog_FaLine Event handler `On_Suche'")
+        index = "ArtikelNr"
+        ident =  self.text_ArtikelNr.GetValue()
+        if not ident:
+            index = "Bezeichnung"
+            ident = self.text_Bez.GetValue()
+        if ident:
+            artnr = AfpLoad_FaArtikelAusw(self.data.get_globals(), index, ident, "ARTIKEL")
+            print("AfpDialog_FaLine.On_Suche:", artnr)
+            if artnr:
+                self.Pop_Artikel(artnr)
+                if index == "Bezeichnung":
+                    ident = self.text_Bez.GetValue()
+                else:
+                    ident = self.text_ArtikelNr.GetValue()
+                self.set_SB(ident, index)
+        if event: event.Skip()
+    ##  Eventhandler BUTTON look for perivious entry in the article database
+    # @param event - event which initiated this action
+    def On_Prev(self,event):
+        if self.debug: print("AfpDialog_FaLine Event handler `On_Prev'")
+        if self.sb:
+            self.sb.select_previous()
+            artnr = self.sb.get_value("ArtikelNr.ARTIKEL")
+            self.Pop_Artikel(artnr)
+    ##  Eventhandler BUTTON  search in the article database
+    # @param event - event which initiated this action
+    def On_Next(self,event):
+        if self.debug: print("AfpDialog_FaLine Event handler `On_Next'")
+        if self.sb:
+            self.sb.select_next()
+            artnr = self.sb.get_value("ArtikelNr.ARTIKEL")
+            self.Pop_Artikel(artnr)
+    ##  Eventhandler BUTTON  invoke text insertion
+    # @param event - event which initiated this action
+    def On_Text(self,event):
+        if self.debug: print("AfpDialog_FaLine Event handler `On_Text'")
+        self.action ="text"
+        self.Ok =True
+        event.Skip()
+        self.EndModal(wx.ID_OK)
+    ##  Eventhandler BUTTON  delete line from invoice
+    # @param event - event which initiated this action
+    def On_Löschen(self,event):
+        if self.debug: print("AfpDialog_FaLine Event handler `On_Löschen'")
+        self.action = "delete"
+        self.Ok = True
+        event.Skip()
+        self.EndModal(wx.ID_OK)
+
+## loader routine for dialog for invoice entries, returns row and action
+# @param data - SelectionList to be edited
+# @param rowNr - if given, number of row in 'Content' to be edited, otherwise a new entry is created
+def AfpLoad_FaLine( data, rowNr = None):
+    print ("AfpLoad_FaLine init:", data.get_listname(), rowNr)
+    EditLine = AfpDialog_FaLine(rowNr)
+    EditLine.attach_data(data)
+    res = EditLine.ShowModal()
+    Ok = None
+    row = None
+    action = None
+    if res == wx.ID_OK:
+        row, action = EditLine.get_action()
+        if not action: action = True
+    else:
+        action = False
+    EditLine.Destroy()
+    #print("AfpLoad_FaLine destroy:", row, action, res, wx.ID_OK)
+    return row, action
 class AfpDialog_FaArticle(AfpDialog):
     def __init__(self, hersteller, idents):
         self.hers_liste = hersteller
@@ -1093,8 +1370,9 @@ class AfpDialog_FaArticle(AfpDialog):
         self.close_dialog = True
         artnr = self.text_ArtikelNr.GetValue().strip()
         bez = self.text_Bez.GetValue().strip()
-        if not (artnr and bez):
-            AfpReq_Info("Keine Artikelnummer oder keine Bezeichnung angegeben!", "Eingabe bitte nachholen!", "Artikelnummer")
+        prsgrp = self.text_PrsGrp.GetValue().strip()
+        if not (artnr and bez and prsgrp):
+            AfpReq_Info("Keine Artikelnummer, keine Bezeichnung oder keine Preisgruppe angegeben!", "Eingabe bitte nachholen!", "Artikelnummer")
             self.close_dialog = False
             return
         if self.new or "ArtikelNr_Artikel" in self.changed_text:

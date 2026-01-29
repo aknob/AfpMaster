@@ -411,6 +411,23 @@ class AfpSelectionList(object):
             selection.set_data(rows)
         #print "AfpSelectionList.get_selection_from_row:",selname, row, unique, selection
         return selection
+    ## retrieve a selection row and fill it into the _tmp directory \n
+    # @param selname - name of TableSelection
+    # @param rownr - index of row in TableSelection where data is retrieved
+    def fill_tmp_from_row(self, selname, rownr):
+        sel = self.get_selection(selname)
+        rows = sel.get_values(None, rownr)
+        felder = sel.get_feldnamen()
+        if rows:
+            row = rows[0]
+            if not self._tmp: self._tmp = {}
+            for i in range(len(felder)):
+                feld = felder[i]
+                self._tmp[feld] = row[i]
+        elif self._tmp:
+            for feld in felder:
+                self._tmp.pop(feld)
+        #print ("AfpSelectionList.fill_tmp_from_row:", self._tmp)
     ## insert an empty row to a TableSelection
     # @param selname - name of TableSelection 
     # @param rowNr- index where row in TableSelection should be inserted

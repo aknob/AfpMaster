@@ -879,14 +879,15 @@ class AfpDialog(wx.Dialog):
     # optional loading data from database before
     def re_load(self):
         #print "AfpDialog.re_load:", self.reload
-        if self.reload: 
-            if type(self.reload) == bool:
-               selnames = self.data.get_selection_names()
-            else:
-                selnames = self.reload
-            for sel in selnames:
-                self.data.reload_selection(sel)
-        self.Populate()
+        if self.data:
+            if self.reload:
+                if type(self.reload) == bool:
+                   selnames = self.data.get_selection_names()
+                else:
+                    selnames = self.reload
+                for sel in selnames:
+                    self.data.reload_selection(sel)
+            self.Populate()
     ## common population routine for dialog and widgets
     def Populate(self):
         self.Pop_text()

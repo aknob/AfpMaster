@@ -45,7 +45,7 @@ from AfpBase.AfpBaseAdDialog import AfpLoad_DiAdEin_fromKNr, AfpLoad_AdAusw, Afp
 from AfpBase.AfpBaseFiDialog import AfpLoad_DiFiZahl, AfpLoad_SimpleInvoice
 
 from AfpFaktura.AfpFaRoutines import AfpFaktura_FilterList, AfpArtikel, AfpInvoice, AfpOffer, AfpOrder, AfpFaktura_inFilterList, AfpFaktura_changeKind, AfpFaktura_possibleKinds, AfpFaktura_identifyIndex, AfpFaktura_colonFloat, AfpFaktura_colonInt
-from AfpFaktura.AfpFaDialog import AfpLoad_FaAusw, AfpLoad_FaCustomSelect, AfpLoad_FaLine, AfpLoad_FaArtikelAusw, AfpReq_FaSelectedRow, AfpFaktura_selectManufacturer, AfpLoad_FaManufact
+from AfpFaktura.AfpFaDialog import AfpLoad_FaAusw, AfpLoad_FaCustomSelect, AfpLoad_FaLine, AfpLoad_FaLineCustom, AfpLoad_FaArtikelAusw, AfpReq_FaSelectedRow, AfpFaktura_selectManufacturer, AfpLoad_FaManufact
 
 class AfpFaScreen_EditLinePlugIn(object):
     ## initialize AfpFaScreen_EditLinePlugIn class
@@ -381,8 +381,10 @@ class AfpFaScreen(AfpEditScreen):
         self.use_labels = use_labels
         self.use_RETURN = False
         self.use_custom_selection = False
+        self.use_inline_editing = False
         self.custom_index = None
         self.automated_selection = False
+        self.device_selection = False
         self.first_content_change = None
         self.grid_rows["Content"] = 10 
         self.grid_cols["Content"] = 6
@@ -653,14 +655,32 @@ class AfpFaScreen(AfpEditScreen):
         #self.menubar.Append(tmp_menu, "Adresse")
         return
 
+
+    ## set flags from globals
+    def set_global_flags(self):
+        if self.globals.get_value("name") == "AfpMotor":
+            self.use_RETURN = True
+            self.use_custom_selection = True
+            self.use_inline_editing = True
+            self.automated_selection = True
+            self.device_selection = True
+        if not self.globals.get_value("use-RETURN","Faktura") is None:
+            self.use_RETURN = bool(self.globals.get_value("use-RETURN","Faktura"))
+        if not self.globals.get_value("use-custom-selection","Faktura") is None:
+            self.use_custom_selection = bool(self.globals.get_value("use-custom-selection","Faktura"))
+        if not self.globals.get_value("use-inline-editing","Faktura") is None:
+            self.use_inline_editing = bool(self.globals.get_value("use-inline-editing","Faktura"))
+        if not self.globals.get_value("automated-selection","Faktura") is None:
+            self.automated_selection = bool(self.globals.get_value("automated-selection","Faktura"))
+        if not self.globals.get_value("invoke-device-selection","Faktura") is None:
+            self.device_selection = bool(self.globals.get_value("invoke-device-selection", "Faktura"))
+        self.midentlen = self.globals.get_value("short-manu-max-len", "Faktura")
     ## Eventhandler on activation of screen
     # set flags from globals, possibly invoke selection
     def On_Activate(self,event):
         if not self.active:
             self.active = True
-            self.use_RETURN = self.globals.get_value("use-RETURN","Faktura")
-            self.use_custom_selection = self.globals.get_value("use-custom-selection","Faktura")
-            self.automated_selection = self.globals.get_value("automated-selection","Faktura")
+            self.set_global_flags()
             if self.automated_selection:
                 self.automated_row_selection = self.automated_selection
                 self.invoke_selection()
@@ -718,13 +738,7 @@ class AfpFaScreen(AfpEditScreen):
         if datei and ident:
             data = AfpInvoice(self.globals, ident)
             self.invoke_Zahlung(data)   
-    ## Eventhandler MENU, BUTTON - invoke special select dialog - for testing only
-    def On_Faktura_Test_dep(self,event):
-        if self.debug: print("AfpAdScreen Event handler `On_Faktura_Test'")
-        #self.invoke_custom_select()
-        Ok = AfpLoad_FaLine()
-        event.Skip()
-    ## Eventhandler BUTTON - invoke dokument generation 
+   ## Eventhandler BUTTON - invoke dokument generation
     def On_Dokument(self,event):
         if self.debug and event: print("Event handler `On_Dokument'")
         Faktura = self.get_data()
@@ -1105,10 +1119,11 @@ class AfpFaScreen(AfpEditScreen):
             else:
                 data = AfpInvoice(self.globals)
             data.set_new(subtyp, KNr)
-            if GNr is None and KNr: 
-                GNr = AfpAdresse_indirectAttributFromKNr(self.globals, KNr,"Gerät oder PKW")
-            if GNr:
-                data.set_value("AttNr",GNr)
+            if self.device_selection:
+                if GNr is None and KNr:
+                    GNr = AfpAdresse_indirectAttributFromKNr(self.globals, KNr,"Gerät oder PKW")
+                if GNr:
+                    data.set_value("AttNr",GNr)
             self.loaded_data = self.data
             self.data = data
             self.Populate()
@@ -1259,7 +1274,7 @@ class AfpFaScreen(AfpEditScreen):
         while edit_next:
             edit_next = False
             edit_text = False
-            if self.use_custom_selection:
+            if self.use_inline_editing:
                 Ok = False
                 action = None
                 if direct == "stock":
@@ -1267,7 +1282,7 @@ class AfpFaScreen(AfpEditScreen):
                         action = [direct, anz]
                         Ok = True
                 elif Afp_isString(ident) or (ident is None and not text[0]):
-                    Ok, action = AfpLoad_FaLine(ident, name, self.debug)
+                    Ok, action = AfpLoad_FaLineCustom(ident, name, self.debug)
                 elif text[0]:
                     edit_text = True
                     Ok = None
@@ -1292,9 +1307,14 @@ class AfpFaScreen(AfpEditScreen):
                 if text[0]:
                     edit_text = True
                 else:
-                    dlgres = AfpLoad_FaArtikelAusw(self.globals, "ArtikelNr", ident, "ARTIKEL", None, ask)
-                    if dlgres:
-                        row = self.expand_to_row(dlgres)
+                    #print("AfpFaScreen.edit_data regular in:", self.data, rowNr)
+                    row, action = AfpLoad_FaLine(self.data, rowNr)
+                    #print("AfpFaScreen.edit_data regular out:", row, action)
+                    if action =="text":
+                        edit_text = True
+                        text[0] = row[2]
+                    elif action == "delete":
+                        delete = True
             if edit_text:
                 newtext = self.edit_text(text)
                 #print("AfpFaScreen.edit_data text:", newtext)
@@ -1373,7 +1393,7 @@ class AfpFaScreen(AfpEditScreen):
 
     ## expand data to complete row
     # @param value - identifier in 'Artikel' database table to be looked for
-    def expand_to_row(self, value):
+    def expand_to_row_dep(self, value):
         #print("AfpFaScreen.expand_to_row", value)
         artikel = AfpArtikel(self.globals, value, self.debug)
         bez = artikel.get_value("Bezeichnung")
@@ -1465,7 +1485,6 @@ class AfpFaScreen(AfpEditScreen):
     #overwritten from AfpScreen) 
     # @param origin - string where to find initial data
     def set_initial_record(self, origin = None):
-        self.midentlen = self.globals.get_value("short-manu-max-len", "Faktura")
         ReNr = 0
         if origin == "Charter":
             ReNr = self.sb.get_value("RechNr.FAHRTEN")
