@@ -7,6 +7,7 @@
 # - AfpFaScreen
 #
 #   History: \n
+#        29 Jan. 2026 - add line editing dialog - Andreas.Knoblauch@afptech.de 
 #        30 Dez. 2021 - conversion to python 3 - Andreas.Knoblauch@afptech.de \n
 #        22 Nov. 2016 - inital code generated - Andreas.Knoblauch@afptech.de
 
@@ -605,6 +606,7 @@ class AfpFaScreen(AfpEditScreen):
         self.grid_minrows["Content"] = self.grid_content.GetNumberRows()
         self.Bind(wx.grid.EVT_GRID_CMD_CELL_LEFT_DCLICK, self.On_DClick_EditGrid, self.grid_content)
         self.Bind(wx.grid.EVT_GRID_CMD_CELL_LEFT_CLICK, self.On_LClick_EditGrid, self.grid_content)
+        self.Bind(wx.grid.EVT_GRID_CMD_CELL_RIGHT_DCLICK, self.On_RDClick_EditGrid, self.grid_content)
 
     ## compose address specific menu parts
     def create_specific_menu(self):
@@ -685,6 +687,19 @@ class AfpFaScreen(AfpEditScreen):
                 self.automated_row_selection = self.automated_selection
                 self.invoke_selection()
             self.panel.SetFocus()
+    ## Eventhandler Grid - double click editable grid with right mousebutton \n
+    # has to be attached to editable grid in devired class
+    def On_RDClick_EditGrid(self, event):
+        if self.is_editable():
+            if self.debug: print("AfpEditScreen Event handler `On_RDClick_EditGrid' invoked")
+            row = event.GetRow()
+            if row <= self.editable_rows:
+                self.use_inline_editing = not self.use_inline_editing
+                self.edit_data(row)
+                self.use_inline_editing = not self.use_inline_editing
+        else:
+            if self.debug: print("AfpEditScreen Event handler `On_RDClick_EditGrid'")
+
     ## Eventhandler MENU; BUTTON - select other invoice, either direkt or via attribut
     def On_Faktura_Ausw(self,event):
         if self.debug: print("Event handler `On_Faktura_Ausw'!")

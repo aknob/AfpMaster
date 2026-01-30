@@ -666,12 +666,12 @@ def Afp_loadScreen(globals, modulname, sb = None, origin = None, pos = None):
 ## Class of screen with interactive edit possibillity \n \n
 # - the grid to be edited has to be assigned to the property 'self.grid_editable'
 # - for this grid the event 'EVT_GRID_CMD_CELL_LEFT_CLICK' has to be connected to the method 'self.On_LClick_EditGrid'
-#   self.Bind(wx.grid.EVT_GRID_CMD_CELL_LEFT_DCLICK, self.On_DClick_EditGrid, self.grid_editable)
-# - for this grid the event 'EVT_GRID_CMD_CELL_LEFT_DCLICK' has to be connected to the method 'self.On_DClick_EditGrid'
 #   self.Bind(wx.grid.EVT_GRID_CMD_CELL_LEFT_CLICK, self.On_LClick_EditGrid, self.grid_editable)
+# - for this grid the event 'EVT_GRID_CMD_CELL_LEFT_DCLICK' has to be connected to the method 'self.On_DClick_EditGrid'
+#   self.Bind(wx.grid.EVT_GRID_CMD_CELL_LEFT_DCLICK, self.On_DClick_EditGrid, self.grid_editable)
 # - a button to switch to editable modus may be assigned to 'self.button_Edit', the event has to be assigned to the method 'self.On_Edit'
 #   self.Bind(wx.EVT_BUTTON, self.On_Edit, self.button_Edit)
-# - 'self.editable_rows' has to be set tu number of grid rows in self.get_grid_rows in devired class
+# - 'self.editable_rows' has to be set to number of grid rows in self.get_grid_rows in devired class
 class AfpEditScreen(AfpScreen):
     ## initialize AfpEditScreen
     def __init__(self):
@@ -907,12 +907,12 @@ class AfpEditScreen(AfpScreen):
     # has to be attached to editable grid in devired class
     def On_DClick_EditGrid(self, event):
         if self.is_editable():
-            if self.debug: print("AfpEditScreen Event handler `On_LClick_EditGrid' invoked")
+            if self.debug: print("AfpEditScreen Event handler `On_DClick_EditGrid' invoked")
             row = event.GetRow()
             if row <= self.editable_rows:
                 self.edit_data(row)
         else:
-            if self.debug: print("AfpEditScreen Event handler `On_LClick_EditGrid'")
+            if self.debug: print("AfpEditScreen Event handler `On_DClick_EditGrid'")
             
     ## Eventhandler BUTTON - swap editable modus \n
     # has to be attached to button_Edit if button is present

@@ -5,6 +5,7 @@
 # AfpInDialog module provides the dialogs and appropriate loader routines needed for invoicehandling
 #
 #   History: \n
+#        29 Jan. 2026 - add line editing dialog - Andreas.Knoblauch@afptech.de 
 #        20 Nov. 2024 - changes for python 3.12 - Andreas.Knoblauch@afptech.de 
 #        30 Dez. 2021 - conversion to python 3 - Andreas.Knoblauch@afptech.de \n
 #        22 Nov. 2016 - inital code generated - Andreas.Knoblauch@afptech.de \n
@@ -888,7 +889,7 @@ class AfpDialog_FaLine(AfpDialog):
         if not self.rowNr is None:
             data.fill_tmp_from_row("Content", self.rowNr)
             if data.get_value("Gewinn._tmp") and  data.get_value("Anzahl._tmp"):
-                ek= (data.get_value("Gesamtpreis._tmp") - data.get_value("Gewinn._tmp")) / data.get_value("Anzahl._tmp")
+                ek= (Afp_fromString(data.get_value("Gesamtpreis._tmp")) - Afp_fromString(data.get_value("Gewinn._tmp"))) / Afp_fromString(data.get_value("Anzahl._tmp"))
                 data.set_value("Einkaufspreis._tmp", ek)
         self.keepreadonly = ["Einzel_tmp", "Gesamt_tmp", "Bestand_tmp", "Einkauf_tmp", "Gewinn_tmp"]
         super(AfpDialog_FaLine, self).attach_data(data, False, True)
