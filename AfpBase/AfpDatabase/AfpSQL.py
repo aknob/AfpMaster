@@ -1142,7 +1142,7 @@ class AfpSQLTableSelection(object):
                 if self.dbg: print("AfpSQLTableSelection.store insert:", self.get_values())
                 self.mysql.write_insert( self.tablename, self.feldnamen, self.get_values())
             else:
-                if self.dbg: print("AfpSQLTableSelection.store no_unique:", self.select_clause, self.get_values())            
+                if self.dbg: print("AfpSQLTableSelection.store no_unique:", self.select_clause, self.get_values())
                 self.mysql.write_no_unique(self.select_clause, self.feldnamen, self.get_values())
             self.reset_select()
             self.reload_data()

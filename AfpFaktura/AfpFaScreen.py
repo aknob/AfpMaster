@@ -468,8 +468,6 @@ class AfpFaScreen(AfpEditScreen):
        
         # address as LABEL
         if self.use_labels:
-            self.label_Gewinn = wx.StaticText(panel, -1, "", pos=(599,80), size=(77,23), name="Gewinn")
-            self.labelmap["Gewinn"] = "Gewinn.Main"
             self.label_Vorname = wx.StaticText(panel, -1, "", pos=(35,50), size=(200,23), name="Vorname")
             self.labelmap["Vorname"] = "Vorname.ADRESSE"
             self.label_Name = wx.StaticText(panel, -1,label="", pos=(35,75), size=(200,23), name="Name")

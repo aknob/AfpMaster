@@ -706,6 +706,8 @@ class AfpFaktura(AfpPaymentList):
         if self.get_value("Attribut.ADRESATT") == "PKW":
             ident += "-K"
         konto =Afp_getSpecialAccount(self.mysql, ident)
+        if not konto:
+            konto =Afp_getSpecialAccount(self.mysql, "ERL")
         return konto
     ## get main table of SelectionList
     def get_maintable(self):

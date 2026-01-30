@@ -1492,7 +1492,7 @@ class AfpDialog_SimpleInvoice(AfpDialog):
     ## execution in case the OK button ist hit - overwritten from AfpDialog
     def execute_Ok(self):
         self.close_dialog = True
-        if self.data.is_new() and not "Kontierung" in self.changed_text and not self.data.get_value("Kontierung"):
+        if self.data.is_new() and not "KontierungSI" in self.changed_text and not self.data.get_value("Kontierung"):
             AfpReq_Info("Keine Kontierung angegeben,", "bitte nachholen!", "Fehlender Eintrag!")
             self.close_dialog = False
             return
@@ -1539,7 +1539,7 @@ class AfpDialog_SimpleInvoice(AfpDialog):
         if self.debug: print("Event handler AfpDialog_SimpleInvoice.On_Kredeb'")
         kredeb = Afp_fromString(self.text_Kredeb.GetValue())
         indi = self.data.get_value("KtNr." + self.typ_kredeb)
-        #print("AfpDialog_SimpleInvoice.On_Kredeb:", kredeb, self.kredeb, indi, Afp_toQuotedString(self.data.get_string_value("KundenNr")))
+        print("AfpDialog_SimpleInvoice.On_Kredeb:", kredeb, self.kredeb, indi, Afp_toQuotedString(self.data.get_string_value("KundenNr")))
         if kredeb and self.kredeb and kredeb != self.kredeb:
             if indi:
                 text = self.data.get_name() + " ist schon das individuelle " + self.typ_kredeb + "konto '" + Afp_toString(indi) + "' zugeordnet!"
@@ -1551,7 +1551,7 @@ class AfpDialog_SimpleInvoice(AfpDialog):
                 text2 = self.data.get_name() + " zugeordnet werden?" 
                 ok = AfpReq_Question(text, text2, self.typ_kredeb)
                 if ok:
-                    data = {"KtName": self.data.get_string_value("KundenNr"), "KtNr": kredeb, "Bezeichnung": self.data.get_name(True), "KtStand": 0, "Typ": self.typ_kredeb}
+                    data = {"KtName": self.data.get_string_value("KundenNr"), "KtNr": kredeb, "Bezeichnung": self.data.get_name(True)[:45], "KtStand": 0, "Typ": self.typ_kredeb}
                     self.data.set_data_values(data, self.typ_kredeb)
         self.On_KillFocus(event)
 

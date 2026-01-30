@@ -626,7 +626,7 @@ def Afp_getSpecialAccount(mysql, ident, index = "KtName", field = "KtNr"):
 def Afp_getIndividualAccount(mysql, KNr, typ = "Debitor"):
     # first step individual account
     KundenNr = Afp_toString(KNr)
-    rows = mysql.select("KtNr","KtName = \"" + KundenNr + "\" AND Bezeichnung = \"" + typ + "\"","KTNR")
+    rows = mysql.select("KtNr","KtName = \"" + KundenNr + "\" AND Typ = \"" + typ + "\"","KTNR")
     if rows:
         return rows[0][0]
     if typ == "Debitor" or typ == "Kreditor":
@@ -639,11 +639,11 @@ def Afp_getIndividualAccount(mysql, KNr, typ = "Debitor"):
         if name:
             for i in range(3,0,-1):
                 search = "DIV." + name[:i].upper()
-                rows = mysql.select("KtNr","KtName = \"" + search + "\" AND Bezeichnung = \"" + typ + "\"","KTNR")
+                rows = mysql.select("KtNr","KtName = \"" + search + "\" AND Typ = \"" + typ + "\"","KTNR")
                 if rows:
                     return rows[0][0]
         # third step, try global sample account
-        rows = mysql.select("KtNr","KtName = \"DIVER\" AND Bezeichnung = \"" + typ + "\"","KTNR")
+        rows = mysql.select("KtNr","KtName = \"DIVER\" AND Typ = \"" + typ + "\"","KTNR")
         if rows:
             return rows[0][0]
     return 0
