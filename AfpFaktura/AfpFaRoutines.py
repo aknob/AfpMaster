@@ -688,6 +688,7 @@ class AfpFaktura(AfpPaymentList):
         self.clear_selections(keep)
         self.set_value("Zustand", stype)
         self.set_value("Datum", self.globals.today())
+        self.set_value("Zahlung", 0.0)
         if not KNr is None:
             self.set_value("KundenNr", KNr)
             self.create_selection("ADRESSE", False)

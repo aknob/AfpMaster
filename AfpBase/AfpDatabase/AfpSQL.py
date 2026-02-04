@@ -544,7 +544,9 @@ class AfpSQLTableSelection(object):
    ## return an complete copy of this TableSelection
    # @param data - flag if data should be copied, default: True
    # @param mani - flag if manipulation data should be copied, default: False
-    def create_complete_copy(self, data = True, mani = False):
+   # @param init - dictionary of columns to be initialized, if given, select is set to None
+    def create_complete_copy(self, data = True, mani = False, init = None):
+        if self.debug: print("AfpSQLTableSelection.create_complete_copy:",  data, mani, init)
         copy = self.create_initialized_copy()
         copy.select = self.select
         copy.select_clause = self.select_clause
@@ -555,6 +557,14 @@ class AfpSQLTableSelection(object):
             copy.manipulation = Afp_copyArray(self.manipulation)
         if data:
             copy.data = Afp_copyArray(self.data)
+            if init:
+                copy.new = True
+                #copy.select = None
+                for feldname in init:
+                    if feldname in copy.feldnamen:
+                        index = copy.feldnamen.index(feldname)
+                        for row in range(len(copy.data)):
+                            copy.data[row][index] = init[feldname]
         return copy
     ## returns if data of this TableSelection has been deleted after last load or write
     # @param row - if given, index of row which should be checked

@@ -715,15 +715,19 @@ class AfpFaScreen(AfpEditScreen):
     def On_Neu(self,event = None):
         if self.debug: print("Event handler `On_Neu'")
         typ = self.combo_Filter.GetValue()
-        KNr = None
-        GNr = None
+        keep = None
         if self.data.get_value("KundenNr"):
-            res = AfpReq_MultiLine("Welche Daten sollen übernommen werden?", "Bitte die entsprechend Daten auswählen.", "Check",["Adresse","Gerät"], "Daten übernehmen?")
+            if self.device_selection:
+                list = ["Adresse","Gerät","Bem","Inhalt"]
+            else:
+                list = ["Adresse","Bem","Inhalt"]
+            res = AfpReq_MultiLine("Welche Daten sollen übernommen werden?", "Bitte die entsprechend Daten auswählen.", "Check", list, "Daten übernehmen?")
             if res:
-                if res[0]: 
-                    KNr = self.data.get_value("KundenNr")
-                    if res[1]: GNr = self.data.get_value("AttNr")
-        self.generate_new_data(typ, KNr, GNr)
+                keep = []
+                for i in range(len(list)):
+                    if res[i]:
+                        keep.append(list[i])
+        self.generate_new_data(typ, keep)
         if event: event.Skip()
     ## Eventhandler BUTTON - invoke cash sale
     def On_Bar(self,event = None):
@@ -910,6 +914,16 @@ class AfpFaScreen(AfpEditScreen):
                     else:
                         print("WARNING in AfpFaScreen: External file", filename, "does not exist!") 
         event.Skip()
+    ## Eventhandler quit program
+    # overwritten from AfpScreen
+    def On_Ende(self, event):
+        ok = True
+        if self.editable:
+            ok = AfpReq_Question("Daten werden bearbeitet, beim Verlassen des Programmes gehen die Änderungen verloren!", "Programm trotzdem beenden?", "Programm beenden?")
+        if ok:
+            super(AfpFaScreen, self).On_Ende(event)
+        else:
+            event.Skip()
     ## special routine to update content grid and all dependent fields
     def Pop_content(self):
         self.Pop_grid("Content")
@@ -1113,13 +1127,27 @@ class AfpFaScreen(AfpEditScreen):
                 self.SwitchModulScreen("Adresse")
     ## generate a new data record
     # @param typ - if given, typ of incident to be created, default: "Rechnung" (Invoice)
-    # @param KNr - identifier of address for this new incident,
-    # - 0: direct invoice without address; cash sale (default) 
-    # - None: address has to be selected                      
-    def generate_new_data(self, typ = "Rechnung", KNr = 0, GNr = None):
+    # @param keep - list of indicators which data should be kept
+    # possibel indicators are: 'Adresse' - keep KundenNr, 'Gerät' - keep AttNr, 'Bem' - keep Bem, 'Inhalt' - keep 'Content'-SqlTableSelection
+    # - None: direct invoice without address; cash sale (default) 
+    def generate_new_data(self, typ = "Rechnung", keep = None):
         table, subtyp = AfpFaktura_possibleKinds(typ)
+        KNr = None
+        GNr = None
+        Bem = None
+        sel = None
+        if keep:
+            if "Adresse" in keep:
+                KNr = self.data.get_value("KundenNr")
+                if "Gerät" in keep:
+                    GNr =  self.data.get_value("AttNr")
+            if "Bem" in keep:
+                Bem = self.data.get_value("Bem")
+            if "Inhalt" in keep:
+                sel = self.data.get_selection("Content").create_complete_copy(True, False, {"RechNr": None})
+        elif keep is None:
+            KNr = 0
         if KNr is None:
-            GNr = None
             name, ok = AfpReq_Text("Bitte Namen für Auftraggeber eingeben!","","","Namenseingabe")
             text = "Bitte Auftraggeber für " + typ + " auswählen:"
             KNr = AfpLoad_AdAusw(self.globals,"ADRESSE","NamSort",name, None, text)
@@ -1135,10 +1163,18 @@ class AfpFaScreen(AfpEditScreen):
             if self.device_selection:
                 if GNr is None and KNr:
                     GNr = AfpAdresse_indirectAttributFromKNr(self.globals, KNr,"Gerät oder PKW")
-                if GNr:
-                    data.set_value("AttNr",GNr)
-            self.loaded_data = self.data
+            if GNr:
+                data.set_value("AttNr",GNr)
+            if Bem:
+                data.set_value("Bem",Bem)
+            if sel:
+                data.selections["Content"] = sel
+            #self.loaded_data = self.data
+            self.loaded_data = None
             self.data = data
+            if sel:
+                self.data.content = self.data.get_selection("Content")
+                self.editable_rows = self.data.get_content_length()
             self.Populate()
             self.Set_Editable(True)
             #print("AfpFaScreen.generate_new_data 'edit_data' invoked")
@@ -1430,7 +1466,7 @@ class AfpFaScreen(AfpEditScreen):
         trange = None
         anz = None
         lief = None
-        if rowNr:
+        if not rowNr is None:
             value = self.data.get_value_rows("Content", "ErsatzteilNr", rowNr)[0][0]
             if value and not Afp_isInteger(value):
                 ident = Afp_fromString(value)

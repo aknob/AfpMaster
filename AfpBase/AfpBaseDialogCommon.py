@@ -672,6 +672,7 @@ class AfpDialog_DiReport(wx.Dialog):
                         self.data.delete_row("AUSGABE",list_Report_index)
                         self.data.get_selection("AUSGABE").store()
                         self.Pop_list()
+            #print ("AfpDialog_DiReport.On_Rep_Bearbeiten:", choice, filename, template, list_Report_index)
             if filename:
                 Afp_startFile( filename, self.globals, self.debug, noWait) 
                 if choice == "Kopie":
