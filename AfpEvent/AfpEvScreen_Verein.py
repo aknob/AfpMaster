@@ -422,6 +422,7 @@ class AfpEvVerein(AfpEvent):
     # - overwritten from AfpEvent
     # @param values - list of filter values to be applied on selection 
     def set_anmeld_filter(self, values = None):
+        #print ("AfpVerein.set_anmeld_filter values:", values)
         filter = ""
         if values:
             inner = ""
@@ -1052,7 +1053,8 @@ class AfpEvScreen_Verein(AfpEvScreen):
         self.filtermap = {"Mitglieder":"Verein Anmeldung PreStorno","Beitragszahler":"Verein Anmeldung PreStorno Preis>=0.01","Zahlung offen":"Verein Anmeldung PreStorno Preis>Zahlung","Basismitglieder":"Verein Anmeldung","Kandidaten":"Verein PreAnmeld","Gäste":"Verein Gast","Abgemeldet":"Verein PreStorno","Ausgetreten":"Verein Storno"}
         self.combo_PayFilter = wx.ComboBox(self, -1, value="", size=(120,20), choices=["","SEPA","Retoure","Rechnung"], style=wx.CB_DROPDOWN, name="PayFilter")
         self.Bind(wx.EVT_COMBOBOX, self.On_Filter, self.combo_PayFilter)
-        self.payfiltermap = {"SEPA":"ZahlArt LIKE 'SEPA-Mandat%'","Retoure":"ZahlArt='Retoure'","Rechnung":"ZahlArt='Rechnung'"}
+        #self.payfiltermap = {"SEPA":"ZahlArt LIKE 'SEPA-Mandat%'","Retoure":"ZahlArt='Retoure'","Rechnung":"ZahlArt='Rechnung'"}
+        self.payfiltermap = {"SEPA":"ZahlArt LIKE \"SEPA-Mandat%\"","Retoure":"ZahlArt = \"Retoure\"","Rechnung":"ZahlArt = \"Rechnung\""}
         self.top_mid_sizer.AddStretchSpacer(1)
         self.top_mid_sizer.Add(self.combo_Filter,0,wx.EXPAND)
         self.top_mid_sizer.AddSpacer(10)
@@ -1337,7 +1339,7 @@ class AfpEvScreen_Verein(AfpEvScreen):
                     if method_filters and method in method_filters:
                         self.payfiltermap[method] = (method_filters[method])
                     else:
-                        self.payfiltermap[method] = ("ZahlArt='"+method+"'")
+                        self.payfiltermap[method] = ("ZahlArt = \""+method+"\"")
             self.active = True
 
    ## Eventhandler COMBOBOX - filter
