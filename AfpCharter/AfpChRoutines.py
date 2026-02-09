@@ -17,7 +17,7 @@
 #  AfpTechnologies (afptech.de)
 #
 #    BusAfp is a software to manage coach and travel activities
-#    Copyright© 1989 - 2023 afptech.de (Andreas Knoblauch)
+#    Copyright© 1989 - 2026 afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -33,7 +33,7 @@
 
 from AfpBase.AfpDatabase.AfpSQL import AfpSQLTableSelection
 from AfpBase.AfpBaseRoutines import *
-from AfpBase.AfpSelectionLists import AfpSelectionList
+from AfpBase.AfpSelectionLists import AfpSelectionList, AfpPaymentList
 
 ## available 'Zustand' values are set here \n
 # This is the definition routine for all available 'Zustand' values

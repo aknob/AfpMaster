@@ -1639,7 +1639,7 @@ class AfpMailSender(object):
         else:
             print ("AfpMailSender.add_attachment File not found:", filename)
             return False
-    ## add attachment file to message (may be invoked several times)
+    ## add recipient to message (may be invoked several times)
     # @param recipient - mail address where mail is to be send to
     # @param front - flag, if the mail addressshoud be prepended to the list
     def add_recipient(self, recipient, front = False):

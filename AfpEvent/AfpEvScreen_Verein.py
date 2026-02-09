@@ -43,7 +43,7 @@ from AfpBase.AfpDatabase.AfpSuperbase import AfpSuperbase
 from AfpBase.AfpBaseRoutines import Afp_archivName, Afp_startFile, Afp_getBirthdayList, Afp_getAge
 from AfpBase.AfpSelectionLists import Afp_orderSelectionLists
 from AfpBase.AfpBaseDialog import AfpReq_Info, AfpReq_Question, AfpReq_Text, AfpReq_Selection, AfpReq_Date, AfpReq_MultiLine,  AfpReq_FileName, AfpDialog
-from AfpBase.AfpBaseDialogCommon import AfpLoad_DiReport, AfpDialog_Auswahl, Afp_autoEingabe
+from AfpBase.AfpBaseDialogCommon import AfpLoad_DiReport, AfpDialog_Auswahl, Afp_autoEingabe, Afp_editMail
 from AfpBase.AfpBaseScreen import AfpScreen, Afp_loadScreen
 from AfpBase.AfpBaseAdRoutines import AfpAdresse
 from AfpBase.AfpBaseAdDialog import AfpLoad_AdAusw, AfpLoad_AdIndiAusw, AfpLoad_DiAdEin_fromSb
@@ -1582,12 +1582,45 @@ class AfpEvScreen_Verein(AfpEvScreen):
     # @param data - optional input of data for indirect use
     def On_ScreenZusatz(self, event, data = None):
         if self.debug: print("AfpEvScreen_Verein Event handler `On_ScreenZusatz'!")
-        #print "AfpEvScreen_Verein.On_ScreenZusatz:", self.grid_row_selected, self.slave_data, data
+        #print ("AfpEvScreen_Verein.On_ScreenZusatz:", self.grid_row_selected, self.slave_data, data)
         if self.grid_row_selected:
             super(AfpEvScreen_Verein, self).On_ScreenZusatz(event, self.slave_data)
         else:
             super(AfpEvScreen_Verein, self).On_ScreenZusatz(event)
-     
+    ## Eventhandler MENU - send an e-mail
+    # overwritten from AfpEvScreen
+    def On_MEMail(self, event):
+        if self.debug: print("AfpEvScreen_Verein Event handler `On_MEMail'")
+        an = []
+        if self.grid_row_selected:
+            mad = self.slave_data.get_value("Mail.ADRESSE")
+            if mad: an.append(mad)
+        else:            
+            clients = []
+            rows = self.data.get_value_rows( "ANMELD", "AnmeldNr,Preis")
+            for row in rows:
+                res = self.mysql.execute("SELECT Mail FROM ANMELD, ADRESSE WHERE ANMELD.AnmeldNr = " + Afp_toString(row[0])  + " AND ANMELD.KundenNr = ADRESSE.KundenNr")
+                if res and res[0] and res[0][0]:
+                    an.append(res[0][0])
+        #print ("AfpEvScreen_Verein.On_MEMail an:", an)
+        if an:
+            lgh = len(an)
+            ok = True
+            if lgh > 1:
+                ok = AfpReq_Question("Sammel-EMail an " + Afp_toString(lgh) + " Personen verschicken?","","Sammel-EMail")
+            if ok:
+                mail = AfpMailSender(self.globals, self.debug)
+                mail.add_recipient(an[0])
+                mail, send = Afp_editMail(mail)
+                if send:
+                    if lgh > 1:
+                        for i in range(1, lgh):
+                            mail.add_recipient(an[i])
+                    mail.send_mail()
+        else:
+            AfpReq_Info("Keine Mailadresse gefunden,","keine E-Mail erzeugt!")
+        event.Skip()
+    
     ## Eventhandler Keyboard - handle key-down events 
     #  overwritten from AfpScreen
     def On_KeyDown(self, event):
