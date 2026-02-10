@@ -784,7 +784,8 @@ def Afp_sendOverSMTP(sender, recipients, subject, message, html_message, attachm
         recpts = rcpt
         if cc: recpts += cc
         if bcc: recpts += bcc
-        server.sendmail(sender, recpts + [sender], msg.as_string())
+        if not sender in recpts: recpts += [sender]
+        server.sendmail(sender, recpts, msg.as_string())
         server.quit()
         if dir:
             if Afp_existsFile(dir):

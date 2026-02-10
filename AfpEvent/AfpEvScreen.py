@@ -666,15 +666,29 @@ class AfpEvScreen(AfpScreen):
         event.Skip()
     ## Eventhandler MENU - send an e-mail
     def On_MEMail(self, event):
-        if self.debug: print("Event handler `On_MEMail'")
-        an = self.data.get_value("Mail.ADRESSE")
-        if an:
+        if self.debug: print("AfpEvScreen Event handler `On_MEMail'")
+        bcc = []
+        if self.grid_row_selected:
+            ok = True
+            an = self.slave_data.get_value("Mail.ADRESSE")
+        else:            
+            rows = self.data.get_value_rows( "ANMELD", "AnmeldNr,Preis")
+            for row in rows:
+                res = self.mysql.execute("SELECT Mail FROM ANMELD, ADRESSE WHERE ANMELD.AnmeldNr = " + Afp_toString(row[0])  + " AND ANMELD.KundenNr = ADRESSE.KundenNr")
+                if res and res[0] and res[0][0]:
+                    bcc.append(res[0][0])
+            ok = AfpReq_Question("Sammel-EMail an " + Afp_toString(len(bcc)) + " Personen verschicken?","","Sammel-EMail")
+        #print ("AfpEvScreen.On_MEMail an:", an)
+        if ok:
             mail = AfpMailSender(self.globals, self.debug)
-            mail.add_recipient(an)
+            if bcc: an = mail.sender
+            if an: mail.add_recipient(an)
             mail, send = Afp_editMail(mail)
-            if send: mail.send_mail()
-        else:
-            AfpReq_Info("Keine Mailadresse gefunden,","keine E-Mail erzeugt!")
+            if send:
+                if bcc:
+                    for rcpt in bcc:
+                        mail.add_bcc(rcpt)
+                mail.send_mail()
         event.Skip()
 
     ## Eventhandler Resize - for test reasons
