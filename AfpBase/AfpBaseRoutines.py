@@ -1534,6 +1534,8 @@ class AfpMailSender(object):
         self.subject = None
         self.sender = None
         self.recipients = []
+        self.cc = []
+        self.bcc = []
         self.debug = debug
         self.message = None
         self.htmltext = None
@@ -1643,11 +1645,21 @@ class AfpMailSender(object):
     # @param recipient - mail address where mail is to be send to
     # @param front - flag, if the mail addressshoud be prepended to the list
     def add_recipient(self, recipient, front = False):
-        if Afp_isMailAddress(recipient):
+        if Afp_isMailAddress(recipient) and not recipient in self.recipients:
             if front:
                 self.recipients =[recipient] + self.recipients
             else:
                 self.recipients.append(recipient)
+    ## add cc-recipient to message (may be invoked several times)
+    # @param recipient - mail address where mail is to be send to as cc
+    def add_cc(self, recipient):
+        if Afp_isMailAddress(recipient) and not recipient in self.cc:
+            self.cc.append(recipient)
+    ## add bcc-recipient to message (may be invoked several times)
+    # @param recipient - mail address where mail is to be send to as bcc
+    def add_bcc(self, recipient):
+        if Afp_isMailAddress(recipient) and not recipient in self.bcc:
+            self.bcc.append(recipient)
     ## set connection information of smtp-server where mail has to be delivered
     # @param host - string defining host[:port] to be connected
     # @param user - if given, username to be used for login
@@ -1682,8 +1694,11 @@ class AfpMailSender(object):
             return None
         else:
             if self.debug: self.view()
-            #return Afp_sendOverSMTP(self.sender, self.recipients, self.subject, self.message, self.htmltext,  self.attachments, self.server, self.serverport, self.debug, self.starttls, self.security, self.user, self.word, self.globals.get_value("maildir"))
-            return Afp_sendOverSMTP(self.sender, self.recipients, self.subject, self.message, self.htmltext,  self.attachments, self.server, self.user, self.word, self.debug, self.security, self.serverport, self.globals.get_value("maildir"))
+            recpts = {}
+            if self.recipients: recpts["to"] =  self.recipients
+            if self.cc: recpts["cc"] =  self.cc
+            if self.bcc: recpts["bcc"] =  self.bcc
+            return Afp_sendOverSMTP(self.sender, recpts, self.subject, self.message, self.htmltext,  self.attachments, self.server, self.user, self.word, self.debug, self.security, self.serverport, self.globals.get_value("maildir"))
     ## view mailer details (for debug or dry run)
     def view(self):
         print("AfpMailSender server:", self.server)
@@ -1695,6 +1710,8 @@ class AfpMailSender(object):
         print("AfpMailSender subject:", self.subject)
         print("AfpMailSender sender:", self.sender)
         print("AfpMailSender recipients:", self.recipients)
+        print("AfpMailSender cc:", self.cc)
+        print("AfpMailSender bcc:", self.bcc)
         print("AfpMailSender message:", self.message)
         print("AfpMailSender htmltext:", self.htmltext)
         print("AfpMailSender attachments:", self.attachments, "\n")

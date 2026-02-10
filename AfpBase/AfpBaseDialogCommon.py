@@ -148,8 +148,14 @@ def Afp_editMail(mail, norp=False):
         von = "Von: " + mail.sender
     else:
         text += "Von: \n"
-    if mail.recipients:
-        an = "An: " + Afp_ArraytoLine(mail.recipients,", ")
+    
+    if mail.recipients  or mail.cc or mail.bcc:
+        if mail.recipients:
+            an = "An: " + Afp_ArraytoLine(mail.recipients,", ")
+        if mail.cc:
+            an = "CC: " + Afp_ArraytoLine(mail.cc,", ")
+        if mail.bcc:
+            an = "BCC: " + Afp_ArraytoLine(mail.bcc,", ")
     elif (not norp):
         text += "An: \n"
     text += "Betreff: "
@@ -167,27 +173,33 @@ def Afp_editMail(mail, norp=False):
         subject = None
         sender = None
         recipients = []
+        ccs = []
+        bccs = []
         attachs = []
         serie = False
         lines = text.split("\n")
         for line in lines:
             if ":" in line: 
                 start += len(line) + 1
-                if "Betreff:" in line:
+                if "Betreff:"== line[:8]:
                     subject = line[8:].strip()
-                elif "An:" in line:
-                    recipients += line[3:].split(",")
-                elif "Von:" in line:
+                elif "An:"== line[:3]:
+                    recipients += line[3:].strip().split(",")
+                elif "CC:"== line[:3]:
+                    ccs += line[3:].strip().split(",")
+                elif "BCC:" == line[:4]:
+                    bccs += line[4:].strip().split(",")
+                elif "Von:" == line[:4]:
                     sender = line[4:].strip()
-                elif "Anhang:" in line:
-                    attachs += line[7:].split(",")
-                elif "Serie:" in line:
+                elif "Anhang:" == line[:7]:
+                    attachs += line[7:].strip().split(",")
+                elif "Serie:" == line[:6]:
                     serie = True
                     start -= (len(line) -5)
             else:
                 break
         message = text[start:].strip()
-        if debug: print ("Afp_editMail:", sender, recipients, subject, message, attachs)
+        if debug: print ("Afp_editMail:", sender, recipients, ccs, bccs, subject, message, attachs)
         if message:
             mail.set_message(subject, message)
         if sender:
@@ -195,6 +207,12 @@ def Afp_editMail(mail, norp=False):
         if recipients:
             for recipient in recipients:
                 mail.add_recipient(recipient)
+        if ccs:
+            for recipient in ccs:
+                mail.add_cc(recipient)
+        if bccs:
+            for recipient in bccs:
+                mail.add_bcc(recipient)
         failed = []
         if attachs:
             for attach in attachs:

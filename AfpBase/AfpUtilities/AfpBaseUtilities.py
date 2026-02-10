@@ -710,7 +710,7 @@ def Afp_startProgramFile(programname, debug, filename, parameter = None):
 ## send an email over a SMTP-server \n
 # sender, recipient, smtphost and message or html_message have to be given.
 # @param sender - string giving sender mailaddress
-# @param recipients - list of target mailadresses
+# @param recipients - list of target mailadresses, or dictionary of 'to', 'cc' or 'bcc' adresses
 # @param subject - string describing subject of mail
 # @param message - plain text message body
 # @param html_message - html text message body
@@ -728,6 +728,15 @@ def Afp_sendOverSMTP(sender, recipients, subject, message, html_message, attachm
     #decoder = 'us-ascii'
     decoder = 'latin-1'
     if sender and recipients and smtphost and (message or html_message):
+        rcpt = []
+        cc = []
+        bcc = []
+        if type(recipients) == dict:
+            if "to" in recipients: rcpt = recipients["to"]
+            if "cc" in recipients: cc = recipients["cc"]
+            if "bcc" in recipients: bcc = recipients["bcc"]
+        else:
+            rcpt = recipients
         port = 25
         tls = False
         if smtpport:
@@ -741,7 +750,8 @@ def Afp_sendOverSMTP(sender, recipients, subject, message, html_message, attachm
         msg['Date'] = formatdate(localtime=True)
         msg['Subject'] = subject.decode(decoder)
         msg['From'] = sender
-        msg['To'] = ', '.join(recipients)
+        msg['To'] = ', '.join(rcpt)
+        if cc:  msg['CC'] = ', '.join(cc)
         if message:
             part = MIMEText(message.decode(decoder), 'plain')
             msg.attach(part)
@@ -771,14 +781,17 @@ def Afp_sendOverSMTP(sender, recipients, subject, message, html_message, attachm
             if debug: print("Afp_sendOverSMTP: LOGIN:",user, word)
             server.login(user,  base64.b64decode(word).decode("UTF-8"))
         if debug: print("Afp_sendOverSMTP: send mail:", msg)
-        server.sendmail(sender, recipients + [sender], msg.as_string())
+        recpts = rcpt
+        if cc: recpts += cc
+        if bcc: recpts += bcc
+        server.sendmail(sender, recpts + [sender], msg.as_string())
         server.quit()
         if dir:
             if Afp_existsFile(dir):
                 monat = {"Jan":"01", "Feb":"02", "Mar":"03", "Apr":"04", "May":"05", "Jun":"06", "Jul":"07", "Aug":"08", "Sep":"09", "Oct":"10", "Nov":"11", "Dec":"12"}
                 split = msg['Date'].split()
                 date = split[3][2:] + monat[split[2]] + split[1] + "_" + split[4].replace(":","")
-                fname = "Mail_" + date + "_" + recipients[0]  + "__" +  subject.decode(decoder).replace(" ", "_").replace(":","")   + ".eml"
+                fname = "Mail_" + date + "_" + recpts[0]  + "__" +  subject.decode(decoder).replace(" ", "_").replace("/","_").replace(":","")   + ".eml"
                 fpath = dir + fname
                 file = open(fpath, 'w')
                 file.write(str(msg))
