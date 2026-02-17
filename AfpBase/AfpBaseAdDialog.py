@@ -394,8 +394,11 @@ class AfpDialog_AdAusw(AfpDialog_Auswahl):
 # selects an entry of the address table by choosing from anothertable (currently used for  AdresAtt) 
 class AfpDialog_AdIndiAusw(AfpDialog_Auswahl):
     ## initialise class
-    def __init__(self, datei):
-        self.grid_datei = datei       
+    def __init__(self, datei, fields = None):
+        self.grid_datei = datei
+        self.grid_felder = None
+        if fields:
+            self.grid_felder = fields
         AfpDialog_Auswahl.__init__(self,None, -1, "", style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER)
         self.typ = "Adressenauswahl"
         self.datei = datei
@@ -404,13 +407,37 @@ class AfpDialog_AdIndiAusw(AfpDialog_Auswahl):
         self.button_Neu.Destroy()
     ## get the definition of the selection grid content \n
     # overwritten for indirect "Adressen" use
-    def get_grid_felder(self):  
+    def get_grid_felder(self):
+        #Felder = [["Name.Adresse.Name",30],
+        #            ["Vorname.Adresse.Name", 20],
+        #            ["Strasse.Adresse",30],
+        #            ["Ort.Adresse",20],
+        #            ["KundenNr." + self.grid_datei  + " = KundenNr.Adresse", None]]
         Felder = [["Name.Adresse.Name",30], 
-                            ["Vorname.Adresse.Name", 20], 
-                            ["Strasse.Adresse",30], 
-                            ["Ort.Adresse",20], 
-                            ["KundenNr." + self.grid_datei  + " = KundenNr.Adresse", None]] 
+                        ["Vorname.Adresse.Name", 20]]
+        if self.grid_felder:
+            sum = 0
+            for feld in self.grid_felder:
+                Felder.append(feld)
+                sum += feld[1]
+            if sum != 50:
+                Felder[-1][1] += 50 - sum
+        else:
+            Felder.append(["Strasse.Adresse",30])
+            Felder.append(["Ort.Adresse",20])
+        Felder.append(["KundenNr." + self.grid_datei  + " = KundenNr.Adresse", None])
         return Felder
+    ## event handler for the OK button
+    # overwritten for additional field use
+    def On_Ausw_Ok(self, event = None):
+        if self.grid_felder and self.result_index > -1:
+            self.result = [self.ident[self.result_index]]
+            for i in range(len(self.grid_felder)):
+                #print ("AfpDialog_AdIndiAusw.On_Ausw_Ok:", self.result_index, i+1, self.grid_auswahl.GetNumberRows(), self.grid_auswahl.GetNumberCols())
+                self.result.append(Afp_fromString(self.grid_auswahl.GetCellValue(self.result_index, i+1)))
+            self.result_index = -2
+        super(AfpDialog_AdIndiAusw, self).On_Ausw_Ok(event)
+
     
 ## loader routine for address selection dialog
 # @param globals - global data holding mysql connection to database
@@ -420,7 +447,8 @@ class AfpDialog_AdIndiAusw(AfpDialog_Auswahl):
 # @param where - filter for database search
 # @param attribut_text - if given, attribut looked for in ADRESATT
 # @param ask - flag if input dialog should be shown
-def AfpLoad_AdAusw(globals, Datei, index, value = "", where = None, attribut_text = None, ask = False):
+# @param fields - if given, list of  [field.Datei,%] values to be shown and returned. % has to sum up to 50
+def AfpLoad_AdAusw(globals, Datei, index, value = "", where = None, attribut_text = None, ask = False, fields = None):
     result = None
     Ok = True
     if ask:
@@ -430,7 +458,7 @@ def AfpLoad_AdAusw(globals, Datei, index, value = "", where = None, attribut_tex
         if Datei == "ADRESSE":
             DiAusw = AfpDialog_AdAusw()
         else:
-            DiAusw = AfpDialog_AdIndiAusw(Datei)
+            DiAusw = AfpDialog_AdIndiAusw(Datei, fields)
         #print "AfpLoad_AdAusw:", Datei, Index, value, where
         if attribut_text:
             if len(attribut_text) > 4 and attribut_text[:5] == "Bitte":
@@ -467,7 +495,8 @@ def AfpLoad_AdAttAusw(globals, attribut, value = ""):
 # @param where - additional filter for selection
 # @param name - initial name for search
 # @param attribut - name for dialog display, or complete Question started by "Bitte"
-def AfpLoad_AdIndiAusw(globals, dateifeld, value, name="", where=None, attribut = None):
+# @param fields - if given, list of  [field.Datei,%] values to be shown and returned. % has to sum up to 50
+def AfpLoad_AdIndiAusw(globals, dateifeld, value, name="", where=None, attribut = None, fields = None):
         feld, datei = dateifeld.split(".")
         index = "Name.ADRESSE"
         if where: where += " and " 
@@ -482,7 +511,7 @@ def AfpLoad_AdIndiAusw(globals, dateifeld, value, name="", where=None, attribut 
         if not attribut: attribut = " individuelle "
         if not name: ask = True
         else: ask = False
-        result = AfpLoad_AdAusw(globals, datei, index, name, where, attribut, ask)
+        result = AfpLoad_AdAusw(globals, datei, index, name, where, attribut, ask, fields)
         return result
 
 ## Class AfpDialog_DiAdEin display dialog to show and manipulate address-data (Adresse) and handles interactions \n

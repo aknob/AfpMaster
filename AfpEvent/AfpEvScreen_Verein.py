@@ -1447,15 +1447,20 @@ class AfpEvScreen_Verein(AfpEvScreen):
             knr = None
             if ok:
                 #print ("AfpEvScreen_Verein.On_Ausw:", value, name, filter)
-                knr = AfpLoad_AdIndiAusw(self.globals, "EventNr.ANMELD", value, name, filter, "Bitte Mitglied auswählen, das angezeigt werden soll.")
-                #print ("AfpEvScreen_Verein.On_Ausw select:", value, name, filter, knr)
-            if knr:
+                res = AfpLoad_AdIndiAusw(self.globals, "EventNr.ANMELD", value, name, filter, "Bitte Mitglied auswählen, das angezeigt werden soll.", [["Zustand.Anmeld",30], ["IdNr.Anmeld", 20]])
+                #print ("AfpEvScreen_Verein.On_Ausw select:", value, name, filter, res)
+            if res:
+                knr = res[0]
                 adresse = AfpAdresse(self.globals, knr)
                 select = "KundenNr = " + Afp_toString(knr) + " AND EventNr = " + Afp_toString(value) # enhance for possible list
                 adresse.get_selection("ANMELD").load_data(select)
-                rows = adresse.get_value_rows("ANMELD", "AnmeldNr,EventNr,RechNr,Zustand")
-                ANr = rows[0][0]
-                filter = self.re_filtermap(rows[0][3])
+                rows = adresse.get_value_rows("ANMELD", "AnmeldNr,IdNr")
+                for row in rows:
+                    if row[1] == res[2]:
+                        ANr = row[0]
+                if not ANr:
+                    ANr = rows[0][0]
+                filter = self.re_filtermap(res[1])
                 self.grid_row_selected = False
                 #print ("AfpEvScreen_Verein.On_Ausw:", ANr, rows[0][3], filter, rows)
                 if not filter ==  self.combo_Filter.GetValue():

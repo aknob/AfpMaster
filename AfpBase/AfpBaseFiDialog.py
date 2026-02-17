@@ -1460,8 +1460,9 @@ class AfpDialog_SimpleInvoice(AfpDialog):
             dlg_txt = "den Vertrag"
         listname = self.data.get_listname()
         rows = self.data.get_value_rows("ARCHIV","Art,Typ,Gruppe,Datum,Extern")
-        #print "AfpDialog_SimpleInvoice.handle_obligation_archiv:", rows
+        #print ("AfpDialog_SimpleInvoice.handle_archiv:", rows)
         if rows:
+            add = False
             fpath = None
             datum = Afp_fromString("1.1.1900") # assumtion: first entry not before 1.1.1900!
             for row in rows:
