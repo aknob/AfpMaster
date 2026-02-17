@@ -219,8 +219,10 @@ class AfpDialog_FaArtikelAusw(AfpDialog_Auswahl):
         ken = AfpFaktura_getShortManu(eingabe, globals.get_value("short-manu-max-len", "Faktura"))
         if ken:
             einhers = "!" + eingabe[len(ken) + 1:]
-        else:
+        elif eingabe:
             einhers = "!" + eingabe
+        else:
+            einhers = ""
         hnr =  None
         if filter and filter[:17] == "HersNr.ARTIKEL = ":
             hnr = Afp_fromString(filter[17:].split()[0])

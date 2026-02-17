@@ -1169,6 +1169,7 @@ class AfpFaScreen(AfpEditScreen):
                 data.set_value("Bem",Bem)
             if sel:
                 data.selections["Content"] = sel
+                data.update_fields()
             #self.loaded_data = self.data
             self.loaded_data = None
             self.data = data
