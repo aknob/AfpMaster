@@ -589,6 +589,9 @@ class AfpSQLTableSelection(object):
             changed = self.mani_has_changed(manipulation, feld)
         elif self.new: changed = True
         return changed
+    ## returns if table selection is newly created
+    def is_new(self):
+        return self.new
     ## returns if table selection holds no data
     def is_empty(self):
         empty = True

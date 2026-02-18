@@ -543,7 +543,7 @@ class AfpArtikel(AfpSelectionList):
         sel = self.get_selection("Stack", False)
         sel.lock_data()
         sel.reload_data() 
-        print("AfpArtikel.load_lock selected:", sel.data)
+        #print("AfpArtikel.load_lock selected:", sel.data)
     ## store stack data in table
     def store_stack(self):
         sel = self.get_selection("Stack")
@@ -565,7 +565,7 @@ class AfpArtikel(AfpSelectionList):
                     anz = amount_rows[row][0]
                     anz += value
                     if anz < 0: anz = 0
-                    print("AfpArtikel.add_amount add:", entry, anz)
+                    #print("AfpArtikel.add_amount add:", entry, value, anz)
                     sel.set_value(self.amount_column, anz, row) 
     ## get columns for line display
     def get_columns_for_line_display(self):
@@ -647,6 +647,13 @@ class AfpFaktura(AfpPaymentList):
             self.selections[self.mainselection] = AfpSQLTableSelection(self.mysql, self.maintable, self.debug, self.mainindex)
         self.content = self.get_selection("Content")
         if self.debug: print("AfpFaktura.initialize(d) with the following values:", self.mainvalue, self.mainindex, self.maintable)
+    ## just set given content
+    # @param content - AfpSQLTableSelection to be integrated
+    def set_new_content(self, content):
+        content.new = True
+        self.selections["Content"] = content
+        self.content = self.get_selection("Content")
+        self.update_fields()
     ## return if payment is possible
     def is_payable(self):
         kind = self.get_kind()
@@ -724,6 +731,7 @@ class AfpFaktura(AfpPaymentList):
     ## return if content has been changed
     # @param last - flag if content changes before last storage should be delivered
     def content_has_changed(self, last = False):
+        #print ("AfpFaktura.content_has_changed:", last, self.content.has_changed(None, True), self.content.has_changed(), self.content.new)
         if last:
             return self.content.has_changed(None, True)
         else:
@@ -909,6 +917,7 @@ class AfpFaktura(AfpPaymentList):
         # reset 'RechNr' on position 0
         for i in range(len(data)):
             data[i][0] = None
+        content.new_data(True)
         content.set_data(data)
         return faktura
     ## financial transaction will be initated if the appropriate modul is installed
@@ -1106,7 +1115,7 @@ class AfpInvoice(AfpFaktura):
             if content and content.get_data_length() > 0:
                 for i in range(content.get_data_length()):
                     values = content.get_values("ErsatzteilNr,Anzahl", i)[0]
-                    print("AfpInvoice.book_content values:", values)
+                    #print("AfpInvoice.book_content values:", values)
                     if values[0] and values[1]:
                         if add: anz = Afp_fromString(values[1])
                         else: anz = - Afp_fromString(values[1])
@@ -1115,8 +1124,8 @@ class AfpInvoice(AfpFaktura):
                         else: 
                             amount[values[0]] = anz
                             self.selection_table.add_mainvalue(values[0])
-            add = False
-        print("AfpInvoice.book_content amount:", amount)
+            add = not add
+        #print("AfpInvoice.book_content amount:", amount)
         self.selection_table.load_lock()
         self.selection_table.add_amount(amount)
         self.selection_table.store_stack()
@@ -1137,10 +1146,10 @@ class AfpInvoice(AfpFaktura):
     ## special storage, keep track stock
     # - overwritten from AfpFaktura
     def store(self):
-        #breakpoint()
+        book = self.content.is_new() or self.content_has_changed()
         AfpFaktura.store(self)
         # book from/into stock due to changes
-        if self.content_has_changed(True):
+        if book:
             self.book_content()
     ## set all necessary values to keep track of the payments \n
     # - overwritten from AfpPaymentList

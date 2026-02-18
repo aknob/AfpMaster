@@ -1168,14 +1168,11 @@ class AfpFaScreen(AfpEditScreen):
             if Bem:
                 data.set_value("Bem",Bem)
             if sel:
-                data.selections["Content"] = sel
-                data.update_fields()
+                data.set_new_content(sel)
+                self.editable_rows = data.get_content_length()
             #self.loaded_data = self.data
             self.loaded_data = None
             self.data = data
-            if sel:
-                self.data.content = self.data.get_selection("Content")
-                self.editable_rows = self.data.get_content_length()
             self.Populate()
             self.Set_Editable(True)
             #print("AfpFaScreen.generate_new_data 'edit_data' invoked")
@@ -1209,20 +1206,19 @@ class AfpFaScreen(AfpEditScreen):
             self.sb.CurrentIndexName("RechNr", table)
             self.sb.select_key(RNr)
     ## direct selection of record via tablename and identifier
-    # @param data -  SelectionList to be current on screen
-    def set_direct_data(self, data):
-        self.index = data.get_mainindex()
-        self.sb_master = data.get_maintable()
-        ReNr = data.get_value(self.index)
+    # @param data -  if given, SelectionList to be current on screen, otherwise self.data is used
+    def set_direct_data(self, data = None):
+        if data:
+            self.data = data
+        self.index = self.data.get_mainindex()
+        self.sb_master = self.data.get_maintable()
+        ReNr = self.data.get_value(self.index)
         if ReNr:
-            filter = data.get_value("Zustand")
-            name, index = AfpFaktura_possibleKinds(None, self.sb_master, filter)
-            if not len(name): name = self.sb_master
+            filter = self.data.get_value("Zustand")
             self.sb.CurrentIndexName("RechNr", self.sb_master)
             self.sb.select_key(ReNr)
-            self.combo_Filter.SetSelection(self.get_filter_index(name, index))
+            self.combo_Filter.SetSelection(self.get_filter_index(self.sb_master, filter))
             self.On_Sortierung()
-        self.data = data
         self.Populate()
       
     ## extract price difference from row
@@ -1412,6 +1408,7 @@ class AfpFaScreen(AfpEditScreen):
    ## store data - overwritten from AfpEditScreen
     def store_data(self):
         data = None
+        reset= False
         value = self.combo_Filter.GetValue()
         datei, filter = AfpFaktura_possibleKinds(value)
         if datei != self.sb_master:
@@ -1419,9 +1416,11 @@ class AfpFaScreen(AfpEditScreen):
             if datei == "RECHNG"and not self.data.get_value("TypNr"): 
                 data = self.data
             self.data = self.data.get_converted_faktura(datei, filter)
+            reset = True
         elif not filter in self.sb_filter:
             # kind changed
             self.data.set_value("Zustand", filter)
+            reset = True
         if self.data.has_changed():
             self.data.store()
             if data:
@@ -1429,6 +1428,8 @@ class AfpFaScreen(AfpEditScreen):
                 data.set_value("Typ", datei)
                 data.set_value("TypNr", self.data.get_value())
                 data.store()
+            if reset:
+                self.set_direct_data()
         #print ("AfpFaScreen.store_data Rechnung:", datei, self.data.get_listname())
         self.load_invoice()
                 
