@@ -722,8 +722,8 @@ def Afp_startProgramFile(programname, debug, filename, parameter = None):
 # @param security - flag for smtp secutity, possible values:None, STARTTLS, SSL, if not given explicit in 'smtpport' DEFAULT: None
 # @param smtpport - if given, integer defining the port of server, if not given, port 25 will be used
 # @param dir - if given, directory, where sent mails should be stored
-#def Afp_sendOverSMTP(sender, recipients, subject, message, html_message, attachments, smtphost, smtpport = None, debug = False, tls = False, security = None, user = None, word = None, dir = None):
-def Afp_sendOverSMTP(sender, recipients, subject, message, html_message, attachments, smtphost, user = None, word = None, debug = False, security = None, smtpport = None, dir = None):
+# @param limit - if given, limit of recipients to be send in one shot, only for bulk mails
+def Afp_sendOverSMTP(sender, recipients, subject, message, html_message, attachments, smtphost, user = None, word = None, debug = False, security = None, smtpport = None, dir = None, limit = None):
     fname = None
     #decoder = 'us-ascii'
     decoder = 'latin-1'
@@ -785,7 +785,16 @@ def Afp_sendOverSMTP(sender, recipients, subject, message, html_message, attachm
         if cc: recpts += cc
         if bcc: recpts += bcc
         if not sender in recpts: recpts += [sender]
-        server.sendmail(sender, recpts, msg.as_string())
+        if limit and len(recpts) > limit:
+            server.sendmail(sender, recpts[:limit], msg.as_string())
+            start = limit
+            ende = limit
+            while ende < len(recpts):
+                ende += limit
+                server.sendmail(sender, recpts[start:ende], msg.as_string())
+                start = ende
+        else:
+            server.sendmail(sender, recpts, msg.as_string())
         server.quit()
         if dir:
             if Afp_existsFile(dir):

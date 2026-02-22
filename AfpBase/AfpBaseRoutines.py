@@ -1698,7 +1698,7 @@ class AfpMailSender(object):
             if self.recipients: recpts["to"] =  self.recipients
             if self.cc: recpts["cc"] =  self.cc
             if self.bcc: recpts["bcc"] =  self.bcc
-            return Afp_sendOverSMTP(self.sender, recpts, self.subject, self.message, self.htmltext,  self.attachments, self.server, self.user, self.word, self.debug, self.security, self.serverport, self.globals.get_value("maildir"))
+            return Afp_sendOverSMTP(self.sender, recpts, self.subject, self.message, self.htmltext,  self.attachments, self.server, self.user, self.word, self.debug, self.security, self.serverport, self.globals.get_value("maildir"), self.globals.get_value("smtp-limit"))
     ## view mailer details (for debug or dry run)
     def view(self):
         print("AfpMailSender server:", self.server)
@@ -1712,6 +1712,7 @@ class AfpMailSender(object):
         print("AfpMailSender recipients:", self.recipients)
         print("AfpMailSender cc:", self.cc)
         print("AfpMailSender bcc:", self.bcc)
+        print("AfpMailSender limit:", self.globals.get_value("smtp-limit"))
         print("AfpMailSender message:", self.message)
         print("AfpMailSender htmltext:", self.htmltext)
         print("AfpMailSender attachments:", self.attachments, "\n")

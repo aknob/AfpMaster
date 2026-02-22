@@ -556,8 +556,7 @@ class AfpAdScreen(AfpScreen):
     ## Eventhandler MENU - send an e-mail - not yet implemented! 
     def On_MEMail(self, event):
         if self.debug: print("Event handler `On_MEMail'")
-        #mail = AfpMailSender(self.globals, self.debug)
-        mail = AfpMailSender(self.globals,True)
+        mail = AfpMailSender(self.globals, self.debug)
         an = self.sb.get_value("Mail.ADRESSE")
         if an: mail.add_recipient(an)
         mail, send = Afp_editMail(mail)
