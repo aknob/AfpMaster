@@ -858,7 +858,8 @@ class AfpEvMember(AfpEvClient):
             return sum
     ## return one line holding the different 'Sparten'
     # @param deli - delimiter between the different entries
-    def get_sparten_line(self, deli = " "):
+    # @param use - flag, if section translation should be used, if available
+    def get_sparten_line(self, deli = " ", use = True):
         line = ""
         mysql = self.get_mysql()
         db = self.get_mysql().get_dbname()
@@ -867,8 +868,15 @@ class AfpEvMember(AfpEvClient):
         rows = self.get_mysql().execute(befehl)
         #print ("AfpMember.get_sparten_line rows:", self.get_string_value(), rows)
         if rows:
-            for row in rows:
-                line += row[0] + deli
+            sections =  self.get_globals().get_value("official-sections", "Event")
+            #print ("AfpMember.get_sparten_line sections:", sections)
+            if sections and use:
+                for row in rows:
+                    if row[0] in sections:
+                        line += sections[row[0]] + deli
+            else:
+                for row in rows:
+                    line += row[0] + deli
             if line:
                 line = line[:-1]
         #print ("AfpMember.get_sparten_line line:", self.get_string_value(), line)

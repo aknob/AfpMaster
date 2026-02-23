@@ -121,6 +121,14 @@ def Afp_toDateString(data, format):
             use = ""
         use += char
     return string
+## convert data to date string with complete year,
+# @param data - data to be converted
+def Afp_toCompleteDateString(data):
+    if Afp_isString(data):
+        data = Afp_fromString(data)
+    if data:
+        return Afp_toDateString(data,"dd.mm.yyyy")
+    return ""
 ## convert data to intern date string, 
 # dates and times are converted to internal representation (yyyy-mm-dd)
 # @param data - data to be converted
