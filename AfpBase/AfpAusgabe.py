@@ -8,6 +8,7 @@
 # - AfpAusgabe
 #
 #   History: \n
+#        24 Feb. 2026 - do not ask for FUNCTION variables - Andreas.Knoblauch@afptech.de \n
 #        23 Jan. 2025 - allow direct evaluation output via () - Andreas.Knoblauch@afptech.de \n
 #        30 Dez. 2021 - conversion to python 3 - Andreas.Knoblauch@afptech.de \n
 #        24 Mar. 2019 - add serial letters- Andreas.Knoblauch@afptech.de \n
@@ -171,7 +172,7 @@ class AfpAusgabe(object):
         needed = []
         fin = open(filename, 'r', encoding='cp850') 
         for line in fin:
-            need = self.check_line(line)
+            need = self.check_line_variables(line)
             if need:
                 for me in need:
                     if not me in needed: needed.append(me)
@@ -264,26 +265,32 @@ class AfpAusgabe(object):
             else:
                 # outside whiles, direct execution
                 self.execute_line(line)
-    ## check if all variabel used inb line are present in self.variables
+    ## check if all variabel used in line are present in self.variables
     # @param line - line to be checked
-    def check_line(self, line):
+    def check_line_variables(self, line):
         needed = []
-        # hier weiter -> auch in die FUNCTION gucken und ggf. in dummies schreiben
-        if "[" in line:
-            ain, aout = Afp_between(line, "[", "]")
+        if "[" in line or "{" in line:
+            if "[" in line:
+                ain, aout = Afp_between(line, "[", "]")
+            elif "{" in line:
+                cin, aout = Afp_between(line, "{", "}")
+                ain = []
+                for c in cin:
+                    split = c.split("FUNCTION")
+                    if len(split) > 1:
+                        ain.append(split[1])
             for an in ain:
                 bin, bout = Afp_between(an, "<", ">")
                 var = ""
                 for b in bout:
                     var += b
-                #print "AfpAusgabe.check_line:", line, "AN:", an, "BOUT:", bout, "VAR:", var, var in self.variables
-                if "=" in var:
+                #print ("AfpAusgabe.check_line_variables:", line, "AN:", an, "BOUT:", bout, "VAR:", var, var in self.variables)
+                if "=" in var: # variables used in a formula are set automatically
                     var,dum = Afp_getFuncVar(var)
                     if not var in self.dummies: self.dummies.append(var)
-                    #print "AfpAusgabe.check_line dummy:", var
                 if not "." in var and not var in self.variables and not var in self.dummies and not(var[0] == "(" and var[-1] == ")"):
                     needed.append(var)
-                    #print "AfpAusgabe.check_line needed:", var
+            #print ("AfpAusgabe.check_line_variables needed:", needed, line)
         return needed
     ## correct line, no '<>' brackets in execution brackets '[]', '{}'
     # @paream line - line to be corrected
