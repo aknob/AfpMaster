@@ -4,13 +4,11 @@
 ## @package BusAfp
 # AfpMotor is part of the open source BusAfp project,
 # it is a software to manage invoicing and other tasks in the motor related business \n
-#    Copyright© 1989 - 2025  afptech.de (Andreas Knoblauch) \n
 # \n
 #   History: \n
 #        24 Feb. 2026 - centralize version handling - Andreas.Knoblauch@afptech.de \n
 #        16 Jan. 2017 - separate software specific code from parameter extraction - Andreas.Knoblauch@afptech.de \n
 #        30 Nov. 2016 - inital code generated - Andreas.Knoblauch@afptech.de
-
 #
 # This file is part of the  'Open Source' project "BusAfp" by 
 #  AfpTechnologies (afptech.de)

@@ -3,17 +3,15 @@
 
 ## @package BusAfp
 # AfpEvent is part of the open source BusAfp project,
-# it is a software to manage invoicing and other tasks in the motor related business \n
-#    Copyright© 1989 - 2019 afptech.de (Andreas Knoblauch) \n
+# it is a software to manage the participants of events, \n
+# as well as the financial tasks \n
 # \n
 #   History: \n
+#        24 Feb. 2026 - centralize version handling - Andreas.Knoblauch@afptech.de \n
 #        17 May 2018 - inital code generated - Andreas.Knoblauch@afptech.de
-
 #
 # This file is part of the  'Open Source' project "BusAfp" by 
 #  AfpTechnologies (afptech.de)
-#
-#        24 Feb. 2026 - centralize version handling - Andreas.Knoblauch@afptech.de \n
 #
 #    BusAfp is a software to manage coach and travel acivities
 #    AfpEvent is a software to manage events

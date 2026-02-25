@@ -2,19 +2,18 @@
 # -*- coding: utf-8 -*-
 
 ## @package BusAfp
-# AfpCash is part of the open source BusAfp project,
-# it is a software to handle the petty cash (Barkasse)\n
+# AfpFaktura is part of the open source BusAfp project,
+# it is a software to manage invoicing and other tasks in all kinds of business \n
 # \n
 #   History: \n
-#        24 Feb. 2026 - centralize version handling - Andreas.Knoblauch@afptech.de \n
-#        10 Jan 2019 - inital code generated - Andreas.Knoblauch@afptech.de
+#        24 Feb. 2026 - inital code generated - Andreas.Knoblauch@afptech.de
 #
 # This file is part of the  'Open Source' project "BusAfp" by 
 #  AfpTechnologies (afptech.de)
 #
 #    BusAfp is a software to manage coach and travel acivities
-#    AfpCash is a software to manage petty cash
-#    Copyright© 1989 - 2026 afptech.de (Andreas Knoblauch)
+#    AfpFaktura is a software to manage invoicing and other tasks in all kinds of business
+#    Copyright© 1989 - 2026  afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -32,15 +31,17 @@
 import AfpBase
 from AfpBase import AfpStart
 
-# only needed if code is compiled with py2exe
-#import AfpAdresse.AfpAdScreen
-#import AfpEvent.AfpEvScreen
-
 # main program
-name = 'AfpCash'      
-website = 'http://www.afptech.de'
-description = """AfpCash ist eine Barkasse."""
-picture = "AfpCash_relief.png"
-moduls = ["Finance:Cash"]
-AfpCash = AfpBase.AfpStart.AfpSoftwareInformation(name, moduls, description, picture, website)
-AfpBase.AfpStart.AfpStart(AfpCash)
+name = 'AfpFaktura'     
+website = 'http://www.afpmotor.de'
+description = """AfpFaktura ist eine allgemeines Fakurierungsprogramm.
+Es enthält eine mitgeführte Buchhaltung, Zahlungsverfolgung
+und diverse weiter nützliche Hilfsmittel."""
+picture = "AfpFaktura_relief.png"
+moduls = ["Adresse","Faktura"]
+AfpFaktura = AfpBase.AfpStart.AfpSoftwareInformation(name, moduls, description, picture, website)
+AfpBase.AfpStart.AfpStart(AfpFaktura)
+      
+ 
+
+   

@@ -2,18 +2,16 @@
 # -*- coding: utf-8 -*-
 
 ## @package BusAfp
-# BusAfp is a software to manage coach and travel activities \n
-#    Copyright© 1989 - 2026  afptech.de (Andreas Knoblauch) \n
 # \n
 #   History: \n
 #        25 Feb. 2026 - inital version generated - Andreas.Knoblauch@afptech.de
-
+#
 #
 # This file is part of the  'Open Source' project "BusAfp" by 
 #  AfpTechnologies (afptech.de)
 #
 #    BusAfp is a software to manage coach and travel acivities
-#    Copyright© 1989 - 2025 afptech.de (Andreas Knoblauch)
+#   CopyrightÂ© 1989 - 2026 afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -34,6 +32,6 @@ def AfpVersions():
     versions["AfpMotor"] = "2.0.2"
     versions["AfpFaktura"] = versions["AfpMotor"]
     versions["AfpVerein"] = "0.9.1" 
-    versions["AfpEvent"] = versions["AfpMotor"] + " strict"  
+    versions["AfpEvent"] = versions["AfpVerein"] + " strict"  
     versions["BusAfp"] = "6.1.1 beta"
     return versions

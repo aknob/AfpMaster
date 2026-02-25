@@ -15,7 +15,7 @@
 #        23 May 2015 - enable variable setting via command line option - Andreas.Knoblauch@afptech.de \n
 #        19 Okt. 2014 - adapt package hierarchy - Andreas.Knoblauch@afptech.de \n
 #        30 Nov. 2012 - inital code generated - Andreas.Knoblauch@afptech.de
-
+#
 #
 # This file is part of the  'Open Source' project "BusAfp" by 
 #  AfpTechnologies (afptech.de)
@@ -47,11 +47,10 @@ class AfpSoftwareInformation(object):
      ## initialize AfpSoftwareInformation class
     # @param name - name of the software package
     # @param moduls - name of possible graphic moduls
-    # @param version - version of the software package
     # @param description - description of the software package
     # @param picture - picture to be shown on information tab
-    # @param website - homepage of the software package
-    def  __init__(self, name, moduls, description, picture = None, website = None, version = None):
+    # @param website - homepage of the software package 
+    def  __init__(self, name, moduls, description, picture = None, website = None):
         self.name = name
         self.moduls = moduls
         self.description = description

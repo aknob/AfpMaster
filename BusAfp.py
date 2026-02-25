@@ -3,7 +3,6 @@
 
 ## @package BusAfp
 # BusAfp is a software to manage coach and travel acivities \n
-#    Copyright© 1989 - 2018  afptech.de (Andreas Knoblauch) \n
 # \n
 #   History: \n
 #        24 Feb. 2026 - centralize version handling - Andreas.Knoblauch@afptech.de \n

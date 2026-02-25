@@ -3,20 +3,18 @@
 
 ## @package BusAfp
 # AfpVerein is part of the open source BusAfp project,
-# it is a software to manage invoicing and other tasks in the motor related business \n
-#    Copyright© 1989 - 2019 afptech.de (Andreas Knoblauch) \n
+# it is a software to manage the membership of associations, \n
+# as well as the financial taske of for this association \n
 # \n
 #   History: \n
+#        24 Feb. 2026 - centralize version handling - Andreas.Knoblauch@afptech.de \n
 #        10 Jan 2019 - inital code generated - Andreas.Knoblauch@afptech.de
-
 #
 # This file is part of the  'Open Source' project "BusAfp" by 
 #  AfpTechnologies (afptech.de)
 #
-#        24 Feb. 2026 - centralize version handling - Andreas.Knoblauch@afptech.de \n
-#
 #    BusAfp is a software to manage coach and travel acivities
-#    AfpEvent is a software to manage events
+#    AfpVerein is a software to manage clubs, associations
 #    Copyright© 1989 - 2026 afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify
@@ -49,7 +47,3 @@ picture = "AfpVerein_relief.png"
 moduls = ["Adresse","Event:Verein","Finance"]
 AfpEvent = AfpBase.AfpStart.AfpSoftwareInformation(name, moduls, description, picture, website)
 AfpBase.AfpStart.AfpStart(AfpEvent)
-      
- 
-
-   
