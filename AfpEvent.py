@@ -13,9 +13,11 @@
 # This file is part of the  'Open Source' project "BusAfp" by 
 #  AfpTechnologies (afptech.de)
 #
+#        24 Feb. 2026 - centralize version handling - Andreas.Knoblauch@afptech.de \n
+#
 #    BusAfp is a software to manage coach and travel acivities
 #    AfpEvent is a software to manage events
-#    Copyright© 1989 - 2019 afptech.de (Andreas Knoblauch)
+#    Copyright© 1989 - 2026 afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -42,16 +44,14 @@ from AfpBase import AfpStart
 
 
 # main program
-name = 'AfpEvent'     
-#version = "0.9.1 beta"    
-version = "0.9.1 strict beta"    
+name = 'AfpEvent'        
 website = 'http://www.busafp.de'
 description = """AfpEvent ist eine Verwaltungsprogramm für Veranstaltungen.
 Es enthält Anmeldungs- und Stornierungsverwaltung, sowie eine mitgeführte Buchhaltung, Zahlungsverfolgung
 und diverse weiter nützliche Hilfsmittel."""
 picture = "AfpEvent_relief.png"
 moduls = ["Adresse","Event"]
-AfpEvent = AfpBase.AfpStart.AfpSoftwareInformation(name, moduls, description, picture, website, version)
+AfpEvent = AfpBase.AfpStart.AfpSoftwareInformation(name, moduls, description, picture, website)
 AfpBase.AfpStart.AfpStart(AfpEvent)
       
  

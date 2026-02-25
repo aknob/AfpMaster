@@ -39,7 +39,7 @@
 import wx
 import sys
 import os.path
-from . import AfpDatabase, AfpBaseRoutines, AfpBaseDialog, AfpBaseScreen ,AfpGlobal
+from . import AfpDatabase, AfpBaseRoutines, AfpBaseDialog, AfpBaseScreen ,AfpGlobal, AfpVersions
 from AfpBase.AfpDatabase import AfpSQL
 
 ## class for software information
@@ -57,7 +57,9 @@ class AfpSoftwareInformation(object):
         self.description = description
         self.picture = picture
         self.website = website
-        self.version = version
+        versions = AfpVersions.AfpVersions()
+        if name in versions:
+            self.version = versions[name]
    ## extract name from object
     def get_name(self):
         return self.name
@@ -96,9 +98,9 @@ class AfpMainApp(wx.App):
         description = None
         picture = None
         website = "http://www.afptech.de"
-        baseversion = "10.2.0"
+        baseversion = AfpVersions.AfpVersions()["Base"]
         version = baseversion    
-        copyright = 'Copyright (C) 1989 - 2025  AfpTech.de'
+        copyright = 'Copyright (C) 1989 - 2026  AfpTech.de'
         moduls = ["Adresse"]
         if info:
             name = info.get_name()

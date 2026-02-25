@@ -6,6 +6,7 @@
 #    Copyright© 1989 - 2018  afptech.de (Andreas Knoblauch) \n
 # \n
 #   History: \n
+#        24 Feb. 2026 - centralize version handling - Andreas.Knoblauch@afptech.de \n
 #        16 Jan. 2017 - separate software spexcific code from parameter extraction - Andreas.Knoblauch@afptech.de \n
 #        26 Aug. 2015 - change direct execution parameter to normal input, to be used via os - Andreas.Knoblauch@afptech.de \n
 #        11 Jun. 2015 - enable direct routine execution via command line option - Andreas.Knoblauch@afptech.de \n
@@ -18,7 +19,7 @@
 #  AfpTechnologies (afptech.de)
 #
 #    BusAfp is a software to manage coach and travel acivities
-#    Copyright© 1989 - 2019 afptech.de (Andreas Knoblauch)
+#    Copyright© 1989 - 2026 afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -38,7 +39,6 @@ from AfpBase import AfpStart
 
 # main program
 name = "BusAfp"
-version = "6.1.1 beta"
 description = """BusAfp ist eine Verwaltungsprogramm für den Buseinsatz 
 für Mietfahrten, sowie der Organisation von eigenen Reisen.
 Es enthält eine mitgeführte Buchhaltung, Zahlungsverfolgung, Einsatzplanung
