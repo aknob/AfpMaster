@@ -796,8 +796,8 @@ class AfpEvMember(AfpEvClient):
         jahr = Afp_toString(period)
         fromdat = Afp_fromString("1.1." + jahr)
         todat = Afp_fromString("31.12." + jahr)
-        self.selects["ANMELDATT"] =  [ "ANMELDATT","AnmeldNr = AnmeldNr.ANMELD AND Attribut = \"" + attribut + "\" AND Datum >= '" + Afp_toInternDateString(fromdat)  + "' AND Datum <= '" + Afp_toInternDateString(todat) + "'"]
-        #print "AfpEvMember.set_period:", self.selects["ANMELDATT"], self.get_selection("ANMELDATT").data
+        self.selects["ANMELDATT"] =  [ "ANMELDATT","AnmeldNr = AnmeldNr.ANMELD AND Attribut = \"" + attribut + "\" AND Datum >= \"" + Afp_toInternDateString(fromdat)  + "\" AND Datum <= \"" + Afp_toInternDateString(todat) + "\""]
+        #print ("AfpEvMember.set_period:", self.selects["ANMELDATT"], self.get_selection("ANMELDATT").data)
         
     ## get first aktiv sepa mandat
     # @param felder - if given, fields to be extracted from aktiv sepa row
