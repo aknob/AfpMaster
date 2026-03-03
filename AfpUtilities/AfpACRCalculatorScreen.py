@@ -207,7 +207,7 @@ class AfpACRScreen(AfpScreen):
         self.matrix_grid.EnableDragColSize(0)
         self.matrix_grid.EnableDragRowSize(0)
         self.matrix_grid.EnableDragGridSize(0)
-        self.matrix_grid.SetSelectionMode(wx.grid.Grid.SelectRows)   
+        self.matrix_grid.SetSelectionMode(wx.grid.Grid.SelectRows)
         self.matrix_grid.SetSize((200, 200))   
         for row in range(self.matrix_rows):
             for col in range(self.matrix_cols):
@@ -232,7 +232,7 @@ class AfpACRScreen(AfpScreen):
         #self.grid_auswahl.EnableDragColSize(0)
         self.grid_auswahl.EnableDragRowSize(0)
         self.grid_auswahl.EnableDragGridSize(0)
-        self.grid_auswahl.SetSelectionMode(wx.grid.Grid.GridSelectRows)   
+        self.grid_auswahl.SetSelectionMode(wx.grid.Grid.SelectRows)   
         for row in range(self.rows):
             for col in range(self.cols):
                 self.grid_auswahl.SetReadOnly(row, col)

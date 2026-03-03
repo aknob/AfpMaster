@@ -27,11 +27,11 @@
 
 def AfpVersions():
     versions = {}
-    versions["Base"] = "10.2.1"
+    versions["Base"] = "10.2.3"
     versions["AfpCash"] = "1.0.0"
     versions["AfpMotor"] = "2.0.2"
-    versions["AfpFaktura"] = versions["AfpMotor"]
-    versions["AfpVerein"] = "0.9.1" 
-    versions["AfpEvent"] = versions["AfpVerein"] + " strict"  
+    versions["AfpVerein"] = "1.1.0"
     versions["BusAfp"] = "6.1.1 beta"
+    versions["AfpFaktura"] = versions["AfpMotor"]
+    versions["AfpEvent"] = versions["AfpVerein"] + " strict"  
     return versions

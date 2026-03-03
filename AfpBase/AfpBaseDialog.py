@@ -1195,7 +1195,7 @@ class AfpDialog_Auswahl(wx.Dialog):
         #self.grid_auswahl.EnableDragColSize(0)
         self.grid_auswahl.EnableDragRowSize(0)
         self.grid_auswahl.EnableDragGridSize(0)
-        self.grid_auswahl.SetSelectionMode(wx.grid.Grid.GridSelectRows)   
+        self.grid_auswahl.SetSelectionMode(wx.grid.Grid.SelectRows)
         for row in range(self.rows):
             for col in range(self.cols):
                 self.grid_auswahl.SetReadOnly(row, col)

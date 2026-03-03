@@ -424,7 +424,7 @@ class AfpDialog_FaCustomSelect(AfpDialog):
         self.grid_auswahl.EnableDragColSize(0)
         self.grid_auswahl.EnableDragRowSize(0)
         self.grid_auswahl.EnableDragGridSize(0)
-        self.grid_auswahl.SetSelectionMode(wx.grid.Grid.GridSelectRows)   
+        self.grid_auswahl.SetSelectionMode(wx.grid.Grid.SelectRows)
         for col in range(self.cols):
             self.grid_auswahl.SetColSize(col, int(self.col_percents[col]*4.9)) # 5 = 500/100
             for row in range(self.rows):

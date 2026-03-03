@@ -495,7 +495,7 @@ class AfpDialog_FiBuchung(AfpDialog):
         #self.grid_buchung.EnableDragColSize(0)
         self.grid_buchung.EnableDragRowSize(0)
         self.grid_buchung.EnableDragGridSize(0)
-        self.grid_buchung.SetSelectionMode(wx.grid.Grid.GridSelectRows) 
+        self.grid_buchung.SetSelectionMode(wx.grid.Grid.SelectRows)
         for col in range(self.cols):
             self.grid_buchung.SetColLabelValue(col, self.col_labels[col])
         for row in range(self.rows):
@@ -1705,7 +1705,7 @@ class AfpDialog_SEPA(AfpDialog):
         #self.grid_mandate.EnableDragColSize(0)
         self.grid_mandate.EnableDragRowSize(0)
         self.grid_mandate.EnableDragGridSize(0)
-        self.grid_mandate.SetSelectionMode(wx.grid.Grid.GridSelectRows)   
+        self.grid_mandate.SetSelectionMode(wx.grid.Grid.SelectRows)
         self.grid_mandate.SetColLabelValue(0, "Name")
         self.grid_mandate.SetColLabelValue(1, "Datum")
         self.grid_mandate.SetColLabelValue(2, "BIC")
