@@ -41,6 +41,7 @@ from AfpBase.AfpUtilities.AfpBaseUtilities import Afp_existsFile, Afp_lastInterv
 from AfpBase.AfpDatabase.AfpSQL import AfpSQL
 from AfpBase.AfpDatabase.AfpSuperbase import AfpSuperbase
 from AfpBase.AfpBaseRoutines import Afp_archivName, Afp_startFile, Afp_getBirthdayList, Afp_getAge
+from AfpBase.AfpAusgabe import AfpAusgabe
 from AfpBase.AfpSelectionLists import Afp_orderSelectionLists
 from AfpBase.AfpBaseDialog import AfpReq_Info, AfpReq_Question, AfpReq_Text, AfpReq_Selection, AfpReq_Date, AfpReq_MultiLine,  AfpReq_FileName, AfpDialog
 from AfpBase.AfpBaseDialogCommon import AfpLoad_DiReport, AfpDialog_Auswahl, Afp_autoEingabe, Afp_editMail
@@ -81,6 +82,274 @@ def AfpEvVerein_splitSectionPriceNumber(preisnr):
         anr = Afp_fromString(pstr[:-2])
     return preisnr, anr
 
+# handle duty-hours
+## filter client data due to age
+# @param data - data to be filtered
+# @param year - actuel year
+# @param minmax - if given, minimal and maximal age as a list
+def AfpEvVerein_filterDuty(data, year, minmax):
+    if minmax and len(minmax) > 1:
+        min = minmax[0]
+        max = minmax[1]
+        new_data = []
+        for dat in data:
+            age = Afp_getAge(Afp_fromString(dat.get_value("Geburtstag.ADRESSE")))
+            if age < min or age > max: continue
+            new_data.append(dat)
+        return new_data
+    else:
+        return data
+## store working hours colletively in database
+# @param globals - global values
+# @param data - SelectionList for which the output is created
+# @param debug - flag for debug output
+def AfpEvVerein_collectDuty(globals, data, debug):
+    #print "AfpEvVerein_collectDuty data:", data.view()
+    jahr = globals.today().year - 1
+    jstr, ok = AfpReq_Text("Sammelabrechnung erzeugen,", "bitte Bezugszeitraum eingeben:", Afp_toString(jahr) , "Bezugszeitraum");
+    if ok:
+        jahr = Afp_fromString(jstr)
+        dat = Afp_fromString("31.12." + jstr[-2:])
+        bez = "Sammelabrechnung " + jstr
+        para = globals.get_value("duty-parameter-Verein", "Event")
+        if not para: para = [10, 15.0, 15, 69]
+        clients = AfpEvVerein_filterDuty(data.get_members_of_period(jahr, "Namen"), jahr, para[2:])
+        cnt = 0
+        offset = 0
+        liste = []
+        if para:
+            soll = Afp_toString(para[0])
+        else:
+            soll = "10"
+        store = True
+        step = 10
+        for i in range(len(clients)):
+            liste.append([clients[i].get_name(), soll])
+            cnt += 1
+            if store and (cnt == step or i == len(clients)-1):
+                res = AfpReq_MultiLine("Sammeleingabe " + jstr + " bitte Arbeitsstunden eingeben:",  "- Leerfeld nimmt Mitglied aus der Auswertung -", "Text", liste, "Eingabe Arbeitsstunden")
+                if res:
+                    for j in range(len(res)):
+                        if res[j] == "":
+                            new_data = {"AnmeldNr": clients[offset+j].get_value("AnmeldNr"), "Attribut":"Arbeit", "Datum": dat, "Text": bez}
+                        else:
+                            new_data = {"AnmeldNr": clients[offset+j].get_value("AnmeldNr"), "Attribut":"Arbeit", "Datum": dat, "Menge": Afp_fromString(res[j]), "Text": bez}
+                        clients[offset+j].set_data_values(new_data, "ANMELDATT", -1)
+                        #print clients[offset+j].get_name(), res[j] , "Stunden"
+                else:
+                    store = False
+                liste = []
+                offset += cnt
+                cnt = 0
+        if store:
+            for client in clients:
+                client.store()
+## store individual working hours in database
+# @param globals - global values
+# @param data - SelectionList for which the output is created
+# @param totals - flag fif only totals should be entered
+# @param debug - flag for debug output
+def AfpEvVerein_inDuty(globals, data, totals = False, debug = False):
+    #print "AfpEvVerein_inDuty data:", data.view()
+    today =  globals.today()
+    jahr = today.year
+    text1 = "Einzeleingabe von Arbeitsstunden,"
+    if totals:
+        jahr -= 1
+        text1 = "Sammeleingabe von Arbeitsstunden,"
+    para = globals.get_value("duty-parameter-Verein", "Event")
+    if not para: para = [10, 15.0, 15, 69]
+    soll = Afp_toString(para[0])
+    reload = True
+    jstr, nok = AfpReq_Text(text1, "bitte Bezugszeitraum eingeben:", Afp_toString(jahr) , "Bezugszeitraum");
+    jahr = Afp_fromString(jstr)
+    bez = "Sammelabrechnung " + jstr
+    dat = Afp_lastIntervalDate(Afp_genDate(jahr,1,1),12)
+    while nok:
+        if reload:
+            clients = AfpEvVerein_filterDuty(data.get_members_of_period(jahr, "Namen"), jahr, para[2:])
+            namensliste = []
+            ident = []
+            for client in clients:
+                namensliste.append(client.get_name())
+                ident.append(clients.index(client))
+            reload = False
+        nind, nok = AfpReq_Selection("Der Bezugszeitraum ist " + Afp_toString(jahr) + ". Bitte Mitglied aussuchen,", "welches die Arbeitsstunden geleistet hat:", namensliste, "Mitglieder", ident)
+        if nok:
+            client = clients[nind]
+            if totals:
+                text1 = "Sammeleingabe des Arbeitseinsatzes von " + client.get_name()
+                text2 = "- Leereintrag nimmt Mitglied aus der Auswertung -"
+                text, ok = AfpReq_Text(text1, text2, soll, "Arbeitsstunden Gesamteingabe")
+                if ok:
+                    if not text:
+                        text = None
+                    else:
+                        text = Afp_toString(Afp_fromString(text))
+                    new_data = {"AnmeldNr": client.get_value("AnmeldNr"), "Attribut":"Arbeit", "Datum": dat, "Menge": text , "Text": bez}
+                    client.set_data_values(new_data, "ANMELDATT")
+                    client.store()
+                    reload = False
+            else:
+                values, indices = client.get_attributs("Arbeit", jahr)
+                liste = ["   --- neuer Eintrag ---"]
+                aident = [None]
+                #print "AfpEvVerein_inDuty values:", values, indices
+                sum = 0
+                for i in range(len(values)):
+                    inx = None
+                    if len(indices) > i: inx = indices[i]
+                    val = values[i]
+                    #print "AfpEvVerein_inDuty val:", val, inx
+                    liste.append(Afp_ArraytoLine(val))
+                    if val[2]: sum += val[2]
+                    aident.append(inx)
+                ok = True
+                while ok:
+                    #print "AfpEvVerein_inDuty aident:", aident
+                    ind, ok = AfpReq_Selection("Arbeitsstunden von " + client.get_name() + " bearbeiten.", "Im Bezugszeitraum " + Afp_toString(jahr) + " sind bisher " + Afp_toString(sum) + " Stunden absolviert." , liste, "Arbeitsstunden " + Afp_toString(jahr), aident)
+                    #print "AfpEvVerein_inDuty Ok:", ind, ok
+                    if ok:
+                        if ind is None:
+                            row = ["","","2"]
+                            text1 = "Eingabe eines neuen Arbeitseinsatzes von " + client.get_name()
+                            text2 = "- Leereintrag unter 'Anzahl Stunden' nimmt Mitglied aus der Auswertung -"
+                            lind = -1
+                        else:
+                            #print "AfpEvVerein_inDuty ind:", ind
+                            rows = client.get_value_rows("ANMELDATT", "Datum,Text,Menge", ind)
+                            #print "AfpEvVerein_inDuty rows:", rows
+                            row = Afp_ArraytoString(client.get_value_rows("ANMELDATT", "Datum,Text,Menge", ind)[0])
+                            #lrow = Afp_ArraytoString(values[ind])
+                            #print "AfpEvVerein_inDuty row:", row
+                            text1 = "Eingabe der Arbeitsstunden von " + client.get_name()
+                            lind = aident.index(ind)
+                            text2 = liste[lind]
+                        old = Afp_fromString(row[2])
+                        if not old: old = 0
+                        attliste = [["Datum", row[0]], ["Beschreibung", row[1]], ["Anzahl Stunden", row[2].strip()]]
+                        res = AfpReq_MultiLine(text1, text2, "Text", attliste, "Eingabe Arbeitsstunden")
+                        #print "AfpEvVerein_inDuty res:", res
+                        if res:
+                            nyear = jahr
+                            if res[1]:
+                                dat = Afp_fromString(Afp_ChDatum(res[0]))
+                                nyear = Afp_fromString(dat).year
+                                diff = 0
+                                if res[2] == "":
+                                    new_data = {"AnmeldNr": client.get_value("AnmeldNr"), "Attribut":"Arbeit", "Datum": dat, "Text": res[1]}
+                                    line = Afp_ArraytoLine([Afp_toString(dat), " ", res[1]])
+                                else:
+                                    diff = Afp_fromString(res[2])
+                                    new_data = {"AnmeldNr": client.get_value("AnmeldNr"), "Attribut":"Arbeit", "Datum": dat, "Menge": diff , "Text": res[1]}
+                                    line = Afp_ArraytoLine([Afp_toString(dat), res[1], Afp_toFloatString(Afp_fromString(res[2]), True)])
+                                #print "AfpEvVerein_inDuty newdata:", new_data, line
+                                if ind is None:
+                                    sum += diff
+                                    liste.append(line)
+                                    nr = -1
+                                else:
+                                    sum += diff - old
+                                    liste[lind] = line
+                                    nr = ind
+                                #print "AfpEvVerein_inDuty new_data:", new_data, nr
+                                client.set_data_values(new_data, "ANMELDATT", nr)
+                                client.store()
+                            else:
+                                #print "AfpEvVerein_inDuty no text:", ind, lind, sum, old
+                                if not ind is None:
+                                    sum -= old
+                                    client.delete_row("ANMELDATT", ind)
+                                    client.store()
+                                    liste.pop(lind)
+                                    aident.pop(lind)
+                                    for i in range(len(aident)):
+                                        if aident[i] > ind: aident[i] -= 1
+                                else:
+                                    dat = Afp_fromString(res[0])
+                                    if Afp_isInteger(dat):
+                                        nyear = dat
+                            if not nyear == jahr:
+                                bok = AfpReq_Question("Datum liegt nicht im Bezugszeitraum!", "Bezugszeitraum auf " + Afp_toString(nyear) + " setzen?", "Bezugszeitraum")
+                                if bok:
+                                    jahr = nyear
+                                    reload = True
+                                    ok = False
+## creates output for working hours
+# @param globals - global values
+# @param data - SelectionList for which the output is created
+# @param typ - type of output: "Serie"- serialletter, "Liste" list of  members which have to  pay or "Liste komplett" list of all members
+# @param debug - flag for debug output
+def AfpEvVerein_outDuty(globals, data, typ, debug):
+    jahr = globals.today().year- 1
+    para = globals.get_value("duty-parameter-Verein","Event")
+    if not para: para = [10, 15.0, 15, 69]
+    soll = para[0]
+    zahl = para[1]
+    liste = [["Abrechnungsjahr:", Afp_toString(jahr)], ["Pflichtstunden:", Afp_toString(soll)], ["Toleranz:", "1"]]
+    res = AfpReq_MultiLine("Bitte Eckwerte für die Auswertung", "der Arbeitsstunden eingeben.", "Text", liste, "Auswertung Arbeitsstunden")
+    if debug: print ("Arbeitsstunden.AfpEvVerein_outDuty Dialog:", res)
+    if res:
+        jstr = res[0]
+        jahr = Afp_fromString(jstr)
+        fromdat = Afp_fromString("1.1." + jstr)
+        todat = Afp_fromString("31.12." + jstr)
+        soll = Afp_fromString(res[1])
+        tol = Afp_fromString(res[2])
+        if not tol: tol = 0.0
+        clients = AfpEvVerein_filterDuty(data.get_members_of_period(jahr, "Namen"), jahr, para[2:])
+        all = "komplett" in typ
+        sum = 0.0
+        Anmeldungen = []
+        data_vars = []
+        for Anmeldung in clients:
+            if Anmeldung.get_value("PreisNr") == 5: continue
+            if Anmeldung.get_value("PreisNr") == 7: continue
+            Anmeldung.set_attribut_period("Arbeit", jstr)
+            std = Anmeldung.get_attribut_sum()
+            #print ("Arbeitsstunden.AfpEvVerein_outDuty:", Anmeldung.get_name(), std)
+            if not std is None:
+                dat = Anmeldung.get_value("Anmeldung")
+                if  dat > Afp_fromString(fromdat):
+                    diff = 12 - dat.month
+                    locsoll = int(diff*soll/12)
+                else:
+                    locsoll = soll
+                #print "AfpEvVerein_outDuty Soll:", locsoll, locsoll - tol
+                if all or std < locsoll - tol:
+                    Anmeldungen.append(Anmeldung)
+                    data_vars.append({"Soll": locsoll, "Haben": std, "Summe":  (locsoll - std)*zahl})
+                    if std < locsoll: sum += (locsoll - std) * zahl
+        if debug:
+            print ("Arbeitsstunden.AfpEvVerein_outDuty offene Stunden:", data_vars)
+            print ("Arbeitsstunden.AfpEvVerein_outDuty Kosten:", sum)
+        vars = {"Jahr": jahr,"Today": globals.today(), "Pflicht": soll, "Toleranz": tol, "Total": sum, "Name": data.get_value("AgentName")}
+        fname = "Verein_" + data.get_string_value("AgentNr") + "_Arbeit" + typ.replace(" ", "_") + "_" + res[0] +"_"
+        if typ == "Serie":
+            datei = globals.get_value("templatedir") + "AfpVerein_template_SerieArbeit.fodt"
+            tags = None
+        else:
+            datei = globals.get_value("templatedir") + "AfpVerein_template_ListeArbeit.fodt"
+            tags = ["<table:table-row>",  "</table:table-row>", 1]
+        fresult = Afp_addRootpath(globals.get_value("tempdir"), fname[:-1] + ".odt")
+        # ToDo: Pfade absolut, nachtraeglicher Eintrag in das Archiv fuer jede Anmeldung, Ausdrucke entfernen
+        Ausgabe = AfpAusgabe(debug, Anmeldungen, tags)
+        Ausgabe.set_datas_variables(data_vars)
+        Ausgabe.set_variables(vars)
+        Ausgabe.inflate(datei)
+        Ausgabe.write_resultfile(fresult, "/home/daten/Afp/AfpData/Template/empty.odt")
+        Afp_startFile(fresult, globals, debug)
+        # add to archiv
+        add = AfpReq_Question( "'" + typ + "' wurde erzeugt,", "Datei in das Archiv eintragen?", "Archiv")
+        if add:
+            serial = 1
+            farchiv = Afp_addRootpath(globals.get_value("archivdir"), fname + Afp_toIntString(serial) + ".odt")
+            while Afp_existsFile(farchiv):
+                serial += 1
+                farchiv = Afp_addRootpath(globals.get_value("archivdir"), fname + Afp_toIntString(serial) + ".odt")
+            Afp_copyFile(fresult, farchiv)
+            data.add_to_Archiv({"Typ":"Arbeitstunden", "Gruppe": res[0], "Bem": typ, "Extern": fname + Afp_toIntString(serial) + ".odt"})
+            data.store()
 ## dialog for selection of tour data \n
 # selects an entry from the EVENT table
 class AfpDialog_EvAwVerein(AfpDialog_Auswahl):
@@ -1367,10 +1636,22 @@ class AfpEvScreen_Verein(AfpEvScreen):
     # overwritten from AfpEvScreen
     def create_specific_menu(self):
         super(AfpEvScreen_Verein, self).create_specific_menu()
+        tmp_menu = self.menubar.Remove(1)
+        mein = tmp_menu.FindItem("Einsatz") # not needed for 'Verein'
+        tmp_menu.Remove(mein)
+        #print ("AfpEvScreen_Verein.create_specific_menu: Submenu", self.globals.get_value("duty-parameter-Verein","Event"))
+        if self.globals.get_value("duty-parameter-Verein","Event"):
+            submenu =  wx.Menu()
+            mmenu =  wx.MenuItem(submenu, wx.NewId(), "Eingabe", "")
+            self.Bind(wx.EVT_MENU, self.On_DutyIn, mmenu)
+            submenu.Append(mmenu)
+            mmenu =  wx.MenuItem(submenu, wx.NewId(), "Ausgabe", "")
+            self.Bind(wx.EVT_MENU, self.On_DutyOut, mmenu)
+            submenu.Append(mmenu)
+            tmp_menu.Append(wx.ID_ANY, 'Arbeitsstunden', submenu)
         if not self.globals.skip_accounting():
             self.finance_moduls = Afp_importAfpModul("Finance",self.globals)
         if self.finance_moduls:
-            tmp_menu = self.menubar.Remove(1)
             #print "AfpEvScreen_Verein.create_specific_menu menu:", tmp_menu
             mmenu =  wx.MenuItem(tmp_menu, wx.NewId(), "SEPA Überweisung", "")
             self.Bind(wx.EVT_MENU, self.On_SEPAct, mmenu)
@@ -1378,7 +1659,7 @@ class AfpEvScreen_Verein(AfpEvScreen):
             mmenu =  wx.MenuItem(tmp_menu, wx.NewId(), "SEPA Lastschrifteinzug", "")
             self.Bind(wx.EVT_MENU, self.On_SEPAdd, mmenu)
             tmp_menu.Append(mmenu)
-            self.menubar.Insert(1, tmp_menu, "Verein")
+        self.menubar.Insert(1, tmp_menu, "Verein")
     ## perform additional data input,
     # overwritten From AfpEvScreen
     # @param data - client data, where additional input should be made
@@ -1423,7 +1704,32 @@ class AfpEvScreen_Verein(AfpEvScreen):
         #if self.data.is_main_section():
         self.label_Anmeldungen.SetLabel(self.members_complete)
 
-    ## Eventhandler Menu - handle SEPA creditor transfer debit
+    ## Eventhandler Menu - handle input of duty deliveries of the members
+    def On_DutyIn(self,event):
+        if self.debug: print("AfpEvScreen_Verein Event handler `On_DutyIn'")
+        name = self.data.get_name().strip()
+        res = True
+        while res:
+            liste = ["Gesamteingabe", "Sammeleingabe", "Einzeleingabe"]
+            res = AfpReq_MultiLine(" " + name, " Bitte Eingabetyp für Arbeitsstunden aussuchen.", "Button", liste, "Arbeitsstunden")
+            if res:
+                if res[0]: AfpEvVerein_collectDuty(self.globals, self.data, self.debug)
+                if res[1]: AfpEvVerein_inDuty(self.globals, self.data, True, self.debug)
+                if res[2]: AfpEvVerein_inDuty(self.globals, self.data, False, self.debug)
+    ## Eventhandler Menu - handle output of duty deliveries of the members
+    def On_DutyOut(self,event):
+        if self.debug: print("AfpEvScreen_Verein Event handler `On_DutyOut'")
+        name = self.data.get_name().strip()
+        res = True
+        while res:
+            liste = ["Listenausgabe", "Listenausgabe alle", "Serienbriefausgabe"]
+            res = AfpReq_MultiLine(" " + name, " Bitte Ausgabetyp für Arbeitsstunden aussuchen.", "Button", liste, "Arbeitsstunden")
+            if res:
+                if res[0]: AfpEvVerein_outDuty(self.globals, self.data, "Liste", self.debug)
+                if res[1]: AfpEvVerein_outDuty(self.globals, self.data, "Liste komplett", self.debug)
+                if res[2]: AfpEvVerein_outDuty(self.globals, self.data, "Serie", self.debug)
+
+   ## Eventhandler Menu - handle SEPA creditor transfer debit
     def On_SEPAct(self,event):
         if self.debug: print("AfpEvScreen_Verein Event handler `On_SEPAct'")
         #print "AfpEvScreen_Verein.On_SEPAct:", self.finance_moduls

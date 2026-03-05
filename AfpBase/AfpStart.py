@@ -141,7 +141,6 @@ class AfpMainApp(wx.App):
         if "dbhost" in pars: set.set("database-host", pars["dbhost"]) 
         if not set.get("database") and not "dbname" in pars: pars["dbname"] = name
         if "dbname" in pars: set.set("database", pars["dbname"])    
-        set.read_db_config()
         if "dbuser" in pars: 
             set.set("database-user", pars["dbuser"])      
             set.set("database-word", "")      
@@ -158,6 +157,7 @@ class AfpMainApp(wx.App):
         mysql = AfpDatabase.AfpSQL.AfpSQL(set.get("database-host"), set.get("database-user"), set.get("database-word"), set.get("database"), set.get("database-lowercase"), set.is_debug())
         self.globals = AfpGlobal.AfpGlobal(name, mysql, set)
         self.globals.set_infos(version, baseversion, copyright, website, description, license, picture, developers)
+        self.globals.read_db_config()
         if "config" in pars: self.globals.set_configuration(pars["config"])
         if mysql.database_created(): AfpBaseRoutines.Afp_verifyDatabase(self.globals, True)
         #wx.InitAllImageHandlers() # deprecated function, obvoiusly not needed here

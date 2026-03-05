@@ -153,12 +153,6 @@ class AfpSettings(object):
         for entry in self.settings:
             if entry[-3:] == "dir":
                 self.settings[entry] = Afp_pathname(self.settings[entry], delimiter)
-    ## load individual config-file for database
-    def read_db_config(self):
-        if self.modul is None:
-            fname = Afp_addPath(self.settings["homedir"], self.settings["database"] + ".cfg")
-            if Afp_existsFile(fname):
-                self.read_config(fname)
     ## read data from file and set appropriate variables
     # @param fname - path of file to be read
     def read_config(self, fname):
@@ -334,6 +328,28 @@ class AfpGlobal(object):
             self.add_setting(module, set)
         if set and name:
             set.set(name, value)
+    ## load individual config-file for database
+    def read_db_config(self):
+        fname = Afp_addPath(self.get_value("homedir"), self.get_value("database") + "_db.cfg")
+        if Afp_existsFile(fname):
+            if self.debug: print("AfpGlobal.read_db_config:", fname)
+            fin = open(fname , 'r')
+            for line in fin:
+                if line[0] == "#": continue
+                cline = line.split("#")
+                sline = cline[0].split("=",1)
+                if len(sline) > 1:
+                    if self.debug: print("AfpGlobal.read:", line[:-1])
+                    name = sline[0].strip()
+                    modul = None
+                    if ":" in name:
+                        dline = name.split(":")
+                        modul = dline[0]
+                        name = dline[1]
+                    value = self.setting.fromString(sline[1].strip())
+                    #print ("AfpGlobal.read_db_config value:", name, value, modul)
+                    self.set_value(name, value, modul)
+            fin.close()
     ## modify configuration file of setting
     # @param varnames - name of variables, which have to be changed
     # @param values - values for variables, which will be changed
@@ -416,9 +432,9 @@ class AfpGlobal(object):
             return None
     ##  show all entries, for debug purpose
     def view(self):
-        print("AfpGlobal.view: Global", self.setting.settings)
+        print("AfpGlobal.view: Global", self.setting.settings, "\n")
         for set in self.settings: 
-            print("AfpGlobal.view:", self.settings[set].modul, self.settings[set].settings)
+            print("AfpGlobal.view:", self.settings[set].modul, self.settings[set].settings, "\n")
     ## return if operating system is assumed to be windows
     def os_is_windows(self):
         op_sys = self.get_value("op-system")
