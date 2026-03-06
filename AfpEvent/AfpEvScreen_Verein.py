@@ -1653,12 +1653,14 @@ class AfpEvScreen_Verein(AfpEvScreen):
             self.finance_moduls = Afp_importAfpModul("Finance",self.globals)
         if self.finance_moduls:
             #print "AfpEvScreen_Verein.create_specific_menu menu:", tmp_menu
-            mmenu =  wx.MenuItem(tmp_menu, wx.NewId(), "SEPA Überweisung", "")
+            submenu =  wx.Menu()
+            mmenu =  wx.MenuItem(tmp_menu, wx.NewId(), "Überweisung", "")
             self.Bind(wx.EVT_MENU, self.On_SEPAct, mmenu)
-            tmp_menu.Append(mmenu)
-            mmenu =  wx.MenuItem(tmp_menu, wx.NewId(), "SEPA Lastschrifteinzug", "")
+            submenu.Append(mmenu)
+            mmenu =  wx.MenuItem(tmp_menu, wx.NewId(), "Lastschrifteinzug", "")
             self.Bind(wx.EVT_MENU, self.On_SEPAdd, mmenu)
-            tmp_menu.Append(mmenu)
+            submenu.Append(mmenu)
+            tmp_menu.Append(wx.ID_ANY, 'SEPA', submenu)
         self.menubar.Insert(1, tmp_menu, "Verein")
     ## perform additional data input,
     # overwritten From AfpEvScreen
