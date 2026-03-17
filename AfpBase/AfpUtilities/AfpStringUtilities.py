@@ -81,7 +81,9 @@ def Afp_toQuotedString(data, date_conv = False):
         #print "Afp_toQuotedString None:", data, string
     else:
         string = Afp_toString(data)
-    if Afp_isString(data): string = "\"" + string + "\""
+    if Afp_isString(data):
+        string = string.replace("\\", "\\\\").replace("\"", "\\\"")
+        string = "\"" + string + "\""
     if date_conv:
         typ = type(data)
         if  typ == datetime.timedelta or typ == datetime.time:
@@ -559,7 +561,8 @@ def Afp_isMailAddress(string):
         Ok = True
         if not "@" in string: Ok = False
         split = string.split(".")
-        if len(split[-1].strip()) > 3: Ok = False
+        # allow modern TLDs longer than 3 characters (e.g. .email)
+        if len(split[-1].strip()) < 2: Ok = False
     else:
         Ok = False
     return Ok

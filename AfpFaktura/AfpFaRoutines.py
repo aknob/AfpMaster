@@ -1137,7 +1137,7 @@ class AfpInvoice(AfpFaktura):
     ## financial transaction will be canceled if the appropriate modul is installed
     def cancel_financial_transaction(self):
         if self.finance:
-            original = AfpInvoice(self.globals, self.mainvalue)
+            original = AfpInvoice(self.globals, self.get_value("RechNr"))
             self.finance.add_financial_transactions(original, True)
     ## one line to hold all relevant values of this invoice, to be displayed 
     def line(self):

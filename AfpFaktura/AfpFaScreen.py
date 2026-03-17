@@ -749,8 +749,12 @@ class AfpFaScreen(AfpEditScreen):
                 self.data = newdata
                 self.Reload()
     ## handle payment dialog with selection
-    def select_Zahlung(self):
-        datei, ident = AfpReq_FaSelectedRow(self.globals.get_mysql(),"Rechnung", "Bitte offene Rechnung auswählen!", self.debug)
+    # @param ident - if given identifier of invoice to be payed
+    def select_Zahlung(self, ident = None):
+        if ident is None:
+            datei, ident = AfpReq_FaSelectedRow(self.globals.get_mysql(),"Rechnung", "Bitte offene Rechnung auswählen!", self.debug)
+        else:
+            datei = True
         if datei and ident:
             data = AfpInvoice(self.globals, ident)
             self.invoke_Zahlung(data)   
@@ -1111,11 +1115,11 @@ class AfpFaScreen(AfpEditScreen):
                 elif Ok == "Neu":
                     #print("AfpFaScreen.invoke_custom_select Neu:", data)
                     if data: self.generate_new_data(data, None)
+                elif Ok == "Zahlung":
+                    self.select_Zahlung(data)
         elif Ok:
             if Ok == "Bar":
                 self.On_Bar()
-            elif Ok == "Zahlung":
-                self.select_Zahlung()
             elif Ok == "Ware":
                 self.On_Ware()
             elif Ok == "Kasse":
