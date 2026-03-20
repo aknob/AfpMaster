@@ -229,7 +229,11 @@ class AfpSQL(object):
                 if self.db_lower: db = db.lower()
                 self.db_cursor.execute(Befehl + " FROM " + db)
                 rows += self.db_cursor.fetchall()
-        return Afp_extractColumns(0, rows)
+        tabels = Afp_extractColumns(0, rows)
+        if self.db_lower:
+            for i in range(len(tabels)): 
+                tabels[i] = tabels[i].lower()
+        return tabels
     ## return information of database table
     # @param datei - name of table
     # @param typ - type of information ('fields' and 'index' implemented)

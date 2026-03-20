@@ -226,7 +226,6 @@ def AfpFaktura_getSelectedRows(mysql, typ, debug):
     #print("AfpFaktura_getSelectedRows:", select, rows)
     return datei, rows
 ## import articles from csv-file into manufacturer database
-# @param globals - global data, inclusive mysql connection
 # @param data - AfpManufact selection-list
 # @param filename - name of csv-file to be imported
 # @param paras - parameter for csv-file to be imported
@@ -234,10 +233,13 @@ def AfpFaktura_getSelectedRows(mysql, typ, debug):
 #                           paras[1] = {db-columnname 1: csv-columnname 1, db-cn 2: csv-cn 2, ...}
 # @param debug - if given, flag for debug-modus
 # @param progress - if given, progress bar
-def AfpFaktura_importArtikels(globals, data, filename, paras, debug = False, progress = None):
+def AfpFaktura_importArtikels(data, filename, paras, debug = False, progress = None):
     deli = paras[0]
     par = paras[1]
     mantable = data.get_manufact_table()
+    globals = data.get_globals()
+    if globals.get_mysql().get_lower():
+        mantable = mantable.lower()
     if mantable in globals.get_mysql().get_tables():
         #befehl = "TRUNCATE TABLE " + mantable + ";"
         befehl = "DELETE FROM " + mantable + "; COMMIT;"
@@ -261,6 +263,40 @@ def AfpFaktura_importArtikels(globals, data, filename, paras, debug = False, pro
         sel.new = True
         sel.store()
     if debug: print ("AfpFaktura_importArtikels stored:", Afp_getNow().time())
+## update articles from manufacturer database
+# @param data - AfpManufact selection-list
+# @param mantable - name manufacturer table
+# @param debug - if given, flag for debug-modus
+def AfpFaktura_updateArtikels(data, mantable, debug = False):
+    globals = data.get_globals()
+    mysql = globals.get_mysql()
+    update_fields = ["Bezeichnung", "Listenpreis", "PreisGrp", "EAN"]
+    set_clause = ",".join(["a." + f + " = m." + f for f in update_fields])
+    kennung = data.get_string_value("Kennung")
+    hersnr = data.get_string_value("HersNr")
+    if kennung:
+        match = "a.ArtikelNr = CONCAT('" + kennung + " ', m.ArtikelNr)"
+    else:
+        match = "a.ArtikelNr = m.ArtikelNr"
+    update = "UPDATE " + mysql.get_dbname("ARTIKEL") + " a JOIN " + mysql.get_dbname(mantable) + " m ON " + match + " SET " + set_clause
+    if hersnr:
+        update += " WHERE a.HersNr = " + hersnr
+    if debug: print("AfpFaktura_updateArtikels update ARTIKEL:", update)
+    mysql.execute(update)
+    if hersnr:
+        recalc = "SELECT a.ArtikelNr FROM " + mysql.get_dbname("ARTIKEL") + " a JOIN " + mysql.get_dbname(mantable) + " m ON " + match + " WHERE a.HersNr = " + hersnr
+        if debug: print("AfpFaktura_updateArtikels recalc list:", recalc)
+        rows = mysql.execute(recalc)
+        if rows:
+            for row in rows:
+                art = AfpArtikel(globals, row[0], debug)
+                art = data.gen_prices(art)
+                prsgrp = art.get_value("PreisGrp")
+                lstp = art.get_value("Listenpreis")
+                sur = data.get_surcharge(prsgrp, lstp)
+                if sur is not None:
+                    art.set_value("Handelsspanne", sur)
+                art.store()   
 
 ## baseclass for memo handling 
 class AfpMemo(AfpSelectionList):

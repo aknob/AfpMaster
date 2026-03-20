@@ -16,7 +16,7 @@
 #  AfpTechnologies (afptech.de)
 #
 #    BusAfp is a software to manage coach and travel activities
-#    Copyright© 1989 - 2025  afptech.de (Andreas Knoblauch)
+#    Copyright© 1989 - 2026  afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -2123,7 +2123,7 @@ class AfpDialog_FaManufact(AfpDialog):
             else:
                 #progress = wx.ProgressDialog("Artikelimport für Hersteller " + self.data.get_value("Hersteller") , "Daten werden aus der Datei '" + Afp_extractBase(fname) + "' eingelesen!", maximum=max, parent=self, style=wx.PD_SMOOTH|wx.PD_APP_MODAL|wx.PD_AUTO_HIDE|wx.PD_ELAPSED_TIME|wx.PD_REMAINING_TIME)
                 progress = AfpProgressBar(self.data.get_globals(), "Daten werden aus der Datei '" + Afp_extractBase(fname) + "' eingelesen!", "Artikelimport für Hersteller " + self.data.get_value("Hersteller") , [True, True], self.debug)
-                AfpFaktura_importArtikels(self.data.get_globals(), self.data, fname, paras, False, progress)
+                AfpFaktura_importArtikels(self.data, fname, paras, False, progress)
                 self.data.set_value("Import", Afp_toInternDateString(Afp_dateString(fname)))
                 progress.destroy()
             self.data.set_value("ImportDel", str(paras[0]))
