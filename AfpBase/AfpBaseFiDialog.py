@@ -116,6 +116,7 @@ def AfpFinance_get_ZahlSelectors(globals , in_filter=None):
             selects.append(AfpFinance_MemberSelector(globals, debug))
             selects.append(AfpFinance_MemberStornoSelector(globals, debug))
             selects.append(AfpFinance_MemberPayBackSelector(globals, debug))
+            selects.append(AfpFinance_MemberStornoPayBackSelector(globals, debug))
         elif mod == "Faktura":
             selects.append(AfpFinance_OrderSelector(globals, debug))
             #selects.append(AfpFinance_OfferSelector(globals, debug))
@@ -123,7 +124,7 @@ def AfpFinance_get_ZahlSelectors(globals , in_filter=None):
     tables = globals.get_mysql().get_tables()
     if "VERBIND" in tables:
         selects.append(AfpFinance_ObligationSelector(globals, debug))
-    if "RECHNG" in tables and not "Rechnung" in selectors:
+    if "RECHNG" in tables and not "Faktura" in finmods:
         selects.append(AfpFinance_simpleInvoiceSelector(globals, debug))
     for sel in selects:
         if in_filter is None or (in_filter and sel.is_incoming()) or (not in_filter and not sel.is_incoming()):
@@ -237,6 +238,20 @@ def AfpFinance_MemberPayBackSelector(globals, debug = False):
     object = "AfpEvent/AfpEvScreen_Verein/AfpEvMember"
     edit = None
     return AfpPaySelector(globals, name, label,  tablename, indexfield, felder, filter, text, object, edit, debug, True)
+## generate ZahlSelector for invoice part of the  'Event' Modul flavour 'Verein', Storno pay back
+# @param globals -  global values including object for dadabase access
+# @param debug - debug flag
+def AfpFinance_MemberStornoPayBackSelector(globals, debug = False):
+    name = "Retourenstorno"
+    label = "&Retoure Storno"
+    tablename = "ANMELD"
+    indexfield = "EventNr"
+    felder = "RechNr,Preis,KundenNr,Zahlung,ZahlDat,AnmeldNr"
+    filter =  "Zustand = \"Storno\" AND Preis > 0"
+    text = "Anmeldung"
+    object = "AfpEvent/AfpEvScreen_Verein/AfpEvMember"
+    edit = None
+    return AfpPaySelector(globals, name, label,  tablename, indexfield, felder, filter, text, object, edit, debug, True)
 ## generate ZahlSelector for invoice part of the  'Event' Modul
 # @param globals -  global values including object for dadabase access
 # @param debug - debug flag
@@ -300,7 +315,7 @@ def AfpFinance_OrderSelector(globals, debug = False):
     label = "&Bestellung"
     tablename = "BESTELL"
     felder = "RechNr,Datum, Pos,Betrag,ZahlBetrag,Bem"
-    filter =  "Zustand = \"beglichen\" OR Zustand = \"erhalten\" OR Zustand = \"open\""
+    filter =  "Zustand = \"closed\" OR Zustand = \"obtain\""
     text = "Bestellung"
     object = "AfpFaktura/AfpFaRoutines/AfpOrder"
     edit = None
