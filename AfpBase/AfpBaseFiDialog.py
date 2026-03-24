@@ -1440,7 +1440,7 @@ class AfpDialog_SimpleInvoice(AfpDialog):
     # @param data - dictionry where entries should be added
     def add_zustand_value(self, data):
         dauer = None
-        if self.allbuttons:
+        if not self.ui_disablenew:
             dauer = self.check_Dauer.GetValue()
         zust = self.label_Zustand.GetLabel()
         if zust == "Storno":
@@ -1643,7 +1643,7 @@ class AfpDialog_SimpleInvoice(AfpDialog):
     ## event handler for button 'Original'    
     def On_Original(self,event):
         if self.debug: print("Event handler AfpDialog_SimpleInvoice.On_Original'")
-        if self.oblig or (self.allbuttons and self.check_Dauer.IsChecked()):
+        if self.oblig or (not self.ui_disablenew and self.check_Dauer.IsChecked()):
             self.handle_archiv()
             if self.oblig and self.data_changed and self.data.get_value("Zustand") == "Static":
                 self.data.set_value("Zahlung", 0.0)
