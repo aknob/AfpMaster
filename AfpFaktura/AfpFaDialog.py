@@ -2123,7 +2123,7 @@ class AfpDialog_FaManufact(AfpDialog):
             else:
                 #progress = wx.ProgressDialog("Artikelimport für Hersteller " + self.data.get_value("Hersteller") , "Daten werden aus der Datei '" + Afp_extractBase(fname) + "' eingelesen!", maximum=max, parent=self, style=wx.PD_SMOOTH|wx.PD_APP_MODAL|wx.PD_AUTO_HIDE|wx.PD_ELAPSED_TIME|wx.PD_REMAINING_TIME)
                 progress = AfpProgressBar(self.data.get_globals(), "Daten werden aus der Datei '" + Afp_extractBase(fname) + "' eingelesen!", "Artikelimport für Hersteller " + self.data.get_value("Hersteller") , [True, True], self.debug)
-                AfpFaktura_importArtikels(self.data, fname, paras, False, progress)
+                AfpFaktura_importArtikels(self.data, fname, paras, self.debug, progress)
                 self.data.set_value("Import", Afp_toInternDateString(Afp_dateString(fname)))
                 progress.destroy()
             self.data.set_value("ImportDel", str(paras[0]))
@@ -2132,8 +2132,14 @@ class AfpDialog_FaManufact(AfpDialog):
 
     ## update manufacturer articles in main article database
     def update_articles(self):
-        print ("AfpDialog_FaManufact.update_articles not implemented yet!")
-        return None
+        dry = self.data.get_globals().get_value("dry-run")
+        if dry:
+            print ("AfpDialog_FaManufact.update_articles: - DRY-RUN -")
+        else:
+            progress = AfpProgressBar(self.data.get_globals(), "Artikelupdate für Hersteller " + self.data.get_value("Hersteller") + "!", "Daten werden aus der Herstellerdatei übernommen!",  [True, True], self.debug)
+            AfpFaktura_updateArtikels(self.data, self.debug, progress)
+            progress.destroy()
+
     ## maintain manufacturer articles in main article database
     def maintain_articles(self):
         article = True
@@ -2148,7 +2154,7 @@ class AfpDialog_FaManufact(AfpDialog):
                 art = AfpArtikel(self.data.get_globals(), article, self.debug)
                 Ok = AfpLoad_FaArticle(art, False)
         return None
-    # click events
+    # click eventsprogress.destroy()
     ## double click on discount list
     def On_DClick(self, event):
         hsp = event.GetEventObject().GetName() == "Liste_Verkauf"

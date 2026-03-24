@@ -6,6 +6,7 @@
 # no display and user interaction in this modul.
 #
 #   History: \n
+#        2 Mar. 2026 - integrate 'Professor-Beer' pull commits (lower sql-table, update articles) - Andreas.Knoblauch@afptech.de
 #        30 Dez. 2021 - conversion to python 3 - Andreas.Knoblauch@afptech.de \n
 #        22 JNov 2016 - inital code generated - Andreas.Knoblauch@afptech.de \n
 
@@ -264,39 +265,96 @@ def AfpFaktura_importArtikels(data, filename, paras, debug = False, progress = N
         sel.store()
     if debug: print ("AfpFaktura_importArtikels stored:", Afp_getNow().time())
 ## update articles from manufacturer database
-# @param data - AfpManufact selection-list
-# @param mantable - name manufacturer table
+# @param hers - AfpManufact selection-list
 # @param debug - if given, flag for debug-modus
-def AfpFaktura_updateArtikels(data, mantable, debug = False):
-    globals = data.get_globals()
+# @param progress - if given, progress bar
+def AfpFaktura_updateArtikels(hers, debug = False, progress = None):
+    globals = hers.get_globals()
     mysql = globals.get_mysql()
+    mantable = hers.get_manufact_table()
+    kennung = hers.get_string_value("Kennung")
+    hersnr = hers.get_string_value("HersNr")
+    if not (kennung and hersnr):
+        print ("WARNING AfpFaktura_updateArtikels: manufacturer data not complete!", kennung, hersnr)
+        return
     update_fields = ["Bezeichnung", "Listenpreis", "PreisGrp", "EAN"]
-    set_clause = ",".join(["a." + f + " = m." + f for f in update_fields])
-    kennung = data.get_string_value("Kennung")
-    hersnr = data.get_string_value("HersNr")
-    if kennung:
-        match = "a.ArtikelNr = CONCAT('" + kennung + " ', m.ArtikelNr)"
+    set_clause = ", ".join(["a." + f + " = m." + f for f in update_fields])
+    select_clause = ", ".join(["m." + f for f in update_fields])
+    match = "a.ArtikelNr = CONCAT('" + kennung + " ', m.ArtikelNr)"
+    #update = "UPDATE " + mysql.get_dbname("ARTIKEL") + " a JOIN " + mysql.get_dbname(mantable) + " m ON " + match + " SET " + set_clause
+    datei = mysql.get_dbname("ARTIKEL") + " a JOIN " + mysql.get_dbname(mantable) + " m ON " + match
+    where = " WHERE a.HersNr = " + hersnr
+    articles = {}
+    lgh = len(update_fields)
+    for i in range(lgh):
+        up = update_fields[i]
+        if up == "EAN":
+            ups = "SELECT a.ArtikelNr," + select_clause + ", a.Rabatt, a.Handelsspanne" + " FROM " + datei + where + " AND NOT (instr(a.EAN, m.EAN) >= 1)"
+        else:
+            ups = "SELECT a.ArtikelNr," + select_clause + ", a.Rabatt, a.Handelsspanne"+ " FROM " + datei + where + " AND NOT (a." + up + " = m." + up + ")"
+        if debug: print("AfpFaktura_updateArtikels:", ups)
+        arts = mysql.execute(ups)
+        if arts:
+            #print("AfpFaktura_updateArtikels arts:", up, len(arts))
+            for art in arts:
+                if art[0] in articles:
+                    articles[art[0]][i] = art[1:]
+                else:
+                    values = lgh*[None]
+                    values[i] = art[1:]
+                    articles[art[0]] = values
+    #print("AfpFaktura_updateArtikels length:", len(articles))
+    if articles:
+        plgh = None
+        if progress and len(articles) > 1000:
+            plgh = len(articles)
+            progress.set_complete(plgh)
+        for art in articles:
+            set_clause = ""
+            article = articles[art]
+            for i in range(lgh):
+                if article[i]:
+                    up = update_fields[i]
+                    if up == "EAN":
+                        set_clause += ", EAN = '" + Afp_toEANString(article[i][i]) + "'"
+                    else:
+                        set_clause += ", " + up + " = " + Afp_toQuotedString(article[i][i])
+                        prsgrp = None
+                        rab = None
+                        hsp = None
+                        if up == "PreisGrp":
+                            prsgrp =  article[i][i]
+                            lstp = article[i][1]
+                            set_clause += ", Rabatt = NULL, Handelsspanne = NULL"
+                        elif up == "Listenpreis":
+                            prsgrp =  article[i][2]
+                            lstp = article[i][i]
+                            rab = article[i][-2]
+                            hsp = article[i][-1]
+                        if not prsgrp is None:
+                            if rab:
+                                fac = (100.0 - rab)/100.0
+                                ek = int(100*fac*lstp)/100.0
+                            else:
+                                ek = hers.gen_discount(lstp, prsgrp)
+                            if not "Einkaufspreis" in set_clause:
+                                set_clause += ", Einkaufspreis = " + Afp_toString(ek)
+                            if not "Nettopreis" in set_clause:
+                                if hsp:
+                                    fac = (100.0 + hsp)/100.0
+                                    netto = int(100*fac*ek)/100.0
+                                else:
+                                    netto = hers.gen_surcharge(lstp, prsgrp, ek)
+                                set_clause += ", Nettopreis = " + Afp_toString(netto)
+            if set_clause: set_clause = set_clause[2:]
+            update = "UPDATE " +  mysql.get_dbname("ARTIKEL") + " SET " + set_clause  + " WHERE ArtikelNr = '" + art + "'"
+            if debug: print("AfpFaktura_updateArtikels:", update)
+            mysql.execute(update)
+            if plgh:
+                progress.plus_step()
+        mysql.execute("COMMIT")
     else:
-        match = "a.ArtikelNr = m.ArtikelNr"
-    update = "UPDATE " + mysql.get_dbname("ARTIKEL") + " a JOIN " + mysql.get_dbname(mantable) + " m ON " + match + " SET " + set_clause
-    if hersnr:
-        update += " WHERE a.HersNr = " + hersnr
-    if debug: print("AfpFaktura_updateArtikels update ARTIKEL:", update)
-    mysql.execute(update)
-    if hersnr:
-        recalc = "SELECT a.ArtikelNr FROM " + mysql.get_dbname("ARTIKEL") + " a JOIN " + mysql.get_dbname(mantable) + " m ON " + match + " WHERE a.HersNr = " + hersnr
-        if debug: print("AfpFaktura_updateArtikels recalc list:", recalc)
-        rows = mysql.execute(recalc)
-        if rows:
-            for row in rows:
-                art = AfpArtikel(globals, row[0], debug)
-                art = data.gen_prices(art)
-                prsgrp = art.get_value("PreisGrp")
-                lstp = art.get_value("Listenpreis")
-                sur = data.get_surcharge(prsgrp, lstp)
-                if sur is not None:
-                    art.set_value("Handelsspanne", sur)
-                art.store()   
+        if debug: print("AfpFaktura_updateArtikels: nothing found to update!")
 
 ## baseclass for memo handling 
 class AfpMemo(AfpSelectionList):
@@ -387,19 +445,25 @@ class AfpManufact(AfpSelectionList):
         return self.herstable
     ## generate the manufacturer discount for this AfpArtikel SelectionList
     # @param article -  AfpArtikel SelectionList
-    def gen_discount(self, article):
+    def gen_discount_article(self, article):
         lstp = article.get_value("Listenpreis")
         prsgrp = article.get_value("PreisGrp")
-        #print("AfpManufact.gen_discount:", lstp, prsgrp)
+        #print("AfpManufact.gen_discount_article:", lstp, prsgrp)
+        ek = self.gen_discount(lstp, prsgrp)
+        article.set_value("Einkaufspreis", ek)
+        return article
+    ## generate the manufacturer discount for this input values
+    # @param lstp - official manufacturer price
+    # @param prsgrp - price group
+    def gen_discount(self, lstp, prsgrp):
         disc = self.get_discount(prsgrp)
         if disc: 
             fac = (100.0 - disc)/100.0
-            print("AfpManufact.gen_discount disc:", fac, disc)
+            #print("AfpManufact.gen_discount_article disc:", fac, disc)
             ek = int(100*fac*lstp)/100.0
         else:
             ek = lstp
-        article.set_value("Einkaufspreis", ek)
-        return article
+        return ek
     ## generate the manufacturer discount for the given in put
     # @param prsgrp -  group of price
     def get_discount(self, prsgrp):
@@ -412,22 +476,29 @@ class AfpManufact(AfpSelectionList):
             return None
     ## generate the manufacturer surcharge (supplement) for this AfpArtikel SelectionList
     # @param article -  AfpArtikel SelectionList
-    def gen_surcharge(self, article):
+    def gen_surcharge_article(self, article):
         lstp = article.get_value("Listenpreis")
         prsgrp = article.get_value("PreisGrp")
         ek = article.get_value("Einkaufspreis")
-        #print("AfpManufact.gen_surcharge:", lstp, prsgrp)
+        #print("AfpManufact.gen_surcharge_article:", lstp, prsgrp)
+        netto = self. gen_surcharge(lstp, prsgrp, ek)
+        article.set_value("Nettopreis", netto)
+        #article.set_value("Gewinn", netto - ek)
+        return article
+    ## generate the manufacturer surcharge (supplement) for this input values
+    # @param lstp - official manufacturer price
+    # @param prsgrp - price group
+    # @param ek - purchase price
+    def gen_surcharge(self, lstp, prsgrp, ek):
         # find surcharge for price-group of manufacturer
         sur = self.get_surcharge(prsgrp, lstp)
         if sur:
             fac = (100.0 + sur)/100.0
-            print("AfpManufact.gen_surcharge sur:", fac, sur) 
+            #print("AfpManufact.gen_surcharge_article sur:", fac, sur)
             netto = int(100*fac*ek)/100.0
         else:
             netto = lstp
-        article.set_value("Nettopreis", netto)
-        #article.set_value("Gewinn", netto - ek)
-        return article
+        return netto
     ## generate the manufacturer surcharge for the given in put
     # @param prsgrp -  group of price
     # @param lstp - reference price
@@ -470,11 +541,11 @@ class AfpManufact(AfpSelectionList):
     ## generate the prices for this AfpArtikel SelectionList
     # @param article -  AfpArtikel SelectionList
     def gen_prices(self, article):
-        article = self.gen_discount(article)
-        article = self.gen_surcharge(article)
+        article = self.gen_discount_article(article)
+        article = self.gen_surcharge_article(article)
         return article
     ## sort data in discout or surcharge selection list
-    # @param table -  name of selectionlist to be sorded
+    # @param table -  name of selectionlist to be sorted
     def sort_price_addons(self, table):
         useval = False
         sel = self.get_selection(table)
