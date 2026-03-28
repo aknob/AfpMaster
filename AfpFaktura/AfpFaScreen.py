@@ -56,7 +56,7 @@ class AfpFaScreen_EditLinePlugIn(object):
     # @param process - list of processes, the following entries per process are possible:
     # - ["choose", "value1, value2, ..."] - keyword "choose", values to be read from choosing-table
     # - ["set", "value1, value2, ..."] - keyword "set", values to be set to initial data row
-    # - [integer,"postprocess-routinename","update desriptions, separated by ','"]
+    # - [integer,"postprocess-routinename","update descriptions, separated by ','"]
     # @param debug - flag for debug information
         def  __init__(self, grid, rowNr, sb, process, debug = False):
             self.grid = grid
@@ -113,7 +113,8 @@ class AfpFaScreen_EditLinePlugIn(object):
                 else:
                     attrSel.SetBackgroundColour(self.editcolcolor)
                     if clear:  
-                        self.grid.SetCellValue(self.row, self.edit_col, "")
+                        if self.edit_col != 4:
+                            self.grid.SetCellValue(self.row, self.edit_col, "")
                         if self.grid.GetCellValue(self.row, 0) == "L:":
                              self.grid.SetCellValue(self.row, 0, "")
                 #print("AfpFaScreen_EditLinePlugIn.select_col:", self.row, self.edit_col, attrSel)
@@ -201,13 +202,13 @@ class AfpFaScreen_EditLinePlugIn(object):
             self.initial_row = None
         ## complete actuel step and invoke the next process step for row editing
         def next_process_step(self):
-            #print "AfpFaScreen_EditLinePlugIn.next_process_step last index:", self.process_step_index
+            #print ("AfpFaScreen_EditLinePlugIn.next_process_step last index:", self.process_step_index)
             done = False
             # postprocess last step
             if self.process_step_index is None:
                 self.process_step_index = -1
             elif self.process_step_index >= 0:
-                #print "AfpFaScreen_EditLinePlugIn.next_process_step post:", self.postprocess, self.edit_value, self.update
+                #print ("AfpFaScreen_EditLinePlugIn.next_process_step post:", self.postprocess, self.edit_value, self.update)
                 if self.postprocess and self.edit_value:
                     pyBefehl = "value = " + self.postprocess + "(\"" + self.edit_value + "\")"
                     funct = {"Afp_intString": Afp_intString, "Afp_floatString": Afp_floatString, "AfpFaktura_colonFloat": AfpFaktura_colonFloat,  "AfpFaktura_colonInt": AfpFaktura_colonInt}
@@ -240,7 +241,7 @@ class AfpFaScreen_EditLinePlugIn(object):
                             #print ("AfpFaScreen_EditLinePlugIn.next_process_step update exe:", pyBefehl)
                             exec(pyBefehl, {}, local) 
                             value = local["value"]
-                            #print ("AfpFaScreen_EditLinePlugIn.next_process_step update res:", value, ucol)
+                            #print ("AfpFaScreen_EditLinePlugIn.next_process_step update:", ucol, "value = ", value, "'" + pyBefehl + "'")
                             if not ucol is None:
                                 self.set_initial_row([ucol, Afp_toString(value)])
                                 #self.initial_row[ucol] = Afp_toString(value)
@@ -280,8 +281,6 @@ class AfpFaScreen_EditLinePlugIn(object):
                             if len(process) > 2:
                                 self.update = process[2]
                         self.select_col()
-                        #if self.initial_row and self.initial_row[self.edit_col]:
-                            #self.edit_value = self.initial_row[self.edit_col]
                     #print ("AfpFaScreen_EditLinePlugIn.next_process_step executed:", self.choose, self.columns, self.edit_col, self.postprocess, self.update)
                 else:
                     #print("AfpFaScreen_EditLinePlugIn.next_process_step: ENDED")

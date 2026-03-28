@@ -186,7 +186,7 @@ def AfpFaktura_identifyIndex(string, mlen = 2):
     else:
         index = "Bezeichnung"
     return index
-## special handling for float string prepended by a colon endend string
+## special handling for float string prepended by a colon ended string
 # @param string - string to be converted
 def AfpFaktura_colonFloat(string):
     fstring = string
@@ -194,7 +194,7 @@ def AfpFaktura_colonFloat(string):
     if len(split) == 2:
         fstring = split[1]
     return Afp_floatString(fstring)
-## special handling for float string prepended by a colon endend string
+## special handling for float string prepended by a colon ended string
 # @param string - string to be converted
 def AfpFaktura_colonInt(string):
     fstring = string
@@ -456,6 +456,7 @@ class AfpManufact(AfpSelectionList):
     # @param lstp - official manufacturer price
     # @param prsgrp - price group
     def gen_discount(self, lstp, prsgrp):
+        if not lstp: lstp = 0.0
         disc = self.get_discount(prsgrp)
         if disc: 
             fac = (100.0 - disc)/100.0
@@ -490,6 +491,8 @@ class AfpManufact(AfpSelectionList):
     # @param prsgrp - price group
     # @param ek - purchase price
     def gen_surcharge(self, lstp, prsgrp, ek):
+        if not lstp: lstp = 0.0
+        if not ek: ek = 0.0
         # find surcharge for price-group of manufacturer
         sur = self.get_surcharge(prsgrp, lstp)
         if sur:
@@ -676,7 +679,7 @@ class AfpArtikel(AfpSelectionList):
                     sel.set_value(self.amount_column, anz, row) 
     ## get columns for line display
     def get_columns_for_line_display(self):
-        line = "," + self.id_column + "," + self.name_column+ "," + self.amount_column + ","+ self.sell_column + ","+ self.sell_column+ "," + self.buy_column
+        line = "," + self.id_column + "," + self.name_column + "," + self.amount_column + ","+ self.sell_column + ","+ self.sell_column + "," + self.buy_column
         return line
         
 ## baseclass for invoice handling         
@@ -696,7 +699,8 @@ class AfpFaktura(AfpPaymentList):
         self.mainvalue = ""
         self.maintable = "RECHNG"
         self.content = None # shortcut to selection "Content"
-        self.standard_tax=globals.get_value("standard-tax")
+        self.standard_tax = globals.get_value("standard-tax")
+        self.line_edit_single_price = globals.get_value("allow-single-price-reset", "Faktura")
         self.totable_fields = {"Summe":"Gesamtpreis", "Netto":"Gesamtpreis", "Gewinn":"Gewinn"}
         #self.tax_fields = {"Mwst":"Netto"}
         self.tax_fields = {}
@@ -812,6 +816,9 @@ class AfpFaktura(AfpPaymentList):
         if not self.get_value("Kontierung"):
             Konto = self.get_account_number()
             self.set_value("Kontierung",Konto)
+        for field in ("Rabatt", "Skonto", "Zahlung", "ZahlBetrag"):
+            if self.get_value(field) in ("", None):
+                self.set_value(field, 0.0)
     ## get accountnumber for financial accounting
     def get_account_number(self):
         if self.content_holds_wage():
@@ -1120,13 +1127,15 @@ class AfpFaktura(AfpPaymentList):
     # @param typ - typ of line entry
     # @param param - optional parameter to come with certain types
     def get_grid_lineprocessing(self, typ = None, param = None):
+        #print ("AfpFaktura.get_grid_lineprocessing:", typ, param)
         if typ: 
             if typ == "free":
-                if param: 
-                    return  [ ["set",[2,param]], [3,"Afp_intString"], ["set",[4,"EK:"]], [4,"AfpFaktura_colonFloat","$6 = $4"], ["set",[4,""]], [4,"Afp_floatString","$5 = $4 * $3,$6 =( $4 - $6 )* $3"] ] 
+                if param:
+                    return  [ ["set",[2,param]], [3,"Afp_floatString"], ["set",[4,"EK:"]], [4,"AfpFaktura_colonFloat","$6 = $4"], ["set",[4,""]], [4,"Afp_floatString","$5 = $4 * $3,$6 =( $4 - $6 )* $3"] ]
+                    #return  [ ["set",[2,param]], [3,"Afp_intString"], ["set",[4,"EK:"]], [4,"AfpFaktura_colonFloat","$6 = $4"], ["set",[4,""]], [4,"Afp_floatString","$5 = $4 * $3,$6 =( $4 - $6 )* $3"] ]
                 else:
-                   return  [ [2], [3,"Afp_intString"], ["set",[4,"EK:"]], [4,"AfpFaktura_colonFloat","$6 = $4"], ["set",[4,""]], [4,"Afp_floatString","$5 = $4 * $3,$6 =( $4 - $6 )* $3"] ] 
-                #return  [ ["set",",,"+ value + ",,,,"], [3,"Afp_intString"], [4,"Afp_floatString","$6 = $4"], [4,"Afp_floatString","$5 = $4 * $3,$6 =( $4 - $6 )* $3"]] 
+                    return [ [2], [3,"Afp_floatString"], ["set",[4,"EK:"]], [4,"AfpFaktura_colonFloat","$6 = $4"], ["set",[4,""]], [4,"Afp_floatString","$5 = $4 * $3,$6 =( $4 - $6 )* $3"] ]
+                    #return  [ [2], [3,"Afp_intString"], ["set",[4,"EK:"]], [4,"AfpFaktura_colonFloat","$6 = $4"], ["set",[4,""]], [4,"Afp_floatString","$5 = $4 * $3,$6 =( $4 - $6 )* $3"] ]
             elif typ == "stock":
                 # param = [requested, delivered]
                 return [["set",[3,Afp_intString(param[0]) + ":"]],[3,"AfpFaktura_colonInt"]]
@@ -1134,8 +1143,12 @@ class AfpFaktura(AfpPaymentList):
                 typ = None
         if not typ:
             felder = self.selection_table.get_columns_for_line_display()
-            return  [ ["choose", felder], [3,"Afp_intString","$5 = $5 * $3,$6 =( $4 - $6 )* $3"]] 
-            #return  [ ["choose",",ArtikelNr,Bezeichnung,,Nettopreis,Nettopreis,Einkaufspreis"], [3,"Afp_intString","$5 = $5 * $3,$6 =( $4 - $6 )* $3"]] 
+            if self.line_edit_single_price :
+                return [ ["choose", felder], [3,"Afp_floatString","$5 = $4 * $3,$6 =( $4 - $6 )* $3"], [4,"Afp_floatString","$5 = $4 * $3,$6 =( $4 - $6 )* $3"]]
+            else:
+                return [ ["choose", felder], [3,"Afp_floatString","$5 = $4 * $3,$6 =( $4 - $6 )* $3"]]
+            #return  [ ["choose", felder], [3,"Afp_intString","$5 = $5 * $3,$6 =( $4 - $6 )* $3"]]
+            #return  [ ["choose",",ArtikelNr,Bezeichnung,,Nettopreis,Nettopreis,Einkaufspreis"], [3,"Afp_intString","$5 = $5 * $3,$6 =( $4 - $6 )* $3"]]
     ## return names of data columns neede for different grids
     # @param name - name of grid data is designed for
     def get_grid_columns(self, name="Content"):

@@ -900,6 +900,7 @@ class AfpDialog_FaLine(AfpDialog):
         self.action = None
         self.sb = None
         self.last_search = None
+        self.edit_singleprice = None
         self.SetSize((290,180))
         self.changecolor = (220, 192, 192)
         self.SetTitle("Rechnungszeile ändern")
@@ -1017,7 +1018,11 @@ class AfpDialog_FaLine(AfpDialog):
             if data.get_value("Gewinn._tmp") and  data.get_value("Anzahl._tmp"):
                 ek= (Afp_fromString(data.get_value("Gesamtpreis._tmp")) - Afp_fromString(data.get_value("Gewinn._tmp"))) / Afp_fromString(data.get_value("Anzahl._tmp"))
                 data.set_value("Einkaufspreis._tmp", ek)
-        self.keepreadonly = ["Einzel_tmp", "Gesamt_tmp", "Bestand_tmp", "Einkauf_tmp", "Gewinn_tmp"]
+        self.edit_singleprice = data.get_globals().get_value("allow-single-price-reset", "Faktura")
+        if self.edit_singleprice:
+            self.keepreadonly = ["Gesamt_tmp", "Bestand_tmp", "Einkauf_tmp", "Gewinn_tmp"]
+        else:
+            self.keepreadonly = ["Einzel_tmp", "Gesamt_tmp", "Bestand_tmp", "Einkauf_tmp", "Gewinn_tmp"]
         super(AfpDialog_FaLine, self).attach_data(data, False, True)
         if not self.rowNr is None and data.get_value("ErsatzteilNr._tmp"):
             self.set_SB(data.get_value("ErsatzteilNr._tmp"), "ArtikelNr")
@@ -1027,7 +1032,7 @@ class AfpDialog_FaLine(AfpDialog):
             row =  [None, self.text_ArtikelNr.GetValue(), self.text_Bez.GetValue(), Afp_fromString(self.text_Anzahl.GetValue()), Afp_fromString(self.text_Einzel.GetValue()), Afp_fromString(self.text_Gesamt.GetValue()), Afp_fromString(self.text_Gewinn.GetValue())]
             return row, self.action
         return None, None
-    ## set supebas to given article
+    ## set supebase to given article
     # @param ident - article identifier
     def set_SB(self, ident, index):
         if not self.sb:
@@ -1054,7 +1059,7 @@ class AfpDialog_FaLine(AfpDialog):
         readonly =  ["Einzel_tmp", "Gesamt_tmp", "Bestand_tmp", "Einkauf_tmp", "Gewinn_tmp"]
         art = bool(self.text_ArtikelNr.GetValue())
         best = self.data.get_listname() == "Bestellung"
-        ez_flag = not art
+        ez_flag = not art or self.edit_singleprice
         ek_flag = not art or best
         #print ("AfpDialog_FaLine.On_KillFocus:", ez_flag, ek_flag, best)
         self.text_Einzel.SetEditable(ez_flag)
