@@ -405,11 +405,9 @@ class AfpFaScreen(AfpEditScreen):
         self.Bind(wx.EVT_ACTIVATE, self.On_Activate)
         # self properties
         self.SetTitle("Afp-Fakturierung und Warenwirtschaft")
-        #self.readonlycolor = (239, 235, 222)
-        #self.readonlycolor = (212, 212, 212)
         self.changecolor = (220, 192, 192)
         self.SetSize((800, 600))
-        self.SetBackgroundColour(self.readonlycolor)
+        self.SetBackgroundColour(self.onlydisplaycolor)
         self.SetForegroundColour(wx.Colour(20, 19, 18))
         self.SetFont(wx.Font(9, wx.DEFAULT, wx.NORMAL, wx.NORMAL, 0, "DejaVu Sans"))
         self.InitWx()
@@ -684,6 +682,7 @@ class AfpFaScreen(AfpEditScreen):
             if self.automated_selection:
                 self.automated_row_selection = self.automated_selection
                 self.invoke_selection()
+            if self.readonly: self.button_Edit.Enable(False)
             self.panel.SetFocus()
     ## Eventhandler Grid - double click editable grid with right mousebutton \n
     # has to be attached to editable grid in devired class

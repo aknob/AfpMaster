@@ -677,7 +677,7 @@ class AfpEditScreen(AfpScreen):
     def __init__(self):
         AfpScreen.__init__(self,None, -1, "")
         self.editable = False
-        self.readonlycolor = (192,192,192)
+        self.onlydisplaycolor = (192,192,192)
         self.editcolor = (255,255,255)
         self.editcellcolor = (192, 192, 192)
         self.event_id = None
@@ -713,7 +713,7 @@ class AfpEditScreen(AfpScreen):
     # to allow syncronised display of screens (only works if 'sb' is given)
     def init_database(self, globals, sb, origin):
         AfpScreen.init_database(self, globals, sb, origin)
-        self.readonlycolor = self.GetBackgroundColour()
+        self.onlydisplaycolor = self.GetBackgroundColour()
         
     ## set or unset editable mode
     # @param ed_flag - flag to turn editing on or off
@@ -730,7 +730,7 @@ class AfpEditScreen(AfpScreen):
             if self.button_Edit:
                 self.button_Edit.SetLabel("&Speichern")
         else:
-            self.panel.SetBackgroundColour(self.readonlycolor)
+            self.panel.SetBackgroundColour(self.onlydisplaycolor)
             if self.button_Edit:
                 self.button_Edit.SetLabel("&Bearbeiten")
         self.panel.Refresh()
@@ -746,7 +746,7 @@ class AfpEditScreen(AfpScreen):
     # @param store - flag if data should be stored during leaving the modus, default: True
     def leave_editmodus(self, store=True):
         if  self.is_editable() :
-            if self.debug: print("AfpEditScreen.leave_editmodus ReadOnly:", self.is_editable(), store)
+            if self.debug: print("AfpEditScreen.leave_editmodus OnlyDisplay:", self.is_editable(), store)
             checked = None
             if store:
                 checked = self.check_data()
@@ -761,6 +761,7 @@ class AfpEditScreen(AfpScreen):
             self.panel.Refresh()
     ## enter editable modus of screen
     def invoke_editmodus(self):
+        if self.readonly: return
         if self.data.is_editable() and not self.is_editable():
             self.Set_Editable(True)
             if self.editable_rows:

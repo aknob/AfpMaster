@@ -701,6 +701,7 @@ class AfpSEPAdd(AfpSelectionList):
                     print("AfpSEPAdd.gen_mandat_data ProvPreis not set for:", row[2], client.get_name())
                 amount = value/self.dd_interval
                 zahlung = client.get_value("Zahlung")
+                if not zahlung: zahlung = 0.0
                 preis = client.get_value(self.datafields["total"])
                 #print ("AfpSEPAdd.gen_mandat_data amount:", preis, zahlung, self.dd_interval, self.dd_actuel, amount, preis - zahlung - (self.dd_interval - self.dd_actuel)*amount, client.get_name())
                 amount = preis - zahlung - (self.dd_interval - self.dd_actuel)*amount
