@@ -980,7 +980,7 @@ class AfpDialog_FiBuchung(AfpDialog):
         if self.sequence is None:
             sel = "SELECT MAX(BuchungsNr) FROM BUCHUNG"
             BNr = self.data.get_mysql().execute(sel)[0][0]
-            print ("AfpDialog_FiBuchung.get_next_sequence:", sel, BNr)
+            if self.debug: print ("AfpDialog_FiBuchung.get_next_sequence:", sel, BNr)
             if BNr < 1000:
                 self.sequence = 2000
             else:
@@ -1463,7 +1463,6 @@ class AfpDialog_FiBuchung(AfpDialog):
         
    ## Event handler to load data from file
     def On_Load(self, event=None):
-        if self.debug: print("AfpDialog_FiBuchung Event handler `On_Load'")
         ok = False
         avoid = False
         datum = self.text_Datum.GetValue()
@@ -1472,7 +1471,7 @@ class AfpDialog_FiBuchung(AfpDialog):
         globals = self.data.get_globals()
         dir = globals.get_value("archivdir")
         fname, ok = AfpReq_FileName(dir , "Bitte (XML, CSV) Importfile auswählen!", "*.xml;*.csv", True)
-        print("AfpDialog_FiBuchung.On_Load File:", ok, fname)
+        if self.debug: print("AfpDialog_FiBuchung.On_Load File:", ok, fname)
         if ok and fname and (fname[-4:] == ".csv" or fname[-4:] == ".CSV"):
             toDat = self.data.get_value("BuchDat.AUSZUG")
             if datum: fromDat = Afp_fromString(datum)

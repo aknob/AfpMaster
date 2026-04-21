@@ -636,17 +636,24 @@ class AfpSQLTableSelection(object):
             split = self.select.split(" ")
             last_index = self.get_data_length() - 1
             self.select = "" 
-            #print "AfpSQLTableSelection.reset_select split:", split
-            for i in range(0, len(split), 4):
+            #print ("AfpSQLTableSelection.reset_select split:", split)
+            i = 0
+            while i < len(split):
+            #for i in range(0, len(split), 4):
                 if i: self.select += " " + split[i-1] + " "
-                feldname = split[i]
-                values = self.get_values(feldname, last_index)
-                #print "AfpSQLTableSelection.reset_select value:", i, feldname, last_index,  values
-                if split[i+1] == "=" and values:
-                    value = Afp_toQuotedString(values[0][0], None)
-                    self.select += feldname + " = " + value
+                if split[i] == "NOT":
+                    self.select += split[i] + " " + split[i+1] +  " " + split[i+2] +  " " + split[i+3]
+                    i += 5
                 else:
-                    self.select += split[i] +  " " + split[i+1] +  " " + split[i+2] 
+                    feldname = split[i]
+                    values = self.get_values(feldname, last_index)
+                    #print ("AfpSQLTableSelection.reset_select value:", i, feldname, last_index,  values)
+                    if split[i+1] == "=" and values:
+                        value = Afp_toQuotedString(values[0][0], None)
+                        self.select += feldname + " = " + value
+                    else:
+                        self.select += split[i] +  " " + split[i+1] +  " " + split[i+2] 
+                    i += 4
         if self.dbg: print("AfpSQLTableSelection.reset_select out:", self.select)
     ## load data into TableSelection according to given select clause
     # @param select - select clause to identify desired data

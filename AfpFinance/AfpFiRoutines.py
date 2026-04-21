@@ -2003,7 +2003,7 @@ class AfpFinance(AfpFinanceTransactions):
             nr += 0.001
         #print ("AfpFinance.gen_next_rcptnr:", nr,  Afp_isNumeric(nr))
         return nr
-    ## generate bank-account sum
+    ## generate start- and end saldo of a statement
     def get_salden(self):
         need_new = False
         start = self.get_value("StartSaldo.AUSZUG")
@@ -2019,6 +2019,7 @@ class AfpFinance(AfpFinanceTransactions):
         if sum is None: 
             sum = 0.0
             need_new = False
+        spread = None
         if need_new or Afp_isEps(end - start - sum):
             if need_new:
                 min = None
@@ -2040,16 +2041,50 @@ class AfpFinance(AfpFinanceTransactions):
                 self.set_data_values(new_data, "AUSZUG", -1)
             else:
                 self.set_value("EndSaldo.AUSZUG", start + sum)
+                spread = self.spread_saldo()
             #print ("AfpFinance.get_salden AUSZUG:", self.get_selection("AUSZUG").data)
             self.get_selection("AUSZUG").store()
-            print ("AfpFinance.get_salden EndSaldo resetted:", konto, end, "->", start + sum, "new database entry created:",  need_new)
+            if spread: spread = "spreaded to: " + spread
+            else: spread = "not spreaded!"
+            print ("AfpFinance.get_salden EndSaldo resetted:", konto, end, "->", start + sum, "new database entry created:",  need_new, spread)
             salden = self.gen_balance_salden(self.get_konto_typ(konto))
             changed = self.set_balance_salden(salden)
             if changed:
                 self.get_selection("Salden").store()
                 print ("AfpFinance.get_salden Balance resetted:", salden)
         return start, start + sum
-    ## get typ of bank account from TableSelection 'KTNR'
+    ## spread saldo to other statements
+    def spread_saldo(self):
+        auszug = self.get_value("Auszug.AUSZUG")
+        spread = None
+        if  auszug != "SALDO":
+            endsaldo = self.get_value("EndSaldo.AUSZUG")
+            adict = {}
+            selausz = self.get_selection("Auszuege")
+            lgh = selausz.get_data_length()
+            if lgh:
+                spread = ""
+                for i in range(lgh):
+                    adict[selausz.get_values("Auszug", i)[0][0]] = i
+                sdict = dict(sorted(adict.items()))
+                #print ("AfpFinance.spread_saldo auszdict:", adict, sdict)
+                for az in sdict:
+                    if az < auszug: continue
+                    i = sdict[az]
+                    if az == auszug:
+                        selausz.set_value("EndSaldo", endsaldo, i)
+                    else:
+                        diff = selausz.get_values("EndSaldo", i)[0][0] - selausz.get_values("StartSaldo", i)[0][0]
+                        startsaldo = endsaldo
+                        endsaldo += diff
+                        #print ("AfpFinance.spread_saldo diff:", az, selausz.get_values("EndSaldo", i)[0][0], "-", selausz.get_values("StartSaldo", i)[0][0], "=", diff, endsaldo)
+                        selausz.set_value("StartSaldo", startsaldo, i)
+                        selausz.set_value("EndSaldo", endsaldo, i)
+                        #print ("AfpFinance.spread_saldo reset:", az, startsaldo, endsaldo)
+                        spread += az + " "
+                selausz.store()
+        return spread
+      ## get typ of bank account from TableSelection 'KTNR'
     # @param ktnr - accountnumber to be checked
     def get_konto_typ(self, ktnr):
         typ = None

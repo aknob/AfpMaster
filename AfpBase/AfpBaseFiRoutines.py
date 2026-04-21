@@ -434,7 +434,11 @@ class AfpCommonInvoice(AfpPaymentList):
         # set payment related data
         payment_values = {"cancel":"Zustand",  "cancel_value":"Storno", "price":"ZahlBetrag,Betrag", "text":"Bem"}
         self.set_payment_data(payment_values)
-
+        # look for finance modul
+        if not self.globals.skip_accounting():
+            finance_modul = Afp_importAfpModul("Finance", self.globals)[0]
+            if finance_modul:
+                self.finance = finance_modul.AfpFinanceTransactions(self.globals)
         if self.debug: print("AfpCommonInvoice Konstruktor, RechNr:", self.mainvalue)
     ## destructor
     def __del__(self):    

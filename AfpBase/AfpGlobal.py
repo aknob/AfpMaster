@@ -156,7 +156,7 @@ class AfpSettings(object):
     ## read data from file and set appropriate variables
     # @param fname - path of file to be read
     def read_config(self, fname):
-        if self.debug: print("AfpSettings.read_config:", fname)
+        if self.debug: print("AfpSettings.read_config:", self.modul, fname)
         fin = open(fname , 'r') 
         for line in fin:
             cline = line.split("#")
@@ -339,7 +339,7 @@ class AfpGlobal(object):
                 cline = line.split("#")
                 sline = cline[0].split("=",1)
                 if len(sline) > 1:
-                    if self.debug: print("AfpGlobal.read:", line[:-1])
+                    if self.debug: print("AfpGlobal.read_db_config:", line[:-1])
                     name = sline[0].strip()
                     modul = None
                     if ":" in name:

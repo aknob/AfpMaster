@@ -1027,10 +1027,7 @@ def AfpLoad_Obligation_fromVbNr(globals, VbNr):
 ## class for simple Invoice dialog (incoming/outgoing)
 class AfpDialog_SimpleInvoice(AfpDialog):
     ## initialise dialog
-    # @param obligation - flag, if invoice is incoming
-    # @param discount - flag, discount before and skonto discount after tax is enabeld
-    # @param finance - flag, input of finance accounts is enabeld
-    #def __init__(self, obligation = False, discount=False, finance= True):
+    # @param data - data, dialog is used for
     def __init__(self, data):
         self.oblig = data.is_outgoing()
         self.ui_finance = data.has_finance()
@@ -1055,7 +1052,7 @@ class AfpDialog_SimpleInvoice(AfpDialog):
                 self.ui_skonto = True
                 self.ui_kredeb = True
             title = "Zahlungsmodalitäten"
-        #print("AfpDialog_SimpleInvoice.init disable:", self.discount, self.skonto, self.kredeb, self.disablenew, self.disablezahl)
+        #print("AfpDialog_SimpleInvoice.init:", typ, title, "Enable/Disable:", self.ui_finance, self.ui_discount, self.ui_skonto, self.ui_kredeb, self.ui_disablenew, self.ui_disablezahl)
         AfpDialog.__init__(self,None, -1, "")
         self.checked_box = []
         self.data_changed = False
@@ -1379,7 +1376,7 @@ class AfpDialog_SimpleInvoice(AfpDialog):
                 betrag = AfpFinance_addTax(self.data.get_globals(), netto)
                 self.text_Betrag.SetValue(Afp_toFloatString(betrag))
                 self.set_directed_change(self.text_Betrag)
-                if initial: self.set_directed_change(self.text_Discount, True)
+                if initial and hasattr(self, "text_Discount"): self.set_directed_change(self.text_Discount, True)
         elif name == "BetragSI":
             if not reverse and self.ui_skonto:
                 betrag = Afp_fromString(object.GetValue())
@@ -1533,10 +1530,10 @@ class AfpDialog_SimpleInvoice(AfpDialog):
         if  "BetragSI" in data:
             if not self.oblig and not "Netto" in data :
                 data["Netto"] = Afp_toString(AfpFinance_stripTax(self.data.get_globals(), Afp_fromString(data["BetragSI"])))
-            if not "ZahlBetrag" in data :
-                data["ZahlBetrag"] = data["BetragSI"]
-        if not "Zustand" in data and not self.data.get_value("Zustand"):
-            data["Zustand"] = "Open"
+            if not "ZahlBetragSI" in data :
+                data["ZahlBetragSI"] = data["BetragSI"]
+        if not "ZustandSI" in data and not self.data.get_value("Zustand"):
+            data["ZustandSI"] = "Open"
         return data
         
     # Event Handlers 
