@@ -897,23 +897,49 @@ class AfpEvMember(AfpEvClient):
                     
         
     ## remove extra price row, if found
-    # @param idicator - string searched for in name of proce - or priceidentifier
+    # @param idicator - string searched for in name of price - or priceidentifier - or array of priceidentifiers
     def remove_extra_price(self, indicator):
-    #def remove_partitial_price(self):
+        print ("AfpEvMember.remove_extra_price input:", indicator)
+        if Afp_isInteger(indicator):
+            pnr, anr = AfpEvVerein_splitSectionPriceNumber(indicator)
+            inds = self.get_section_prices(pnr)
+            if inds:
+                for i in range(len(inds)):
+                    inds[i] = AfpEvVerein_setSectionPriceNumber(inds[i], anr)
+                indicator = inds
+            else:
+                indicator = [indicator]
         delete = False
         for i in range(self.get_value_length("ANMELDEX")):
             if Afp_isString(indicator):
                 text = self.get_value_rows("ANMELDEX","Bezeichnung", i)[0][0]
-                #print ("AfpEvMember.remove_extra_price row:", i, text, text[:12]  == "Beitragsfrei")
+                print ("AfpEvMember.remove_extra_price row:", i, text, text[:12]  == "Beitragsfrei")
                 if indicator in text: delete = True
             else:
                 ken = self.get_value_rows("ANMELDEX","Kennung", i)[0][0]
-                if indicator == ken: delete = True
-                #print ("AfpEvMember.remove_extra_price ken:", i, indicator, ken, delete)
+                if ken in indicator: delete = True
+                print ("AfpEvMember.remove_extra_price ken:", i, indicator, ken, delete)
+            print ("AfpEvMember.remove_extra_price delete:", delete)
             if delete:  
                 self.delete_row("ANMELDEX", i)
                 return True
         return False
+    ## get all pricenumbers of one section indicated by one pricenumber
+    # @param PNr - pricenumber to define section
+    def get_section_prices(self, PNr):
+        nbs = []
+        ENr = None
+        rows = self.get_value_rows("Sparten","EventNr,PreisNr")
+        for row in rows:
+            if row[1] == PNr: 
+                ENr = row[0]
+                break
+        if not ENr is None:
+            for row in rows:
+                if row[0] == ENr:
+                    nbs.append(row[1])
+        if nbs: return nbs
+        else: return None
     ## add disount if price-change is pro rata
     # @param price - new yearly price to be reached
     # @param initial_price - old yearly price given (if price changes during the year) or None
@@ -2666,17 +2692,17 @@ class AfpDialog_EvMemberEdit(AfpDialog_EvClientEdit):
         if self.verein.has_auxilary_sections():
             index = self.list_Preise.GetSelections()[0] - 2
             row = self.get_Preis_row(index)
-            #print ("AfpDialog_EvClientEdit.On_Anmeld_Preise row:", row)
+            #print ("AfpDialog_EvMemberEdit.On_Anmeld_Preise row:", row)
             if row:
                 self.actualise_preise(row, index)
                 self.change_preis = True
             elif row is None:
                 self.data.delete_row("AnmeldEx", index)
-            #print ("AfpDialog_EvClientEdit.On_Anmeld_Preise ANMELDEX:", self.data.get_selection("ANMELDEX").data)        
+            #print ("AfpDialog_EvMemberEdit.On_Anmeld_Preise ANMELDEX:", self.data.get_selection("ANMELDEX").data)        
             today = self.data.get_globals().today()
             if self.data.is_new() or (self.data.get_value("Anmeldung").month == today.month and self.data.get_value("Anmeldung").year == today.year): 
                 removed = self.data.remove_extra_price("Beitragsfrei")
-                #print ("AfpDialog_EvClientEdit.On_Anmeld_Preise removed:", removed)
+                #print ("AfpDialog_EvMemberEdit.On_Anmeld_Preise removed:", removed)
                 if removed:
                     self.data.update_prices()
                     self.data.add_partitial_price(self.data.get_value("Preis"), None, self.data.get_value("Anmeldung"))
@@ -2752,7 +2778,7 @@ class AfpDialog_EvMemberEdit(AfpDialog_EvClientEdit):
                     self.change_preis = True
                     if value == -2:
                         res_row = None
-                        #print ("AfpDialog_EvMemberEdit.get_Preis_row delete:", row[2], preisnr,self.data.get_value())
+                        print ("AfpDialog_EvMemberEdit.get_Preis_row delete:", row[2], preisnr,self.data.get_value(), self.data, self.sameRechData)
                         if self.sameRechData and self.data != self.sameRechData[0]:
                             kennung = AfpEvVerein_setSectionPriceNumber(preisnr, self.data.get_value())
                             self.sameRechData[0].remove_extra_price(kennung)
