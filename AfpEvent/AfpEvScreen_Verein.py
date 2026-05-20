@@ -899,7 +899,7 @@ class AfpEvMember(AfpEvClient):
     ## remove extra price row, if found
     # @param idicator - string searched for in name of price - or priceidentifier - or array of priceidentifiers
     def remove_extra_price(self, indicator):
-        print ("AfpEvMember.remove_extra_price input:", indicator)
+        #print ("AfpEvMember.remove_extra_price input:", indicator)
         if Afp_isInteger(indicator):
             pnr, anr = AfpEvVerein_splitSectionPriceNumber(indicator)
             inds = self.get_section_prices(pnr)
@@ -913,13 +913,13 @@ class AfpEvMember(AfpEvClient):
         for i in range(self.get_value_length("ANMELDEX")):
             if Afp_isString(indicator):
                 text = self.get_value_rows("ANMELDEX","Bezeichnung", i)[0][0]
-                print ("AfpEvMember.remove_extra_price row:", i, text, text[:12]  == "Beitragsfrei")
+                #print ("AfpEvMember.remove_extra_price row:", i, text, text[:12]  == "Beitragsfrei")
                 if indicator in text: delete = True
             else:
                 ken = self.get_value_rows("ANMELDEX","Kennung", i)[0][0]
                 if ken in indicator: delete = True
-                print ("AfpEvMember.remove_extra_price ken:", i, indicator, ken, delete)
-            print ("AfpEvMember.remove_extra_price delete:", delete)
+                #print ("AfpEvMember.remove_extra_price ken:", i, indicator, ken, delete)
+            #print ("AfpEvMember.remove_extra_price delete:", delete)
             if delete:  
                 self.delete_row("ANMELDEX", i)
                 return True
