@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 ## @package AfpFaktura.AfpFaDialog
-# AfpInDialog module provides the dialogs and appropriate loader routines needed for invoicehandling
+# AfpFaDialog module provides the dialogs and appropriate loader routines needed for invoicehandling
 #
 #   History: \n
 #        17 Mar. 2026 - integrate 'Professor-Beer' pull commits (context menu, manufacturer handling) - Andreas.Knoblauch@afptech.de

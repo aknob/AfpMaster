@@ -2,10 +2,11 @@
 # -*- coding: utf-8 -*-
 
 ## @package AfpFaktura.AfpFaRoutines
-# AfpInRoutines module provides classes and routines needed for invoice handling,\n
+# AfpFaRoutines module provides classes and routines needed for invoice handling,\n
 # no display and user interaction in this modul.
 #
 #   History: \n
+#       31 Mar. 2026 - integrate extern invoice numbering using 'AfpExternNr' - Andreas.Knoblauch@afptech.de
 #        2 Mar. 2026 - integrate 'Professor-Beer' pull commits (lower sql-table, update articles) - Andreas.Knoblauch@afptech.de
 #        30 Dez. 2021 - conversion to python 3 - Andreas.Knoblauch@afptech.de \n
 #        22 JNov 2016 - inital code generated - Andreas.Knoblauch@afptech.de \n
@@ -673,6 +674,7 @@ class AfpArtikel(AfpSelectionList):
                 if [entry] in id_rows and Afp_isEps(value):
                     row = id_rows.index([entry])
                     anz = amount_rows[row][0]
+                    if not anz: anz = 0
                     anz += value
                     if anz < 0: anz = 0
                     #print("AfpArtikel.add_amount add:", entry, value, anz)
@@ -1191,8 +1193,12 @@ class AfpInvoice(AfpFaktura):
         AfpFaktura.__init__(self, globals, debug, "Rechnung")
         self.skonto = True
         self.initial_content = None
+        self.invoice_prefix = self.globals.get_value("invoice-number-prefix", "Faktura")
+        self.invoice_startnr = self.globals.get_value("invoice-number-start", "Faktura")
+        self.selects["RECHNG"] = [ "RECHNG","RechNr = 'RechNr.Main'"] 
         self.selects["Debitor"] = [ "KTNR","KtName = 'KundenNr.Main' AND Typ = \"Debitor\""] 
         self.initialize("RechNr.RECHNG", RechNr, sb)
+        if self.invoice_prefix: self.check_RechNrExtern()
         if complete: self.create_selections()
         if self.get_content_length():
             self.initial_content = self.content.create_complete_copy()
@@ -1212,6 +1218,20 @@ class AfpInvoice(AfpFaktura):
     def complete_data(self):
         #print("AfpInvoice.complete_data")
         AfpFaktura.complete_data(self) 
+        if  not self.get_value("RechNrExtern") and self.invoice_prefix:
+            pre = self.invoice_prefix
+            typ = "Count"
+            if  pre in ["Month", "Year", "Day", "Week", "Quarter"]:
+                typ = pre
+                pre = None
+            extern = AfpExternNr(self.globals, typ, pre, self.debug)
+            exnr = extern.get_number_string(False)
+            if exnr is None:
+                if self.invoice_startnr:
+                    extern.set_number(self.invoice_startnr)
+                exnr = extern.get_number_string()
+            if exnr:
+                self.set_value("RechNrExtern", exnr)
         KNr = self.get_value("KundenNr")
         if KNr:
             if not self.get_value("Debitor"):
@@ -1225,6 +1245,16 @@ class AfpInvoice(AfpFaktura):
             self.set_value("Zustand","closed")
             self.set_value("ZahlDat",self.get_value("Datum"))
             self.set_value("Zahlung",self.get_value("ZahlBetrag"))
+            
+    ## check if field "RechNrExtern" exists in table, otherwise add it
+    # needed for compability to earlier versions
+    def check_RechNrExtern(self):
+        sel = self.get_selection("RECHNG")
+        fields = sel.get_feldnamen()
+        if not "RechNrExtern" in fields:
+            table = sel.get_tablename()
+            dbtable = self.get_mysql().get_dbname(table)
+            "ALTER TABLE " + dbtable + " ADD COLUMN `RechNrExtern` VARCHAR(45) NULL DEFAULT NULL AFTER `AttNr`"
     ## book content difference into stock
     def book_content(self):
         complete = [self.initial_content, self.content]

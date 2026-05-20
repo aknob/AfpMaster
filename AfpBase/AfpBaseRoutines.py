@@ -716,7 +716,7 @@ def Afp_getOrderlistOfTable(mysql, datei, keep = None, indirect = None, special 
 class AfpExternNr(AfpSQLTableSelection):
     ## initialize AfpExternNr class
     # @param globals - global values including the mysql connection - this input is mandatory
-    # @param typ - Typ of number generation, at the moment possible are: 'Month', 'Count'
+    # @param typ - Typ of number generation, at the moment possible are: 'Year',  'Month', 'Day', 'Week', 'Quarter' or 'Count'
     # @param data - if given, prefix for string creation for type 'Count'
     # @param debug - if given, debug flag
     def  __init__(self, globals, Typ = None, data = None, debug = None):
@@ -725,35 +725,44 @@ class AfpExternNr(AfpSQLTableSelection):
         AfpSQLTableSelection.__init__(self, globals.get_mysql(), "EXTERNNR", self.debug)
         self.typ = Typ
         self.prefix = ""
-        self.separator = ""
-        if Typ == "Month":
+        self.separator = "-"
+        if Typ == "Count":
+            if data: self.prefix = data
+        else: #if Typ == "Month" or Typ == "Year" or Typ == "Day" or Typ == "Week" or Typ == "Quarter":
             tp = type(data)
             if tp == datetime.date or tp == datetime.datetime:
-                day = data
+                today = data
             else:
-                day = globals.today()
-            jahr = Afp_toString(day.year)[-2:]
-            mon = Afp_toString(day.month)
+                today = globals.today()
+            jahr = Afp_toString(today.year)[-2:]
+            mon = Afp_toString(today.month)
             if len(mon) < 2: mon = "0" + mon
-            self.prefix = jahr + mon
+            day = Afp_toString(today.day)
+            if len(day) < 2: day = "0" + day
+            if Typ == "Month": self.prefix = jahr + mon
+            elif Typ == "Year": self.prefix = jahr
+            elif Typ == "Day": self.prefix = jahr + mon + day
+            elif Typ == "Week": self.prefix = jahr + "W" + today.strftime("%W")
+            elif Typ == "Quarter": self.prefix = jahr + "Q" +  Afp_toString((today.month // 3) + 1)
+            else: print ("WARNING AfpExternNr, Typ not implemented:", Typ)
             self.separator = "."
-        elif Typ == "Count":
-            if data: self.prefix = data
         if self.debug: print("AfpExternNr Konstruktor")
     ## destuctor
     def __del__(self):    
         if self.debug: print("AfpExternNr Destruktor")
     ## generate new extern number for given prefix and separator
-    def get_number(self):
+    # @param allow - allow creation of new line
+    def get_number(self, allow = True):
         Nr = None
         self.select = "Typ = \"" + self.typ + "\" AND Pre = \"" + self.prefix + "\""
-        #print("AfpExternNr.get_number select:", self.select)
         self.lock_data()
         self.load_data(self.select)
         lgh = self.get_data_length()
+        #print("AfpExternNr.get_number select:", self.select, allow, lgh)
         if lgh == 0:
-            Nr = 1
-            self.add_row([self.typ, self.prefix, Nr, self.typ+self.prefix])
+            if allow:
+                Nr = 1
+                self.add_row([self.typ, self.prefix, Nr, self.typ+self.prefix])
         elif lgh > 1:
             print("WARNING: AfpExternNr.get_number datalength not 1 but:", lgh)
         else:
@@ -765,9 +774,10 @@ class AfpExternNr(AfpSQLTableSelection):
             self.unlock_data()
         return Nr
     ## generate new number string
-    def get_number_string(self):
+    # @param allow - allow creation of new line
+    def get_number_string(self, allow = True):
         ExtNr = None
-        Nr = self.get_number()
+        Nr = self.get_number(allow)
         if Nr:
             ExtNr = self.prefix + self.separator + Afp_toString(Nr)
         return ExtNr
