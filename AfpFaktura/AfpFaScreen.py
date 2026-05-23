@@ -544,7 +544,7 @@ class AfpFaScreen(AfpEditScreen):
         self.text_Datum = wx.TextCtrl(panel, -1,value="", pos=(449,50), size=(77,23), style=wx.TE_READONLY, name="Datum")
         self.textmap["Datum"] = "Datum.Main"
         self.text_RechNr = wx.TextCtrl(panel, -1,value="", pos=(599,50), size=(77,23), style=wx.TE_READONLY, name="RechNr")
-        self.textmap["RechNr"] = "RechNr.Main"
+        self.textmap["RechNr"] = "RechNrExtern.Main,RechNr.Main"
         
         self.text_ZahlDat = wx.TextCtrl(panel, -1,value="", pos=(335,475), size=(77,18), style=wx.TE_READONLY, name="ZahlDat")
         self.textmap["ZahlDat"] = "ZahlDat.Main"  

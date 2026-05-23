@@ -562,30 +562,34 @@ class AfpSelectionList(object):
         strings =  Afp_ArraytoString(rows)
         return strings
     ## extract one value from a tagged field in a TableSelection, return it as a string
-    # @param TaggedFeld - column#i.selection name with i being an integer on which position tagged data has to be retrieved from
+    # @param TaggedFelder - comma separated list of fields to be evaluated 
+    # if # in field: column#i.selection name with i being an integer on which position tagged data has to be retrieved from
     # the i-th part of the comma separated field will be returned, starting the count with 1!
-    def get_tagged_value(self, TaggedFeld = None):
+    def get_tagged_value(self, TaggedFelder = None):
         value = ""
-        if "#" in TaggedFeld: 
-            split = TaggedFeld.split("#")
-            datei = ""
-            if "." in split[1]:
-                splitsplit = split[1].split(".")
-                datei = splitsplit[1]
-                ind = Afp_fromString(splitsplit[0])
+        fields = TaggedFelder.split(",")
+        for field in fields:
+            if "#" in field: 
+                split = field.split("#")
+                datei = ""
+                if "." in split[1]:
+                    splitsplit = split[1].split(".")
+                    datei = splitsplit[1]
+                    ind = Afp_fromString(splitsplit[0])
+                else:
+                    ind = Afp_fromString(split[1])
+                DateiFeld = split[0]
+                if datei: DateiFeld += "." + datei
+                string = self.get_string_value(DateiFeld)
+                splitstring = string.split(",")
+                #print "AfpSelectionList.get_tagged_value analysed", ind, split, DateiFeld, string, splitstring
+                if ind > 0 and ind <= len(splitstring): value = splitstring[ind-1]
+                if not value and self.tagmap:
+                    value = self.get_string_value(self.tagmap[field])
+                #print "AfpSelectionList.get_tagged_value:", TaggedFeld, ind, value
             else:
-                ind = Afp_fromString(split[1])
-            DateiFeld = split[0]
-            if datei: DateiFeld += "." + datei
-            string = self.get_string_value(DateiFeld)
-            splitstring = string.split(",")
-            #print "AfpSelectionList.get_tagged_value analysed", ind, split, DateiFeld, string, splitstring
-            if ind > 0 and ind <= len(splitstring): value = splitstring[ind-1]
-            if not value and self.tagmap:
-                value = self.get_string_value(self.tagmap[TaggedFeld])
-            #print "AfpSelectionList.get_tagged_value:", TaggedFeld, ind, value
-        else:
-            value = self.get_string_value(TaggedFeld)
+                value = self.get_string_value(field)
+            if value: break
         return value
     ## set a database lock on the main selection (table) of the SelectionList
     # @param selname - if given name of TableSelection to be locked

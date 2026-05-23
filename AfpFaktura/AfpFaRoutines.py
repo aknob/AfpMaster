@@ -1194,6 +1194,7 @@ class AfpInvoice(AfpFaktura):
         self.skonto = True
         self.initial_content = None
         self.invoice_prefix = self.globals.get_value("invoice-number-prefix", "Faktura")
+        self.invoice_sep = self.globals.get_value("invoice-number-separator", "Faktura")
         self.invoice_startnr = self.globals.get_value("invoice-number-start", "Faktura")
         self.selects["RECHNG"] = [ "RECHNG","RechNr = 'RechNr.Main'"] 
         self.selects["Debitor"] = [ "KTNR","KtName = 'KundenNr.Main' AND Typ = \"Debitor\""] 
@@ -1219,12 +1220,8 @@ class AfpInvoice(AfpFaktura):
         #print("AfpInvoice.complete_data")
         AfpFaktura.complete_data(self) 
         if  not self.get_value("RechNrExtern") and self.invoice_prefix:
-            pre = self.invoice_prefix
-            typ = "Count"
-            if  pre in ["Month", "Year", "Day", "Week", "Quarter"]:
-                typ = pre
-                pre = None
-            extern = AfpExternNr(self.globals, typ, pre, self.debug)
+            typ = self.invoice_prefix
+            extern = AfpExternNr(self.globals, self.invoice_prefix, self.invoice_sep, self.debug)
             exnr = extern.get_number_string(False)
             if exnr is None:
                 if self.invoice_startnr:

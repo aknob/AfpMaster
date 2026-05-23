@@ -716,24 +716,24 @@ def Afp_getOrderlistOfTable(mysql, datei, keep = None, indirect = None, special 
 class AfpExternNr(AfpSQLTableSelection):
     ## initialize AfpExternNr class
     # @param globals - global values including the mysql connection - this input is mandatory
-    # @param typ - Typ of number generation, at the moment possible are: 'Year',  'Month', 'Day', 'Week', 'Quarter' or 'Count'
-    # @param data - if given, prefix for string creation for type 'Count'
+    # @param typ - typ of number generation, at the moment possible are: 'Year',  'Month', 'Day', 'Week', 'Quarter' or  the prefix for internal Typ 'Count'
+    # @param sep - if given, separator between prefix and internal number
     # @param debug - if given, debug flag
-    def  __init__(self, globals, Typ = None, data = None, debug = None):
+    def  __init__(self, globals, typ = None, sep = None, debug = None):
         if debug: self.debug = debug
         else: self.debug = globals.is_debug()
         AfpSQLTableSelection.__init__(self, globals.get_mysql(), "EXTERNNR", self.debug)
+        Typ = "Count"
+        if typ in ["Month", "Year", "Day", "Week", "Quarter"]:
+            Typ = typ
         self.typ = Typ
         self.prefix = ""
         self.separator = "-"
+        if sep: self.separator = sep
         if Typ == "Count":
-            if data: self.prefix = data
-        else: #if Typ == "Month" or Typ == "Year" or Typ == "Day" or Typ == "Week" or Typ == "Quarter":
-            tp = type(data)
-            if tp == datetime.date or tp == datetime.datetime:
-                today = data
-            else:
-                today = globals.today()
+            self.prefix = typ
+        else:
+            today = globals.today()
             jahr = Afp_toString(today.year)[-2:]
             mon = Afp_toString(today.month)
             if len(mon) < 2: mon = "0" + mon
@@ -742,10 +742,9 @@ class AfpExternNr(AfpSQLTableSelection):
             if Typ == "Month": self.prefix = jahr + mon
             elif Typ == "Year": self.prefix = jahr
             elif Typ == "Day": self.prefix = jahr + mon + day
-            elif Typ == "Week": self.prefix = jahr + "W" + today.strftime("%W")
+            elif Typ == "Week": self.prefix = jahr + "W" + Afp_toString(Afp_fromString(today.strftime("%W")) + 1)
             elif Typ == "Quarter": self.prefix = jahr + "Q" +  Afp_toString((today.month // 3) + 1)
-            else: print ("WARNING AfpExternNr, Typ not implemented:", Typ)
-            self.separator = "."
+            #else: print ("WARNING AfpExternNr, Typ not implemented:", Typ)
         if self.debug: print("AfpExternNr Konstruktor")
     ## destuctor
     def __del__(self):    
