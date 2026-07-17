@@ -1778,6 +1778,7 @@ class AfpEvScreen_Verein(AfpEvScreen):
             value = self.data.get_value("EventNr") # all events of this agent are needed
             name = ""
             filter = None
+            res = None
             ok = True
             if self.auswname:
                 name =  self.auswname

@@ -370,11 +370,11 @@ def Afp_daysFromTime(timedelta, day = None, hday = None):
 ## get the right extension triggerd by date and indicator
 # @param date - date which initiates the extension
 # @param indicator - given period interval in month
-#    == 0.1  weekly period, == 0.01 dayliy period
+#    == 0.1  weekly period, == 0.01 dayly period
 def Afp_genPeriodExtension(date, indicator):
     res = 0
     if indicator > 0.5:
-        res = (int)((date.month-1)/indicator) 
+        res = (int)((date.month-1)/indicator) + 1
     elif indicator > 0.05:
         dum, res, dum = date.isocalendar()
     else:

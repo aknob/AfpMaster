@@ -951,7 +951,7 @@ class AfpDialog_FiBuchung(AfpDialog):
             return self.client_factories[table].get_client(idnr)
         else:
             return None
-    ## get reference of a given bakaccount
+    ## get reference of a given bankaccount
     # @param date - date of entry, this reference if generated for
     # @param ktnr - number of bank account for which the reference has to be delivered
     def get_reference(self, date, ktnr): 
