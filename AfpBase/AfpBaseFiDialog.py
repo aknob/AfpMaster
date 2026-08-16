@@ -1659,8 +1659,9 @@ class AfpDialog_SimpleInvoice(AfpDialog):
     ## event handler for button 'Drucken'
     def On_drucken(self,event):
         if self.debug: print("Event handler `On_drucken'")
-        year = self.data.get_globals().today().year
-        variables = {"ThisYear": year}
+        today = self.data.get_globals().today()
+        year = today.year
+        variables = {"ThisYear": year, "Today": Afp_toString(today)}
         prefix = self.data.get_globals().get_name() + "_" + self.data.get_listname()
         if self.oblig:
             header = "Rechnungseingang"

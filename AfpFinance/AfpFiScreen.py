@@ -525,8 +525,9 @@ class AfpFiScreen(AfpScreen):
             data = self.get_selected_data()
             #print "AfpFiScreen.On_Documents data:", filter, data
             if data:
-                year = self.globals.today().year
-                variables = {"ThisYear": year}
+                today = self.globals.today()
+                year = today.year
+                variables = {"ThisYear": year, "Today":Afp_toString(today)}
                 prefix = self.globals.get_name() + "_" + data.get_listname()
                 if  filter == "Eingang":
                     header = "Rechnungseingang"
