@@ -322,8 +322,11 @@ class AfpAdScreen(AfpScreen):
     def add_grid_choices(self):
         choices = []
         tables = self.mysql.get_tables()
+        if self.mysql.get_lower():
+            for i in range(len(tables)):
+                tables[i] = tables[i].upper()
         mods = Afp_ModulNames(self.globals, True)
-        #print "AfpAdScreen.add_grid_choices:", mods
+        #print ("AfpAdScreen.add_grid_choices:", mods, tables)
         if "ANMELD" in tables and "EVENT" in tables:
             choices.append("Anmeldungen")
             if "Verein" in mods:

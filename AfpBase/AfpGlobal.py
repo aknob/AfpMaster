@@ -122,8 +122,13 @@ class AfpSettings(object):
         self.modul = None
         self.config = conf_path       
         self.settings = {}
-        if modulname : self.modul = modulname 
-        else: self.settings = Afp_setGlobalVars(self.settings)
+        if modulname:
+            self.modul = modulname
+        else:
+            self.settings = Afp_setGlobalVars(self.settings)
+            if self.debug:
+                for sett in self.settings:
+                    print("AfpSettings.init:", sett + "=" + Afp_toString(self.settings[sett]))
         if self.config is None or self.config == "":
             if self.modul is None:
                 self.config = Afp_addPath(self.settings["homedir"], "AfpBase.cfg")
