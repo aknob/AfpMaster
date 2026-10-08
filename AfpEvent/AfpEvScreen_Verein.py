@@ -2280,6 +2280,8 @@ class AfpDialog_EvMemberEdit(AfpDialog_EvClientEdit):
         self.stornodata = None
         self.stornofile = None
         self.initial_price = None
+        self.family_mainprice = 4
+        self.family_price = 7
         self.merge_sameRechData = True
         
     ##  modify Wx objects defined in parent class
@@ -2400,7 +2402,54 @@ class AfpDialog_EvMemberEdit(AfpDialog_EvClientEdit):
                 if self.sameRechData[0].pricename_holds("Familie") and not self.sameRechData[0].pricename_holds("Familien"):
                     enable = True
         self.check_Mehrfach.Enable(enable)
-        
+    ##  fill data from bulk-selectionlist into sameRechData and modify it to form a 'family'
+    # @param bulk_list - list of client-selectionlists where data should be taken from
+    def set_family_fromBulkList(self, bulk_list):
+        if bulk_list[0].get_value() == self.data.get_value():
+            self.sameRechData = bulk_list
+            self.sameRechNr = []
+            RechNr = None
+            zahl = 0.0
+            for data in self.sameRechData:
+                self.sameRechNr.append(data.get_value())
+                ANr = data.get_value()
+                zahl += data.get_value("Zahlung")
+                if RechNr: # members to be integrated into family  
+                    data.set_value("RechNr", RechNr)
+                    name = data.get_name()
+                    delete = []
+                    for i in  range(data.get_value_length("ANMELDEX")):
+                        row = data.get_value_rows("ANMELDEX", None, i)[0]
+                        print ("AfpDialog_EvMemberEdit.set_family_fromBulkList:", i, row)
+                        new_data = {"Preis": row[3], "NoPrv": row[4]} 
+                        new_data["Bezeichnung"] = row[2] + " (" + name + ")"
+                        new_data["Kennung"] = AfpEvVerein_setSectionPriceNumber(row[1], ANr)
+                        event_prices = self.verein.get_prices_of_section(row[1], "PreisNr")
+                        for j in range(len(event_prices)):
+                            event_prices[j] = AfpEvVerein_setSectionPriceNumber(event_prices[j][0], ANr)
+                        self.sameRechData[0].replace_indirect_section_price(new_data, event_prices)
+                        if row[1]:
+                            new_data = {"Preis":  0.0}
+                            data.set_data_values(new_data, "ANMELDEX", i) 
+                        else:
+                            delete.append(i)
+                    if delete:
+                        for i in range(len(delete)-1, -1, -1):
+                            data.delete_row("ANMELDEX", delete[i])
+                    data.set_value("PreisNr", self.family_price)
+                    data.set_value("Zahlung", 0.0)
+                    data.update_prices()
+                else: # main family member 
+                    RechNr = data.get_value("RechNr")
+            self.sameRechData[0].set_value("PreisNr", self.family_mainprice)
+            sel = "EventNr = " + self.sameRechData[0].get_string_value("EventNr") + " AND PreisNr = " + Afp_toString(self.family_mainprice)
+            self.sameRechData[0].get_selection("Preis").load_data(sel)
+            self.sameRechData[0].set_value("Zahlung", zahl)
+            self.sameRechData[0].update_prices()
+            self.sameRechIndex = 0
+            self.sameRechLoad = False
+            self.data = self.sameRechData[0]
+            self.Populate()
     ## resign from the club
     # @param onlyfile - flag for file selection only, default: False
     def resign(self, onlyfile = False):

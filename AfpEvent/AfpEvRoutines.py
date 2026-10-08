@@ -623,7 +623,7 @@ class AfpEvClient(AfpPaymentList):
     #@param name - name of price to be added
     #@param appendix - if given, text to be appended to name
     def  add_extra_price(self, pname, appendix = None):
-        print ("AfpEvClient.add_extra_price:", pname, appendix, type(appendix))
+        #print ("AfpEvClient.add_extra_price IN:", pname, appendix, type(appendix))
         if appendix:
             text = pname + " (" + appendix + ")"
         else:
@@ -632,7 +632,7 @@ class AfpEvClient(AfpPaymentList):
         nr = None
         preis = None
         for data in datas:
-            #print ("AfpEvClient.add_extra_price:", Afp_toString(data[2]) , pname, Afp_toString(data[2]) == pname)           
+            #print ("AfpEvClient.add_extra_price data:", Afp_toString(data[2]) , pname, Afp_toString(data[2]) == pname)           
             if Afp_toString(data[2]) == pname:
                 nr = data[1]
                 preis = data[5]

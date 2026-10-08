@@ -1421,19 +1421,6 @@ class AfpDialog_EvClientEdit(AfpDialog):
         self.sameRechLoad = False
         if self.merge_sameRechData:
             self.merge_extra_prices()
-    ##  fill data from bulk-selectionlist into sameRechData
-    # @param bulk_list - list of client-selectionlists where data should be taken from
-    def set_sameRechData_fromList(self, bulk_list):
-        if bulk_list[0].get_value() == self.data.get_value():
-            self.data = bulk_list[0]
-            self.sameRechData = bulk_list
-            self.sameRechNr = []
-            for data in self.sameRechData:
-                self.sameRechNr.append(data.get_value())
-            print ("AfpDialog_EvClientEdit.set_sameRechData_fromList create:", self.sameRechNr)
-            self.sameRechIndex = 0
-            self.sameRechLoad = False
-            self.merge_extra_prices()
     ## merge all extra prices into first 'sameRechData' dataset
     # @param act - flag if all dataset should be merged or only actuel data is merged, default: all
     def  merge_extra_prices(self, act=False):
@@ -1449,13 +1436,13 @@ class AfpDialog_EvClientEdit(AfpDialog):
             for data in datas:
                 rows = data.get_value_rows("ANMELDEX", "Bezeichnung")
                 name = data.get_name()                
-                #print "AfpDialog_EvClientEdit.merge_extra_prices move:", name, rows, "->", to_data.get_name()
+                #print ("AfpDialog_EvClientEdit.merge_extra_prices move:", name, rows, "->", to_data.get_name())
                 for row in rows:
                     #to_data.add_extra_price(row[0].encode("UTF-8"), name)
                     to_data.add_extra_price(row[0], name)
                 data.delete_selection("ANMELDEX")
                 data.update_prices()
-                #print "AfpDialog_EvClientEdit.merge_extra_prices moved:", name, rows, "->", to_data.get_name()
+                #print ("AfpDialog_EvClientEdit.merge_extra_prices moved:", name, rows, "->", to_data.get_name())
             to_data.update_prices()
             if act: self.data = data
     ## populate the 'Preise' list, \n
@@ -1498,7 +1485,7 @@ class AfpDialog_EvClientEdit(AfpDialog):
                 self.list_Alle.InsertItems(liste, 0)
         elif self.sameRechData:
             liste = self.list_Alle.GetItems()
-            print ("AfpDialog_EvClientEdit.Pop_Alle Data:", self.sameRechIndex, liste, self.sameRechNr, self.sameRechData)
+            #print ("AfpDialog_EvClientEdit.Pop_Alle Data:", self.sameRechIndex, liste, self.sameRechNr, self.sameRechData)
             self.list_Alle.Clear()
             if len(liste) < len(self.sameRechData):
                 for i in range(len(liste), len(self.sameRechData)):
