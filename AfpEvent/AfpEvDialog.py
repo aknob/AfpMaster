@@ -1400,18 +1400,18 @@ class AfpDialog_EvClientEdit(AfpDialog):
         #if row: ort = row[1]
         #self.combo_Ort.SetValue(Afp_toString(ort))
      
-    ##  fill data from bulk-seletion into sameRechData
-    # @param bulk_selection - name of selection where data should be taken from
-    def set_sameRechData(self, bulk_selection):
-        cnt = self.data.get_value_length(bulk_selection)
-        #print ("AfpDialog_EvClientEdit.set_sameRechData input:", cnt, bulk_selection, self.data.get_selection(bulk_selection).data)
+    ##  fill data from bulk-selection into sameRechData
+    # @param bulk_name - name of selection where data should be taken from
+    def set_sameRechData(self, bulk_name):
+        cnt = self.data.get_value_length(bulk_name)
+        #print ("AfpDialog_EvClientEdit.set_sameRechData input:", cnt, bulk_name, self.data.get_selection(bulk_name).data)
         self.sameRechData = [None] * cnt
         self.sameRechNr = [None] * cnt
         for i in range(cnt):
             if i == 0:
                 data = self.data
             else:
-                table = self.data.get_selection_from_row(bulk_selection, i, "AnmeldNr")
+                table = self.data.get_selection_from_row(bulk_name, i, "AnmeldNr")
                 #print ("AfpDialog_EvClientEdit.set_sameRechData create:", i,  table, table.data)
                 data = self.get_client(True)
                 data.selections[data.mainselection] = table
@@ -1420,6 +1420,19 @@ class AfpDialog_EvClientEdit(AfpDialog):
         self.sameRechIndex = 0
         self.sameRechLoad = False
         if self.merge_sameRechData:
+            self.merge_extra_prices()
+    ##  fill data from bulk-selectionlist into sameRechData
+    # @param bulk_list - list of client-selectionlists where data should be taken from
+    def set_sameRechData_fromList(self, bulk_list):
+        if bulk_list[0].get_value() == self.data.get_value():
+            self.data = bulk_list[0]
+            self.sameRechData = bulk_list
+            self.sameRechNr = []
+            for data in self.sameRechData:
+                self.sameRechNr.append(data.get_value())
+            print ("AfpDialog_EvClientEdit.set_sameRechData_fromList create:", self.sameRechNr)
+            self.sameRechIndex = 0
+            self.sameRechLoad = False
             self.merge_extra_prices()
     ## merge all extra prices into first 'sameRechData' dataset
     # @param act - flag if all dataset should be merged or only actuel data is merged, default: all
@@ -1485,7 +1498,7 @@ class AfpDialog_EvClientEdit(AfpDialog):
                 self.list_Alle.InsertItems(liste, 0)
         elif self.sameRechData:
             liste = self.list_Alle.GetItems()
-            #print ("AfpDialog_EvClientEdit.Pop_Alle Data:", self.sameRechIndex, liste, self.sameRechNr, self.sameRechData)
+            print ("AfpDialog_EvClientEdit.Pop_Alle Data:", self.sameRechIndex, liste, self.sameRechNr, self.sameRechData)
             self.list_Alle.Clear()
             if len(liste) < len(self.sameRechData):
                 for i in range(len(liste), len(self.sameRechData)):
