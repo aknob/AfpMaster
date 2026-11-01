@@ -8,6 +8,7 @@
 # - AfpAusgabe
 #
 #   History: \n
+#        30 Okt. 2026 - add payment QR-Code, integrated from Prof. Bear - Andreas.Knoblauch@afptech.de \n
 #        24 Feb. 2026 - do not ask for FUNCTION variables - Andreas.Knoblauch@afptech.de \n
 #        23 Jan. 2025 - allow direct evaluation output via () - Andreas.Knoblauch@afptech.de \n
 #        30 Dez. 2021 - conversion to python 3 - Andreas.Knoblauch@afptech.de \n
@@ -64,7 +65,8 @@
 #
 
 import io
-import zipfile
+import zipfile 
+import qrcode
 
 from . import AfpUtilities
 from .AfpUtilities import *
@@ -373,13 +375,18 @@ class AfpAusgabe(object):
             line = lines[0]
         else:
             line = ""
-            #for ln in lines: line+= " " + ln.strip()
             for ln in lines: line+= ln
-            #line = line.strip()
         fields,netto = Afp_between(line, "[", "]")
-        line = self.concat_line(fields, netto)
-        #if self.debug: print "AfpAusgabe.write_line:", line
-        #self.tempfile.write(line.encode("UTF-8"))
+        if len(fields) == 1 and "QR-CODE" in fields[0]:
+            #print ("AfpAusgabe.write_line QR-Code found:", fields[0], netto)
+            split = fields[0].split(":")
+            payload = self.gen_payload(split[1])
+            name = "QR-Code"
+            if " " in split[0]:  name = split[0].split()[1]
+            line =  netto[0] + name + netto[1] + netto[0] + self.gen_QR(name, payload) + netto[1]
+            #print ("AfpAusgabe.write_line QR:", line)
+        else:
+            line = self.concat_line(fields, netto)
         self.tempfile.write(line)
     ## replace variables with datavalues and concatinate to one line \n
     # if len(netto) > len(fields), the first netto value is placed at the start of the line \n
@@ -479,6 +486,43 @@ class AfpAusgabe(object):
                 self.values[var] = value
             if direct: value = self.values[var]
         return value
+    ## generate payload for QR-Code \n
+    # @param pstring - payload-string to be evaluated
+    def gen_payload(self, pstring):
+        if "&quot;" in pstring:
+            pstring = pstring.replace("&quot;","\"")
+        pload = pstring.split(",")
+        payload = []
+        for p in pload:
+            load = ""
+            if Afp_isPlainString(p):
+                if "." in p:
+                    if "+" in p:
+                        sp = p.split("+")
+                        load = sp[0] + self.retrieve_value(sp[1]).strip()
+                    else:
+                        load =  self.retrieve_value(p)
+                elif p in self.variables:
+                    load = self.variables[p]
+            else:
+                load = p[1:-1]
+            payload.append(load)
+        #print ("AfpAusgabe.gen_payload payload:", payload)
+        return "\n".join(payload)
+    ## generate QR-Code picture from payload\n
+    # @param payload - payload for QR-Code png picture
+    def gen_QR(self, name, payload):
+        qr = qrcode.QRCode(error_correction=qrcode.constants.ERROR_CORRECT_M, box_size=4, border=2)
+        qr.add_data(payload)
+        qr.make(fit=True)
+        img = qr.make_image(fill_color="black", back_color="white")
+        buffer = io.BytesIO()
+        img.save(buffer, format="PNG")
+        image_b64 = base64.b64encode(buffer.getvalue()).decode("ascii")
+        frame = ( '<draw:frame draw:style-name="fr1" draw:name="' + name + '" text:anchor-type="frame" svg:width="3cm" svg:height="3cm" '
+            'draw:z-index="0">''<draw:image draw:mime-type="image/png">''<office:binary-data>{b64}</office:binary-data>'
+            '</draw:image></draw:frame>').format(b64=image_b64)
+        return frame
     ## evaluates a written condtion and returns the appropriate boolean value
     # @param inphrase - phrase which holds condition to be evaluated
     def evaluate_condition(self, inphrase):
@@ -487,6 +531,8 @@ class AfpAusgabe(object):
         phrase = splitphrase[0]
         condition = False
         phrase = self.replace_html_tags(phrase)
+        left_value = None
+        right_value = None
         sign = ""
         if ">" in phrase: sign = ">"
         elif "<" in phrase: sign = "<"
@@ -500,10 +546,15 @@ class AfpAusgabe(object):
             #print ("AfpAusgabe.evaluate_condition split:", phrase, split, sign)
             split[0] = split[0].strip()
             if "(" in split[0] and ")" in split[0]: 
-                phrase = Afp_toQuotedString(self.execute_function(split[0]))
+                left_value = self.execute_function(split[0])
+                phrase = Afp_toQuotedString(left_value)
             elif self.in_values(split[0]): 
                 #print ("AfpAusgabe.evaluate_condition values 0:", split[0], self.values[split[0]], type(self.values[split[0]]))
-                phrase = Afp_toQuotedString(Afp_fromString(self.values[split[0]]), True)
+                value = self.values[split[0]]
+                if value in ("", None): value = 0.0
+                elif Afp_isString(value) and not value.strip(): value = 0.0
+                left_value = Afp_fromString(value)
+                phrase = Afp_toQuotedString(left_value, True)
             else: 
                 phrase = split[0]
             phrase += sign
@@ -511,11 +562,17 @@ class AfpAusgabe(object):
             #print "AfpAusgabe.evaluate_condition split1:", split[1][0] == "\"" and split[1][-1] == "\"", self.in_values(split[1]), "(" in split[1] and ")" in split[1]
             if (split[1][0] == "\"" and split[1][-1] == "\"") or Afp_isNumeric(Afp_fromString(split[1])):
                 phrase += split[1]
+                right_value = split[1]
             elif "(" in split[1] and ")" in split[1]: 
-                phrase = Afp_toQuotedString(self.execute_function(split[1]))
+                right_value = self.execute_function(split[1])
+                phrase = Afp_toQuotedString(right_value)
             elif self.in_values(split[1] ): 
                 #print "AfpAusgabe.evaluate_condition values 1:", split[1], self.values[split[1]], type(self.values[split[1]])
-                phrase += Afp_toQuotedString(Afp_fromString(self.values[split[1]]), True)
+                value = self.values[split[1]]
+                if value in ("", None): value = 0.0
+                elif Afp_isString(value) and not value.strip(): value = 0.0
+                right_value = Afp_fromString(value)
+                phrase += Afp_toQuotedString(right_value, True)
             else: 
                 phrase += split[1]
         else: 
@@ -525,14 +582,22 @@ class AfpAusgabe(object):
                 phrase = Afp_toQuotedString(self.values[phrase], True)
             else: 
                 phrase = "None"
-        #pyBefehl = "condition = bool(" + phrase + ")"
-        #local = locals()
-       #print ("AfpAusgabe.evaluate_condition pyBefehl:", pyBefehl, local)
-        #exec(pyBefehl, {}, local)
-        #condition = local["condition"]
-        #print ("AfpAusgabe.evaluate_condition phrase:", phrase)
-        condition = eval("bool(" + phrase + ")")
-        #if self.debug: print("AfpAusgabe.evaluate_condition:", pyBefehl, condition)
+        condition = None
+        if sign and left_value is not None and right_value is not None and Afp_isNumeric(left_value) and Afp_isNumeric(right_value):
+            if sign == "==":
+                condition = left_value == right_value
+            elif sign == "!=":
+                condition = left_value != right_value
+            elif sign == ">=":
+                condition = left_value >= right_value
+            elif sign == "<=":
+                condition = left_value <= right_value
+            elif sign == ">":
+                condition = left_value > right_value
+            elif sign == "<":
+                condition = left_value < right_value  
+        if not condition:
+            condition = eval("bool(" + phrase + ")")
         if self.debug: print("AfpAusgabe.evaluate_condition:", condition, phrase)
         if condition and len(splitphrase) > 1:
             self.gen_function(splitphrase[1].strip())
@@ -903,7 +968,13 @@ class AfpAusgabe(object):
                 list = tmpl_file.infolist() 
                 for entry in list: 
                     if entry.filename == 'content.xml': 
-                       odt_file.writestr(entry, self.tempfile.getvalue()) 
+                        content =  self.tempfile.getvalue() 
+                        # ensure ODT content.xml uses the correct root element
+                        if "<office:document" in content and "office:document-content" not in content:
+                            content = content.replace("<office:document ", "<office:document-content ")
+                            content = content.replace("</office:document>", "</office:document-content>")
+                            content = content.replace(' office:mimetype="application/vnd.oasis.opendocument.text"', '')
+                        odt_file.writestr(entry, content) 
                     else:
                         odt_file.writestr(entry, tmpl_file.read(entry.filename))
                 odt_file.close()  

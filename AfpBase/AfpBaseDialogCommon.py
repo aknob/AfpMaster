@@ -560,7 +560,7 @@ class AfpDialog_DiReport(wx.Dialog):
                         template = Afp_addRootpath(self.globals.get_value("antiquedir"), template)
                     else: 
                         template = Afp_addRootpath(self.globals.get_value("archivdir"), template)
-            #print ("AfpDialog_DiReport.get_template_name:", template, self.major_type, self.reportlist[index])
+            if self.debug: print ("AfpDialog_DiReport.get_template_name:", template, self.major_type, self.reportlist[index])
         return template
     ## generate result filename due to list selection
     def get_result_name(self):
@@ -596,7 +596,7 @@ class AfpDialog_DiReport(wx.Dialog):
                 else:
                     #fresult = Afp_addRootpath(self.globals.get_value("tempdir"), self.major_type + "_textausgabe.fodt")
                     fresult = Afp_addRootpath(self.globals.get_value("tempdir"),  self.reportname[index] .strip().replace(" ","_") + ".odt")
-        #print ("AfpDialog_DiReport.get_result_name:", fresult)   
+        if self.debug: print ("AfpDialog_DiReport.get_result_name:", fresult)
         return  fresult
     ## return selected list index
     def get_list_Report_index(self):
