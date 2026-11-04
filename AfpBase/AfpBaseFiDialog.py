@@ -122,9 +122,9 @@ def AfpFinance_get_ZahlSelectors(globals , in_filter=None):
             #selects.append(AfpFinance_OfferSelector(globals, debug))
             selects.append(AfpFinance_InvoiceSelector(globals, debug))
     tables = globals.get_mysql().get_tables()
-    if "VERBIND" in tables:
+    if "VERBIND" in tables or "verbind" in tables:
         selects.append(AfpFinance_ObligationSelector(globals, debug))
-    if "RECHNG" in tables and not "Faktura" in finmods:
+    if ("RECHNG" in tables or "rechng" in tables) and not "Faktura" in finmods:
         selects.append(AfpFinance_simpleInvoiceSelector(globals, debug))
     for sel in selects:
         if in_filter is None or (in_filter and sel.is_incoming()) or (not in_filter and not sel.is_incoming()):
