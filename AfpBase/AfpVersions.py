@@ -4,6 +4,7 @@
 ## @package BusAfp
 # \n
 #   History: \n
+#        09 Nov. 2026 - raise AfpMotor Version to 2.0.3 - Andreas.Knoblauch@afptech.de
 #        25 Feb. 2026 - inital version generated - Andreas.Knoblauch@afptech.de
 #
 #
@@ -11,7 +12,7 @@
 #  AfpTechnologies (afptech.de)
 #
 #    BusAfp is a software to manage coach and travel acivities
-#   Copyright© 1989 - 2026 afptech.de (Andreas Knoblauch)
+#    Copyright© 1989 - 2026 afptech.de (Andreas Knoblauch)
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -27,9 +28,9 @@
 
 def AfpVersions():
     versions = {}
-    versions["Base"] = "10.2.3"
+    versions["Base"] = "10.2.4"
     versions["AfpCash"] = "1.0.0"
-    versions["AfpMotor"] = "2.0.2"
+    versions["AfpMotor"] = "2.0.3"
     versions["AfpVerein"] = "1.1.0"
     versions["BusAfp"] = "6.1.1 beta"
     versions["AfpFaktura"] = versions["AfpMotor"]

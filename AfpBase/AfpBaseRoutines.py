@@ -8,6 +8,7 @@
 # - AfpSelectionList
 #
 #   History: \n
+#        09 Nov. 2025 - add column 'RechNrExtern' to 'RECHNG' table - Andreas.Knoblauch@afptech.de \n
 #        25 Dez. 2025 - AfpImport: add import from excel file and progressbar - Andreas.Knoblauch@afptech.de \n
 #        21 Feb. 2022 - AfpEmailSender: add attachment conversion to pdf - Andreas.Knoblauch@afptech.de \n
 #        30 Dez. 2021 - conversion to python 3 - Andreas.Knoblauch@afptech.de \n
@@ -1754,6 +1755,7 @@ def AfpBase_getSqlTables(flavours = None):
   `RechNr` mediumint(8) unsigned zerofill NOT NULL AUTO_INCREMENT,
   `KundenNr` mediumint(8) unsigned zerofill NOT NULL,
   `AttNr` smallint(5) unsigned zerofill DEFAULT NULL,
+  `RechNrExtern` varchar(45) DEFAULT NULL,
   `Datum` date NOT NULL,
   `Bem` text CHARACTER SET latin1,
   `Pos` smallint(6) DEFAULT NULL,
